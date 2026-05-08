@@ -1,0 +1,46 @@
+# Dépendances
+node_modules/
+*/node_modules/
+
+# Variables d'environnement — JAMAIS committer
+.env
+.env.local
+.env.staging
+.env.production
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+admin/.env
+admin/.env.*
+
+# Build
+dist/
+*/dist/
+build/
+*/build/
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# Uploads locaux (images produit en dev)
+backend/uploads/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Tests
+coverage/
+*/coverage/
+.playwright-mcp/
+
+# Stripe CLI
+.stripe/
