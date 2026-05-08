@@ -1,0 +1,163 @@
+.footer {
+  background: #1a0a12;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 72px 80px 36px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.2fr;
+  gap: 48px;
+  margin-bottom: 56px;
+}
+
+/* ── Marque ── */
+.brand {}
+
+.logoText {
+  font-family: 'Great Vibes', cursive;
+  font-size: 36px;
+  color: var(--rose-light);
+  display: block;
+  margin-bottom: 16px;
+}
+
+.desc {
+  font-family: 'Cormorant Infant', serif;
+  font-size: 15px;
+  font-weight: 300;
+  font-style: italic;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 24px;
+}
+
+.socials {
+  display: flex;
+  gap: 10px;
+}
+
+.socialBtn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s, color 0.2s;
+  text-decoration: none;
+}
+
+.socialBtn:hover {
+  border-color: var(--rose-light);
+  color: var(--rose-light);
+}
+
+/* ── Colonnes ── */
+.colTitle {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: white;
+  margin-bottom: 20px;
+}
+
+.links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.links a {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.links a:hover { color: var(--rose-light); }
+
+/* ── Contact ── */
+.contact {
+  font-style: normal;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.contactItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.5;
+}
+
+.contactItem a {
+  color: rgba(255, 255, 255, 0.5);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.contactItem a:hover { color: var(--rose-light); }
+
+.contactIcon {
+  color: var(--rose-light);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ── Bas de page ── */
+.bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.copyright {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.payments {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.payBadge {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.05em;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .footer { padding: 56px 40px 28px; }
+  .grid   { grid-template-columns: 1fr 1fr; gap: 36px; }
+}
+
+@media (max-width: 640px) {
+  .footer  { padding: 48px 20px 28px; }
+  .grid    { grid-template-columns: 1fr; gap: 32px; }
+  .bottom  { flex-direction: column; gap: 16px; text-align: center; }
+  .payments { flex-wrap: wrap; justify-content: center; }
+}

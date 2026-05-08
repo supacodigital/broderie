@@ -1,0 +1,136 @@
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const userRepository = require('../repositories/user.repository');
+const { AppError } = require('../middlewares/errorHandler');
+const emailService = require('./email.service');
+
+const SALT_ROUNDS = 12;
+
+// Génération d'un access token JWT (courte durée — stocké en mémoire React)
+const generateAccessToken = (user) => {
+  return jwt.sign(
+    { id: user.id, role: user.role, locale: user.locale },
+    process.env.JWT_ACCESS_SECRET,
+    { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m' }
+  );
+};
+
+// Génération d'un refresh token JWT (longue durée — cookie httpOnly)
+const generateRefreshToken = (user) => {
+  return jwt.sign(
+    { id: user.id },
+    process.env.JWT_REFRESH_SECRET,
+    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+  );
+};
+
+// Options du cookie refresh token — httpOnly/Secure/SameSite=Strict (voir CLAUDE.md)
+const refreshCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'Strict',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours en ms
+  path: '/api/v1/auth',
+});
+
+const register = async ({ email, password, firstName, lastName, locale }) => {
+  const exists = await userRepository.emailExists(email);
+  if (exists) {
+    throw new AppError('Un compte existe déjà avec cet email.', 409);
+  }
+
+  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+  const userId = await userRepository.create({ email, passwordHash, firstName, lastName, locale });
+  const user = await userRepository.findById(userId);
+
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
+
+  // Email de bienvenue — non bloquant (échec silencieux)
+  emailService.sendWelcome({ user }).catch((err) => {
+    console.error('[Email] Bienvenue non envoyé :', err.message);
+  });
+
+  return { user, accessToken, refreshToken };
+};
+
+const login = async ({ email, password }) => {
+  const user = await userRepository.findByEmail(email);
+
+  // Message générique — ne pas préciser si c'est l'email ou le mot de passe qui est incorrect
+  if (!user || user.deleted_at) {
+    throw new AppError('Email ou mot de passe incorrect.', 401);
+  }
+
+  if (!user.is_active) {
+    throw new AppError('Ce compte a été désactivé. Contactez le support.', 403);
+  }
+
+  const passwordValid = await bcrypt.compare(password, user.password_hash);
+  if (!passwordValid) {
+    throw new AppError('Email ou mot de passe incorrect.', 401);
+  }
+
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken(user);
+
+  return { user, accessToken, refreshToken };
+};
+
+const refreshToken = async (token) => {
+  if (!token) {
+    throw new AppError('Token de rafraîchissement manquant.', 401);
+  }
+
+  let payload;
+  try {
+    payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+  } catch {
+    throw new AppError('Token de rafraîchissement invalide ou expiré.', 401);
+  }
+
+  const user = await userRepository.findById(payload.id);
+  if (!user || !user.is_active) {
+    throw new AppError('Utilisateur introuvable ou inactif.', 401);
+  }
+
+  const accessToken = generateAccessToken(user);
+  const newRefreshToken = generateRefreshToken(user);
+
+  return { user, accessToken, refreshToken: newRefreshToken };
+};
+
+// Demande de réinitialisation de mot de passe
+const forgotPassword = async (email) => {
+  const user = await userRepository.findByEmail(email);
+
+  // Réponse générique même si l'email n'existe pas (anti-énumération)
+  if (!user || user.deleted_at || !user.is_active) return;
+
+  // Token aléatoire — hachage SHA-256 stocké en base, token brut envoyé par email
+  const rawToken   = crypto.randomBytes(32).toString('hex');
+  const tokenHash  = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt  = new Date(Date.now() + 60 * 60 * 1000); // 1 heure
+
+  await userRepository.saveResetToken(user.id, tokenHash, expiresAt);
+
+  emailService.sendPasswordReset({ user, resetToken: rawToken }).catch((err) => {
+    console.error('[Email] Reset password non envoyé :', err.message);
+  });
+};
+
+// Réinitialisation effective du mot de passe
+const resetPassword = async (rawToken, newPassword) => {
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const user = await userRepository.findByResetToken(tokenHash);
+
+  if (!user) throw new AppError('Lien de réinitialisation invalide ou expiré.', 400);
+
+  if (newPassword.length < 8) throw new AppError('Le mot de passe doit contenir au moins 8 caractères.', 400);
+
+  const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  await userRepository.updatePassword(user.id, passwordHash);
+};
+
+module.exports = { register, login, refreshToken, refreshCookieOptions, forgotPassword, resetPassword };

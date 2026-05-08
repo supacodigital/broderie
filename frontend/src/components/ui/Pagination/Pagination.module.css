@@ -1,0 +1,51 @@
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 56px;
+}
+
+.arrow,
+.pageBtn {
+  min-width: 38px;
+  height: 38px;
+  border: 1px solid var(--rose-border);
+  background: white;
+  border-radius: 2px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  padding: 0 10px;
+}
+
+.arrow:hover:not(:disabled),
+.pageBtn:hover {
+  border-color: var(--rose);
+  color: var(--rose);
+}
+
+.arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.active {
+  background: var(--rose);
+  border-color: var(--rose);
+  color: white !important;
+}
+
+.ellipsis {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 0 4px;
+  user-select: none;
+}

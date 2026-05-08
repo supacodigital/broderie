@@ -1,0 +1,16 @@
+[      78ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5175/node_modules/.vite/deps/react-dom_client.js?v=fddabaea:14337
+[     330ms] [WARNING] You may test your Stripe.js integration over HTTP. However, live Stripe.js integrations must use HTTPS. @ http://localhost:5175/@vite/client:509
+[   64465ms] [WARNING] [Stripe.js] If you are testing Apple Pay or Google Pay, you must serve this page over HTTPS as it will not work over HTTP. Please read https://stripe.com/docs/stripe-js/elements/payment-request-button#html-js-prerequisites for more details. @ https://js.stripe.com/v3/fingerprinted/js/controller-with-preconnect-772308074fb702eec3fe1216534e9e24.js:0
+[   64971ms] [WARNING] [Stripe.js] You have not registered or verified the domain, so the following payment methods are not enabled in the Payment Element: 
+
+- apple_pay
+
+Please follow https://stripe.com/docs/payments/payment-methods/pmd-registration to register and verify the domain. @ https://js.stripe.com/v3/fingerprinted/js/controller-with-preconnect-772308074fb702eec3fe1216534e9e24.js:0
+[   91171ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5175/mon-compte:0
+[  689539ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5175/mon-compte:0
+[  701440ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5175/mon-compte:0
+[  718146ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5175/mon-compte:0
+[  720306ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5175/mon-compte:0
+[  952940ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/v1/loyalty/me:0
+[  952943ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3000/api/v1/loyalty/me:0
+[  953029ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5175/mon-compte:0

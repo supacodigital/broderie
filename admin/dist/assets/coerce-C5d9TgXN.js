@@ -1,0 +1,1 @@
+import{c as e,t}from"./schemas-ChyR-Xg2.js";function n(n){return e(t,n)}export{n as t};

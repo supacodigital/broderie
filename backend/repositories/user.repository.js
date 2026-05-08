@@ -1,0 +1,141 @@
+const { pool } = require('../config/db');
+
+// Recherche un utilisateur par email (incluant les supprimés pour la migration)
+const findByEmail = async (email) => {
+  const [rows] = await pool.execute(
+    `SELECT id, email, password_hash, first_name, last_name, role, locale, is_active, deleted_at
+     FROM users
+     WHERE email = ?
+     LIMIT 1`,
+    [email]
+  );
+  return rows[0] || null;
+};
+
+// Recherche un utilisateur actif par id
+const findById = async (id) => {
+  const [rows] = await pool.execute(
+    `SELECT id, email, first_name, last_name, role, locale, is_active, created_at
+     FROM users
+     WHERE id = ? AND deleted_at IS NULL
+     LIMIT 1`,
+    [id]
+  );
+  return rows[0] || null;
+};
+
+// Création d'un nouvel utilisateur
+const create = async ({ email, passwordHash, firstName, lastName, locale = 'fr' }) => {
+  const [result] = await pool.execute(
+    `INSERT INTO users (email, password_hash, first_name, last_name, role, locale, is_active)
+     VALUES (?, ?, ?, ?, 'client', ?, 1)`,
+    [email, passwordHash, firstName, lastName, locale]
+  );
+  return result.insertId;
+};
+
+// Vérification si un email est déjà utilisé
+const emailExists = async (email) => {
+  const [rows] = await pool.execute(
+    `SELECT id FROM users WHERE email = ? LIMIT 1`,
+    [email]
+  );
+  return rows.length > 0;
+};
+
+// Mise à jour du profil utilisateur
+const update = async (id, { firstName, lastName, locale }) => {
+  await pool.execute(
+    `UPDATE users SET first_name = ?, last_name = ?, locale = ? WHERE id = ?`,
+    [firstName, lastName, locale, id]
+  );
+  return findById(id);
+};
+
+// Adresses d'un utilisateur
+const findAddresses = async (userId) => {
+  const [rows] = await pool.execute(
+    `SELECT id, label, street, city, zip, country, canton, is_default
+     FROM addresses
+     WHERE user_id = ?
+     ORDER BY is_default DESC, id ASC`,
+    [userId]
+  );
+  return rows;
+};
+
+// Création d'une adresse
+const createAddress = async (userId, { label, street, city, zip, country, canton, isDefault }) => {
+  // Si nouvelle adresse par défaut, retirer le défaut des autres
+  if (isDefault) {
+    await pool.execute(
+      `UPDATE addresses SET is_default = 0 WHERE user_id = ?`,
+      [userId]
+    );
+  }
+  const [result] = await pool.execute(
+    `INSERT INTO addresses (user_id, label, street, city, zip, country, canton, is_default)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [userId, label, street, city, zip, country || 'CH', canton || null, isDefault ? 1 : 0]
+  );
+  return result.insertId;
+};
+
+// Mise à jour d'une adresse
+const updateAddress = async (addressId, userId, { label, street, city, zip, country, canton, isDefault }) => {
+  if (isDefault) {
+    await pool.execute(
+      `UPDATE addresses SET is_default = 0 WHERE user_id = ?`,
+      [userId]
+    );
+  }
+  await pool.execute(
+    `UPDATE addresses SET label = ?, street = ?, city = ?, zip = ?, country = ?, canton = ?, is_default = ?
+     WHERE id = ? AND user_id = ?`,
+    [label, street, city, zip, country || 'CH', canton || null, isDefault ? 1 : 0, addressId, userId]
+  );
+};
+
+// Suppression d'une adresse
+const deleteAddress = async (addressId, userId) => {
+  const [result] = await pool.execute(
+    `DELETE FROM addresses WHERE id = ? AND user_id = ?`,
+    [addressId, userId]
+  );
+  return result.affectedRows > 0;
+};
+
+// Sauvegarde d'un token de réinitialisation de mot de passe (hachage SHA-256, expiration 1h)
+const saveResetToken = async (userId, tokenHash, expiresAt) => {
+  await pool.execute(
+    `UPDATE users SET reset_token_hash = ?, reset_token_expires = ? WHERE id = ?`,
+    [tokenHash, expiresAt, userId]
+  );
+};
+
+// Recherche un utilisateur par token de réinitialisation valide
+const findByResetToken = async (tokenHash) => {
+  const [rows] = await pool.execute(
+    `SELECT id, email, first_name, last_name, locale
+     FROM users
+     WHERE reset_token_hash = ? AND reset_token_expires > NOW() AND deleted_at IS NULL
+     LIMIT 1`,
+    [tokenHash]
+  );
+  return rows[0] || null;
+};
+
+// Mise à jour du mot de passe + invalidation du token
+const updatePassword = async (userId, passwordHash) => {
+  await pool.execute(
+    `UPDATE users SET password_hash = ?, reset_token_hash = NULL, reset_token_expires = NULL
+     WHERE id = ?`,
+    [passwordHash, userId]
+  );
+};
+
+module.exports = {
+  findByEmail, findById, create, emailExists, update,
+  findAddresses, createAddress, updateAddress, deleteAddress,
+  saveResetToken, findByResetToken, updatePassword,
+};

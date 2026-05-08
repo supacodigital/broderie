@@ -1,0 +1,220 @@
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: sticky;
+  top: 88px; /* sous la navbar sticky */
+}
+
+/* ── Image principale ── */
+.main {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  aspect-ratio: 3 / 4;
+  cursor: zoom-in;
+  background: var(--rose-pale);
+}
+
+.mainImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.main:hover .mainImg { transform: scale(1.03); }
+
+.fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fallbackIcon { font-size: 120px; opacity: 0.4; }
+
+/* ── Badge ── */
+.badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  background: var(--rose);
+  color: white;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 2px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.badge_nouveaute     { background: #059669; }
+.badge_promo         { background: #dc2626; }
+.badge_exclusif      { background: #1a1a2e; }
+
+.zoomHint {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  background: rgba(255,255,255,0.85);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.main:hover .zoomHint { opacity: 1; }
+
+/* ── Flèches ── */
+.arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,0.9);
+  border: none;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  transition: background 0.2s, color 0.2s;
+  z-index: 2;
+  opacity: 0;
+}
+
+.main:hover .arrow { opacity: 1; }
+.arrow:hover       { background: var(--rose); color: white; }
+.arrowLeft  { left: 12px; }
+.arrowRight { right: 12px; }
+
+/* ── Points mobile ── */
+.dots {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  gap: 6px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.6);
+  transition: background 0.2s;
+}
+
+.dotActive { background: white; }
+
+/* ── Miniatures ── */
+.thumbs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.thumb {
+  width: 72px;
+  height: 96px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+  transition: border-color 0.2s;
+  flex-shrink: 0;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumb:hover    { border-color: var(--rose-border); }
+.thumbActive    { border-color: var(--rose); }
+
+/* ── Lightbox ── */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightboxClose {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.lightboxClose:hover { opacity: 1; }
+
+.lightboxImg {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.lightboxArrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,0.1);
+  border: none;
+  border-radius: 50%;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.lightboxArrow:hover { background: rgba(255,255,255,0.2); }
+.lightboxLeft  { left: 24px; }
+.lightboxRight { right: 24px; }
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .gallery   { position: static; }
+  .dots      { display: flex; }
+  .arrow     { opacity: 1; }
+  .zoomHint  { display: none; }
+}
+
+@media (max-width: 640px) {
+  .thumbs { display: none; }
+}

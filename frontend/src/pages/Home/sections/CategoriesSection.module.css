@@ -1,0 +1,139 @@
+.section {
+  padding: 96px 80px;
+  background: white;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.eyebrow {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rose);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.eyebrow::before,
+.eyebrow::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 1px;
+  background: var(--rose-border);
+}
+
+.title {
+  font-family: 'Great Vibes', cursive;
+  font-size: clamp(38px, 4vw, 56px);
+  color: var(--text);
+  line-height: 1.15;
+  margin-bottom: 16px;
+}
+
+.desc {
+  font-family: 'Cormorant Infant', serif;
+  font-size: 18px;
+  font-weight: 300;
+  font-style: italic;
+  color: var(--text-muted);
+  max-width: 520px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+/* ── Grille ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+  cursor: pointer;
+  aspect-ratio: 3 / 4;
+  text-decoration: none;
+  display: block;
+}
+
+/* La première carte occupe 2 lignes */
+.card:first-child {
+  grid-row: span 2;
+  aspect-ratio: auto;
+}
+
+.img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.6s ease;
+}
+
+.card:hover .img { transform: scale(1.06); }
+
+.imgFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.6s ease;
+}
+
+.card:hover .imgFallback { transform: scale(1.06); }
+
+.icon {
+  font-size: 72px;
+  opacity: 0.35;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(131, 24, 67, 0.75) 0%, rgba(131, 24, 67, 0.1) 60%, transparent 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 28px 24px;
+}
+
+.catName {
+  font-family: 'Great Vibes', cursive;
+  font-size: 30px;
+  color: white;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.catCount {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .section { padding: 64px 40px; }
+  .grid    { grid-template-columns: repeat(2, 1fr); }
+  .card:first-child { grid-row: auto; }
+}
+
+@media (max-width: 640px) {
+  .section { padding: 48px 20px; }
+  .grid    { grid-template-columns: 1fr 1fr; gap: 12px; }
+}

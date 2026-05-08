@@ -1,0 +1,258 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 49;
+}
+
+/* ── Panneau ── */
+.panel {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--rose-border);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dark);
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.clearBtn {
+  background: none;
+  border: none;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--rose);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: none;
+  align-items: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.2s;
+}
+
+.closeBtn:hover { color: var(--rose); }
+
+/* ── Groupes ── */
+.group {
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--rose-border);
+}
+
+.group:last-child { border-bottom: none; }
+
+.groupTitle {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dark);
+  margin-bottom: 14px;
+}
+
+/* ── Catégories ── */
+.catList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.catBtn {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.catBtn:hover { background: var(--rose-pale); color: var(--rose); }
+.catBtnActive { background: var(--rose-pale); color: var(--rose); font-weight: 600; }
+
+/* ── Groupe parent + accordéon ── */
+.catGroup { display: flex; flex-direction: column; }
+
+.parentRow {
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.parentRowActive .catBtnParent {
+  color: var(--rose);
+  font-weight: 600;
+}
+
+.catBtnParent { flex: 1; }
+
+.arrowBtn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 6px 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, transform 0.2s;
+  border-radius: 4px;
+}
+
+.arrowBtn:hover { color: var(--rose); }
+
+.arrowOpen { transform: rotate(180deg); }
+
+/* ── Sous-catégories ── */
+.subList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.25s ease;
+}
+
+.subListOpen { max-height: 400px; }
+
+.subCatBtn {
+  font-size: 12px;
+  padding-left: 22px;
+  color: var(--text-muted);
+  position: relative;
+}
+
+.subCatBtn::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--rose-border);
+}
+
+.subCatBtn:hover::before,
+.subCatBtn.catBtnActive::before { background: var(--rose); }
+
+/* ── Prix ── */
+.priceRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.priceField { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+
+.priceLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+}
+
+.priceInput {
+  border: 1px solid var(--rose-border);
+  border-radius: 2px;
+  padding: 8px 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-dark);
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.priceInput:focus { border-color: var(--rose); }
+
+.priceSep {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding-bottom: 8px;
+}
+
+/* ── Checkbox ── */
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--rose);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ── Responsive — panneau mobile en drawer ── */
+@media (max-width: 1024px) {
+  .panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    background: white;
+    z-index: 50;
+    padding: 32px 24px;
+    overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    box-shadow: 4px 0 32px rgba(0,0,0,0.1);
+    width: 280px;
+  }
+
+  .panelOpen { transform: translateX(0); }
+
+  .closeBtn { display: flex; }
+}

@@ -1,0 +1,948 @@
+/* ── Page ── */
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+
+.pageHead {
+  margin-bottom: 24px;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.breadcrumb a {
+  color: var(--text-muted);
+  transition: color 0.15s;
+}
+.breadcrumb a:hover {
+  color: var(--rose);
+}
+.breadcrumb svg {
+  flex-shrink: 0;
+}
+
+/* ── Layout 2 colonnes ── */
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  background: #fff;
+  border: 1px solid var(--rose-border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 90px;
+}
+
+.avatarWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 18px;
+  border-bottom: 1px solid var(--rose-border);
+  background: var(--rose-pale);
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--rose) 0%, #be185d 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.avatarName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dark);
+  line-height: 1.3;
+}
+
+.avatarEmail {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+  word-break: break-all;
+}
+
+/* ── Navigation onglets ── */
+.tabNav {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 2px;
+}
+
+.tabBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.tabBtn span {
+  flex: 1;
+}
+
+.tabBtn:hover {
+  background: var(--rose-pale);
+  color: var(--text-dark);
+}
+
+.tabActive {
+  background: var(--rose-pale) !important;
+  color: var(--rose) !important;
+  font-weight: 600;
+}
+
+.tabActive svg:first-child {
+  color: var(--rose);
+}
+
+.tabArrow {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.tabBtn:hover .tabArrow,
+.tabActive .tabArrow {
+  opacity: 1;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--rose-border);
+  margin: 0;
+}
+
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  width: 100%;
+  transition: color 0.15s, background 0.15s;
+}
+
+.logoutBtn:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* ── Contenu principal ── */
+.content {
+  min-width: 0;
+}
+
+/* ── Panel générique ── */
+.panel {
+  background: #fff;
+  border: 1px solid var(--rose-border);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: var(--shadow-sm);
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.panelTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* quand panelHead est présent, panelTitle n'a pas de margin-bottom */
+.panelHead .panelTitle {
+  margin-bottom: 0;
+}
+
+.countBadge {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--rose-pale);
+  color: var(--rose);
+  border: 1px solid var(--rose-border);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+/* ── Formulaire ── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.input {
+  padding: 10px 13px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 9px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  color: var(--text-dark);
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+  width: 100%;
+}
+
+.input:focus {
+  border-color: var(--rose);
+  box-shadow: 0 0 0 3px rgba(219, 39, 119, 0.1);
+}
+
+.inputError {
+  border-color: #dc2626 !important;
+}
+
+.fieldError {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #dc2626;
+}
+
+.alertError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #dc2626;
+  margin-bottom: 20px;
+}
+
+.alertSuccess {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #16a34a;
+  margin-bottom: 20px;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* ── Boutons ── */
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 22px;
+  background: var(--rose);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-decoration: none;
+}
+
+.btnPrimary:hover {
+  background: #be185d;
+}
+.btnPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 22px;
+  background: #fff;
+  color: var(--text-dark);
+  border: 1.5px solid var(--rose-border);
+  border-radius: 10px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.btnSecondary:hover {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.btnOutline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  color: var(--text-dark);
+  font-family: "Montserrat", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.btnOutline:hover {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+}
+
+/* ── Fidélité ── */
+.loyaltyCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+  border: 1px solid var(--rose-border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  gap: 12px;
+}
+
+.loyaltyLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.loyaltyStar {
+  color: #d97706;
+}
+
+.loyaltyTier {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.loyaltySpend {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.loyaltyLink {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rose);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.loyaltyLink:hover {
+  color: #be185d;
+}
+
+.loyaltyProgress {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.loyaltyProgressBar {
+  height: 6px;
+  background: var(--rose-border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.loyaltyProgressFill {
+  height: 100%;
+  background: var(--rose);
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.loyaltyProgressLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Commandes ── */
+.orderList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.orderCard {
+  border: 1px solid var(--rose-border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  transition: box-shadow 0.15s;
+}
+
+.orderCard:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.orderTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.orderId {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rose);
+  display: block;
+}
+
+.orderDate {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  display: block;
+}
+
+.statusBadge {
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.orderBottom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rose-border);
+}
+
+.orderItems {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.orderTotal {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.orderDetailBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rose);
+  padding: 5px 12px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 7px;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.orderDetailBtn:hover {
+  background: var(--rose-pale);
+  border-color: var(--rose);
+}
+
+/* ── Adresses ── */
+.addressGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.addressCard {
+  border: 1.5px solid var(--rose-border);
+  border-radius: 12px;
+  padding: 18px;
+  position: relative;
+  transition: box-shadow 0.15s;
+}
+
+.addressCard:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.addressDefault {
+  border-color: var(--rose);
+}
+
+.defaultBadge {
+  position: absolute;
+  top: -1px;
+  right: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--rose);
+  background: var(--rose-pale);
+  border: 1px solid var(--rose-border);
+  border-top: none;
+  padding: 2px 8px;
+  border-radius: 0 0 6px 6px;
+}
+
+.addressLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 8px;
+}
+
+.addressLine {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.addressActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rose-border);
+}
+
+.iconActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: "Montserrat", sans-serif;
+  transition: background 0.15s, color 0.15s;
+}
+
+.iconActionBtn:hover {
+  background: var(--rose-pale);
+  color: var(--rose);
+}
+
+.iconActionBtnDanger:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* ── Modal ── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+  padding: 20px;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: var(--shadow-lg);
+}
+
+.modalTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 20px;
+}
+
+/* ── Sous-titre de section ── */
+.subTitle {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+
+/* ── Paliers fidélité ── */
+.tierList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tierItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  border: 1px solid var(--rose-border);
+  border-radius: 10px;
+  background: #fff;
+}
+.tierItem.tierActive {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+}
+.tierName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+.tierMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Bons de réduction ── */
+.rewardList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rewardItem {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--rose-border);
+  border-radius: 10px;
+  background: #fff;
+}
+.rewardCode {
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--rose);
+  letter-spacing: .05em;
+}
+.rewardValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  white-space: nowrap;
+}
+.rewardMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.rewardStatus {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* ── Empty state ── */
+.emptyState {
+  text-align: center;
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.emptyIcon {
+  color: var(--rose-border);
+  margin-bottom: 4px;
+}
+.emptyTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+.emptyDesc {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── Skeletons ── */
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.skeletonRow {
+  height: 72px;
+  background: linear-gradient(90deg, #f9fafb 25%, #f3f4f6 50%, #f9fafb 75%);
+  background-size: 200% 100%;
+  border-radius: 12px;
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ── Wishlist ── */
+.wishlistGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.wishlistCard {
+  position: relative;
+  border: 1px solid var(--rose-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.wishlistCard:hover {
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+.wishlistRemove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  background: white;
+  border: 1px solid var(--rose-border);
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.wishlistRemove:hover {
+  color: var(--rose);
+  border-color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.wishlistImgWrap {
+  display: block;
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--rose-pale);
+}
+
+.wishlistImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.wishlistCard:hover .wishlistImg {
+  transform: scale(1.04);
+}
+
+.wishlistImgFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+}
+
+.outOfStockBadge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-family: "Montserrat", sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.wishlistInfo {
+  padding: 10px 12px 12px;
+}
+
+.wishlistName {
+  display: block;
+  font-family: "Montserrat", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  line-height: 1.4;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wishlistName:hover {
+  color: var(--rose);
+}
+
+.wishlistPrices {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wishlistPrice {
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rose);
+}
+
+.wishlistOldPrice {
+  font-family: "Montserrat", sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: static;
+  }
+  .tabNav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .tabBtn {
+    flex: 1;
+    min-width: 120px;
+    justify-content: center;
+  }
+  .tabArrow {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 20px 16px 60px;
+  }
+  .panel {
+    padding: 20px 16px;
+  }
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+  .addressGrid {
+    grid-template-columns: 1fr;
+  }
+  .orderBottom {
+    flex-wrap: wrap;
+  }
+  .wishlistGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

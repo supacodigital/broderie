@@ -1,0 +1,295 @@
+- generic [ref=e26]:
+  - complementary [ref=e27]:
+    - generic [ref=e28]:
+      - paragraph [ref=e29]: Au Point-Compté
+      - paragraph [ref=e30]: Administration
+    - navigation [ref=e31]:
+      - generic [ref=e32]:
+        - generic [ref=e33]: Menu
+        - link "Tableau de bord" [ref=e34] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - img [ref=e35]
+          - generic [ref=e40]: Tableau de bord
+        - link "Commandes 9" [ref=e41] [cursor=pointer]:
+          - /url: /admin/commandes
+          - img [ref=e42]
+          - generic [ref=e46]: Commandes
+          - generic [ref=e47]: "9"
+        - link "Produits" [ref=e48] [cursor=pointer]:
+          - /url: /admin/produits
+          - img [ref=e49]
+          - generic [ref=e53]: Produits
+        - link "Clients" [ref=e54] [cursor=pointer]:
+          - /url: /admin/clients
+          - img [ref=e55]
+          - generic [ref=e60]: Clients
+        - link "Avis 1" [ref=e61] [cursor=pointer]:
+          - /url: /admin/avis
+          - img [ref=e62]
+          - generic [ref=e64]: Avis
+          - generic [ref=e65]: "1"
+      - generic [ref=e66]:
+        - generic [ref=e67]: Outils
+        - link "Fournisseurs" [ref=e68] [cursor=pointer]:
+          - /url: /admin/fournisseurs
+          - img [ref=e69]
+          - generic [ref=e74]: Fournisseurs
+        - link "Fidélité" [ref=e75] [cursor=pointer]:
+          - /url: /admin/fidelite
+          - img [ref=e76]
+          - generic [ref=e78]: Fidélité
+        - link "Catégories" [ref=e79] [cursor=pointer]:
+          - /url: /admin/categories
+          - img [ref=e80]
+          - generic [ref=e83]: Catégories
+        - link "Promotions" [ref=e84] [cursor=pointer]:
+          - /url: /admin/coupons
+          - img [ref=e85]
+          - generic [ref=e87]: Promotions
+        - link "Paramètres" [ref=e88] [cursor=pointer]:
+          - /url: /admin/parametres
+          - img [ref=e89]
+          - generic [ref=e92]: Paramètres
+    - generic [ref=e93]:
+      - generic [ref=e95]:
+        - paragraph
+        - paragraph [ref=e96]: Administratrice
+      - button "Déconnexion" [ref=e97] [cursor=pointer]:
+        - img [ref=e98]
+  - generic [ref=e101]:
+    - banner [ref=e102]:
+      - generic [ref=e103]:
+        - navigation "Fil d'Ariane" [ref=e104]:
+          - generic [ref=e105]: Admin
+          - img [ref=e106]
+          - generic [ref=e108]: Tableau de bord
+        - paragraph [ref=e109]: Jeudi, 7 mai 2026 — Bonne soirée, Admin 🌙
+      - generic [ref=e110]:
+        - link "Voir la boutique" [ref=e111] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e112]
+          - generic [ref=e115]: Voir la boutique
+        - link "Nouveau produit" [ref=e116] [cursor=pointer]:
+          - /url: /admin/produits/nouveau
+          - img [ref=e117]
+          - generic [ref=e118]: Nouveau produit
+        - button "Notifications" [ref=e120] [cursor=pointer]:
+          - img [ref=e121]
+    - main [ref=e125]:
+      - generic [ref=e126]:
+        - generic [ref=e127]:
+          - heading "Tableau de bord" [level=1] [ref=e129]
+          - button "Actualiser" [ref=e130] [cursor=pointer]:
+            - img [ref=e131]
+        - generic [ref=e136]:
+          - generic [ref=e137]:
+            - generic [ref=e138]:
+              - generic [ref=e139]: CA du mois
+              - img [ref=e141]
+            - generic [ref=e144]: CHF 2 708,3
+          - generic [ref=e145]:
+            - generic [ref=e146]:
+              - generic [ref=e147]: Commandes cette semaine
+              - img [ref=e149]
+            - generic [ref=e153]: "49"
+            - generic [ref=e155]: 28 en attente
+          - generic [ref=e156]:
+            - generic [ref=e157]:
+              - generic [ref=e158]: Nouveaux clients
+              - img [ref=e160]
+            - generic [ref=e165]: "101"
+          - generic [ref=e166]:
+            - generic [ref=e167]:
+              - generic [ref=e168]: Note moyenne
+              - img [ref=e170]
+            - generic [ref=e172]: 4.6 / 5
+            - generic [ref=e174]: 1 avis en attente
+        - generic [ref=e175]:
+          - generic [ref=e176]:
+            - generic [ref=e177]:
+              - generic [ref=e178]:
+                - generic [ref=e179]:
+                  - heading "Dernières commandes" [level=2] [ref=e180]
+                  - paragraph [ref=e181]: 8 commandes récentes
+                - link "Voir tout" [ref=e182] [cursor=pointer]:
+                  - /url: /admin/commandes
+                  - text: Voir tout
+                  - img [ref=e183]
+              - generic [ref=e185]:
+                - generic [ref=e186]:
+                  - generic [ref=e187]: N°
+                  - generic [ref=e188]: Cliente
+                  - generic [ref=e189]: Statut
+                  - generic [ref=e190]: Montant
+                  - generic [ref=e191]: Date
+                - generic [ref=e192]:
+                  - generic [ref=e193]: "#49"
+                  - generic [ref=e194]:
+                    - generic [ref=e195]: Marie Dupont
+                    - generic [ref=e196]: test@broderie.ch
+                  - generic [ref=e197]: En attente
+                  - generic [ref=e199]: CHF 58.40
+                  - generic [ref=e200]: Aujourd'hui 23:08
+                  - link "Détail" [ref=e201] [cursor=pointer]:
+                    - /url: /admin/commandes?open=49
+                - generic [ref=e202]:
+                  - generic [ref=e203]: "#48"
+                  - generic [ref=e204]:
+                    - generic [ref=e205]: Jean Dupont
+                    - generic [ref=e206]: test@test.com
+                  - generic [ref=e207]: Payée
+                  - generic [ref=e209]: CHF 38.40
+                  - generic [ref=e210]: Aujourd'hui 22:36
+                  - link "Détail" [ref=e211] [cursor=pointer]:
+                    - /url: /admin/commandes?open=48
+                - generic [ref=e212]:
+                  - generic [ref=e213]: "#47"
+                  - generic [ref=e214]:
+                    - generic [ref=e215]: Jean Dupont
+                    - generic [ref=e216]: test@test.com
+                  - generic [ref=e217]: En attente
+                  - generic [ref=e219]: CHF 38.40
+                  - generic [ref=e220]: Aujourd'hui 22:36
+                  - link "Détail" [ref=e221] [cursor=pointer]:
+                    - /url: /admin/commandes?open=47
+                - generic [ref=e222]:
+                  - generic [ref=e223]: "#46"
+                  - generic [ref=e224]:
+                    - generic [ref=e225]: Jean Dupont
+                    - generic [ref=e226]: test@test.com
+                  - generic [ref=e227]: En attente
+                  - generic [ref=e229]: CHF 38.40
+                  - generic [ref=e230]: Aujourd'hui 22:33
+                  - link "Détail" [ref=e231] [cursor=pointer]:
+                    - /url: /admin/commandes?open=46
+                - generic [ref=e232]:
+                  - generic [ref=e233]: "#45"
+                  - generic [ref=e234]:
+                    - generic [ref=e235]: Jean Dupont
+                    - generic [ref=e236]: test@test.com
+                  - generic [ref=e237]: En attente
+                  - generic [ref=e239]: CHF 207.90
+                  - generic [ref=e240]: Aujourd'hui 22:29
+                  - link "Détail" [ref=e241] [cursor=pointer]:
+                    - /url: /admin/commandes?open=45
+                - generic [ref=e242]:
+                  - generic [ref=e243]: "#44"
+                  - generic [ref=e244]:
+                    - generic [ref=e245]: Marc Favre
+                    - generic [ref=e246]: admin@broderie.ch
+                  - generic [ref=e247]: En attente
+                  - generic [ref=e249]: CHF 31.40
+                  - generic [ref=e250]: Aujourd'hui 22:18
+                  - link "Détail" [ref=e251] [cursor=pointer]:
+                    - /url: /admin/commandes?open=44
+                - generic [ref=e252]:
+                  - generic [ref=e253]: "#43"
+                  - generic [ref=e254]:
+                    - generic [ref=e255]: Marc Favre
+                    - generic [ref=e256]: admin@broderie.ch
+                  - generic [ref=e257]: En attente
+                  - generic [ref=e259]: CHF 88.30
+                  - generic [ref=e260]: Aujourd'hui 22:08
+                  - link "Détail" [ref=e261] [cursor=pointer]:
+                    - /url: /admin/commandes?open=43
+                - generic [ref=e262]:
+                  - generic [ref=e263]: "#42"
+                  - generic [ref=e264]:
+                    - generic [ref=e265]: Sophie Meylan
+                    - generic [ref=e266]: superadmin@broderie.ch
+                  - generic [ref=e267]: En attente
+                  - generic [ref=e269]: CHF 31.40
+                  - generic [ref=e270]: Aujourd'hui 00:39
+                  - link "Détail" [ref=e271] [cursor=pointer]:
+                    - /url: /admin/commandes?open=42
+            - generic [ref=e272]:
+              - generic [ref=e273]:
+                - generic [ref=e274]:
+                  - generic [ref=e275]:
+                    - heading "Top produits" [level=2] [ref=e276]
+                    - paragraph [ref=e277]: CA ce mois
+                  - link "Voir tout" [ref=e278] [cursor=pointer]:
+                    - /url: /admin/produits
+                    - text: Voir tout
+                    - img [ref=e279]
+                - generic [ref=e281]:
+                  - generic [ref=e282]:
+                    - img [ref=e284]
+                    - generic [ref=e288]:
+                      - generic [ref=e289]: Kit point de croix — Alpes Suisses
+                      - generic [ref=e290]: Kits point de croix
+                    - generic [ref=e293]: CHF 1 596,8
+                  - generic [ref=e294]:
+                    - img [ref=e296]
+                    - generic [ref=e300]:
+                      - generic [ref=e301]: Kit broderie libre — Lavande de Provence
+                      - generic [ref=e302]: Kits broderie libre
+                    - generic [ref=e305]: CHF 299
+                  - generic [ref=e306]:
+                    - img [ref=e308]
+                    - generic [ref=e312]:
+                      - generic [ref=e313]: Produit test
+                      - generic [ref=e314]: Kits point de croix
+                    - generic [ref=e317]: CHF 299
+                  - generic [ref=e318]:
+                    - img [ref=e320]
+                    - generic [ref=e324]:
+                      - generic [ref=e325]: Coffret fils DMC — 36 couleurs assorties
+                      - generic [ref=e326]: Fils DMC
+                    - generic [ref=e329]: CHF 68,7
+                  - generic [ref=e330]:
+                    - img [ref=e332]
+                    - generic [ref=e336]:
+                      - generic [ref=e337]: Kit point de croix — Fleurs des champs
+                      - generic [ref=e338]: Kits point de croix
+                    - generic [ref=e341]: CHF 34,9
+              - generic [ref=e342]:
+                - generic [ref=e343]:
+                  - generic [ref=e344]:
+                    - heading "Alertes stock" [level=2] [ref=e345]
+                    - paragraph [ref=e346]: 1 article ≤ 5 unités
+                  - generic [ref=e347]:
+                    - img [ref=e348]
+                    - text: Urgent
+                - generic [ref=e351]:
+                  - img [ref=e353]
+                  - generic [ref=e357]:
+                    - generic [ref=e358]: Produit test
+                    - generic [ref=e359]:
+                      - img [ref=e360]
+                      - text: 0 unité restante
+                  - link "Modifier" [ref=e362] [cursor=pointer]:
+                    - /url: /admin/produits
+          - generic [ref=e363]:
+            - generic [ref=e364]:
+              - generic [ref=e366]:
+                - heading "CA mensuel" [level=2] [ref=e367]
+                - paragraph [ref=e368]: 7 derniers mois
+              - generic [ref=e369]:
+                - generic [ref=e373]: May
+                - generic [ref=e374]:
+                  - generic [ref=e375]: CHF 2 708,3
+                  - generic [ref=e376]: mai 2026
+            - generic [ref=e377]:
+              - heading "Accès rapide" [level=2] [ref=e379]
+              - generic [ref=e380]:
+                - link "Commandes en attente 28" [ref=e381] [cursor=pointer]:
+                  - /url: /admin/commandes?status=awaiting_payment
+                  - img [ref=e382]
+                  - generic [ref=e386]: Commandes en attente
+                  - generic [ref=e387]: "28"
+                - link "Avis à modérer 1" [ref=e388] [cursor=pointer]:
+                  - /url: /admin/avis
+                  - img [ref=e389]
+                  - generic [ref=e391]: Avis à modérer
+                  - generic [ref=e392]: "1"
+                - link "Stock critique 1" [ref=e393] [cursor=pointer]:
+                  - /url: /admin/produits
+                  - img [ref=e394]
+                  - generic [ref=e396]: Stock critique
+                  - generic [ref=e397]: "1"
+                - link "Nouveaux clients 101" [ref=e398] [cursor=pointer]:
+                  - /url: /admin/clients
+                  - img [ref=e399]
+                  - generic [ref=e404]: Nouveaux clients
+                  - generic [ref=e405]: "101"

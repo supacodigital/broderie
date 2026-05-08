@@ -1,0 +1,2 @@
+/* Réutilise les styles de Login — on importe juste ce qui diffère */
+@import '../Login/Login.module.css';

@@ -1,0 +1,288 @@
+/* ── BANNIÈRE PROMO ──────────────────────────────────── */
+.banner {
+  background: var(--rose);
+  color: white;
+  text-align: center;
+  padding: 9px 24px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  flex-wrap: wrap;
+}
+
+.bannerDot {
+  opacity: 0.6;
+  margin: 0 12px;
+}
+
+/* ── NAVBAR ──────────────────────────────────────────── */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--rose-border);
+  padding: 0 48px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  transition: box-shadow 0.3s;
+}
+
+.navbarScrolled {
+  box-shadow: 0 2px 20px rgba(219, 39, 119, 0.06);
+}
+
+/* ── LOGO ────────────────────────────────────────────── */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.logoText {
+  font-family: 'Great Vibes', cursive;
+  font-size: 28px;
+  color: var(--rose);
+  line-height: 1;
+}
+
+/* ── LIENS DESKTOP ───────────────────────────────────── */
+.links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+  flex: 1;
+  justify-content: center;
+}
+
+.links a {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-decoration: none;
+  transition: color 0.2s;
+  position: relative;
+  padding-bottom: 4px;
+  white-space: nowrap;
+}
+
+.links a::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 1.5px;
+  background: var(--rose);
+  transition: width 0.25s ease;
+}
+
+.links a:hover,
+.linkActive {
+  color: var(--rose) !important;
+}
+
+.links a:hover::after,
+.linkActive::after {
+  width: 100%;
+}
+
+/* ── ACTIONS ─────────────────────────────────────────── */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.iconBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transition: color 0.2s, background 0.2s;
+  position: relative;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.iconBtn:hover {
+  color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.iconBtnActive {
+  color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: var(--rose);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* ── COMPTE — desktop seulement ──────────────────────── */
+.accountDesktop {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── BURGER — mobile uniquement ──────────────────────── */
+.burger {
+  display: none;
+}
+
+/* ── MENU MOBILE ─────────────────────────────────────── */
+.mobileMenu {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(300px, 85vw);
+  height: 100dvh;
+  background: white;
+  z-index: 200;
+  padding: 0;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.12);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobileMenuOpen {
+  transform: translateX(0);
+}
+
+/* Bouton fermer en haut du panel */
+.mobileClose {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 20px 20px 8px;
+  transition: color 0.2s;
+  align-self: flex-end;
+}
+
+.mobileClose:hover { color: var(--rose); }
+
+.mobileMenu ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0 40px;
+}
+
+.mobileMenu li a,
+.mobileMenu li button.mobileLogout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 28px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rose-border);
+  transition: color 0.2s, background 0.15s;
+  width: 100%;
+}
+
+.mobileMenu li a:hover,
+.mobileMenu li a:focus { color: var(--rose); background: var(--rose-pale); }
+
+.mobileDivider {
+  height: 1px;
+  background: var(--rose-border);
+  margin: 8px 28px;
+}
+
+.mobileLogout {
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--rose-border) !important;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-muted) !important;
+  width: 100%;
+  text-align: left;
+}
+
+.mobileLogout:hover {
+  color: var(--rose) !important;
+  background: var(--rose-pale);
+}
+
+/* ── OVERLAY ─────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 199;
+  backdrop-filter: blur(2px);
+}
+
+/* ── RESPONSIVE ──────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .navbar { padding: 0 32px; }
+  .links  { gap: 20px; }
+}
+
+@media (max-width: 768px) {
+  .navbar         { padding: 0 16px; height: 64px; }
+  .links          { display: none; }
+  .accountDesktop { display: none; }
+  .burger         { display: flex; }
+
+  /* Raccourcit le texte du logo sur petit écran */
+  .logoText { font-size: 22px; }
+}
+
+@media (max-width: 480px) {
+  .banner { font-size: 11px; padding: 8px 16px; }
+  /* Cache la bannière sur très petit écran si elle wraps trop */
+  .bannerDot:last-of-type { display: none; }
+}

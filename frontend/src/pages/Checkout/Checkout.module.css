@@ -1,0 +1,836 @@
+.page {
+  padding: 0 80px 80px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ── Fil d'Ariane ── */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 24px 0 32px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.breadcrumb a { color: var(--text-muted); text-decoration: none; transition: color .2s; }
+.breadcrumb a:hover { color: var(--rose); }
+.breadcrumb span { color: var(--text-dark); font-weight: 500; }
+.breadcrumb svg  { color: var(--rose-border); }
+
+/* ── Titre ── */
+.heading {
+  font-family: 'Playfair Display', serif;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0 0 32px;
+}
+
+/* ── Stepper ── */
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 40px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.stepNum {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--rose-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: background .2s, border-color .2s, color .2s;
+}
+
+.step.active .stepNum {
+  background: var(--rose);
+  border-color: var(--rose);
+  color: #fff;
+}
+
+.step.active { color: var(--text-dark); }
+
+.step.done .stepNum {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #16a34a;
+}
+
+.stepDivider {
+  flex: 1;
+  height: 2px;
+  background: var(--rose-border);
+  margin: 0 12px;
+  max-width: 60px;
+}
+
+/* ── Layout 2 colonnes ── */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 40px;
+  align-items: start;
+}
+
+/* ── Panneau principal ── */
+.panel {
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 16px;
+  padding: 32px;
+}
+
+.panelTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0 0 24px;
+}
+
+/* ── Formulaire adresse ── */
+.form { display: flex; flex-direction: column; gap: 20px; }
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.rowThree {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  gap: 16px;
+}
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.label {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.input {
+  padding: 11px 14px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: var(--text-dark);
+  background: #fff;
+  transition: border-color .2s, box-shadow .2s;
+  outline: none;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.input:focus {
+  border-color: var(--rose);
+  box-shadow: 0 0 0 3px rgba(244, 114, 182, .15);
+}
+
+.input.error { border-color: #ef4444; }
+
+.fieldError {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Modes de paiement ── */
+.paymentOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.paymentOption {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  position: relative;
+}
+
+.paymentOption:hover { background: var(--rose-pale); }
+
+.paymentOption.selected {
+  border-color: var(--rose);
+  background: #fff9fc;
+}
+
+.paymentRadio {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--rose);
+  flex-shrink: 0;
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.paymentLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  cursor: pointer;
+}
+
+.paymentDesc {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.paymentBadge {
+  margin-left: auto;
+  background: var(--rose-pale);
+  color: var(--rose);
+  border: 1px solid var(--rose-border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── CGV checkbox ── */
+.cgvRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--rose);
+  flex-shrink: 0;
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.cgvLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.cgvLabel a { color: var(--rose); text-decoration: none; }
+.cgvLabel a:hover { text-decoration: underline; }
+
+/* ── Boutons navigation ── */
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.btnBack {
+  background: none;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 10px;
+  padding: 12px 20px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: border-color .2s, color .2s;
+  text-decoration: none;
+}
+
+.btnBack:hover { border-color: var(--rose); color: var(--rose); }
+
+.btnPrimary {
+  flex: 1;
+  padding: 14px;
+  background: var(--rose);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background .2s, transform .15s, box-shadow .2s;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--rose-dark);
+  box-shadow: 0 4px 16px rgba(190,24,93,.25);
+  transform: translateY(-1px);
+}
+
+.btnPrimary:disabled { opacity: .65; cursor: not-allowed; }
+
+/* ── Erreur globale ── */
+.globalError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: #dc2626;
+  margin-bottom: 16px;
+}
+
+/* ── Récapitulatif commande (colonne droite) ── */
+.summary {
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 16px;
+  padding: 24px;
+  position: sticky;
+  top: 100px;
+}
+
+.summaryTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0 0 16px;
+}
+
+.summaryItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rose-border);
+  gap: 8px;
+}
+
+.summaryItem:last-of-type { border-bottom: none; }
+
+.summaryItemName {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-dark);
+  flex: 1;
+}
+
+.summaryItemQty {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.summaryItemPrice {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+  white-space: nowrap;
+}
+
+.summaryDivider {
+  border: none;
+  border-top: 1px solid var(--rose-border);
+  margin: 12px 0;
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.summaryRow span:last-child { font-weight: 600; color: var(--text-dark); }
+
+.summaryTotal {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-top: 4px;
+}
+
+.summaryTotal span:last-child { color: var(--rose); font-size: 18px; }
+
+.taxNote {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* ── Page confirmation ── */
+.confirmWrap {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.confirmIcon {
+  width: 72px;
+  height: 72px;
+  background: #dcfce7;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  color: #16a34a;
+}
+
+.confirmTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0 0 8px;
+}
+
+.confirmSubtitle {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  color: var(--text-muted);
+  margin: 0 0 24px;
+}
+
+.confirmRef {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.confirmRef strong {
+  color: var(--text-dark);
+  font-size: 16px;
+}
+
+.confirmDesc {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: var(--text-muted);
+  max-width: 440px;
+  margin: 0 0 16px;
+  line-height: 1.6;
+}
+
+.confirmDelivery {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 32px;
+}
+
+.confirmDelivery svg { color: var(--rose); }
+
+/* ── Responsive ── */
+@media (max-width: 1200px) {
+  .page { padding: 0 40px 64px; }
+}
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .summary { position: static; order: -1; }
+}
+
+@media (max-width: 640px) {
+  .page       { padding: 0 20px 48px; }
+  .heading    { font-size: 24px; }
+  .row        { grid-template-columns: 1fr; }
+  .rowThree   { grid-template-columns: 1fr 1fr; }
+  .stepper    { gap: 4px; }
+  .step span  { display: none; }
+  .stepDivider { max-width: 24px; }
+}
+
+/* ── Récap adresse ── */
+.addressRecap {
+  margin-bottom: 24px;
+  padding: 12px 16px;
+  background: var(--rose-pale);
+  border-radius: 10px;
+}
+.addressRecapLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 4px;
+}
+.addressRecapValue {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin: 0;
+}
+
+/* ── Info paiement contextuelle ── */
+.paymentInfo {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #fdf2f8;
+  border: 1px solid var(--rose-border);
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── Écran QR Twint ── */
+.twintWrap {
+  max-width: 480px;
+  margin: 32px auto;
+  text-align: center;
+  background: #fff;
+  border-radius: 20px;
+  padding: 40px 32px;
+  box-shadow: 0 4px 32px rgba(190, 24, 93, 0.08);
+  border: 1px solid var(--rose-border);
+}
+.twintTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0 0 12px;
+}
+.twintDesc {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+.twintLoading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 0;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.twintSpinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--rose-border);
+  border-top-color: var(--rose);
+  border-radius: 50%;
+  animation: twintSpin 0.7s linear infinite;
+}
+@keyframes twintSpin { to { transform: rotate(360deg); } }
+
+.twintError {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: #dc2626;
+  margin-bottom: 16px;
+}
+.twintRetryBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #fff;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #dc2626;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.twintRetryBtn:hover { background: #fef2f2; }
+
+.twintQrWrap {
+  display: inline-block;
+  padding: 16px;
+  background: #fff;
+  border: 2px solid var(--rose-border);
+  border-radius: 16px;
+  margin-bottom: 16px;
+}
+.twintQrImg {
+  display: block;
+  width: 200px;
+  height: 200px;
+}
+.twintExpiry {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+.twintPolling {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--rose);
+  font-weight: 600;
+  margin: 0 0 20px;
+  animation: twintPulse 2s ease-in-out infinite;
+}
+@keyframes twintPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+.twintRefreshBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  background: none;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.twintRefreshBtn:hover:not(:disabled) { border-color: var(--rose); color: var(--rose); }
+.twintRefreshBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.twintSuccess {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+  color: #059669;
+}
+.twintSuccessText {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #059669;
+  margin: 0;
+}
+
+/* ── Étape Carte Stripe ── */
+.cardWrap {
+  max-width: 520px;
+  margin: 32px auto;
+  background: #fff;
+  border-radius: 20px;
+  padding: 40px 36px;
+  box-shadow: 0 4px 32px rgba(190, 24, 93, 0.08);
+  border: 1px solid var(--rose-border);
+}
+
+.cardHeader {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.cardHeaderIcon {
+  color: var(--rose);
+  margin-bottom: 8px;
+}
+
+.cardTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0 0 6px;
+}
+
+.cardDesc {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.cardForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cardLoading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 0;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cardError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: #dc2626;
+}
+
+.cardSecure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 16px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Code promo ── */
+.couponSection {
+  margin-bottom: 20px;
+}
+
+.couponTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 10px;
+}
+
+.couponRow {
+  display: flex;
+  gap: 8px;
+}
+
+.couponInput {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-dark);
+  background: #fff;
+  transition: border-color 0.2s;
+  text-transform: uppercase;
+}
+
+.couponInput:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.couponBtn {
+  padding: 10px 18px;
+  background: var(--text-dark);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+}
+
+.couponBtn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.couponBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.couponApplied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: #15803d;
+  font-weight: 600;
+}
+
+.couponRemove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #15803d;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.couponRemove:hover {
+  opacity: 1;
+}

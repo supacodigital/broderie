@@ -1,0 +1,249 @@
+.bar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── Toolbar (ligne 2 : compteur + tri + vue) ── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── Bouton filtres mobile ── */
+.filterToggle {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  border: 1px solid var(--rose-border);
+  border-radius: 2px;
+  padding: 9px 14px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.filterToggle:hover { border-color: var(--rose); color: var(--rose); }
+
+/* ── Recherche ── */
+.searchWrap {
+  position: relative;
+  flex: 1;
+  max-width: 400px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 36px 10px 36px;
+  border: 1px solid var(--rose-border);
+  border-radius: 2px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-dark);
+  outline: none;
+  background: white;
+  transition: border-color 0.2s;
+}
+
+.searchInput:focus { border-color: var(--rose); }
+.searchInput::-webkit-search-cancel-button { display: none; }
+
+.clearSearch {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 50%;
+  transition: color 0.2s;
+}
+
+.clearSearch:hover { color: var(--rose); }
+
+/* ── Compteur ── */
+.count {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Tri ── */
+.sortWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sortLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.sortSelect {
+  border: 1px solid var(--rose-border);
+  border-radius: 2px;
+  padding: 8px 12px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-dark);
+  background: white;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.sortSelect:focus { border-color: var(--rose); }
+
+/* ── Dropdown suggestions ── */
+.dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--rose-border);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+  list-style: none;
+  padding: 4px 0;
+  margin: 0;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.suggestion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.suggestion:hover,
+.suggestionActive {
+  background: var(--rose-pale);
+}
+
+.suggestionImg {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+  border: 1px solid var(--rose-border);
+}
+
+.suggestionImgFallback {
+  width: 36px;
+  height: 36px;
+  border-radius: 3px;
+  background: var(--rose-pale);
+  border: 1px solid var(--rose-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.suggestionText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.suggestionName {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggestionPrice {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--rose);
+  font-weight: 600;
+}
+
+/* ── Toggle vue grille / liste ── */
+.viewToggle {
+  display: flex;
+  border: 1px solid var(--rose-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.viewBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background .15s, color .15s;
+}
+
+.viewBtn + .viewBtn { border-left: 1px solid var(--rose-border); }
+.viewBtn:hover { background: var(--rose-pale); color: var(--rose); }
+.viewBtnActive { background: var(--rose-pale); color: var(--rose); }
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .filterToggle { display: flex; }
+}
+
+@media (max-width: 640px) {
+  .row        { flex-wrap: wrap; }
+  .toolbar    { gap: 8px; }
+  .sortLabel  { display: none; }
+  .viewToggle { display: none; }
+}

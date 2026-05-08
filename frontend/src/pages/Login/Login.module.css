@@ -1,0 +1,253 @@
+/* ── Page auth — layout centré ── */
+.page {
+  min-height: calc(100vh - 120px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  background: linear-gradient(160deg, #fff9fc 0%, #fce7f3 50%, #fff0f7 100%);
+}
+
+.card {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(190, 24, 93, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  padding: 48px 40px;
+  width: 100%;
+  max-width: 440px;
+}
+
+/* ── En-tête ── */
+.header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  color: var(--rose);
+  margin-bottom: 16px;
+  display: block;
+  text-decoration: none;
+}
+
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0 0 6px;
+}
+
+.subtitle {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Formulaire ── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.inputWrap {
+  position: relative;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: var(--text-dark);
+  background: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--rose);
+  box-shadow: 0 0 0 3px rgba(244, 114, 182, 0.15);
+}
+
+.input.error {
+  border-color: #ef4444;
+}
+
+.input.error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+/* Bouton afficher/masquer mot de passe */
+.eyeBtn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+
+.eyeBtn:hover { color: var(--rose); }
+
+.input.withEye { padding-right: 44px; }
+
+/* Message d'erreur sous le champ */
+.fieldError {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Lien mot de passe oublié ── */
+.forgotRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -8px;
+}
+
+.forgotLink {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--rose);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.forgotLink:hover { opacity: 0.75; }
+
+/* ── CGV checkbox ── */
+.cgvRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--rose);
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.cgvLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.cgvLabel a {
+  color: var(--rose);
+  text-decoration: none;
+}
+
+.cgvLabel a:hover { text-decoration: underline; }
+
+/* ── Bouton principal ── */
+.submitBtn {
+  width: 100%;
+  padding: 14px;
+  background: var(--rose);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.submitBtn:hover:not(:disabled) {
+  background: var(--rose-dark);
+  box-shadow: 0 4px 16px rgba(190, 24, 93, 0.25);
+  transform: translateY(-1px);
+}
+
+.submitBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ── Erreur globale ── */
+.globalError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: #dc2626;
+}
+
+/* ── Pied de formulaire ── */
+.footer {
+  text-align: center;
+  margin-top: 24px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.footer a {
+  color: var(--rose);
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+.footer a:hover { text-decoration: underline; }
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .card    { padding: 32px 20px; }
+  .title   { font-size: 24px; }
+  .row     { grid-template-columns: 1fr; }
+}

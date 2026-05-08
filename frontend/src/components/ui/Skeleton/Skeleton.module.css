@@ -1,0 +1,62 @@
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+
+.skeleton,
+.line,
+.image {
+  background: linear-gradient(90deg, #f3e6ef 25%, #fdf2f8 50%, #f3e6ef 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+  border-radius: 4px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.image {
+  width: 100%;
+  border-radius: 4px;
+  margin-bottom: 14px;
+}
+
+.line {
+  border-radius: 4px;
+}
+
+/* ── Skeleton vue liste ── */
+.listCard {
+  display: flex;
+  gap: 20px;
+  padding: 16px 20px;
+  background: #fff;
+  border-bottom: 1px solid var(--rose-border);
+  align-items: flex-start;
+}
+
+.listImage {
+  width: 90px;
+  height: 90px;
+  flex-shrink: 0;
+  border-radius: 6px;
+}
+
+.listBody {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.listActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}

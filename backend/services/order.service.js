@@ -1,0 +1,124 @@
+const orderRepository   = require('../repositories/order.repository');
+const cartRepository    = require('../repositories/cart.repository');
+const userRepository    = require('../repositories/user.repository');
+const paymentRepository = require('../repositories/payment.repository');
+const couponRepository  = require('../repositories/coupon.repository');
+const { AppError }      = require('../middlewares/errorHandler');
+const { roundCHF }      = require('../utils/chf.utils');
+const emailService      = require('./email.service');
+
+const VALID_METHODS = ['twint', 'card'];
+
+// Frais de port fixes Suisse — toujours payants (voir CLAUDE.md)
+const SHIPPING_COST = 8.50;
+
+const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponCode = null }) => {
+  if (!VALID_METHODS.includes(paymentMethod)) {
+    throw new AppError('Méthode de paiement invalide.', 400);
+  }
+
+  // Récupération du panier
+  const cart = await cartRepository.findCart({ userId, sessionId });
+  if (!cart) throw new AppError('Le panier est vide.', 400);
+
+  const items = await cartRepository.findCartItems(cart.id);
+  const activeItems = items.filter((item) => item.is_active && !item.deleted_at);
+
+  if (activeItems.length === 0) throw new AppError('Le panier est vide.', 400);
+
+  // Calcul du sous-total TTC
+  const subtotal = roundCHF(
+    activeItems.reduce((sum, item) => sum + parseFloat(item.price_snapshot) * item.quantity, 0)
+  );
+
+  // Validation et application du coupon
+  let discount    = 0;
+  let couponId    = null;
+  let couponApplied = null;
+  if (couponCode) {
+    const result = await couponRepository.validate(couponCode, subtotal);
+    if (!result.valid) throw new AppError(result.error, 400);
+    discount      = result.discount;
+    couponId      = result.coupon.id;
+    couponApplied = result.coupon.code;
+  }
+
+  const discountedSubtotal = roundCHF(subtotal - discount);
+
+  // TVA extraite du TTC après réduction (taux snapshot figé par article)
+  const taxAmount = roundCHF(
+    activeItems.reduce((sum, item) => {
+      const rate       = parseFloat(item.tax_rate_snapshot) / 100;
+      const proportion = (parseFloat(item.price_snapshot) * item.quantity) / subtotal;
+      const lineTotal  = discountedSubtotal * proportion;
+      return sum + (lineTotal * rate / (1 + rate));
+    }, 0)
+  );
+
+  const shippingCost = SHIPPING_COST;
+  const total = roundCHF(discountedSubtotal + shippingCost);
+
+  // Statut initial — toujours en attente de paiement Stripe
+  const initialStatus = 'pending';
+
+  const orderId = await orderRepository.createOrder({
+    userId,
+    items: activeItems,
+    subtotal: discountedSubtotal,
+    shippingCost,
+    taxAmount,
+    total,
+    status: initialStatus,
+    couponCode: couponApplied,
+    discount,
+  });
+
+  // Incrémente le compteur d'utilisation du coupon
+  if (couponId) {
+    await couponRepository.incrementUsage(couponId);
+  }
+
+  // Enregistrement du paiement Stripe
+  await paymentRepository.create({
+    orderId,
+    provider: 'stripe',
+    amount:   total,
+    method:   paymentMethod,
+    status:   'pending',
+  });
+
+  // Vider le panier après confirmation de la commande
+  await cartRepository.clearCart(cart.id);
+
+  const order = await orderRepository.findById(orderId);
+
+  // Email de confirmation — non bloquant
+  userRepository.findById(userId).then((user) => {
+    if (!user) return;
+    emailService.sendOrderConfirmation({ user, order }).catch((err) => {
+      console.error('[Email] Confirmation commande non envoyée :', err.message);
+    });
+  }).catch(() => {});
+
+  return order;
+};
+
+const getOrders = async (userId, query) => {
+  const page = Math.max(1, parseInt(query.page) || 1);
+  const limit = Math.min(50, parseInt(query.limit) || 20);
+
+  const { rows, total } = await orderRepository.findByUserId(userId, { page, limit });
+
+  return {
+    data: rows,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  };
+};
+
+const getOrderById = async (orderId, userId) => {
+  const order = await orderRepository.findById(orderId, userId);
+  if (!order) throw new AppError('Commande introuvable.', 404);
+  return order;
+};
+
+module.exports = { createOrder, getOrders, getOrderById };

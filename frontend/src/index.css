@@ -1,0 +1,38 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Infant:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Great+Vibes&family=Montserrat:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --rose:        #DB2777;
+  --rose-light:  #F472B6;
+  --rose-pale:   #FDF2F8;
+  --rose-border: #FBCFE8;
+  --rose-muted:  #F0EDF4;
+  --gold:        #A16207;
+  --text:        #831843;
+  --text-muted:  #9D6480;
+  --text-dark:   #1E1020;
+  --white:       #FFFFFF;
+  --shadow-sm:   0 2px 8px rgba(219,39,119,0.08);
+  --shadow-md:   0 8px 32px rgba(219,39,119,0.13);
+  --shadow-lg:   0 20px 60px rgba(219,39,119,0.18);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  font-family: 'Montserrat', sans-serif;
+  background: var(--white);
+  color: var(--text-dark);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}

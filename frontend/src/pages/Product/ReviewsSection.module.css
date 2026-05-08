@@ -1,0 +1,404 @@
+.section {
+  padding: 72px 0 0;
+  border-top: 1px solid var(--rose-border);
+}
+
+.header {
+  margin-bottom: 40px;
+}
+
+.eyebrow {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rose);
+  margin-bottom: 10px;
+}
+
+.title {
+  font-family: 'Great Vibes', cursive;
+  font-size: clamp(32px, 3vw, 48px);
+  color: var(--text);
+  line-height: 1.2;
+}
+
+/* ── Layout ── */
+.layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 56px;
+  align-items: flex-start;
+}
+
+/* ── Résumé ── */
+.summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 28px;
+  background: var(--rose-pale);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.avgScore {
+  font-family: 'Cormorant Infant', serif;
+  font-size: 56px;
+  font-weight: 600;
+  color: var(--rose);
+  line-height: 1;
+}
+
+.stars {
+  display: flex;
+  gap: 3px;
+  color: var(--gold);
+}
+
+.avgLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.distBars {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ratingBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ratingBarLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 28px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.ratingBarTrack {
+  flex: 1;
+  height: 6px;
+  background: var(--rose-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ratingBarFill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.ratingBarCount {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 20px;
+  flex-shrink: 0;
+}
+
+/* ── Liste avis ── */
+.listWrap {
+  position: relative;
+}
+
+.listWrap::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: linear-gradient(to bottom, transparent, var(--bg, #fff));
+  pointer-events: none;
+  border-radius: 0 0 8px 8px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rose-border) transparent;
+}
+
+.list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.list::-webkit-scrollbar-thumb {
+  background: var(--rose-border);
+  border-radius: 2px;
+}
+
+.noReview {
+  font-family: 'Cormorant Infant', serif;
+  font-size: 17px;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.card {
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--rose-border);
+}
+
+.card:last-child { border-bottom: none; }
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.date {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.cardTitle {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 6px;
+}
+
+.cardBody {
+  font-family: 'Cormorant Infant', serif;
+  font-size: 17px;
+  font-weight: 300;
+  font-style: italic;
+  color: var(--text-muted);
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+
+.cardFooter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reviewer {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.location {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* ── Formulaire d'avis ── */
+.formWrap {
+  margin-top: 36px;
+  padding-top: 32px;
+  border-top: 1px solid var(--rose-border);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.formTitle {
+  font-family: 'Cormorant Infant', serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.formLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Sélecteur étoiles */
+.starPicker {
+  display: flex;
+  gap: 4px;
+}
+
+.starBtn {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  line-height: 0;
+  transition: transform .1s;
+}
+
+.starBtn:hover { transform: scale(1.15); }
+
+.starActive { color: var(--gold, #f59e0b); }
+.starEmpty  { color: var(--rose-border); }
+
+.formInput,
+.formTextarea {
+  font-family: 'Cormorant Infant', serif;
+  font-size: 16px;
+  padding: 11px 14px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  color: var(--text-dark);
+  transition: border-color .2s;
+  width: 100%;
+}
+
+.formInput:focus,
+.formTextarea:focus { border-color: var(--rose); }
+
+.formTextarea { resize: vertical; min-height: 100px; }
+
+.charCount {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.formError {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  padding: 9px 13px;
+}
+
+.formBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 28px;
+  background: var(--rose);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background .15s, opacity .15s;
+  align-self: flex-start;
+}
+
+.formBtn:hover:not(:disabled) { background: var(--rose-dark); }
+.formBtn:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Succès */
+.formSuccess {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  background: #f0fdf4;
+  border: 1px solid #a7f3d0;
+  border-radius: 10px;
+}
+
+.formSuccessIcon { color: #059669; flex-shrink: 0; margin-top: 2px; }
+
+.formSuccessTitle {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #065f46;
+  margin-bottom: 4px;
+}
+
+.formSuccessSub {
+  font-family: 'Cormorant Infant', serif;
+  font-size: 16px;
+  color: #047857;
+  font-style: italic;
+}
+
+/* Invitation à se connecter */
+.loginPrompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  background: var(--rose-pale);
+  border: 1px solid var(--rose-border);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+
+.loginPromptText {
+  font-family: 'Cormorant Infant', serif;
+  font-size: 17px;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.loginPromptLink {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rose);
+  text-decoration: none;
+  padding: 9px 20px;
+  border: 1.5px solid var(--rose);
+  border-radius: 7px;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+
+.loginPromptLink:hover { background: var(--rose); color: #fff; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .layout { grid-template-columns: 1fr; }
+  .summary { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  .distBars { display: none; }
+}

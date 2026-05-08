@@ -1,0 +1,332 @@
+/* ── BACKDROP (commun) ───────────────────────────────── */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 10, 20, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 101;
+  animation: fadeIn 0.18s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ── SPOTLIGHT — desktop ─────────────────────────────── */
+.spotlight {
+  display: flex;
+  position: fixed;
+  top: 140px; /* centré visuellement dans le tiers haut de l'écran */
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(680px, 90vw);
+  z-index: 102;
+  animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.spotlightInner {
+  width: 100%;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 0 0 1px rgba(219, 39, 119, 0.12),
+    0 24px 64px rgba(0, 0, 0, 0.18), 0 8px 24px rgba(219, 39, 119, 0.08);
+  overflow: hidden;
+}
+
+/* ── INPUT ROW ───────────────────────────────────────── */
+.inputRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  height: 64px;
+  border-bottom: 1px solid var(--rose-border);
+}
+
+.drawerInputRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  height: 56px;
+}
+
+.searchIcon {
+  color: var(--rose);
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-family: "Montserrat", sans-serif;
+  font-size: 15px;
+  color: var(--text);
+  outline: none;
+  min-width: 0;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.clearBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.clearBtn:hover {
+  color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px solid var(--rose-border);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 5px 10px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.closeBtn:hover {
+  color: var(--rose);
+  border-color: var(--rose);
+}
+
+.closeBtnLabel {
+  font-family: "Montserrat", sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── RÉSULTATS SPOTLIGHT ─────────────────────────────── */
+.results {
+  list-style: none;
+  padding: 8px 0;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.result {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.result:hover,
+.resultActive {
+  background: var(--rose-pale);
+}
+
+.resultImg {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--rose-pale);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.resultImg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.resultInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.resultName {
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resultCat {
+  font-family: "Montserrat", sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.resultPrice {
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rose);
+  flex-shrink: 0;
+}
+
+.resultArrow {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.result:hover .resultArrow,
+.resultActive .resultArrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Lien "voir tous" */
+.seeAll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--rose-border);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  margin-top: 4px;
+}
+
+.seeAll:hover {
+  color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.seeAll strong {
+  color: var(--rose);
+}
+
+/* État vide */
+.empty {
+  padding: 20px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ── DRAWER — mobile (caché sur desktop) ─────────────── */
+.drawer {
+  display: none;
+}
+
+/* ── RESPONSIVE ──────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Cache le Spotlight */
+  .spotlight {
+    display: none;
+  }
+
+  /* Affiche le Drawer */
+  .drawer {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 102;
+    background: white;
+    border-radius: 0 0 20px 20px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    animation: drawerDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    padding-bottom: 8px;
+  }
+
+  @keyframes drawerDown {
+    from {
+      transform: translateY(-100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  .drawerHandle {
+    width: 36px;
+    height: 4px;
+    background: var(--rose-border);
+    border-radius: 2px;
+    margin: 12px auto 8px;
+  }
+
+  .drawerResults {
+    list-style: none;
+    padding: 4px 0;
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+
+  .drawerResult {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background 0.12s;
+    border-bottom: 1px solid var(--rose-border);
+  }
+
+  .drawerResult:last-child {
+    border-bottom: none;
+  }
+
+  .drawerResult:active {
+    background: var(--rose-pale);
+  }
+}

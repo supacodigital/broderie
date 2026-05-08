@@ -1,0 +1,8 @@
+[      68ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1b02dc91:14337
+[     701ms] [WARNING] You may test your Stripe.js integration over HTTP. However, live Stripe.js integrations must use HTTPS. @ https://js.stripe.com/dahlia/stripe.js:0
+[   22834ms] [WARNING] [Stripe.js] If you are testing Apple Pay or Google Pay, you must serve this page over HTTPS as it will not work over HTTP. Please read https://stripe.com/docs/stripe-js/elements/payment-request-button#html-js-prerequisites for more details. @ https://js.stripe.com/v3/fingerprinted/js/controller-with-preconnect-772308074fb702eec3fe1216534e9e24.js:0
+[   23199ms] [WARNING] [Stripe.js] You have not registered or verified the domain, so the following payment methods are not enabled in the Payment Element: 
+
+- apple_pay
+
+Please follow https://stripe.com/docs/payments/payment-methods/pmd-registration to register and verify the domain. @ https://js.stripe.com/v3/fingerprinted/js/controller-with-preconnect-772308074fb702eec3fe1216534e9e24.js:0

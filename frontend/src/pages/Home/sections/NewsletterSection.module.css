@@ -1,0 +1,112 @@
+.section {
+  background: var(--rose);
+  padding: 80px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.section::before,
+.section::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.section::before { width: 400px; height: 400px; top: -200px;  right: -100px; }
+.section::after  { width: 300px; height: 300px; bottom: -150px; left: -80px; }
+
+.title {
+  font-family: 'Great Vibes', cursive;
+  font-size: clamp(38px, 4vw, 56px);
+  color: white;
+  margin-bottom: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.desc {
+  font-family: 'Cormorant Infant', serif;
+  font-size: 18px;
+  font-weight: 300;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 36px;
+  position: relative;
+  z-index: 1;
+}
+
+.form {
+  display: flex;
+  max-width: 480px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.srOnly {
+  position: absolute;
+  left: -9999px;
+}
+
+.input {
+  flex: 1;
+  padding: 16px 20px;
+  border: none;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: var(--text-dark);
+  outline: none;
+  border-radius: 2px 0 0 2px;
+}
+
+.input:disabled { opacity: 0.7; }
+
+.btn {
+  background: var(--text);
+  color: white;
+  border: none;
+  padding: 16px 28px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 0 2px 2px 0;
+  transition: background 0.2s;
+}
+
+.btn:hover:not(:disabled) { background: #2d0a1a; }
+.btn:disabled             { opacity: 0.6; cursor: not-allowed; }
+
+.successMsg {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  position: relative;
+  z-index: 1;
+}
+
+.errorMsg {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 1024px) {
+  .section { padding: 60px 40px; }
+}
+
+@media (max-width: 640px) {
+  .section { padding: 48px 20px; }
+  .form    { flex-direction: column; }
+  .input   { border-radius: 2px; }
+  .btn     { border-radius: 2px; }
+}

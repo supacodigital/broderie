@@ -1,0 +1,322 @@
+.page {
+  padding: 0 80px 80px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ── Fil d'Ariane ── */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 24px 0 32px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.breadcrumb a {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.breadcrumb a:hover { color: var(--rose); }
+.breadcrumb span    { color: var(--text-dark); font-weight: 500; }
+.breadcrumb svg     { color: var(--rose-border); }
+
+/* ── Titre ── */
+.heading {
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0 0 8px;
+}
+
+.itemCount {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0 0 40px;
+}
+
+/* ── Layout ── */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 40px;
+  align-items: start;
+}
+
+/* ── Liste des articles ── */
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  gap: 20px;
+  align-items: center;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--rose-border);
+}
+
+.item:first-child { border-top: 1px solid var(--rose-border); }
+
+/* Image produit */
+.itemImage {
+  width: 100px;
+  height: 100px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.itemFallback {
+  width: 100px;
+  height: 100px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  flex-shrink: 0;
+}
+
+/* Infos article */
+.itemInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.itemName {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-dark);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.itemName:hover { color: var(--rose); }
+
+.itemVariant {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.itemPrice {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rose);
+  margin-top: 4px;
+}
+
+/* Actions : quantité + suppression */
+.itemActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.itemTotal {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.qtyRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.qtyBtn {
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.qtyBtn:hover:not(:disabled) {
+  background: var(--rose-pale);
+  color: var(--rose);
+}
+
+.qtyBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.qtyValue {
+  width: 36px;
+  text-align: center;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  border-left: 1px solid var(--rose-border);
+  border-right: 1px solid var(--rose-border);
+  line-height: 32px;
+}
+
+.removeBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.removeBtn:hover { color: #ef4444; }
+
+/* ── Récapitulatif commande ── */
+.summary {
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 16px;
+  padding: 28px;
+  position: sticky;
+  top: 100px;
+}
+
+.summaryTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin: 0 0 24px;
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.summaryRow span:last-child {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.summaryDivider {
+  border: none;
+  border-top: 1px solid var(--rose-border);
+  margin: 16px 0;
+}
+
+.summaryTotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 24px;
+}
+
+.summaryTotal span:last-child {
+  font-size: 20px;
+  color: var(--rose);
+}
+
+.taxNote {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.checkoutBtn {
+  width: 100%;
+  padding: 15px;
+  background: var(--rose);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  text-decoration: none;
+}
+
+.checkoutBtn:hover {
+  background: var(--rose-dark);
+  box-shadow: 0 4px 16px rgba(190, 24, 93, 0.25);
+  transform: translateY(-1px);
+}
+
+.summaryReassurance {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.reassuranceItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.reassuranceItem svg { color: var(--rose); flex-shrink: 0; }
+
+/* ── Empty state ── */
+.emptyWrap {
+  grid-column: 1 / -1;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1200px) {
+  .page   { padding: 0 40px 64px; }
+  .layout { grid-template-columns: 1fr 320px; }
+}
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .summary { position: static; }
+}
+
+@media (max-width: 640px) {
+  .page   { padding: 0 20px 48px; }
+  .heading { font-size: 24px; }
+  .item   { grid-template-columns: 80px 1fr; grid-template-rows: auto auto; }
+  .itemActions { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; }
+  .itemFallback, .itemImage { width: 80px; height: 80px; }
+}

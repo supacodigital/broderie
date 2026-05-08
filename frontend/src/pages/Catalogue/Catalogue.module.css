@@ -1,0 +1,200 @@
+/* ── En-tête ── */
+.hero {
+  background: var(--rose-pale);
+  border-bottom: 1px solid var(--rose-border);
+  padding: 40px 80px 48px;
+  text-align: center;
+}
+
+/* ── Breadcrumb ── */
+.breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.breadcrumb a,
+.breadcrumbBtn {
+  color: var(--text-muted);
+  text-decoration: none;
+  background: none;
+  border: none;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  transition: color .15s;
+}
+
+.breadcrumb a:hover,
+.breadcrumbBtn:hover { color: var(--rose); }
+
+.breadcrumb span[aria-current] { color: var(--text-dark); font-weight: 600; }
+
+.heroEyebrow {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rose);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.heroEyebrow::before,
+.heroEyebrow::after {
+  content: '';
+  display: block;
+  width: 32px;
+  height: 1px;
+  background: var(--rose-border);
+}
+
+.heroTitle {
+  font-family: 'Great Vibes', cursive;
+  font-size: clamp(38px, 4vw, 60px);
+  color: var(--text);
+  line-height: 1.15;
+  margin-bottom: 10px;
+}
+
+.heroCount {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Layout ── */
+.page { min-height: 60vh; }
+
+.layout {
+  display: flex;
+  gap: 48px;
+  padding: 48px 80px 80px;
+  align-items: flex-start;
+}
+
+/* ── Contenu principal ── */
+.main { flex: 1; min-width: 0; }
+
+/* ── Chips filtres actifs ── */
+.activeFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: var(--rose-pale);
+  border: 1px solid var(--rose-border);
+  border-radius: 99px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--rose-dark);
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+
+.chip:hover { background: #fce7f3; border-color: var(--rose); }
+
+.chipX {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--rose);
+  font-weight: 400;
+}
+
+.chipClearAll {
+  background: none;
+  border: none;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 5px 8px;
+  text-decoration: underline;
+  transition: color .15s;
+}
+
+.chipClearAll:hover { color: var(--rose); }
+
+/* ── Grille produits ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+}
+
+/* ── Vue liste ── */
+.listView {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--rose-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* ── Bouton retour en haut ── */
+.backToTop {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--rose);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(190,24,93,.3);
+  z-index: 40;
+  transition: background .15s, transform .15s;
+  animation: fadeInUp .2s ease;
+}
+
+.backToTop:hover { background: var(--rose-dark); transform: translateY(-2px); }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Responsive ── */
+@media (max-width: 1280px) {
+  .grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 1024px) {
+  .hero   { padding: 32px 40px 32px; }
+  .layout { padding: 32px 40px 64px; gap: 0; }
+  .grid   { grid-template-columns: repeat(3, 1fr); gap: 20px; }
+}
+
+@media (max-width: 768px) {
+  .grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .backToTop { bottom: 20px; right: 20px; width: 40px; height: 40px; }
+}
+
+@media (max-width: 640px) {
+  .hero   { padding: 24px 20px 24px; }
+  .layout { padding: 24px 20px 48px; }
+  .grid   { grid-template-columns: 1fr 1fr; gap: 12px; }
+}

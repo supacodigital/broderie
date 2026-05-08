@@ -1,0 +1,234 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]: 🇨🇭 Livraison rapide 1–2 jours · CHF 8.50 en Suisse
+    - generic [ref=e6]: ·
+    - generic [ref=e7]: Nouveaux kits printemps disponibles
+    - generic [ref=e8]: ·
+    - generic [ref=e9]: Paiement par Twint accepté
+  - navigation "Navigation principale" [ref=e10]:
+    - link "Au Point-Compté — Accueil" [ref=e11] [cursor=pointer]:
+      - /url: /
+      - img [ref=e12]
+      - generic [ref=e17]: Au Point-Compté
+    - list [ref=e18]:
+      - listitem [ref=e19]:
+        - link "Collections" [ref=e20] [cursor=pointer]:
+          - /url: /catalogue
+      - listitem [ref=e21]:
+        - link "Boutique" [ref=e22] [cursor=pointer]:
+          - /url: /catalogue
+      - listitem [ref=e23]:
+        - link "Savoir-faire" [ref=e24] [cursor=pointer]:
+          - /url: /#savoir-faire
+      - listitem [ref=e25]:
+        - link "Avis" [ref=e26] [cursor=pointer]:
+          - /url: /#temoignages
+      - listitem [ref=e27]:
+        - link "Blog" [ref=e28] [cursor=pointer]:
+          - /url: "#"
+    - generic [ref=e29]:
+      - button "Rechercher" [ref=e30] [cursor=pointer]:
+        - img [ref=e31]
+      - generic [ref=e34]:
+        - link "Mon compte" [ref=e35] [cursor=pointer]:
+          - /url: /mon-compte
+          - img [ref=e36]
+        - button "Déconnexion" [ref=e137] [cursor=pointer]:
+          - img [ref=e138]
+      - link "Panier — 2 articles" [ref=e141] [cursor=pointer]:
+        - /url: /panier
+        - img [ref=e40]
+        - generic: "2"
+  - generic [ref=e43]:
+    - button [ref=e44] [cursor=pointer]:
+      - img [ref=e45]
+    - list [ref=e48]:
+      - listitem [ref=e49]:
+        - link [ref=e50] [cursor=pointer]:
+          - /url: /catalogue
+          - text: Collections
+      - listitem [ref=e51]:
+        - link [ref=e52] [cursor=pointer]:
+          - /url: /catalogue
+          - text: Boutique
+      - listitem [ref=e53]:
+        - link [ref=e54] [cursor=pointer]:
+          - /url: /#savoir-faire
+          - text: Savoir-faire
+      - listitem [ref=e55]:
+        - link [ref=e56] [cursor=pointer]:
+          - /url: /#temoignages
+          - text: Avis
+      - listitem [ref=e57]:
+        - link [ref=e58] [cursor=pointer]:
+          - /url: "#"
+          - text: Blog
+      - listitem [ref=e59]
+      - listitem [ref=e142]:
+        - link [ref=e143] [cursor=pointer]:
+          - /url: /mon-compte
+          - text: Mon compte
+      - listitem [ref=e144]:
+        - button [ref=e145] [cursor=pointer]:
+          - img [ref=e146]
+          - text: Déconnexion
+      - listitem [ref=e62]:
+        - link [ref=e63] [cursor=pointer]:
+          - /url: /panier
+          - text: Panier
+  - main [ref=e64]:
+    - generic [ref=e175]:
+      - navigation "Fil d'Ariane" [ref=e177]:
+        - link "Accueil" [ref=e178] [cursor=pointer]:
+          - /url: /
+        - img [ref=e179]
+        - generic [ref=e181]: Mon compte
+      - generic [ref=e182]:
+        - complementary [ref=e183]:
+          - generic [ref=e184]:
+            - generic [ref=e185]: MD
+            - generic [ref=e186]:
+              - paragraph [ref=e187]: Marie Dupont
+              - paragraph [ref=e188]: test@broderie.ch
+          - navigation "Sections du compte" [ref=e189]:
+            - button "Profil" [ref=e190] [cursor=pointer]:
+              - img [ref=e191]
+              - generic [ref=e194]: Profil
+              - img [ref=e195]
+            - button "Commandes" [ref=e197] [cursor=pointer]:
+              - img [ref=e198]
+              - generic [ref=e202]: Commandes
+              - img [ref=e203]
+            - button "Adresses" [ref=e205] [cursor=pointer]:
+              - img [ref=e206]
+              - generic [ref=e209]: Adresses
+              - img [ref=e210]
+            - button "Favoris" [ref=e212] [cursor=pointer]:
+              - img [ref=e213]
+              - generic [ref=e215]: Favoris
+              - img [ref=e216]
+          - separator [ref=e218]
+          - button "Déconnexion" [ref=e219] [cursor=pointer]:
+            - img [ref=e220]
+            - text: Déconnexion
+        - generic [ref=e224]:
+          - heading "Mes informations" [level=2] [ref=e225]
+          - generic [ref=e226]:
+            - generic [ref=e227]:
+              - generic [ref=e228]:
+                - generic [ref=e229]: Prénom
+                - textbox "Prénom" [ref=e230]: Marie
+              - generic [ref=e231]:
+                - generic [ref=e232]: Nom
+                - textbox "Nom" [ref=e233]: Dupont
+            - generic [ref=e234]:
+              - generic [ref=e235]: Adresse e-mail
+              - textbox "Adresse e-mail" [ref=e236]: test@broderie.ch
+            - button "Enregistrer les modifications" [disabled] [ref=e238]
+          - heading "Modifier le mot de passe" [level=2] [ref=e239]
+          - generic [ref=e240]:
+            - generic [ref=e241]:
+              - generic [ref=e242]: Mot de passe actuel
+              - textbox "Mot de passe actuel" [ref=e243]
+            - generic [ref=e244]:
+              - generic [ref=e245]:
+                - generic [ref=e246]: Nouveau mot de passe
+                - textbox "Nouveau mot de passe" [ref=e247]
+              - generic [ref=e248]:
+                - generic [ref=e249]: Confirmer le nouveau mot de passe
+                - textbox "Confirmer le nouveau mot de passe" [ref=e250]
+            - button "Modifier le mot de passe" [ref=e252] [cursor=pointer]
+          - heading "Programme de fidélité" [level=2] [ref=e253]
+          - generic [ref=e254]:
+            - generic [ref=e255]:
+              - img [ref=e256]
+              - generic [ref=e258]:
+                - paragraph [ref=e259]: Sans palier
+                - paragraph [ref=e260]: CHF 0.00 d'achats cumulés
+            - link "Mes bons" [ref=e261] [cursor=pointer]:
+              - /url: /mon-compte
+              - text: Mes bons
+              - img [ref=e262]
+          - paragraph [ref=e266]:
+            - text: Plus que CHF 100.00 pour atteindre le palier
+            - strong [ref=e267]: Bronze
+  - contentinfo [ref=e67]:
+    - generic [ref=e68]:
+      - generic [ref=e69]:
+        - generic [ref=e70]: Au Point-Compté
+        - paragraph [ref=e71]: Votre spécialiste suisse en broderie depuis 1987. Qualité, passion et service au fil de chaque commande.
+        - generic "Réseaux sociaux" [ref=e72]:
+          - link "Instagram" [ref=e73] [cursor=pointer]:
+            - /url: "#"
+            - img [ref=e74]
+          - link "Facebook" [ref=e77] [cursor=pointer]:
+            - /url: "#"
+            - img [ref=e78]
+          - link "Pinterest" [ref=e80] [cursor=pointer]:
+            - /url: "#"
+            - img [ref=e81]
+      - generic [ref=e83]:
+        - heading "Boutique" [level=3] [ref=e84]
+        - list [ref=e85]:
+          - listitem [ref=e86]:
+            - link "Kits de broderie" [ref=e87] [cursor=pointer]:
+              - /url: /catalogue?category=kits
+          - listitem [ref=e88]:
+            - link "Fils & Cotons" [ref=e89] [cursor=pointer]:
+              - /url: /catalogue?category=fils
+          - listitem [ref=e90]:
+            - link "Toiles & Tissus" [ref=e91] [cursor=pointer]:
+              - /url: /catalogue?category=toiles
+          - listitem [ref=e92]:
+            - link "Accessoires" [ref=e93] [cursor=pointer]:
+              - /url: /catalogue?category=accessoires
+          - listitem [ref=e94]:
+            - link "Nouveautés" [ref=e95] [cursor=pointer]:
+              - /url: /catalogue?featured=true
+          - listitem [ref=e96]:
+            - link "Promotions" [ref=e97] [cursor=pointer]:
+              - /url: /catalogue?promo=true
+      - generic [ref=e98]:
+        - heading "Aide" [level=3] [ref=e99]
+        - list [ref=e100]:
+          - listitem [ref=e101]:
+            - link "Mon compte" [ref=e102] [cursor=pointer]:
+              - /url: /mon-compte
+          - listitem [ref=e103]:
+            - link "Suivi de commande" [ref=e104] [cursor=pointer]:
+              - /url: /mon-compte
+          - listitem [ref=e105]:
+            - link "FAQ" [ref=e106] [cursor=pointer]:
+              - /url: /faq
+          - listitem [ref=e107]:
+            - link "CGV" [ref=e108] [cursor=pointer]:
+              - /url: /cgv
+          - listitem [ref=e109]:
+            - link "Mentions légales" [ref=e110] [cursor=pointer]:
+              - /url: /mentions-legales
+          - listitem [ref=e111]:
+            - link "Politique de retour" [ref=e112] [cursor=pointer]:
+              - /url: /politique-de-retour
+      - generic [ref=e113]:
+        - heading "Contact" [level=3] [ref=e114]
+        - generic [ref=e115]:
+          - generic [ref=e116]:
+            - img [ref=e117]
+            - generic [ref=e120]:
+              - text: Rue du Simplon 12
+              - text: 1006 Lausanne, VD
+          - generic [ref=e121]:
+            - img [ref=e122]
+            - link "+41 21 601 XX XX" [ref=e124] [cursor=pointer]:
+              - /url: tel:+41216010000
+          - generic [ref=e125]:
+            - img [ref=e126]
+            - link "contact@aupointcompte.ch" [ref=e129] [cursor=pointer]:
+              - /url: mailto:contact@aupointcompte.ch
+    - generic [ref=e130]:
+      - paragraph [ref=e131]: © 2026 Au Point-Compté — Lausanne, Suisse 🇨🇭 · Hébergé par Infomaniak
+      - generic "Moyens de paiement acceptés" [ref=e132]:
+        - generic [ref=e133]: TWINT
+        - generic [ref=e134]: VISA
+        - generic [ref=e135]: MC
+        - generic [ref=e136]: POSTFINANCE

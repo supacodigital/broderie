@@ -1,0 +1,12 @@
+[      56ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1b02dc91:14337
+[   10095ms] [WARNING] You may test your Stripe.js integration over HTTP. However, live Stripe.js integrations must use HTTPS. @ https://js.stripe.com/dahlia/stripe.js:0
+[   60196ms] [ERROR] Failed to load resource: the server responded with a status of 400 (Bad Request) @ http://localhost:3000/api/v1/payments/twint/45:0
+[   60206ms] [ERROR] Failed to load resource: the server responded with a status of 400 (Bad Request) @ http://localhost:3000/api/v1/payments/twint/45:0
+[  134787ms] [ERROR] Failed to load resource: net::ERR_EMPTY_RESPONSE @ http://localhost:3000/api/v1/orders/45:0
+[  236255ms] [WARNING] You may test your Stripe.js integration over HTTP. However, live Stripe.js integrations must use HTTPS. @ https://js.stripe.com/dahlia/stripe.js:0
+[  237308ms] [WARNING] [Stripe.js] If you are testing Apple Pay or Google Pay, you must serve this page over HTTPS as it will not work over HTTP. Please read https://stripe.com/docs/stripe-js/elements/payment-request-button#html-js-prerequisites for more details. @ https://js.stripe.com/v3/fingerprinted/js/controller-with-preconnect-772308074fb702eec3fe1216534e9e24.js:0
+[  237625ms] [WARNING] [Stripe.js] The following payment method types are not activated:
+
+- twint
+
+They will be displayed in test mode, but hidden in live mode. Please activate the payment method types in your dashboard (https://dashboard.stripe.com/settings/payment_methods) and ensure your account is enabled for any preview features that you are trying to use. @ https://js.stripe.com/v3/fingerprinted/js/controller-with-preconnect-772308074fb702eec3fe1216534e9e24.js:0

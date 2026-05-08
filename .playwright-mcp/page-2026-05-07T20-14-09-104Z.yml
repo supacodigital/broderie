@@ -1,0 +1,424 @@
+- generic [ref=e4]:
+  - complementary [ref=e5]:
+    - generic [ref=e6]:
+      - paragraph [ref=e7]: Au Point-Compté
+      - paragraph [ref=e8]: Administration
+    - navigation [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: Menu
+        - link "Tableau de bord" [ref=e12] [cursor=pointer]:
+          - /url: /admin/dashboard
+          - img [ref=e13]
+          - generic [ref=e18]: Tableau de bord
+        - link "Commandes 9" [ref=e19] [cursor=pointer]:
+          - /url: /admin/commandes
+          - img [ref=e20]
+          - generic [ref=e24]: Commandes
+          - generic [ref=e25]: "9"
+        - link "Produits" [ref=e26] [cursor=pointer]:
+          - /url: /admin/produits
+          - img [ref=e27]
+          - generic [ref=e31]: Produits
+        - link "Clients" [ref=e32] [cursor=pointer]:
+          - /url: /admin/clients
+          - img [ref=e33]
+          - generic [ref=e38]: Clients
+        - link "Avis 1" [ref=e39] [cursor=pointer]:
+          - /url: /admin/avis
+          - img [ref=e40]
+          - generic [ref=e42]: Avis
+          - generic [ref=e43]: "1"
+      - generic [ref=e44]:
+        - generic [ref=e45]: Outils
+        - link "Fournisseurs" [ref=e46] [cursor=pointer]:
+          - /url: /admin/fournisseurs
+          - img [ref=e47]
+          - generic [ref=e52]: Fournisseurs
+        - link "Fidélité" [ref=e53] [cursor=pointer]:
+          - /url: /admin/fidelite
+          - img [ref=e54]
+          - generic [ref=e56]: Fidélité
+        - link "Catégories" [ref=e57] [cursor=pointer]:
+          - /url: /admin/categories
+          - img [ref=e58]
+          - generic [ref=e61]: Catégories
+        - link "Promotions" [ref=e62] [cursor=pointer]:
+          - /url: /admin/coupons
+          - img [ref=e63]
+          - generic [ref=e65]: Promotions
+        - link "Paramètres" [ref=e66] [cursor=pointer]:
+          - /url: /admin/parametres
+          - img [ref=e67]
+          - generic [ref=e70]: Paramètres
+    - generic [ref=e71]:
+      - generic [ref=e73]:
+        - paragraph
+        - paragraph [ref=e74]: Administratrice
+      - button "Déconnexion" [ref=e75] [cursor=pointer]:
+        - img [ref=e76]
+  - generic [ref=e79]:
+    - banner [ref=e80]:
+      - generic [ref=e81]:
+        - navigation "Fil d'Ariane" [ref=e82]:
+          - generic [ref=e83]: Admin
+          - img [ref=e84]
+          - generic [ref=e86]: Commandes
+        - paragraph [ref=e87]: Jeudi, 7 mai 2026 — Bonne soirée, Admin 🌙
+      - generic [ref=e88]:
+        - link "Voir la boutique" [ref=e89] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e90]
+          - generic [ref=e93]: Voir la boutique
+        - link "Nouveau produit" [ref=e94] [cursor=pointer]:
+          - /url: /admin/produits/nouveau
+          - img [ref=e95]
+          - generic [ref=e96]: Nouveau produit
+        - button "Notifications" [ref=e98] [cursor=pointer]:
+          - img [ref=e99]
+    - main [ref=e103]:
+      - generic [ref=e104]:
+        - generic [ref=e436]:
+          - generic [ref=e437]:
+            - generic [ref=e438]:
+              - 'heading "Commande #49" [level=2] [ref=e439]'
+              - paragraph [ref=e440]: 07 mai 2026 à 23:08
+            - button "Fermer" [ref=e441] [cursor=pointer]: ✕
+          - generic [ref=e442]:
+            - generic [ref=e443]:
+              - generic [ref=e444]:
+                - generic [ref=e445]: Client
+                - generic [ref=e446]: Marie Dupont
+                - generic [ref=e447]: test@broderie.ch
+              - generic [ref=e448]:
+                - generic [ref=e449]: Adresse de livraison
+                - generic [ref=e450]: Aucune adresse enregistrée
+              - generic [ref=e451]:
+                - generic [ref=e452]: Statut actuel
+                - generic [ref=e453]:
+                  - img [ref=e454]
+                  - text: En attente
+              - generic [ref=e457]:
+                - generic [ref=e458]: Sous-total
+                - generic [ref=e459]: CHF 49.90
+              - generic [ref=e460]:
+                - generic [ref=e461]: Livraison
+                - generic [ref=e462]: CHF 8.50
+              - generic [ref=e463]:
+                - generic [ref=e464]: TVA incluse
+                - generic [ref=e465]: CHF 3.75
+              - generic [ref=e466]:
+                - generic [ref=e467]: Total TTC
+                - generic [ref=e468]: CHF 58.40
+            - heading "Articles" [level=3] [ref=e469]
+            - generic [ref=e471]:
+              - generic [ref=e472]:
+                - generic [ref=e473]: Kit point de croix — Alpes Suisses
+                - generic [ref=e474]: Réf. KIT-PDC-001
+              - generic [ref=e475]: × 1
+              - generic [ref=e476]: CHF 49.90
+            - heading "Historique" [level=3] [ref=e477]
+            - generic [ref=e479]:
+              - generic [ref=e480]:
+                - img [ref=e481]
+                - text: En attente
+              - generic [ref=e484]: Commande créée
+              - generic [ref=e485]: 07.05.26 23:08
+            - heading "Actions" [level=3] [ref=e486]
+            - generic [ref=e487]:
+              - generic [ref=e488]: Changer le statut
+              - generic [ref=e489]:
+                - combobox [ref=e490] [cursor=pointer]:
+                  - option "En attente" [selected]
+                  - option "Att. paiement"
+                  - option "Payée"
+                  - option "En préparation"
+                  - option "Expédiée"
+                  - option "Livrée"
+                  - option "Annulée"
+                  - option "Remboursée"
+                - button "Enregistrer" [disabled] [ref=e491]
+              - 'textbox "Note interne (optionnel) — ex : numéro de suivi Swiss Post" [ref=e492]'
+              - paragraph [ref=e493]: Pour l'expédition, insérez le numéro de suivi dans la note — l'email au client l'inclura automatiquement.
+            - generic [ref=e494]:
+              - generic [ref=e495]: Paiement Twint
+              - button "Envoyer QR Twint par email" [ref=e496] [cursor=pointer]:
+                - img [ref=e497]
+                - text: Envoyer QR Twint par email
+              - paragraph [ref=e500]: Génère un nouveau QR Twint et l'envoie au client par email (valable 1h).
+            - generic [ref=e501]:
+              - generic [ref=e502]: Facture
+              - button "Télécharger la facture PDF" [ref=e503] [cursor=pointer]:
+                - img [ref=e504]
+                - text: Télécharger la facture PDF
+        - generic [ref=e105]:
+          - heading "Commandes" [level=1] [ref=e106]
+          - generic [ref=e107]: 49 commandes
+        - generic [ref=e108]:
+          - generic [ref=e109]:
+            - img
+            - 'searchbox "Rechercher par #ID ou client…" [ref=e110]'
+          - combobox [ref=e111] [cursor=pointer]:
+            - option "Tous les statuts" [selected]
+            - option "En attente"
+            - option "Att. paiement"
+            - option "Payée"
+            - option "En préparation"
+            - option "Expédiée"
+            - option "Livrée"
+            - option "Annulée"
+            - option "Remboursée"
+          - button "Rafraîchir" [ref=e112] [cursor=pointer]:
+            - img [ref=e113]
+        - generic [ref=e118]:
+          - generic [ref=e119]:
+            - generic [ref=e120]: "#"
+            - generic [ref=e121]: Client
+            - generic [ref=e122]: Date
+            - generic [ref=e123]: Total
+            - generic [ref=e124]: Statut
+          - generic [ref=e125] [cursor=pointer]:
+            - generic [ref=e126]: "#49"
+            - generic [ref=e127]:
+              - generic [ref=e128]: Marie Dupont
+              - generic [ref=e129]: test@broderie.ch
+            - generic [ref=e130]: 07.05.26 23:08
+            - generic [ref=e131]: CHF 58.40
+            - generic [ref=e132]:
+              - img [ref=e133]
+              - text: En attente
+            - button "Voir le détail" [ref=e136]:
+              - img [ref=e137]
+          - generic [ref=e140] [cursor=pointer]:
+            - generic [ref=e141]: "#48"
+            - generic [ref=e142]:
+              - generic [ref=e143]: Jean Dupont
+              - generic [ref=e144]: test@test.com
+            - generic [ref=e145]: 07.05.26 22:36
+            - generic [ref=e146]: CHF 38.40
+            - generic [ref=e147]:
+              - img [ref=e148]
+              - text: Payée
+            - button "Voir le détail" [ref=e150]:
+              - img [ref=e151]
+          - generic [ref=e154] [cursor=pointer]:
+            - generic [ref=e155]: "#47"
+            - generic [ref=e156]:
+              - generic [ref=e157]: Jean Dupont
+              - generic [ref=e158]: test@test.com
+            - generic [ref=e159]: 07.05.26 22:36
+            - generic [ref=e160]: CHF 38.40
+            - generic [ref=e161]:
+              - img [ref=e162]
+              - text: En attente
+            - button "Voir le détail" [ref=e165]:
+              - img [ref=e166]
+          - generic [ref=e169] [cursor=pointer]:
+            - generic [ref=e170]: "#46"
+            - generic [ref=e171]:
+              - generic [ref=e172]: Jean Dupont
+              - generic [ref=e173]: test@test.com
+            - generic [ref=e174]: 07.05.26 22:33
+            - generic [ref=e175]: CHF 38.40
+            - generic [ref=e176]:
+              - img [ref=e177]
+              - text: En attente
+            - button "Voir le détail" [ref=e180]:
+              - img [ref=e181]
+          - generic [ref=e184] [cursor=pointer]:
+            - generic [ref=e185]: "#45"
+            - generic [ref=e186]:
+              - generic [ref=e187]: Jean Dupont
+              - generic [ref=e188]: test@test.com
+            - generic [ref=e189]: 07.05.26 22:29
+            - generic [ref=e190]: CHF 207.90
+            - generic [ref=e191]:
+              - img [ref=e192]
+              - text: En attente
+            - button "Voir le détail" [ref=e195]:
+              - img [ref=e196]
+          - generic [ref=e199] [cursor=pointer]:
+            - generic [ref=e200]: "#44"
+            - generic [ref=e201]:
+              - generic [ref=e202]: Marc Favre
+              - generic [ref=e203]: admin@broderie.ch
+            - generic [ref=e204]: 07.05.26 22:18
+            - generic [ref=e205]: CHF 31.40
+            - generic [ref=e206]:
+              - img [ref=e207]
+              - text: En attente
+            - button "Voir le détail" [ref=e210]:
+              - img [ref=e211]
+          - generic [ref=e214] [cursor=pointer]:
+            - generic [ref=e215]: "#43"
+            - generic [ref=e216]:
+              - generic [ref=e217]: Marc Favre
+              - generic [ref=e218]: admin@broderie.ch
+            - generic [ref=e219]: 07.05.26 22:08
+            - generic [ref=e220]: CHF 88.30
+            - generic [ref=e221]:
+              - img [ref=e222]
+              - text: En attente
+            - button "Voir le détail" [ref=e225]:
+              - img [ref=e226]
+          - generic [ref=e229] [cursor=pointer]:
+            - generic [ref=e230]: "#42"
+            - generic [ref=e231]:
+              - generic [ref=e232]: Sophie Meylan
+              - generic [ref=e233]: superadmin@broderie.ch
+            - generic [ref=e234]: 07.05.26 00:39
+            - generic [ref=e235]: CHF 31.40
+            - generic [ref=e236]:
+              - img [ref=e237]
+              - text: En attente
+            - button "Voir le détail" [ref=e240]:
+              - img [ref=e241]
+          - generic [ref=e244] [cursor=pointer]:
+            - generic [ref=e245]: "#41"
+            - generic [ref=e246]:
+              - generic [ref=e247]: Pay Jest
+              - generic [ref=e248]: pay.jest.1778097986146@broderie-test.ch
+            - generic [ref=e249]: 06.05.26 23:06
+            - generic [ref=e250]: CHF 58.40
+            - generic [ref=e251]:
+              - img [ref=e252]
+              - text: Att. paiement
+            - button "Voir le détail" [ref=e255]:
+              - img [ref=e256]
+          - generic [ref=e259] [cursor=pointer]:
+            - generic [ref=e260]: "#40"
+            - generic [ref=e261]:
+              - generic [ref=e262]: Client Jest
+              - generic [ref=e263]: client.shared.1778097984205@broderie-test.ch
+            - generic [ref=e264]: 06.05.26 23:06
+            - generic [ref=e265]: CHF 58.40
+            - generic [ref=e266]:
+              - img [ref=e267]
+              - text: Expédiée
+            - button "Voir le détail" [ref=e272]:
+              - img [ref=e273]
+          - generic [ref=e276] [cursor=pointer]:
+            - generic [ref=e277]: "#39"
+            - generic [ref=e278]:
+              - generic [ref=e279]: Test Order
+              - generic [ref=e280]: order.jest.1778097983105@broderie-test.ch
+            - generic [ref=e281]: 06.05.26 23:06
+            - generic [ref=e282]: CHF 58.40
+            - generic [ref=e283]:
+              - img [ref=e284]
+              - text: Att. paiement
+            - button "Voir le détail" [ref=e287]:
+              - img [ref=e288]
+          - generic [ref=e291] [cursor=pointer]:
+            - generic [ref=e292]: "#1"
+            - generic [ref=e293]:
+              - generic [ref=e294]: Marie Dupont
+              - generic [ref=e295]: marie.dupont@gmail.com
+            - generic [ref=e296]: 06.05.26 23:06
+            - generic [ref=e297]: CHF 88.30
+            - generic [ref=e298]:
+              - img [ref=e299]
+              - text: Livrée
+            - button "Voir le détail" [ref=e301]:
+              - img [ref=e302]
+          - generic [ref=e305] [cursor=pointer]:
+            - generic [ref=e306]: "#2"
+            - generic [ref=e307]:
+              - generic [ref=e308]: Anna Müller
+              - generic [ref=e309]: anna.mueller@bluewin.ch
+            - generic [ref=e310]: 06.05.26 23:06
+            - generic [ref=e311]: CHF 58.40
+            - generic [ref=e312]:
+              - img [ref=e313]
+              - text: Expédiée
+            - button "Voir le détail" [ref=e318]:
+              - img [ref=e319]
+          - generic [ref=e322] [cursor=pointer]:
+            - generic [ref=e323]: "#3"
+            - generic [ref=e324]:
+              - generic [ref=e325]: Isabelle Roux
+              - generic [ref=e326]: isabelle.roux@gmail.com
+            - generic [ref=e327]: 06.05.26 23:06
+            - generic [ref=e328]: CHF 43.40
+            - generic [ref=e329]:
+              - img [ref=e330]
+              - text: Att. paiement
+            - button "Voir le détail" [ref=e333]:
+              - img [ref=e334]
+          - generic [ref=e337] [cursor=pointer]:
+            - generic [ref=e338]: "#4"
+            - generic [ref=e339]:
+              - generic [ref=e340]: Hans Berger
+              - generic [ref=e341]: hans.berger@gmail.com
+            - generic [ref=e342]: 06.05.26 23:06
+            - generic [ref=e343]: CHF 24.80
+            - generic [ref=e344]:
+              - img [ref=e345]
+              - text: Payée
+            - button "Voir le détail" [ref=e347]:
+              - img [ref=e348]
+          - generic [ref=e351] [cursor=pointer]:
+            - generic [ref=e352]: "#38"
+            - generic [ref=e353]:
+              - generic [ref=e354]: Pay Jest
+              - generic [ref=e355]: pay.jest.1778097718336@broderie-test.ch
+            - generic [ref=e356]: 06.05.26 23:01
+            - generic [ref=e357]: CHF 58.40
+            - generic [ref=e358]:
+              - img [ref=e359]
+              - text: Att. paiement
+            - button "Voir le détail" [ref=e362]:
+              - img [ref=e363]
+          - generic [ref=e366] [cursor=pointer]:
+            - generic [ref=e367]: "#37"
+            - generic [ref=e368]:
+              - generic [ref=e369]: Client Jest
+              - generic [ref=e370]: client.shared.1778097716334@broderie-test.ch
+            - generic [ref=e371]: 06.05.26 23:01
+            - generic [ref=e372]: CHF 58.40
+            - generic [ref=e373]:
+              - img [ref=e374]
+              - text: En préparation
+            - button "Voir le détail" [ref=e378]:
+              - img [ref=e379]
+          - generic [ref=e382] [cursor=pointer]:
+            - generic [ref=e383]: "#36"
+            - generic [ref=e384]:
+              - generic [ref=e385]: Test Order
+              - generic [ref=e386]: order.jest.1778097715210@broderie-test.ch
+            - generic [ref=e387]: 06.05.26 23:01
+            - generic [ref=e388]: CHF 58.40
+            - generic [ref=e389]:
+              - img [ref=e390]
+              - text: Att. paiement
+            - button "Voir le détail" [ref=e393]:
+              - img [ref=e394]
+          - generic [ref=e397] [cursor=pointer]:
+            - generic [ref=e398]: "#35"
+            - generic [ref=e399]:
+              - generic [ref=e400]: Pay Jest
+              - generic [ref=e401]: pay.jest.1778097709210@broderie-test.ch
+            - generic [ref=e402]: 06.05.26 23:01
+            - generic [ref=e403]: CHF 58.40
+            - generic [ref=e404]:
+              - img [ref=e405]
+              - text: Att. paiement
+            - button "Voir le détail" [ref=e408]:
+              - img [ref=e409]
+          - generic [ref=e412] [cursor=pointer]:
+            - generic [ref=e413]: "#34"
+            - generic [ref=e414]:
+              - generic [ref=e415]: Test Order
+              - generic [ref=e416]: order.jest.1778097707325@broderie-test.ch
+            - generic [ref=e417]: 06.05.26 23:01
+            - generic [ref=e418]: CHF 58.40
+            - generic [ref=e419]:
+              - img [ref=e420]
+              - text: Att. paiement
+            - button "Voir le détail" [ref=e423]:
+              - img [ref=e424]
+        - generic [ref=e427]:
+          - button [disabled] [ref=e428]:
+            - img [ref=e429]
+          - generic [ref=e431]: Page 1 / 3
+          - button [ref=e432] [cursor=pointer]:
+            - img [ref=e433]
