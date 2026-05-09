@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const userRepository = require('../repositories/user.repository');
 const { AppError } = require('../middlewares/errorHandler');
 const emailService = require('./email.service');
+const env = require('../config/env');
 
 const SALT_ROUNDS = 12;
 
@@ -11,8 +12,8 @@ const SALT_ROUNDS = 12;
 const generateAccessToken = (user) => {
   return jwt.sign(
     { id: user.id, role: user.role, locale: user.locale },
-    process.env.JWT_ACCESS_SECRET,
-    { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m' }
+    env.jwtAccessSecret,
+    { expiresIn: env.jwtAccessExpiresIn }
   );
 };
 
@@ -20,17 +21,17 @@ const generateAccessToken = (user) => {
 const generateRefreshToken = (user) => {
   return jwt.sign(
     { id: user.id },
-    process.env.JWT_REFRESH_SECRET,
-    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    env.jwtRefreshSecret,
+    { expiresIn: env.jwtRefreshExpiresIn }
   );
 };
 
-// Options du cookie refresh token — httpOnly/Secure/SameSite=Strict (voir CLAUDE.md)
+// Options du cookie refresh token — httpOnly/Secure, SameSite=Lax en dev (proxy Vite), Strict en prod
 const refreshCookieOptions = () => ({
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'Strict',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours en ms
+  secure: env.nodeEnv === 'production',
+  sameSite: env.nodeEnv === 'production' ? 'Strict' : 'Lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000,
   path: '/api/v1/auth',
 });
 
@@ -85,7 +86,7 @@ const refreshToken = async (token) => {
 
   let payload;
   try {
-    payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    payload = jwt.verify(token, env.jwtRefreshSecret);
   } catch {
     throw new AppError('Token de rafraîchissement invalide ou expiré.', 401);
   }

@@ -6,7 +6,8 @@ const createOrder = async (req, res, next) => {
     const sessionId     = req.cookies?.cartSession || null;
     const paymentMethod = req.body?.payment_method || 'twint';
     const couponCode    = req.body?.coupon_code?.trim() || null;
-    const order = await orderService.createOrder({ userId, sessionId, paymentMethod, couponCode });
+    const address       = req.body?.address ?? null;
+    const order = await orderService.createOrder({ userId, sessionId, paymentMethod, couponCode, address });
     res.status(201).json({ success: true, data: order });
   } catch (error) {
     next(error);

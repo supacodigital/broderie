@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Heart, Star } from 'lucide-react'
-import api from '../../../services/api.js'
+import { getProducts } from '../../../services/products.service.js'
 import { roundCHF } from '../../../utils/chf.js'
 import { normalizeLocale } from '../../../utils/locale.js'
 import s from './FeaturedProductsSection.module.css'
@@ -32,10 +32,8 @@ export default function FeaturedProductsSection() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    api.get('/products', {
-      params: { featured: true, locale: normalizeLocale(i18n.language), limit: 8 },
-    })
-      .then(({ data }) => { if (!cancelled) setProducts(data.data ?? []) })
+    getProducts({ featured: true, locale: normalizeLocale(i18n.language), limit: 8 })
+      .then((data) => { if (!cancelled) setProducts(data.data ?? []) })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }

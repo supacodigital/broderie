@@ -11,7 +11,10 @@ import {
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useWishlist } from '../../contexts/WishlistContext.jsx'
 import { getMyOrders } from '../../services/orders.service.js'
-import api from '../../services/api.js'
+import { updateProfile, updatePassword } from '../../services/profile.service.js'
+import { getAddresses, createAddress, updateAddress, deleteAddress } from '../../services/addresses.service.js'
+import { getLoyaltyAccount, getLoyaltyRewards } from '../../services/loyalty.service.js'
+import { getWishlist } from '../../services/wishlist.service.js'
 import { roundCHF } from '../../utils/chf.js'
 import s from './Account.module.css'
 
@@ -81,10 +84,7 @@ function PasswordForm() {
   const onSubmit = async (data) => {
     setApiErr('')
     try {
-      await api.put('/users/me/password', {
-        current_password: data.current_password,
-        new_password:     data.new_password,
-      })
+      await updatePassword(data.current_password, data.new_password)
       setSaved(true)
       reset()
       setTimeout(() => setSaved(false), 3000)
@@ -150,10 +150,12 @@ function LoyaltyBlock() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/loyalty/me')
-      .then(res => setData(res.data?.data ?? null))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false))
+    let cancelled = false
+    getLoyaltyAccount()
+      .then(res => { if (!cancelled) setData(res ?? null) })
+      .catch(() => { if (!cancelled) setData(null) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [])
 
   if (loading) {
@@ -223,7 +225,7 @@ function TabProfile({ user, onSaved }) {
   const onSubmit = async (data) => {
     setApiErr('')
     try {
-      await api.put('/users/me', data)
+      await updateProfile(data)
       setSaved(true)
       onSaved?.(data)
       setTimeout(() => setSaved(false), 3000)
@@ -290,10 +292,12 @@ function TabOrders() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let cancelled = false
     getMyOrders({ limit: 20 })
-      .then(d => setOrders(d.data ?? []))
-      .catch(() => setOrders([]))
-      .finally(() => setLoading(false))
+      .then(d => { if (!cancelled) setOrders(d.data ?? []) })
+      .catch(() => { if (!cancelled) setOrders([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [])
 
   if (loading) {
@@ -420,30 +424,32 @@ function TabAddresses() {
   const [modal,     setModal]     = useState(null) /* null | 'new' | {address} */
 
   useEffect(() => {
-    api.get('/users/me/addresses')
-      .then(d => setAddresses(d.data?.data ?? []))
-      .catch(() => setAddresses([]))
-      .finally(() => setLoading(false))
+    let cancelled = false
+    getAddresses()
+      .then(d => { if (!cancelled) setAddresses(d.data ?? []) })
+      .catch(() => { if (!cancelled) setAddresses([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [])
 
   const handleSave = async (data) => {
     try {
       if (modal?.id) {
-        await api.put(`/users/me/addresses/${modal.id}`, data)
+        await updateAddress(modal.id, data)
         setAddresses(prev => prev.map(a => a.id === modal.id ? { ...a, ...data } : a))
       } else {
-        const res = await api.post('/users/me/addresses', data)
-        const newAddr = res.data?.data ?? { ...data, id: Date.now(), is_default: false }
+        const res = await createAddress(data)
+        const newAddr = res.data ?? { ...data, id: Date.now(), is_default: false }
         setAddresses(prev => [...prev, newAddr])
       }
     } catch {
-      /* garde les données mock en cas d'erreur API */
+      /* continue sans bloquer l'UI */
     }
   }
 
   const handleDelete = async (id) => {
     try {
-      await api.delete(`/users/me/addresses/${id}`)
+      await deleteAddress(id)
     } catch { /* continue même si l'API échoue */ }
     setAddresses(prev => prev.filter(a => a.id !== id))
   }
@@ -523,10 +529,12 @@ function TabWishlist() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/users/me/wishlist', { params: { locale: i18n.language?.split('-')[0] ?? 'fr' } })
-      .then(d => setItems(d.data?.data ?? []))
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false))
+    let cancelled = false
+    getWishlist(i18n.language?.split('-')[0] ?? 'fr')
+      .then(d => { if (!cancelled) setItems(d.data ?? []) })
+      .catch(() => { if (!cancelled) setItems([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [i18n.language])
 
   const handleRemove = async (productId) => {
@@ -602,16 +610,16 @@ function TabLoyalty() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([
-      api.get('/loyalty/me'),
-      api.get('/loyalty/me/rewards'),
-    ])
+    let cancelled = false
+    Promise.all([getLoyaltyAccount(), getLoyaltyRewards()])
       .then(([meRes, rewardsRes]) => {
-        setData(meRes.data?.data ?? null)
-        setRewards(rewardsRes.data?.data ?? [])
+        if (cancelled) return
+        setData(meRes ?? null)
+        setRewards(rewardsRes ?? [])
       })
       .catch(() => {})
-      .finally(() => setLoading(false))
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [])
 
   if (loading) return (

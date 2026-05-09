@@ -163,7 +163,7 @@ const findByIdAdmin = async (id, locale = 'fr') => {
 };
 
 // Liste admin avec soft-deleted et inactifs
-const findAllAdmin = async ({ page = 1, limit = 20, search = '', categoryId = null }) => {
+const findAllAdmin = async ({ page = 1, limit = 20, search = '', categoryId = null, lowStock = false }) => {
   const offset = (page - 1) * limit;
   const params = ['fr'];
   let where = 'WHERE p.deleted_at IS NULL';
@@ -175,6 +175,9 @@ const findAllAdmin = async ({ page = 1, limit = 20, search = '', categoryId = nu
   if (categoryId) {
     where += ' AND p.category_id = ?';
     params.push(categoryId);
+  }
+  if (lowStock) {
+    where += ' AND p.stock <= 5 AND p.is_active = 1';
   }
 
   const [countRows] = await pool.query(
@@ -198,8 +201,8 @@ const findAllAdmin = async ({ page = 1, limit = 20, search = '', categoryId = nu
      LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
      ${where}
      ORDER BY p.created_at DESC
-     LIMIT ${limit} OFFSET ${offset}`,
-    params
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
   );
 
   return { rows, total };

@@ -53,6 +53,21 @@ function ActiveFilters({ filters, categories, onChange }) {
       clear: () => onChange({ ...filters, in_stock: undefined, page: 1 }),
     })
   }
+  if (filters.badge) {
+    const BADGE_LABELS = { nouveaute: 'Nouveauté', promo: 'Promotion', coup_de_coeur: 'Coup de cœur', exclusif: 'Exclusif' }
+    chips.push({
+      key:   'badge',
+      label: BADGE_LABELS[filters.badge] ?? filters.badge,
+      clear: () => onChange({ ...filters, badge: undefined, page: 1 }),
+    })
+  }
+  if (filters.min_rating) {
+    chips.push({
+      key:   'min_rating',
+      label: `★ ${filters.min_rating}+`,
+      clear: () => onChange({ ...filters, min_rating: undefined, page: 1 }),
+    })
+  }
 
   if (chips.length === 0) return null
 
@@ -131,9 +146,11 @@ export default function Catalogue() {
     min_price:searchParams.get('min_price') ?? undefined,
     max_price:searchParams.get('max_price') ?? undefined,
     in_stock: searchParams.get('in_stock') === 'true' ? true : undefined,
-    sort:     searchParams.get('sort')      ?? 'created_at',
-    order:    searchParams.get('order')     ?? 'desc',
-    featured: searchParams.get('featured') === 'true' ? true : undefined,
+    sort:       searchParams.get('sort')      ?? 'created_at',
+    order:      searchParams.get('order')     ?? 'desc',
+    featured:   searchParams.get('featured') === 'true' ? true : undefined,
+    badge:      searchParams.get('badge')     ?? undefined,
+    min_rating: searchParams.get('min_rating') ? parseInt(searchParams.get('min_rating')) : undefined,
   })
 
   useEffect(() => {

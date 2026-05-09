@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { AppError } = require('./errorHandler');
+const env = require('../config/env');
 
 // Vérifie le JWT access token envoyé dans le header Authorization
 // Le token est stocké en mémoire React — jamais dans localStorage (voir CLAUDE.md)
@@ -13,7 +14,7 @@ const requireAuth = (req, res, next) => {
   const token = authHeader.split(' ')[1];
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
+    const payload = jwt.verify(token, env.jwtAccessSecret);
     // Rôle toujours lu depuis le token — jamais depuis le body du client
     req.user = { id: payload.id, role: payload.role, locale: payload.locale };
     next();

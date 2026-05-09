@@ -1,18 +1,19 @@
-const shipengine  = require('../config/shipengine');
+const shipengine   = require('../config/shipengine');
 const { AppError } = require('../middlewares/errorHandler');
+const env          = require('../config/env');
 
 /* Identifiant transporteur Swiss Post configuré dans le compte ShipEngine */
-const SWISS_POST_CARRIER_ID = process.env.SHIPENGINE_SWISS_POST_CARRIER_ID ?? '';
+const SWISS_POST_CARRIER_ID = env.shipengineCarrierId;
 
 /* Compte expéditeur de la boutique */
 const SENDER = {
-  name:        process.env.SHOP_NAME          ?? 'Au Point-Compté',
-  phone:       process.env.SHOP_PHONE         ?? '+41000000000',
-  addressLine1: process.env.SHOP_ADDRESS      ?? 'Rue de la Boutique 1',
-  cityLocality: process.env.SHOP_CITY         ?? 'Genève',
-  stateProvince: process.env.SHOP_CANTON      ?? 'GE',
-  postalCode:   process.env.SHOP_ZIP          ?? '1200',
-  countryCode:  'CH',
+  name:          env.shopName,
+  phone:         env.shopPhone,
+  addressLine1:  env.shopAddress,
+  cityLocality:  env.shopCity,
+  stateProvince: env.shopCanton,
+  postalCode:    env.shopZip,
+  countryCode:   'CH',
 };
 
 /**

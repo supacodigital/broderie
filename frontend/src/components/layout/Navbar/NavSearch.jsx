@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Search, X, ArrowRight } from 'lucide-react'
 import { normalizeLocale } from '../../../utils/locale.js'
-import api from '../../../services/api.js'
+import { searchProducts } from '../../../services/products.service.js'
 import s from './NavSearch.module.css'
 
 export default function NavSearch({ open, onClose }) {
@@ -42,10 +42,8 @@ export default function NavSearch({ open, onClose }) {
     setLoading(true)
     debounceRef.current = setTimeout(async () => {
       try {
-        const { data } = await api.get('/products', {
-          params: { q: val.trim(), locale: normalizeLocale(i18n.language), limit: 5 },
-        })
-        setSuggestions(data.data ?? [])
+        const res = await searchProducts(val.trim(), { locale: normalizeLocale(i18n.language), limit: 5 })
+        setSuggestions(res.data ?? [])
         setActiveIndex(-1)
       } catch {
         setSuggestions([])

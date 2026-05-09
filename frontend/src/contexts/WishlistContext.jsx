@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import api from '../services/api.js'
+import { getWishlist, addToWishlist, removeFromWishlist } from '../services/wishlist.service.js'
 import { useAuth } from './AuthContext.jsx'
 
 const WishlistContext = createContext(null)
@@ -11,9 +11,9 @@ export function WishlistProvider({ children }) {
   /* Charge les ids wishlist au login */
   useEffect(() => {
     if (!isAuthenticated) { setIds(new Set()); return }
-    api.get('/users/me/wishlist')
+    getWishlist()
       .then(res => {
-        const items = res.data?.data ?? []
+        const items = res.data ?? []
         setIds(new Set(items.map(i => i.product_id)))
       })
       .catch(() => setIds(new Set()))
@@ -33,9 +33,9 @@ export function WishlistProvider({ children }) {
 
     try {
       if (wasIn) {
-        await api.delete(`/users/me/wishlist/${productId}`)
+        await removeFromWishlist(productId)
       } else {
-        await api.post(`/users/me/wishlist/${productId}`)
+        await addToWishlist(productId)
       }
     } catch {
       /* Rollback */

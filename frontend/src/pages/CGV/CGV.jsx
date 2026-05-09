@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight, FileText } from 'lucide-react'
-import api from '../../services/api.js'
+import { getLegalContent } from '../../services/legal.service.js'
 import s from './CGV.module.css'
 
 const STATIC_SECTIONS = [
@@ -104,8 +104,8 @@ export default function CGV() {
   const [customText, setCustomText] = useState('')
 
   useEffect(() => {
-    api.get('/legal')
-      .then(res => setCustomText(res.data?.data?.cgv ?? ''))
+    getLegalContent()
+      .then(data => setCustomText(data?.data?.cgv ?? ''))
       .catch(() => {})
   }, [])
 

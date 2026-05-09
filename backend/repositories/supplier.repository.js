@@ -25,8 +25,8 @@ const findAll = async ({ page = 1, limit = 20, search = '' }) => {
      ${where}
      GROUP BY s.id
      ORDER BY s.name ASC
-     LIMIT ${limit} OFFSET ${offset}`,
-    params
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
   );
 
   return { rows, total };

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Star, Send, CheckCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import api from '../../services/api.js'
+import { createReview, getProductReviews } from '../../services/reviews.service.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import s from './ReviewsSection.module.css'
 
@@ -47,7 +47,7 @@ function ReviewForm({ productId, onSubmitted }) {
     setError('')
     setSubmitting(true)
     try {
-      await api.post(`/products/${productId}/reviews`, { rating, title: title.trim() || undefined, body: body.trim() })
+      await createReview(productId, { rating, title: title.trim() || undefined, body: body.trim() })
       setSuccess(true)
       onSubmitted?.()
     } catch (err) {
@@ -153,8 +153,8 @@ export default function ReviewsSection({ productId, avgRating = 0, reviewCount =
   useEffect(() => {
     if (!productId) return
     let cancelled = false
-    api.get(`/products/${productId}/reviews`, { params: { limit: 20 } })
-      .then(({ data }) => {
+    getProductReviews(productId, { limit: 20 })
+      .then((data) => {
         if (cancelled) return
         const rows = data.data ?? []
         const d = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }

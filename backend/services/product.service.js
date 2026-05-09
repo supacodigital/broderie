@@ -21,6 +21,8 @@ const getAll = async (query) => {
     ...(query.max_price !== undefined && { maxPrice: parseFloat(query.max_price) }),
     ...(query.in_stock === 'true' && { inStock: true }),
     ...(query.featured === 'true' && { featured: true }),
+    ...(query.badge && { badge: query.badge }),
+    ...(query.min_rating && { minRating: parseFloat(query.min_rating) }),
   };
 
   // Résolution du slug catégorie en id(s) pour la requête SQL

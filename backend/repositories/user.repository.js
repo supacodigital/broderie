@@ -96,13 +96,40 @@ const updateAddress = async (addressId, userId, { label, street, city, zip, coun
   );
 };
 
-// Suppression d'une adresse
+// Suppression d'une adresse — si elle était la défaut, en promote une autre automatiquement
 const deleteAddress = async (addressId, userId) => {
-  const [result] = await pool.execute(
-    `DELETE FROM addresses WHERE id = ? AND user_id = ?`,
-    [addressId, userId]
-  );
-  return result.affectedRows > 0;
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [[addr]] = await connection.execute(
+      `SELECT is_default FROM addresses WHERE id = ? AND user_id = ?`,
+      [addressId, userId]
+    );
+    if (!addr) { await connection.rollback(); return false; }
+
+    const [result] = await connection.execute(
+      `DELETE FROM addresses WHERE id = ? AND user_id = ?`,
+      [addressId, userId]
+    );
+
+    // Si l'adresse supprimée était la défaut, on promeut la suivante
+    if (addr.is_default) {
+      await connection.execute(
+        `UPDATE addresses SET is_default = 1
+         WHERE user_id = ? ORDER BY id ASC LIMIT 1`,
+        [userId]
+      );
+    }
+
+    await connection.commit();
+    return result.affectedRows > 0;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
 };
 
 // Sauvegarde d'un token de réinitialisation de mot de passe (hachage SHA-256, expiration 1h)

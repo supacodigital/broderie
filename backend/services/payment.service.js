@@ -7,6 +7,7 @@ const loyaltyService    = require('./loyalty.service');
 const { pool }          = require('../config/db');
 const { AppError }      = require('../middlewares/errorHandler');
 const { roundCHF }      = require('../utils/chf.utils');
+const env               = require('../config/env');
 
 // ─────────────────────────────────────────────────────────────
 // Carte — crée un PaymentIntent Stripe et retourne le client_secret
@@ -73,10 +74,19 @@ const createTwintIntent = async (orderId) => {
   // Montant en centimes (CHF) — Stripe travaille en centimes
   const amountCents = Math.round(roundCHF(parseFloat(order.total)) * 100);
 
+  // Twint requiert confirm:true + return_url pour que next_action soit renseigné
+  const returnUrl = `${env.clientUrl || 'http://localhost:5173'}/commande/${orderId}/confirmation`;
+
+  // Stripe impose la création d'un PaymentMethod avant de confirmer
+  const paymentMethod = await stripe.paymentMethods.create({ type: 'twint' });
+
   const intent = await stripe.paymentIntents.create({
     amount:               amountCents,
     currency:             'chf',
     payment_method_types: ['twint'],
+    payment_method:       paymentMethod.id,
+    confirm:              true,
+    return_url:           returnUrl,
     metadata: {
       order_id: String(orderId),
     },
@@ -96,15 +106,18 @@ const createTwintIntent = async (orderId) => {
     });
   }
 
-  // QR code retourné directement par Stripe
-  const qrUrl = intent.next_action?.twint_display_qr_code?.image_url_png ?? null;
+  // Production : QR PNG Twint — Test Stripe : redirect_to_url (pas de QR réel)
+  const qrUrl       = intent.next_action?.twint_display_qr_code?.image_url_png ?? null;
+  const redirectUrl = intent.next_action?.redirect_to_url?.url ?? null;
 
   return {
     paymentIntentId: intent.id,
     clientSecret:    intent.client_secret,
     qrUrl,
+    redirectUrl,
+    isTestMode:      !qrUrl && !!redirectUrl,
     amount:          order.total,
-    expiresAt:       new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 heure
+    expiresAt:       new Date(Date.now() + 60 * 60 * 1000).toISOString(),
   };
 };
 
@@ -115,19 +128,33 @@ const sendTwintQrByEmail = async (orderId, adminUserId) => {
   if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
 
   const twint = await createTwintIntent(orderId);
-  if (!twint.qrUrl) throw new AppError('Impossible de générer le QR Twint.', 500);
 
   const order = await orderRepository.findById(orderId);
   const user  = await userRepository.findById(order.user_id);
   if (!user) throw new AppError('Client introuvable.', 404);
 
-  // Téléchargement du PNG depuis Stripe
+  // Mode test Stripe : pas de QR PNG — on envoie l'URL de paiement à la place
+  if (twint.isTestMode) {
+    await emailService.sendTwintQr({
+      user,
+      order,
+      qrBuffer:    null,
+      redirectUrl: twint.redirectUrl,
+      expiresAt:   twint.expiresAt,
+      isTestMode:  true,
+    });
+    return { paymentIntentId: twint.paymentIntentId, expiresAt: twint.expiresAt, isTestMode: true };
+  }
+
+  if (!twint.qrUrl) throw new AppError('Impossible de générer le QR Twint.', 500);
+
+  // Production : téléchargement du PNG Twint depuis Stripe
   const response = await fetch(twint.qrUrl);
   if (!response.ok) throw new AppError('Impossible de récupérer l\'image QR.', 500);
   const arrayBuffer = await response.arrayBuffer();
   const qrBuffer    = Buffer.from(arrayBuffer);
 
-  await emailService.sendTwintQr({ user, order, qrBuffer, expiresAt: twint.expiresAt });
+  await emailService.sendTwintQr({ user, order, qrBuffer, expiresAt: twint.expiresAt, isTestMode: false });
 
   return { paymentIntentId: twint.paymentIntentId, expiresAt: twint.expiresAt };
 };
@@ -143,7 +170,7 @@ const handleWebhook = async (rawBody, signature) => {
     event = stripe.webhooks.constructEvent(
       rawBody,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET
+      env.stripeWebhookSecret
     );
   } catch (err) {
     throw new AppError(`Signature webhook invalide : ${err.message}`, 400);

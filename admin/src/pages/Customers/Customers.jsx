@@ -3,22 +3,12 @@ import {
   Search, ChevronLeft, ChevronRight, X,
   MapPin, ShoppingBag, AlertTriangle, Gift,
 } from 'lucide-react'
-import api from '../../services/api.js'
+import { getCustomers, getCustomerById } from '../../services/customers.service.js'
 import { roundCHF } from '../../utils/chf.js'
+import { STATUS_CFG } from '../../utils/orderStatus.js'
 import s from './Customers.module.css'
 
 const LIMIT = 20
-
-const STATUS_CFG = {
-  pending:          { label: 'En attente',    color: '#d97706' },
-  awaiting_payment: { label: 'Att. paiement', color: '#9333ea' },
-  paid:             { label: 'Payée',         color: '#059669' },
-  processing:       { label: 'En préparation',color: '#2563eb' },
-  shipped:          { label: 'Expédiée',      color: '#0891b2' },
-  delivered:        { label: 'Livrée',        color: '#7c3aed' },
-  cancelled:        { label: 'Annulée',       color: '#dc2626' },
-  refunded:         { label: 'Remboursée',    color: '#6b7280' },
-}
 
 function formatDate(iso) {
   if (!iso) return '—'
@@ -47,8 +37,8 @@ function CustomerModal({ customerId, onClose }) {
   useEffect(() => {
     setLoading(true)
     setError(false)
-    api.get(`/admin/customers/${customerId}`)
-      .then(res => setData(res.data.data))
+    getCustomerById(customerId)
+      .then(res => setData(res.data ?? null))
       .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [customerId])
@@ -271,9 +261,9 @@ export default function Customers() {
     try {
       const params = new URLSearchParams({ page, limit: LIMIT })
       if (debouncedSearch) params.set('q', debouncedSearch)
-      const res = await api.get(`/admin/customers?${params}`)
-      setCustomers(res.data.data ?? [])
-      setTotal(res.data.pagination?.total ?? 0)
+      const res = await getCustomers(Object.fromEntries(params))
+      setCustomers(res.data ?? [])
+      setTotal(res.pagination?.total ?? 0)
     } catch {
       setError(true)
     } finally {

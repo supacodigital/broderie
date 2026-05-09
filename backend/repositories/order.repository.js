@@ -1,7 +1,7 @@
 const { pool } = require('../config/db');
 
 // Création d'une commande — transaction atomique (stock + commande + items)
-const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', addressId, couponCode = null, discount = 0 }) => {
+const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, couponCode = null, discount = 0 }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -21,11 +21,20 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
       );
     }
 
-    // Création de la commande
+    // Création de la commande avec adresse de livraison figée
     const [orderResult] = await connection.execute(
-      `INSERT INTO orders (user_id, status, subtotal, discount, coupon_code, shipping_cost, tax_amount, total)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, status, subtotal, discount, couponCode, shippingCost, taxAmount, total]
+      `INSERT INTO orders
+         (user_id, status, subtotal, discount, coupon_code, shipping_cost, tax_amount, total,
+          shipping_street, shipping_city, shipping_zip, shipping_country, shipping_canton)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        userId, status, subtotal, discount, couponCode, shippingCost, taxAmount, total,
+        address?.street  ?? null,
+        address?.city    ?? null,
+        address?.zip     ?? null,
+        address?.country ?? 'CH',
+        address?.canton  ?? null,
+      ]
     );
     const orderId = orderResult.insertId;
 
@@ -92,8 +101,8 @@ const findByUserId = async (userId, { page = 1, limit = 20 }) => {
      WHERE o.user_id = ?
      GROUP BY o.id
      ORDER BY o.created_at DESC
-     LIMIT ${limit} OFFSET ${offset}`,
-    [userId]
+     LIMIT ? OFFSET ?`,
+    [userId, limit, offset]
   );
 
   return { rows, total };
@@ -113,11 +122,12 @@ const findById = async (orderId, userId = null) => {
   const [orders] = await pool.execute(
     `SELECT o.id, o.status, o.subtotal, o.shipping_cost, o.tax_amount, o.total,
             o.created_at, o.updated_at, o.user_id,
-            u.first_name, u.last_name, u.email,
-            a.street, a.city, a.zip, a.country, a.canton
+            o.shipping_street AS street, o.shipping_city AS city,
+            o.shipping_zip    AS zip,    o.shipping_country AS country,
+            o.shipping_canton AS canton,
+            u.first_name, u.last_name, u.email
      FROM orders o
      INNER JOIN users u ON u.id = o.user_id
-     LEFT JOIN addresses a ON a.user_id = o.user_id AND a.is_default = 1
      WHERE ${conditions.join(' AND ')}
      LIMIT 1`,
     params

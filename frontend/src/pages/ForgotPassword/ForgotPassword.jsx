@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { AlertCircle, Mail, ArrowLeft, CheckCircle } from 'lucide-react'
-import api from '../../services/api.js'
+import { forgotPassword } from '../../services/auth.service.js'
 import s from './ForgotPassword.module.css'
 
 const schema = z.object({
@@ -20,7 +20,7 @@ export default function ForgotPassword() {
 
   const onSubmit = async (values) => {
     /* Réponse toujours 200 côté serveur (anti-énumération) */
-    await api.post('/auth/forgot-password', { email: values.email }).catch(() => {})
+    await forgotPassword(values.email).catch(() => {})
     setSent(true)
   }
 

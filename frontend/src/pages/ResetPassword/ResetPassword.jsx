@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { AlertCircle, Eye, EyeOff, CheckCircle, XCircle, Lock } from 'lucide-react'
-import api from '../../services/api.js'
+import { resetPassword } from '../../services/auth.service.js'
 import s from './ResetPassword.module.css'
 
 const schema = z.object({
@@ -40,7 +40,7 @@ export default function ResetPassword() {
   const onSubmit = async (values) => {
     setApiError('')
     try {
-      await api.post('/auth/reset-password', { token, password: values.password })
+      await resetPassword(token, values.password)
       setSuccess(true)
     } catch (err) {
       const status = err.response?.status

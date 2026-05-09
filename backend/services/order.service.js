@@ -7,12 +7,12 @@ const { AppError }      = require('../middlewares/errorHandler');
 const { roundCHF }      = require('../utils/chf.utils');
 const emailService      = require('./email.service');
 
-const VALID_METHODS = ['twint', 'card'];
+const VALID_METHODS = ['twint', 'card', 'invoice'];
 
 // Frais de port fixes Suisse — toujours payants (voir CLAUDE.md)
 const SHIPPING_COST = 8.50;
 
-const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponCode = null }) => {
+const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponCode = null, address = null }) => {
   if (!VALID_METHODS.includes(paymentMethod)) {
     throw new AppError('Méthode de paiement invalide.', 400);
   }
@@ -69,6 +69,7 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
     taxAmount,
     total,
     status: initialStatus,
+    address,
     couponCode: couponApplied,
     discount,
   });

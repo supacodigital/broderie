@@ -251,10 +251,11 @@
     "searchPlaceholder": "Search a product…",
     "sortBy": "Sort by",
     "sortNewest": "Newest first",
-    "sortOldest": "Oldest first",
+    "sortNewBadge": "New arrivals",
     "sortPriceAsc": "Price: low to high",
     "sortPriceDesc": "Price: high to low",
     "sortRating": "Best rated",
+    "sortNameAsc": "Name A–Z",
     "resultCount": "{{count}} product",
     "resultCount_other": "{{count}} products"
   }

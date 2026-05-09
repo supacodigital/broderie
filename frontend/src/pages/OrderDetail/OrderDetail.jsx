@@ -6,6 +6,7 @@ import {
   MapPin, ChevronRight,
 } from 'lucide-react'
 import { getOrderById } from '../../services/orders.service.js'
+import { createTwintIntent } from '../../services/payments.service.js'
 import s from './OrderDetail.module.css'
 
 /* ── Config statuts ── */
@@ -95,10 +96,9 @@ function TwintBlock({ orderId, onPaid }) {
     setLoading(true)
     setError(null)
     try {
-      const { default: api } = await import('../../services/api.js')
-      const res = await api.post(`/payments/twint/${orderId}`)
-      setQrUrl(res.data.data.qrUrl)
-      setExpiry(res.data.data.expiresAt)
+      const res = await createTwintIntent(orderId)
+      setQrUrl(res.qrUrl)
+      setExpiry(res.expiresAt)
     } catch {
       setError('Impossible de générer le QR Twint. Veuillez réessayer.')
     } finally {
@@ -220,28 +220,24 @@ export default function OrderDetail() {
   const [order,   setOrder]   = useState(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
+  const [reload,  setReload]  = useState(0)
 
-  const loadOrder = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false
     setError(null)
-    try {
-      const res = await getOrderById(id)
-      setOrder(res.data)
-    } catch (err) {
-      if (err.response?.status === 404) {
-        setError('Commande introuvable.')
-      } else {
-        setError('Une erreur est survenue. Veuillez réessayer.')
-      }
-    } finally {
-      setLoading(false)
-    }
-  }, [id])
+    setLoading(true)
+    getOrderById(id)
+      .then(res => { if (!cancelled) { setOrder(res.data); setLoading(false) } })
+      .catch(err => {
+        if (cancelled) return
+        setLoading(false)
+        if (err.response?.status === 404) setError('Commande introuvable.')
+        else setError('Une erreur est survenue. Veuillez réessayer.')
+      })
+    return () => { cancelled = true }
+  }, [id, reload])
 
-  useEffect(() => { loadOrder() }, [loadOrder])
-
-  const handlePaid = useCallback(() => {
-    loadOrder()
-  }, [loadOrder])
+  const handlePaid = useCallback(() => setReload(r => r + 1), [])
 
   /* ── Déterminer la méthode de paiement depuis le dernier historique ── */
   const paymentMethod = order?.payment_method ?? null

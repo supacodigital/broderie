@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Star, MapPin } from 'lucide-react'
-import api from '../../../services/api.js'
+import { getLatestReviews } from '../../../services/reviews.service.js'
 import s from './TestimonialsSection.module.css'
 
 function Stars({ rating }) {
@@ -21,8 +21,8 @@ export default function TestimonialsSection() {
 
   useEffect(() => {
     let cancelled = false
-    api.get('/reviews', { params: { limit: 3, rating: 5 } })
-      .then(({ data }) => { if (!cancelled) setReviews(data.data ?? []) })
+    getLatestReviews({ limit: 3, rating: 5 })
+      .then((data) => { if (!cancelled) setReviews(data.data ?? []) })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }

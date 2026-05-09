@@ -7,19 +7,9 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { roundCHF } from '../../utils/chf.js'
-import api from '../../services/api.js'
+import { fetchDashboardStats } from '../../services/dashboard.service.js'
+import { STATUS_CFG } from '../../utils/orderStatus.js'
 import s from './Dashboard.module.css'
-
-const STATUS_CFG = {
-  pending:          { label: 'En attente',      color: '#d97706', bg: '#fffbeb', dot: '#f59e0b' },
-  awaiting_payment: { label: 'Att. paiement',   color: '#9333ea', bg: '#faf5ff', dot: '#a855f7' },
-  paid:             { label: 'Payée',            color: '#059669', bg: '#ecfdf5', dot: '#10b981' },
-  processing:       { label: 'En préparation',   color: '#2563eb', bg: '#eff6ff', dot: '#3b82f6' },
-  shipped:          { label: 'Expédiée',         color: '#0891b2', bg: '#ecfeff', dot: '#06b6d4' },
-  delivered:        { label: 'Livrée',           color: '#7c3aed', bg: '#f5f3ff', dot: '#8b5cf6' },
-  cancelled:        { label: 'Annulée',          color: '#dc2626', bg: '#fef2f2', dot: '#ef4444' },
-  refunded:         { label: 'Remboursée',       color: '#6b7280', bg: '#f3f4f6', dot: '#9ca3af' },
-}
 
 function StatusBadge({ status }) {
   const cfg = STATUS_CFG[status] ?? { label: status, color: '#6b7280', bg: '#f3f4f6', dot: '#9ca3af' }
@@ -90,8 +80,8 @@ export default function Dashboard() {
     setError(false)
     setLoading(true)
     try {
-      const res = await api.get('/admin/dashboard/stats')
-      setData(res.data?.data ?? null)
+      const res = await fetchDashboardStats()
+      setData(res.data ?? null)
     } catch {
       setError(true)
     } finally {

@@ -1,6 +1,15 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Save, Check, AlertCircle, AlertTriangle } from 'lucide-react'
-import api from '../../services/api.js'
+import {
+  getStoreSettings,
+  updateStoreSettings,
+  getTaxRates,
+  updateTaxRates,
+  getShippingRates,
+  updateShippingRates,
+  getLegalSettings,
+  updateLegalSettings,
+} from '../../services/settings.service.js'
 import s from './Settings.module.css'
 
 /* ── Composant section générique ── */
@@ -41,8 +50,8 @@ function StoreTab() {
     setError(false)
     setLoading(true)
     try {
-      const res = await api.get('/admin/settings/store')
-      setValues(prev => ({ ...prev, ...res.data.data }))
+      const res = await getStoreSettings()
+      setValues(prev => ({ ...prev, ...res.data }))
     } catch {
       setError(true)
     } finally {
@@ -58,7 +67,7 @@ function StoreTab() {
     setSaving(true)
     setStatus(null)
     try {
-      await api.put('/admin/settings/store', values)
+      await updateStoreSettings(values)
       setStatus('saved')
     } catch {
       setStatus('error')
@@ -131,8 +140,8 @@ function TaxTab() {
     setError(false)
     setLoading(true)
     try {
-      const res = await api.get('/admin/settings/tax-rates')
-      setRates(res.data.data ?? [])
+      const res = await getTaxRates()
+      setRates(res.data ?? [])
     } catch {
       setError(true)
     } finally {
@@ -151,8 +160,8 @@ function TaxTab() {
     setStatus(null)
     try {
       const payload = rates.map(r => ({ id: r.id, rate: parseFloat(r.rate) }))
-      const res = await api.put('/admin/settings/tax-rates', { rates: payload })
-      setRates(res.data.data ?? rates)
+      const res = await updateTaxRates(payload)
+      setRates(res.data ?? rates)
       setStatus('saved')
     } catch {
       setStatus('error')
@@ -232,8 +241,8 @@ function ShippingTab() {
     setError(false)
     setLoading(true)
     try {
-      const res = await api.get('/admin/settings/shipping')
-      setRates(res.data.data ?? [])
+      const res = await getShippingRates()
+      setRates(res.data ?? [])
     } catch {
       setError(true)
     } finally {
@@ -256,8 +265,8 @@ function ShippingTab() {
         priceChf:      parseFloat(r.price_chf),
         estimatedDays: r.estimated_days,
       }))
-      const res = await api.put('/admin/settings/shipping', { rates: payload })
-      setRates(res.data.data ?? rates)
+      const res = await updateShippingRates(payload)
+      setRates(res.data ?? rates)
       setStatus('saved')
     } catch {
       setStatus('error')
@@ -343,8 +352,8 @@ function LegalTab() {
     setError(false)
     setLoading(true)
     try {
-      const res = await api.get('/admin/settings/legal')
-      setValues(prev => ({ ...prev, ...res.data.data }))
+      const res = await getLegalSettings()
+      setValues(prev => ({ ...prev, ...res.data }))
     } catch {
       setError(true)
     } finally {
@@ -360,7 +369,7 @@ function LegalTab() {
     setSaving(true)
     setStatus(null)
     try {
-      await api.put('/admin/settings/legal', values)
+      await updateLegalSettings(values)
       setStatus('saved')
     } catch {
       setStatus('error')

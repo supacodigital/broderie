@@ -51,6 +51,7 @@ router.delete('/suppliers/:id', supplierController.remove);
 router.get('/orders', adminOrderController.getAll);
 router.get('/orders/:id', adminOrderController.getById);
 router.put('/orders/:id/status', adminOrderController.updateStatus);
+router.get('/orders/:id/invoice', adminOrderController.downloadInvoice);
 
 // Avis clients
 router.get('/reviews', reviewController.getAll);

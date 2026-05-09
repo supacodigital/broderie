@@ -1,30 +1,43 @@
-const cartService = require('../services/cart.service');
+const cartService  = require('../services/cart.service');
+const cartRepository = require('../repositories/cart.repository');
 const { v4: uuidv4 } = require('uuid');
 
-// Résout les identifiants — user connecté ou session cookie anonyme
-const resolveIdentifiers = (req, res) => {
-  const userId = req.user?.id || null;
-  let sessionId = null;
+const CART_COOKIE_OPTS = {
+  httpOnly: true,
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+  sameSite: process.env.NODE_ENV === 'production' ? 'Strict' : 'Lax',
+  secure: process.env.NODE_ENV === 'production',
+};
 
-  if (!userId) {
-    sessionId = req.cookies?.cartSession;
-    if (!sessionId) {
-      sessionId = uuidv4();
-      res.cookie('cartSession', sessionId, {
-        httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 jours
-        sameSite: 'Strict',
-        secure: process.env.NODE_ENV === 'production',
-      });
-    }
+// Résout les identifiants et fusionne le panier anonyme si l'utilisateur vient de se connecter
+const resolveIdentifiers = async (req, res) => {
+  const userId    = req.user?.id || null;
+  const sessionId = req.cookies?.cartSession || null;
+
+  if (userId && sessionId) {
+    // Fusionner le panier anonyme dans le compte puis supprimer le cookie
+    await cartRepository.mergeCart(sessionId, userId);
+    res.clearCookie('cartSession');
+    return { userId, sessionId: null };
   }
 
-  return { userId, sessionId };
+  if (userId) {
+    return { userId, sessionId: null };
+  }
+
+  // Utilisateur anonyme — créer le cookie session si absent
+  if (!sessionId) {
+    const newSessionId = uuidv4();
+    res.cookie('cartSession', newSessionId, CART_COOKIE_OPTS);
+    return { userId: null, sessionId: newSessionId };
+  }
+
+  return { userId: null, sessionId };
 };
 
 const getCart = async (req, res, next) => {
   try {
-    const { userId, sessionId } = resolveIdentifiers(req, res);
+    const { userId, sessionId } = await resolveIdentifiers(req, res);
     const cart = await cartService.getCart({ userId, sessionId });
     res.json({ success: true, data: cart });
   } catch (error) {
@@ -34,7 +47,7 @@ const getCart = async (req, res, next) => {
 
 const addItem = async (req, res, next) => {
   try {
-    const { userId, sessionId } = resolveIdentifiers(req, res);
+    const { userId, sessionId } = await resolveIdentifiers(req, res);
     const { product_id, productId: pid, variant_id, variantId: vid, quantity = 1 } = req.body;
     const productId = product_id ?? pid;
     const variantId = variant_id ?? vid ?? null;
@@ -47,7 +60,7 @@ const addItem = async (req, res, next) => {
 
 const updateItem = async (req, res, next) => {
   try {
-    const { userId, sessionId } = resolveIdentifiers(req, res);
+    const { userId, sessionId } = await resolveIdentifiers(req, res);
     const itemId = parseInt(req.params.id);
     const { quantity } = req.body;
     const cart = await cartService.updateItem({ userId, sessionId, itemId, quantity });
@@ -59,7 +72,7 @@ const updateItem = async (req, res, next) => {
 
 const removeItem = async (req, res, next) => {
   try {
-    const { userId, sessionId } = resolveIdentifiers(req, res);
+    const { userId, sessionId } = await resolveIdentifiers(req, res);
     const itemId = parseInt(req.params.id);
     const cart = await cartService.removeItem({ userId, sessionId, itemId });
     res.json({ success: true, data: cart });

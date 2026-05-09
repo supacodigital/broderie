@@ -60,9 +60,10 @@ const login = async (req, res, next) => {
 };
 
 const logout = async (req, res) => {
+  const env = require('../config/env');
   res.clearCookie('refreshToken', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: env.nodeEnv === 'production',
     sameSite: 'Strict',
     path: '/api/v1/auth',
   });

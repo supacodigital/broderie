@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
@@ -24,18 +24,24 @@ export default function Product() {
   const [notFound,  setNotFound]  = useState(false)
   const [error,     setError]     = useState(false)
   const { ids: wishlistIds, toggle: toggleWishlist } = useWishlist()
+  const abortRef = useRef(null)
 
   useEffect(() => {
+    abortRef.current?.abort()
+    abortRef.current = new AbortController()
     setLoading(true)
     setNotFound(false)
     setError(false)
+    let cancelled = false
     getProductBySlug(slug, normalizeLocale(i18n.language))
-      .then(d => setProduct(d.data))
+      .then(d => { if (!cancelled) setProduct(d.data) })
       .catch(err => {
+        if (cancelled) return
         if (err.response?.status === 404) setNotFound(true)
         else setError(true)
       })
-      .finally(() => setLoading(false))
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true; abortRef.current?.abort() }
   }, [slug, i18n.language])
 
   const { addItem } = useCart()

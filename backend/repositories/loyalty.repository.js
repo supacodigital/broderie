@@ -1,3 +1,4 @@
+const crypto   = require('crypto');
 const { pool } = require('../config/db');
 
 // Compte fidélité d'un utilisateur avec son palier actuel
@@ -29,8 +30,8 @@ const findRewards = async (userId) => {
             lt.name AS tier_name
      FROM loyalty_rewards lr
      INNER JOIN loyalty_tiers lt ON lt.id = lr.tier_id
-     WHERE lr.user_id = ? AND lr.status = 'available'
-     ORDER BY lr.expires_at ASC`,
+     WHERE lr.user_id = ?
+     ORDER BY lr.created_at DESC`,
     [userId]
   );
   return rows;
@@ -91,39 +92,55 @@ const deleteTier = async (id) => {
   return result.affectedRows > 0;
 };
 
-// Enregistre une transaction et met à jour le total_spend_chf
+// Enregistre une transaction et met à jour le total_spend_chf — atomique
 const addTransaction = async (userId, orderId, amountChf, type) => {
-  await pool.execute(
-    `INSERT INTO loyalty_transactions (user_id, order_id, amount_chf, type) VALUES (?, ?, ?, ?)`,
-    [userId, orderId, amountChf, type]
-  );
-  const delta = type === 'earn' ? amountChf : type === 'refund' ? -amountChf : 0;
-  if (delta !== 0) {
-    await pool.execute(
-      `UPDATE loyalty_accounts SET total_spend_chf = GREATEST(0, total_spend_chf + ?) WHERE user_id = ?`,
-      [delta, userId]
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.execute(
+      `INSERT INTO loyalty_transactions (user_id, order_id, amount_chf, type) VALUES (?, ?, ?, ?)`,
+      [userId, orderId, amountChf, type]
     );
+    const delta = type === 'earn' ? amountChf : type === 'refund' ? -amountChf : 0;
+    if (delta !== 0) {
+      await connection.execute(
+        `UPDATE loyalty_accounts SET total_spend_chf = GREATEST(0, total_spend_chf + ?) WHERE user_id = ?`,
+        [delta, userId]
+      );
+    }
+    await connection.commit();
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
   }
 };
 
-// Génère un bon de réduction unique pour un palier atteint
-const createReward = async (userId, tierId, { type, value, validityDays }) => {
-  const code = `FIDELITE-${Date.now()}-${userId}`.toUpperCase();
+// Génère un bon ET met à jour le palier dans une seule transaction atomique
+const createRewardAndUpdateTier = async (userId, tierId, { type, value, validityDays }) => {
+  const code      = `FID-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
   const expiresAt = new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000);
-  await pool.execute(
-    `INSERT INTO loyalty_rewards (user_id, tier_id, code, type, value, status, expires_at)
-     VALUES (?, ?, ?, ?, ?, 'available', ?)`,
-    [userId, tierId, code, type, value, expiresAt]
-  );
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.execute(
+      `INSERT INTO loyalty_rewards (user_id, tier_id, code, type, value, status, expires_at)
+       VALUES (?, ?, ?, ?, ?, 'available', ?)`,
+      [userId, tierId, code, type, value, expiresAt]
+    );
+    await connection.execute(
+      `UPDATE loyalty_accounts SET current_tier_id = ? WHERE user_id = ?`,
+      [tierId, userId]
+    );
+    await connection.commit();
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
   return code;
-};
-
-// Met à jour le palier actuel du compte fidélité
-const updateAccountTier = async (userId, tierId) => {
-  await pool.execute(
-    `UPDATE loyalty_accounts SET current_tier_id = ? WHERE user_id = ?`,
-    [tierId, userId]
-  );
 };
 
 // Vérifie si un palier a déjà été récompensé pour cet utilisateur
@@ -168,8 +185,8 @@ const findAllAccounts = async ({ page = 1, limit = 20, search = '' }) => {
      ${where}
      GROUP BY la.user_id
      ORDER BY la.total_spend_chf DESC
-     LIMIT ${limit} OFFSET ${offset}`,
-    params
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
   );
 
   return { rows, total };
@@ -222,8 +239,8 @@ const findAllRewards = async ({ page = 1, limit = 20, status = '' }) => {
      INNER JOIN loyalty_tiers lt ON lt.id = lr.tier_id
      ${where}
      ORDER BY lr.created_at DESC
-     LIMIT ${limit} OFFSET ${offset}`,
-    params
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
   );
 
   return { rows, total };
@@ -232,6 +249,6 @@ const findAllRewards = async ({ page = 1, limit = 20, status = '' }) => {
 module.exports = {
   findAccount, createAccount, findRewards, findTransactions,
   findTiers, findAllTiers, createTier, updateTier, deleteTier,
-  addTransaction, createReward, updateAccountTier, tierAlreadyRewarded,
+  addTransaction, createRewardAndUpdateTier, tierAlreadyRewarded,
   findAllAccounts, getGlobalKpis, findAllRewards,
 };

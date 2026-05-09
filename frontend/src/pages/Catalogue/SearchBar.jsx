@@ -2,15 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, X, SlidersHorizontal, LayoutGrid, List } from 'lucide-react'
 import { normalizeLocale } from '../../utils/locale.js'
-import api from '../../services/api.js'
+import { searchProducts } from '../../services/products.service.js'
 import s from './SearchBar.module.css'
 
 const SORT_OPTIONS = [
-  { value: 'created_at:desc', labelKey: 'catalogue.sortNewest'    },
-  { value: 'created_at:asc',  labelKey: 'catalogue.sortOldest'    },
-  { value: 'price_chf:asc',   labelKey: 'catalogue.sortPriceAsc'  },
-  { value: 'price_chf:desc',  labelKey: 'catalogue.sortPriceDesc' },
-  { value: 'avg_rating:desc', labelKey: 'catalogue.sortRating'    },
+  { value: 'created_at:desc', labelKey: 'catalogue.sortNewest'      },
+  { value: 'badge:nouveaute', labelKey: 'catalogue.sortNewBadge'    },
+  { value: 'price_chf:asc',   labelKey: 'catalogue.sortPriceAsc'   },
+  { value: 'price_chf:desc',  labelKey: 'catalogue.sortPriceDesc'  },
+  { value: 'avg_rating:desc', labelKey: 'catalogue.sortRating'     },
+  { value: 'name:asc',        labelKey: 'catalogue.sortNameAsc'    },
 ]
 
 export default function SearchBar({ filters, onChange, total, onToggleFilters, viewMode, onViewChange }) {
@@ -44,11 +45,9 @@ export default function SearchBar({ filters, onChange, total, onToggleFilters, v
     }
     suggestDebounce.current = setTimeout(async () => {
       try {
-        const { data } = await api.get('/products', {
-          params: { q: val.trim(), locale: normalizeLocale(i18n.language), limit: 6 },
-        })
-        setSuggestions(data.data ?? [])
-        setShowDropdown((data.data ?? []).length > 0)
+        const res = await searchProducts(val.trim(), { locale: normalizeLocale(i18n.language), limit: 6 })
+        setSuggestions(res.data ?? [])
+        setShowDropdown((res.data ?? []).length > 0)
         setActiveIndex(-1)
       } catch {
         setSuggestions([])
@@ -101,11 +100,19 @@ export default function SearchBar({ filters, onChange, total, onToggleFilters, v
   }
 
   function handleSort(e) {
-    const [sort, order] = e.target.value.split(':')
-    onChange({ ...filters, sort, order, page: 1 })
+    const val = e.target.value
+    if (val.startsWith('badge:')) {
+      const badge = val.split(':')[1]
+      onChange({ ...filters, badge, sort: 'created_at', order: 'desc', page: 1 })
+    } else {
+      const [sort, order] = val.split(':')
+      onChange({ ...filters, badge: undefined, sort, order, page: 1 })
+    }
   }
 
-  const currentSort = `${filters.sort ?? 'created_at'}:${filters.order ?? 'desc'}`
+  const currentSort = filters.badge === 'nouveaute'
+    ? 'badge:nouveaute'
+    : `${filters.sort ?? 'created_at'}:${filters.order ?? 'desc'}`
 
   return (
     <div className={s.bar}>

@@ -3,10 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { ChevronRight, Minus, Plus, Trash2, ShoppingBag, Lock, RotateCcw } from 'lucide-react'
 import { useCart } from '../../contexts/CartContext.jsx'
 import { roundCHF } from '../../utils/chf.js'
+import { SHIPPING_CHF } from '../../utils/shipping.js'
 import EmptyState from '../../components/ui/EmptyState/EmptyState.jsx'
 import s from './Cart.module.css'
-
-const SHIPPING_CHF = 8.50
 
 export default function Cart() {
   const { t }                                   = useTranslation()

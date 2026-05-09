@@ -10,7 +10,8 @@ const getAll = async (req, res, next) => {
     const limit      = Math.min(100, parseInt(req.query.limit) || 20);
     const search     = req.query.q || '';
     const categoryId = req.query.category_id ? parseInt(req.query.category_id) : null;
-    const { rows, total } = await productAdminRepository.findAllAdmin({ page, limit, search, categoryId });
+    const lowStock   = req.query.low_stock === 'true';
+    const { rows, total } = await productAdminRepository.findAllAdmin({ page, limit, search, categoryId, lowStock });
     res.json({
       success: true,
       data: rows,

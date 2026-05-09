@@ -7,7 +7,8 @@ const findAll = async ({ page = 1, limit = 100 }) => {
     `SELECT id, code, type, value, min_order_chf, usage_limit, used_count, expires_at, is_active
      FROM coupons
      ORDER BY id DESC
-     LIMIT ${limit} OFFSET ${offset}`
+     LIMIT ? OFFSET ?`,
+    [limit, offset]
   );
   return { rows, total };
 };

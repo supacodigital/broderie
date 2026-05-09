@@ -30,8 +30,8 @@ const getAll = async (req, res, next) => {
        ${where}
        GROUP BY u.id
        ORDER BY u.created_at DESC
-       LIMIT ${limit} OFFSET ${offset}`,
-      params
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
     );
 
     res.json({

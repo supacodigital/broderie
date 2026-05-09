@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import api from '../../../services/api.js'
+import { subscribe } from '../../../services/newsletter.service.js'
 import s from './NewsletterSection.module.css'
 
 export default function NewsletterSection() {
@@ -14,7 +14,7 @@ export default function NewsletterSection() {
     if (!email) return
     setStatus('loading')
     try {
-      await api.post('/newsletter/subscribe', { email })
+      await subscribe(email)
       setStatus('success')
       setEmail('')
     } catch (err) {

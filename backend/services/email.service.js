@@ -1,8 +1,9 @@
 const transporter = require('../config/mailer');
 const { roundCHF } = require('../utils/chf.utils');
+const env = require('../config/env');
 
-const FROM = process.env.MAIL_FROM || '"Au Point-Compté" <noreply@broderie-domaine.ch>';
-const BASE_URL = process.env.CLIENT_URL || 'https://broderie-domaine.ch';
+const FROM     = env.mailFrom    || '"Au Point-Compté" <noreply@broderie-domaine.ch>';
+const BASE_URL = env.clientUrl   || 'https://broderie-domaine.ch';
 
 // ─────────────────────────────────────────────
 // Helpers communs
@@ -471,7 +472,7 @@ async function sendMigrationWelcome({ user, resetToken }) {
 // ─────────────────────────────────────────────
 // 8. QR Twint envoyé par email (depuis l'admin)
 // ─────────────────────────────────────────────
-async function sendTwintQr({ user, order, qrBuffer, expiresAt }) {
+async function sendTwintQr({ user, order, qrBuffer, expiresAt, redirectUrl = null, isTestMode = false }) {
   const locale  = user.locale ?? 'fr';
   const expires = new Date(expiresAt).toLocaleString('fr-CH', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -484,47 +485,66 @@ async function sendTwintQr({ user, order, qrBuffer, expiresAt }) {
     en: `Pay your order #${order.id} with Twint — Au Point-Compté`,
   };
 
+  // En mode test Stripe, pas de QR PNG — on envoie un lien de paiement à la place
+  const qrBlock = isTestMode
+    ? `<div style="text-align:center;margin:24px 0;">
+        <p style="margin:0 0 12px;font-size:13px;color:#9D6480;">[Mode test — pas de QR réel]</p>
+        <a href="${redirectUrl}" target="_blank"
+           style="display:inline-block;background:#DB2777;color:#fff;font-weight:700;font-size:14px;
+                  padding:12px 28px;border-radius:8px;text-decoration:none;">
+          Simuler le paiement Twint
+        </a>
+       </div>`
+    : `<div style="text-align:center;margin:24px 0;">
+        <img src="cid:twint-qr" alt="QR Code Twint" width="240" height="240"
+             style="border:1px solid #fbcfe8;border-radius:12px;padding:12px;" />
+       </div>`;
+
   const body = `
     <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
       Payez par Twint
     </h1>
     <p style="margin:0 0 20px;font-size:14px;color:#374151;line-height:1.7;">
-      Scannez le QR code ci-dessous avec votre application <strong>Twint</strong> pour régler
-      votre commande <strong>#${order.id}</strong> d'un montant de
+      ${isTestMode
+        ? `Cliquez sur le bouton ci-dessous pour simuler le paiement <strong>Twint</strong> de votre commande`
+        : `Scannez le QR code ci-dessous avec votre application <strong>Twint</strong> pour régler votre commande`}
+      <strong>#${order.id}</strong> d'un montant de
       <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
     </p>
 
-    <!-- QR code intégré -->
-    <div style="text-align:center;margin:24px 0;">
-      <img src="cid:twint-qr" alt="QR Code Twint" width="240" height="240"
-           style="border:1px solid #fbcfe8;border-radius:12px;padding:12px;" />
-    </div>
+    ${qrBlock}
 
     <div style="background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:14px 20px;text-align:center;margin-bottom:20px;">
-      <p style="margin:0;font-size:12px;color:#9D6480;">Ce QR code expire le</p>
+      <p style="margin:0;font-size:12px;color:#9D6480;">Ce lien de paiement expire le</p>
       <p style="margin:4px 0 0;font-size:14px;font-weight:700;color:#DB2777;">${expires}</p>
     </div>
 
-    <p style="margin:0;font-size:13px;color:#9D6480;line-height:1.7;">
+    ${!isTestMode ? `<p style="margin:0;font-size:13px;color:#9D6480;line-height:1.7;">
       Ouvrez l'application Twint sur votre téléphone, appuyez sur "Scanner" et pointez
       la caméra vers ce QR code. Le paiement sera confirmé instantanément.
-    </p>
+    </p>` : ''}
   `;
 
-  await transporter.sendMail({
-    from:        FROM,
-    to:          user.email,
-    subject:     subjects[locale] ?? subjects.fr,
-    html:        layout(body, locale),
-    attachments: [
+  const mailOptions = {
+    from:    FROM,
+    to:      user.email,
+    subject: subjects[locale] ?? subjects.fr,
+    html:    layout(body, locale),
+  };
+
+  // Pièce jointe QR uniquement en production (qrBuffer disponible)
+  if (!isTestMode && qrBuffer) {
+    mailOptions.attachments = [
       {
         filename:    'twint-qr.png',
         content:     qrBuffer,
         contentType: 'image/png',
         cid:         'twint-qr',
       },
-    ],
-  });
+    ];
+  }
+
+  await transporter.sendMail(mailOptions);
 }
 
 module.exports = {

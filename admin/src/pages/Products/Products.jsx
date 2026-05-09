@@ -6,8 +6,15 @@ import {
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import api from '../../services/api.js'
+import {
+  getProducts, getProductById, createProduct, updateProduct,
+  deleteProduct, uploadProductImage, deleteProductImage, setPrimaryImage,
+} from '../../services/products.service.js'
+import { getCategories } from '../../services/categories.service.js'
+import { getSuppliers } from '../../services/suppliers.service.js'
+import { getTaxRates } from '../../services/settings.service.js'
 import { roundCHF } from '../../utils/chf.js'
+import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import s from './Products.module.css'
 
 const LIMIT = 20
@@ -51,10 +58,8 @@ function ImageDropZone({ productId, images, onImagesChange }) {
         fd.append('image', file)
         fd.append('isPrimary', images.length === 0 && results.length === 0 ? 'true' : 'false')
         fd.append('alt', file.name.replace(/\.[^.]+$/, ''))
-        const res = await api.post(`/admin/products/${productId}/images`, fd, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
-        const img = res.data.data
+        const res = await uploadProductImage(productId, fd)
+        const img = res.data
         results.push({ ...img, isPrimary: !!img.is_primary })
       } catch {
         setError("Erreur lors de l'upload d'une image")
@@ -68,13 +73,13 @@ function ImageDropZone({ productId, images, onImagesChange }) {
 
   const handleDelete = async (imgId) => {
     try {
-      await api.delete(`/admin/products/${productId}/images/${imgId}`)
+      await deleteProductImage(productId, imgId)
       const wasPrimary = images.find(i => i.id === imgId)?.isPrimary
       const remaining  = images.filter(i => i.id !== imgId)
       /* Si l'image supprimée était principale, promouvoir la première restante */
       if (wasPrimary && remaining.length > 0) {
         try {
-          await api.put(`/admin/products/${productId}/images/${remaining[0].id}/primary`)
+          await setPrimaryImage(productId, remaining[0].id)
           remaining[0] = { ...remaining[0], isPrimary: true }
         } catch { /* non bloquant */ }
       }
@@ -87,7 +92,7 @@ function ImageDropZone({ productId, images, onImagesChange }) {
     setSettingId(imgId)
     setError('')
     try {
-      await api.put(`/admin/products/${productId}/images/${imgId}/primary`)
+      await setPrimaryImage(productId, imgId)
       onImagesChange(images.map(i => ({ ...i, isPrimary: i.id === imgId })))
     } catch {
       setError("Erreur lors du changement d'image principale")
@@ -213,10 +218,10 @@ function ProductModal({ product, categories, suppliers, taxRates, onClose, onSav
   useEffect(() => {
     if (!isEdit) return
     setImgLoading(true)
-    api.get(`/admin/products/${product.id}`)
+    getProductById(product.id)
       .then(res => {
         /* Normalise is_primary (DB snake_case) → isPrimary (camelCase) */
-        const imgs = (res.data.data?.images ?? []).map(img => ({
+        const imgs = (res.data?.images ?? []).map(img => ({
           ...img,
           isPrimary: !!img.is_primary,
         }))
@@ -256,9 +261,9 @@ function ProductModal({ product, categories, suppliers, taxRates, onClose, onSav
       }
 
       if (isEdit) {
-        await api.put(`/admin/products/${product.id}`, payload)
+        await updateProduct(product.id, payload)
       } else {
-        await api.post('/admin/products', payload)
+        await createProduct(payload)
       }
       setSaved(true)
       setTimeout(() => { onSaved(); onClose() }, 500)
@@ -433,6 +438,8 @@ export default function Products() {
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState(false)
   const [modal,      setModal]      = useState(null)
+  const [confirm,    setConfirm]    = useState(null)
+  const [deleteError,setDeleteError]= useState(null)
   const [categories, setCategories] = useState([])
   const [suppliers,  setSuppliers]  = useState([])
   const [taxRates,   setTaxRates]   = useState([])
@@ -440,8 +447,8 @@ export default function Products() {
   /* Chargement des listes de référence (catégories, fournisseurs, TVA) */
   useEffect(() => {
     Promise.all([
-      api.get('/admin/categories'),
-      api.get('/admin/suppliers'),
+      getCategories(),
+      getSuppliers(),
     ]).then(([catRes, supRes]) => {
       /* translations est un objet {fr, de, en} — on extrait le nom FR */
       const raw = (catRes.data.data ?? []).map(c => ({
@@ -468,8 +475,8 @@ export default function Products() {
     }).catch(() => {})
 
     /* Taux TVA — route admin settings */
-    api.get('/admin/settings/tax-rates').then(res => {
-      if (res.data?.data) setTaxRates(res.data.data)
+    getTaxRates().then(res => {
+      if (res.data) setTaxRates(res.data)
     }).catch(() => {
       setTaxRates([
         { id: 1, name: 'Taux normal',   rate: 8.1 },
@@ -483,12 +490,12 @@ export default function Products() {
     setError(false)
     setLoading(true)
     try {
-      const params = new URLSearchParams({ page, limit: LIMIT, sort: 'created_at', order: 'desc' })
-      if (search)    params.set('q', search)
-      if (filterCat) params.set('category_id', filterCat)
-      const res = await api.get(`/admin/products?${params}`)
-      setProducts(res.data.data ?? [])
-      setTotal(res.data.pagination?.total ?? 0)
+      const params = { page, limit: LIMIT, sort: 'created_at', order: 'desc' }
+      if (search)    params.q = search
+      if (filterCat) params.category_id = filterCat
+      const res = await getProducts(params)
+      setProducts(res.data ?? [])
+      setTotal(res.pagination?.total ?? 0)
     } catch {
       setError(true)
     } finally {
@@ -498,20 +505,26 @@ export default function Products() {
 
   useEffect(() => { load() }, [load])
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer définitivement ce produit ?')) return
-    try {
-      await api.delete(`/admin/products/${id}`)
-      load()
-    } catch (err) {
-      alert(err.response?.data?.message ?? 'Erreur lors de la suppression.')
-    }
+  const handleDelete = (id) => {
+    setConfirm({
+      message: 'Supprimer définitivement ce produit ?',
+      onConfirm: async () => {
+        setDeleteError(null)
+        try {
+          await deleteProduct(id)
+          load()
+        } catch (err) {
+          setDeleteError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
+        }
+      },
+    })
   }
 
   const totalPages = Math.ceil(total / LIMIT)
 
   return (
     <div className={s.page}>
+      {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
       {modal && (
         <ProductModal
           product={modal === 'new' ? null : modal}
@@ -562,6 +575,12 @@ export default function Products() {
         <div className={s.errorBanner}>
           <AlertTriangle size={14} />
           Erreur de chargement. <button className={s.retryBtn} onClick={load}>Réessayer</button>
+        </div>
+      )}
+      {deleteError && (
+        <div className={s.errorBanner}>
+          <AlertTriangle size={14} />
+          {deleteError}
         </div>
       )}
 

@@ -1,6 +1,5 @@
 import api, { setAccessToken, clearAccessToken } from './api.js'
 
-/* Inscription */
 export async function register(data) {
   const res = await api.post('/auth/register', data)
   const token = res.data.data?.accessToken ?? res.data.data?.access_token
@@ -8,7 +7,6 @@ export async function register(data) {
   return res.data
 }
 
-/* Connexion */
 export async function login(credentials) {
   const res = await api.post('/auth/login', credentials)
   const token = res.data.data?.accessToken ?? res.data.data?.access_token
@@ -16,7 +14,6 @@ export async function login(credentials) {
   return res.data
 }
 
-/* Déconnexion */
 export async function logout() {
   try {
     await api.post('/auth/logout')
@@ -25,7 +22,16 @@ export async function logout() {
   }
 }
 
-/* Récupérer l'utilisateur courant */
+export async function forgotPassword(email) {
+  const res = await api.post('/auth/forgot-password', { email })
+  return res.data
+}
+
+export async function resetPassword(token, password) {
+  const res = await api.post('/auth/reset-password', { token, password })
+  return res.data
+}
+
 export async function getMe() {
   const res = await api.get('/users/me')
   return res.data

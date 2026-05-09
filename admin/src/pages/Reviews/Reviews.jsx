@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Check, Trash2, Star, AlertTriangle } from 'lucide-react'
-import api from '../../services/api.js'
+import { getReviews, approveReview, deleteReview } from '../../services/reviews.service.js'
+import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import s from './Reviews.module.css'
 
 const FILTERS = [
@@ -36,17 +37,18 @@ export default function Reviews() {
   const [counts,      setCounts]      = useState({ pending: 0, approved: 0, all: 0 })
   const [actionCount, setActionCount] = useState(0)
   const [actionError, setActionError] = useState(null)
+  const [confirm,     setConfirm]     = useState(null)
 
   const load = useCallback(async () => {
     setError(false)
     setLoading(true)
     try {
-      const params = new URLSearchParams({ limit: 50 })
-      if (filter === 'approved') params.set('approved', 'true')
-      if (filter === 'pending')  params.set('approved', 'false')
-      const res = await api.get(`/admin/reviews?${params}`)
-      setReviews(res.data.data ?? [])
-      setTotal(res.data.pagination?.total ?? 0)
+      const params = { limit: 50 }
+      if (filter === 'approved') params.approved = 'true'
+      if (filter === 'pending')  params.approved = 'false'
+      const res = await getReviews(params)
+      setReviews(res.data ?? [])
+      setTotal(res.pagination?.total ?? 0)
     } catch {
       setError(true)
     } finally {
@@ -57,14 +59,14 @@ export default function Reviews() {
   /* Compteurs indépendants du filtre actif — chargés une fois */
   useEffect(() => {
     Promise.all([
-      api.get('/admin/reviews?limit=1&approved=false'),
-      api.get('/admin/reviews?limit=1&approved=true'),
-      api.get('/admin/reviews?limit=1'),
+      getReviews({ limit: 1, approved: 'false' }),
+      getReviews({ limit: 1, approved: 'true' }),
+      getReviews({ limit: 1 }),
     ]).then(([pen, app, all]) => {
       setCounts({
-        pending:  pen.data.pagination?.total ?? 0,
-        approved: app.data.pagination?.total ?? 0,
-        all:      all.data.pagination?.total ?? 0,
+        pending:  pen.pagination?.total ?? 0,
+        approved: app.pagination?.total ?? 0,
+        all:      all.pagination?.total ?? 0,
       })
     }).catch(() => {})
   }, [actionCount])
@@ -74,7 +76,7 @@ export default function Reviews() {
   const handleApprove = async (id) => {
     setActionError(null)
     try {
-      await api.put(`/admin/reviews/${id}/approve`)
+      await approveReview(id)
       setReviews(prev => prev.map(r => r.id === id ? { ...r, is_approved: 1 } : r))
       setActionCount(c => c + 1)
     } catch {
@@ -82,21 +84,26 @@ export default function Reviews() {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer cet avis définitivement ?')) return
-    setActionError(null)
-    try {
-      await api.delete(`/admin/reviews/${id}`)
-      setReviews(prev => prev.filter(r => r.id !== id))
-      setTotal(t => t - 1)
-      setActionCount(c => c + 1)
-    } catch {
-      setActionError('Erreur lors de la suppression.')
-    }
+  const handleDelete = (id) => {
+    setConfirm({
+      message: 'Supprimer cet avis définitivement ?',
+      onConfirm: async () => {
+        setActionError(null)
+        try {
+          await deleteReview(id)
+          setReviews(prev => prev.filter(r => r.id !== id))
+          setTotal(t => t - 1)
+          setActionCount(c => c + 1)
+        } catch {
+          setActionError('Erreur lors de la suppression.')
+        }
+      },
+    })
   }
 
   return (
     <div className={s.page}>
+      {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
       <div className={s.pageHead}>
         <div>
           <h1 className={s.pageTitle}>Avis clients</h1>

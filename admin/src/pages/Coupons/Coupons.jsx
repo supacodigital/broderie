@@ -3,7 +3,8 @@ import { Plus, Edit2, Trash2, Copy, Check, AlertTriangle, X, Search, Shuffle } f
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import api from '../../services/api.js'
+import { getCoupons, createCoupon, updateCoupon, deleteCoupon } from '../../services/coupons.service.js'
+import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import s from './Coupons.module.css'
 
 const schema = z.object({
@@ -56,9 +57,9 @@ function CouponModal({ coupon, onClose, onSaved }) {
     }
     try {
       if (isEdit) {
-        await api.put(`/admin/coupons/${coupon.id}`, payload)
+        await updateCoupon(coupon.id, payload)
       } else {
-        await api.post('/admin/coupons', payload)
+        await createCoupon(payload)
       }
       setSaved(true)
       setTimeout(() => { onSaved(); onClose() }, 500)
@@ -220,6 +221,7 @@ export default function Coupons() {
   const [error,     setError]     = useState(false)
   const [delError,  setDelError]  = useState(null)
   const [modal,     setModal]     = useState(null)
+  const [confirm,   setConfirm]   = useState(null)
   const [search,    setSearch]    = useState('')
   const [filter,    setFilter]    = useState('all')
   const debounceRef = useRef(null)
@@ -228,8 +230,8 @@ export default function Coupons() {
     setError(false)
     setLoading(true)
     try {
-      const res = await api.get('/admin/coupons?limit=100')
-      setCoupons(res.data.data ?? [])
+      const res = await getCoupons({ limit: 100 })
+      setCoupons(res.data ?? [])
     } catch {
       setError(true)
     } finally {
@@ -239,15 +241,19 @@ export default function Coupons() {
 
   useEffect(() => { load() }, [load])
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer ce coupon ?')) return
-    setDelError(null)
-    try {
-      await api.delete(`/admin/coupons/${id}`)
-      setCoupons(prev => prev.filter(c => c.id !== id))
-    } catch (err) {
-      setDelError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
-    }
+  const handleDelete = (id) => {
+    setConfirm({
+      message: 'Supprimer ce coupon ?',
+      onConfirm: async () => {
+        setDelError(null)
+        try {
+          await deleteCoupon(id)
+          setCoupons(prev => prev.filter(c => c.id !== id))
+        } catch (err) {
+          setDelError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
+        }
+      },
+    })
   }
 
   /* Filtre local : statut + recherche par code */
@@ -266,6 +272,7 @@ export default function Coupons() {
 
   return (
     <div className={s.page}>
+      {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
       {modal && (
         <CouponModal
           coupon={modal === 'new' ? null : modal}

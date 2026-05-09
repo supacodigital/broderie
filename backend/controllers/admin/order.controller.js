@@ -5,6 +5,7 @@ const { AppError }      = require('../../middlewares/errorHandler');
 const emailService      = require('../../services/email.service');
 const shippingService   = require('../../services/shipping.service');
 const loyaltyService    = require('../../services/loyalty.service');
+const { generateInvoicePDF } = require('../../services/invoice.service');
 
 // Statuts valides — alignés avec l'ENUM du schema
 const VALID_STATUSES = ['pending', 'awaiting_payment', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
@@ -21,8 +22,15 @@ const getAll = async (req, res, next) => {
     const conditions = [];
 
     if (status) {
-      conditions.push('o.status = ?');
-      params.push(status);
+      /* Supporte un statut unique ou une liste séparée par virgule : "pending,awaiting_payment" */
+      const statuses = status.split(',').map(s => s.trim()).filter(s => VALID_STATUSES.includes(s));
+      if (statuses.length === 1) {
+        conditions.push('o.status = ?');
+        params.push(statuses[0]);
+      } else if (statuses.length > 1) {
+        conditions.push(`o.status IN (${statuses.map(() => '?').join(',')})`);
+        params.push(...statuses);
+      }
     }
     if (q) {
       /* Recherche par ID numérique ou par nom/email client */
@@ -54,8 +62,8 @@ const getAll = async (req, res, next) => {
        INNER JOIN users u ON u.id = o.user_id
        ${where}
        ORDER BY o.created_at DESC
-       LIMIT ${limit} OFFSET ${offset}`,
-      params
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
     );
 
     res.json({
@@ -125,11 +133,19 @@ const updateStatus = async (req, res, next) => {
         /* Génération étiquette ShipEngine si l'adresse de livraison est disponible */
         let trackingNumber = note?.match(/[A-Z0-9]{10,}/)?.[0] ?? null;
 
-        if (!trackingNumber && order.shipping_address) {
+        const shippingAddress = order.street ? {
+          street:  order.street,
+          city:    order.city,
+          zip:     order.zip,
+          country: order.country,
+          canton:  order.canton,
+        } : null;
+
+        if (!trackingNumber && shippingAddress) {
           try {
             const label = await shippingService.createLabel({
               order,
-              address: order.shipping_address,
+              address: shippingAddress,
             });
             trackingNumber = label.trackingNumber;
 
@@ -152,12 +168,6 @@ const updateStatus = async (req, res, next) => {
           console.error('[Email] Statut non envoyé :', err.message);
         });
 
-        if (status === 'delivered') {
-          loyaltyService.processOrderEarning(order.user_id, order.id, order.total).catch((err) => {
-            console.error('[Fidélité] Crédit livraison échoué :', err.message);
-          });
-        }
-
         if (status === 'refunded' || status === 'cancelled') {
           loyaltyService.processRefund(order.user_id, order.id, order.total).catch((err) => {
             console.error('[Fidélité] Débit remboursement échoué :', err.message);
@@ -174,4 +184,23 @@ const updateStatus = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, updateStatus };
+const downloadInvoice = async (req, res, next) => {
+  try {
+    const order = await orderRepository.findById(parseInt(req.params.id));
+    if (!order) return next(new AppError('Commande introuvable.', 404));
+
+    const user = await userRepository.findById(order.user_id);
+    if (!user) return next(new AppError('Client introuvable.', 404));
+
+    const pdfBuffer = await generateInvoicePDF({ order, user });
+
+    const filename = `facture-${String(order.id).padStart(6, '0')}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getAll, getById, updateStatus, downloadInvoice };

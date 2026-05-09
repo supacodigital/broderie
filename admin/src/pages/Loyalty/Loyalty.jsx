@@ -6,8 +6,17 @@ import {
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import api from '../../services/api.js'
+import {
+  getLoyaltyKpis,
+  getLoyaltyTiers,
+  createLoyaltyTier,
+  updateLoyaltyTier,
+  deleteLoyaltyTier,
+  getLoyaltyAccounts,
+  getLoyaltyRewards,
+} from '../../services/loyalty.service.js'
 import { roundCHF } from '../../utils/chf.js'
+import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import s from './Loyalty.module.css'
 
 const schema = z.object({
@@ -50,9 +59,9 @@ function TierModal({ tier, onClose, onSaved }) {
     setApiError('')
     try {
       if (isEdit) {
-        await api.put(`/admin/loyalty/tiers/${tier.id}`, data)
+        await updateLoyaltyTier(tier.id, data)
       } else {
-        await api.post('/admin/loyalty/tiers', data)
+        await createLoyaltyTier(data)
       }
       setSaved(true)
       setTimeout(() => { onSaved(); onClose() }, 500)
@@ -130,8 +139,8 @@ function GlobalKpis() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/admin/loyalty/kpis')
-      .then(r => setKpis(r.data.data))
+    getLoyaltyKpis()
+      .then(res => setKpis(res.data))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -168,13 +177,14 @@ function TiersTab() {
   const [error,   setError]   = useState(false)
   const [delError,setDelError]= useState(null)
   const [modal,   setModal]   = useState(null)
+  const [confirm, setConfirm] = useState(null)
 
   const load = useCallback(async () => {
     setError(false)
     setLoading(true)
     try {
-      const res = await api.get('/admin/loyalty/tiers')
-      setTiers(res.data.data ?? [])
+      const res = await getLoyaltyTiers()
+      setTiers(res.data ?? [])
     } catch {
       setError(true)
     } finally {
@@ -184,19 +194,24 @@ function TiersTab() {
 
   useEffect(() => { load() }, [load])
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer ce palier ?')) return
-    setDelError(null)
-    try {
-      await api.delete(`/admin/loyalty/tiers/${id}`)
-      setTiers(prev => prev.filter(t => t.id !== id))
-    } catch (err) {
-      setDelError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
-    }
+  const handleDelete = (id) => {
+    setConfirm({
+      message: 'Supprimer ce palier ?',
+      onConfirm: async () => {
+        setDelError(null)
+        try {
+          await deleteLoyaltyTier(id)
+          setTiers(prev => prev.filter(t => t.id !== id))
+        } catch (err) {
+          setDelError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
+        }
+      },
+    })
   }
 
   return (
     <>
+      {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
       <div className={s.tabToolbar}>
         <button className={s.btnPrimary} onClick={() => setModal('new')}>
           <Plus size={16} /> Nouveau palier
@@ -291,9 +306,9 @@ function AccountsTab() {
     try {
       const params = { page: p, limit: LIMIT }
       if (debouncedSearch) params.q = debouncedSearch
-      const res = await api.get('/admin/loyalty/accounts', { params })
-      setAccounts(res.data.data ?? [])
-      setTotal(res.data.pagination?.total ?? 0)
+      const res = await getLoyaltyAccounts(params)
+      setAccounts(res.data ?? [])
+      setTotal(res.pagination?.total ?? 0)
       setPage(p)
     } catch {
       setError(true)
@@ -415,9 +430,9 @@ function RewardsTab() {
     try {
       const params = { page: p, limit: LIMIT }
       if (status) params.status = status
-      const res = await api.get('/admin/loyalty/rewards', { params })
-      setRewards(res.data.data ?? [])
-      setTotal(res.data.pagination?.total ?? 0)
+      const res = await getLoyaltyRewards(params)
+      setRewards(res.data ?? [])
+      setTotal(res.pagination?.total ?? 0)
       setPage(p)
     } catch {
       setError(true)

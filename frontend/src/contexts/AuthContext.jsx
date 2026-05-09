@@ -8,7 +8,7 @@ const AuthContext = createContext(null)
 async function tryRefreshSilent() {
   try {
     const res = await fetch(
-      `${import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api/v1'}/auth/refresh-token`,
+      '/api/v1/auth/refresh-token',
       { method: 'POST', credentials: 'include' },
     )
     if (!res.ok) return null

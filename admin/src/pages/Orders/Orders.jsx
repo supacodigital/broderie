@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  Eye, ChevronLeft, ChevronRight, Search, RefreshCw,
-  Package, Truck, Check, X, Clock, Send, FileText,
+  Eye, ChevronLeft, ChevronRight, Search,
+  Send, FileText, RefreshCw,
 } from 'lucide-react'
-import api from '../../services/api.js'
+import { getOrders, getOrderById, updateOrderStatus, sendTwintQr, downloadInvoice } from '../../services/orders.service.js'
 import { roundCHF } from '../../utils/chf.js'
+import { STATUS_CFG } from '../../utils/orderStatus.js'
 import s from './Orders.module.css'
 
 const LIMIT = 20
@@ -21,17 +22,6 @@ const STATUS_OPTIONS = [
   { value: 'cancelled',       label: 'Annulée' },
   { value: 'refunded',        label: 'Remboursée' },
 ]
-
-const STATUS_CFG = {
-  pending:          { label: 'En attente',      color: '#d97706', bg: '#fffbeb', icon: Clock },
-  awaiting_payment: { label: 'Att. paiement',   color: '#9333ea', bg: '#faf5ff', icon: Clock },
-  paid:             { label: 'Payée',            color: '#059669', bg: '#ecfdf5', icon: Check },
-  processing:       { label: 'En préparation',   color: '#2563eb', bg: '#eff6ff', icon: Package },
-  shipped:          { label: 'Expédiée',         color: '#0891b2', bg: '#ecfeff', icon: Truck },
-  delivered:        { label: 'Livrée',           color: '#7c3aed', bg: '#f5f3ff', icon: Check },
-  cancelled:        { label: 'Annulée',          color: '#dc2626', bg: '#fef2f2', icon: X },
-  refunded:         { label: 'Remboursée',       color: '#6b7280', bg: '#f3f4f6', icon: RefreshCw },
-}
 
 const PAYMENT_LABELS = {
   invoice: '📄 Facture',
@@ -78,9 +68,9 @@ function OrderModal({ orderId, onClose, onUpdated }) {
 
   useEffect(() => {
     setLoading(true)
-    api.get(`/admin/orders/${orderId}`)
+    getOrderById(orderId)
       .then(res => {
-        const o = res.data.data
+        const o = res.data
         setOrder(o)
         setNewStatus(o.status)
       })
@@ -94,7 +84,7 @@ function OrderModal({ orderId, onClose, onUpdated }) {
     setFeedback('')
     setError('')
     try {
-      await api.put(`/admin/orders/${orderId}/status`, { status: newStatus, note: note || undefined })
+      await updateOrderStatus(orderId, newStatus, note || undefined)
       setOrder(prev => ({ ...prev, status: newStatus }))
       setNote('')
       setFeedback('Statut mis à jour.')
@@ -111,12 +101,20 @@ function OrderModal({ orderId, onClose, onUpdated }) {
     setFeedback('')
     setError('')
     try {
-      await api.post(`/admin/orders/${orderId}/twint-email`)
+      await sendTwintQr(orderId)
       setFeedback('QR Twint envoyé par email au client.')
     } catch {
       setError('Impossible d\'envoyer le QR Twint.')
     } finally {
       setSendingQr(false)
+    }
+  }
+
+  const handleDownloadInvoice = async () => {
+    try {
+      await downloadInvoice(orderId)
+    } catch {
+      setError('Impossible de télécharger la facture.')
     }
   }
 
@@ -281,7 +279,7 @@ function OrderModal({ orderId, onClose, onUpdated }) {
               <label className={s.infoLabel}>Facture</label>
               <button
                 className={s.btnSecondary}
-                onClick={() => window.open(`/api/v1/admin/orders/${orderId}/invoice`, '_blank')}
+                onClick={handleDownloadInvoice}
               >
                 <FileText size={13} /> Télécharger la facture PDF
               </button>
@@ -316,9 +314,9 @@ export default function Orders() {
       const params = new URLSearchParams({ page, limit: LIMIT, sort: 'created_at', order: 'desc' })
       if (statusFilter) params.set('status', statusFilter)
       if (search)       params.set('q', search)
-      const res = await api.get(`/admin/orders?${params}`)
-      setOrders(res.data.data ?? [])
-      setTotal(res.data.pagination?.total ?? 0)
+      const res = await getOrders(Object.fromEntries(params))
+      setOrders(res.data ?? [])
+      setTotal(res.pagination?.total ?? 0)
     } catch {
       setError(true)
     } finally {

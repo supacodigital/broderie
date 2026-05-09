@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X, SlidersHorizontal, ChevronDown } from 'lucide-react'
+import { X, SlidersHorizontal, ChevronDown, Star } from 'lucide-react'
 import s from './FilterPanel.module.css'
 
 /* Construit l'arbre catégories → sous-catégories à partir d'une liste plate */
@@ -13,10 +13,18 @@ function buildTree(categories) {
   }))
 }
 
+const BADGES = [
+  { value: 'nouveaute',    label: 'Nouveauté',      color: '#2e7d32' },
+  { value: 'promo',        label: 'Promotion',       color: '#c62828' },
+  { value: 'coup_de_coeur',label: 'Coup de cœur',   color: '#ad1457' },
+  { value: 'exclusif',     label: 'Exclusif',        color: '#6a1b9a' },
+]
+
+const MIN_RATINGS = [4, 3, 2]
+
 export default function FilterPanel({ filters, onChange, categories = [], onClose, mobileOpen }) {
   const { t } = useTranslation()
 
-  /* Catégories parentes ouvertes par défaut si une sous-cat est active */
   const tree = useMemo(() => buildTree(categories), [categories])
 
   const activeSlug = filters.category ?? ''
@@ -37,18 +45,26 @@ export default function FilterPanel({ filters, onChange, categories = [], onClos
   }
 
   function clearAll() {
-    onChange({ page: 1, limit: 20 })
+    onChange({ page: 1, limit: filters.limit ?? 20 })
   }
 
   function toggleParent(id) {
     setOpenParents(prev => ({ ...prev, [id]: !prev[id] }))
   }
 
-  const hasActive = filters.category || filters.min_price || filters.max_price || filters.in_stock
+  function toggleBadge(value) {
+    set('badge', filters.badge === value ? undefined : value)
+  }
+
+  function setMinRating(value) {
+    set('min_rating', filters.min_rating === value ? undefined : value)
+  }
+
+  const hasActive = filters.category || filters.min_price || filters.max_price
+    || filters.in_stock || filters.badge || filters.min_rating
 
   return (
     <>
-      {/* ── Overlay mobile ── */}
       {mobileOpen && <div className={s.overlay} onClick={onClose} aria-hidden="true" />}
 
       <aside
@@ -76,8 +92,6 @@ export default function FilterPanel({ filters, onChange, categories = [], onClos
         <div className={s.group}>
           <p className={s.groupTitle}>{t('catalogue.category')}</p>
           <ul className={s.catList} role="list">
-
-            {/* Tout afficher */}
             <li>
               <button
                 className={`${s.catBtn} ${!activeSlug ? s.catBtnActive : ''}`}
@@ -94,7 +108,6 @@ export default function FilterPanel({ filters, onChange, categories = [], onClos
 
               return (
                 <li key={parent.id} className={s.catGroup}>
-                  {/* ── Ligne catégorie parente ── */}
                   <div className={`${s.parentRow} ${parentActive || childActive ? s.parentRowActive : ''}`}>
                     <button
                       className={`${s.catBtn} ${s.catBtnParent} ${parentActive ? s.catBtnActive : ''}`}
@@ -102,8 +115,6 @@ export default function FilterPanel({ filters, onChange, categories = [], onClos
                     >
                       {parent.name}
                     </button>
-
-                    {/* Flèche accordéon — seulement si la catégorie a des enfants */}
                     {parent.children.length > 0 && (
                       <button
                         className={`${s.arrowBtn} ${isOpen ? s.arrowOpen : ''}`}
@@ -116,7 +127,6 @@ export default function FilterPanel({ filters, onChange, categories = [], onClos
                     )}
                   </div>
 
-                  {/* ── Sous-catégories (accordéon) ── */}
                   {parent.children.length > 0 && (
                     <ul
                       className={`${s.subList} ${isOpen ? s.subListOpen : ''}`}
@@ -138,6 +148,48 @@ export default function FilterPanel({ filters, onChange, categories = [], onClos
               )
             })}
           </ul>
+        </div>
+
+        {/* ── Badges ── */}
+        <div className={s.group}>
+          <p className={s.groupTitle}>Sélection</p>
+          <div className={s.badgeList}>
+            {BADGES.map(b => (
+              <button
+                key={b.value}
+                className={`${s.badgeChip} ${filters.badge === b.value ? s.badgeChipActive : ''}`}
+                style={{ '--badge-color': b.color }}
+                onClick={() => toggleBadge(b.value)}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Note minimale ── */}
+        <div className={s.group}>
+          <p className={s.groupTitle}>Note minimale</p>
+          <div className={s.ratingList}>
+            {MIN_RATINGS.map(n => (
+              <button
+                key={n}
+                className={`${s.ratingBtn} ${filters.min_rating === n ? s.ratingBtnActive : ''}`}
+                onClick={() => setMinRating(n)}
+              >
+                <span className={s.stars}>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      size={13}
+                      className={i < n ? s.starFilled : s.starEmpty}
+                    />
+                  ))}
+                </span>
+                <span className={s.ratingLabel}>& plus</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ── Prix ── */}

@@ -21,14 +21,15 @@ import {
   Menu,
   X,
   Eye,
-  Plus,
   Bell,
   AlertTriangle,
   Star,
   ChevronRight,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext.jsx";
-import api from "../../services/api.js";
+import { getOrders } from "../../services/orders.service.js";
+import { getReviews } from "../../services/reviews.service.js";
+import { getProducts } from "../../services/products.service.js";
 import s from "./AdminLayout.module.css";
 
 /* Construit les items nav avec badges dynamiques */
@@ -171,7 +172,7 @@ function NavItem({ to, icon: Icon, label, badge }) {
 }
 
 function initials(first, last) {
-  return `${first?.[0] ?? ""}${last?.[0] ?? ""}`.toUpperCase();
+  return `${first?.[0] ?? ''}${last?.[0] ?? ''}`.toUpperCase();
 }
 
 export default function AdminLayout() {
@@ -190,15 +191,13 @@ export default function AdminLayout() {
     async function fetchBadges() {
       try {
         const [ordersRes, reviewsRes, stockRes] = await Promise.all([
-          api.get("/admin/orders", {
-            params: { status: "awaiting_payment", limit: 1 },
-          }),
-          api.get("/admin/reviews", { params: { approved: false, limit: 1 } }),
-          api.get("/admin/products", { params: { low_stock: true, limit: 1 } }),
+          getOrders({ status: "pending,awaiting_payment", limit: 1 }),
+          getReviews({ approved: false, limit: 1 }),
+          getProducts({ low_stock: true, limit: 1 }),
         ]);
-        setPendingOrders(ordersRes.data?.pagination?.total ?? 0);
-        setPendingReviews(reviewsRes.data?.pagination?.total ?? 0);
-        setLowStock(stockRes.data?.pagination?.total ?? 0);
+        setPendingOrders(ordersRes.pagination?.total ?? 0);
+        setPendingReviews(reviewsRes.pagination?.total ?? 0);
+        setLowStock(stockRes.pagination?.total ?? 0);
       } catch {
         /* silencieux — pas bloquant */
       }
@@ -214,9 +213,7 @@ export default function AdminLayout() {
   const notifications = [
     pendingOrders > 0 && {
       icon: ShoppingCart,
-      title: `${pendingOrders} commande${
-        pendingOrders > 1 ? "s" : ""
-      } en attente de paiement`,
+      title: `${pendingOrders} commande${pendingOrders > 1 ? "s" : ""} en attente`,
       to: "/commandes",
     },
     pendingReviews > 0 && {
@@ -277,11 +274,11 @@ export default function AdminLayout() {
         {/* Profil utilisateur */}
         <div className={s.userSection}>
           <div className={s.userAvatar}>
-            {initials(user?.first_name, user?.last_name)}
+            {initials(user?.firstName, user?.lastName)}
           </div>
           <div className={s.userMeta}>
             <p className={s.userName}>
-              {user?.first_name} {user?.last_name}
+              {user?.firstName} {user?.lastName}
             </p>
             <p className={s.userRole}>
               {user?.role === "super_admin" ? "Super Admin" : "Administratrice"}
@@ -318,24 +315,20 @@ export default function AdminLayout() {
             </nav>
             <p className={s.greeting}>
               {formatHeaderDate()} — {greetingText()},{" "}
-              {user?.first_name ?? "Admin"} {greetingEmoji()}
+              {user?.firstName ?? "Admin"} {greetingEmoji()}
             </p>
           </div>
 
           <div className={s.headerRight}>
-            <Link
-              to="/"
+            <a
+              href={import.meta.env.VITE_SHOP_URL ?? '/'}
               target="_blank"
               rel="noopener noreferrer"
               className={s.boutiquBtn}
             >
               <Eye size={14} />
               <span>Voir la boutique</span>
-            </Link>
-            <Link to="/produits/nouveau" className={s.newProductBtn}>
-              <Plus size={14} />
-              <span>Nouveau produit</span>
-            </Link>
+            </a>
 
             {/* Cloche notifications */}
             <div className={s.notifWrap}>

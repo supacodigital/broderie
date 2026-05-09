@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import api from '../../../services/api.js'
+import { getCategories } from '../../../services/products.service.js'
 import { normalizeLocale } from '../../../utils/locale.js'
 import s from './CategoriesSection.module.css'
 
@@ -24,8 +24,8 @@ export default function CategoriesSection() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    api.get('/categories', { params: { locale: normalizeLocale(i18n.language) } })
-      .then(({ data }) => { if (!cancelled) setCategories(data.data ?? []) })
+    getCategories(normalizeLocale(i18n.language))
+      .then((data) => { if (!cancelled) setCategories(data.data ?? []) })
       .catch(() => {})
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }

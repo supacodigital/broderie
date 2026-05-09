@@ -10,14 +10,15 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { useCart } from '../../contexts/CartContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { createOrder } from '../../services/orders.service.js'
-import api from '../../services/api.js'
+import { createTwintIntent, createCardIntent } from '../../services/payments.service.js'
+import { validateCoupon } from '../../services/coupons.service.js'
+import { getAddresses } from '../../services/addresses.service.js'
 import { roundCHF } from '../../utils/chf.js'
+import { SHIPPING_CHF } from '../../utils/shipping.js'
 import s from './Checkout.module.css'
 
 /* Chargement différé de Stripe — singleton garanti */
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY ?? '')
-
-const SHIPPING_CHF = 8.50
 
 /* ── Schéma Zod adresse ── */
 function buildAddressSchema(t) {
@@ -253,8 +254,8 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
     setCouponError('')
     setCouponLoading(true)
     try {
-      const res = await api.post('/coupons/validate', { code: couponInput.trim(), subtotal })
-      onCouponApplied({ discount: res.data.data.discount, code: res.data.data.code })
+      const res = await validateCoupon(couponInput.trim(), subtotal)
+      onCouponApplied({ discount: res.data.discount, code: res.data.code })
       setCouponInput('')
     } catch (err) {
       setCouponError(err.response?.data?.message ?? 'Code invalide.')
@@ -470,8 +471,8 @@ function StepTwint({ orderId, total, onPaid, t }) {
     setLoading(true)
     setError('')
     try {
-      const res = await api.post(`/payments/twint/${orderId}`)
-      setClientSecret(res.data.data.clientSecret)
+      const res = await createTwintIntent(orderId)
+      setClientSecret(res.clientSecret)
     } catch {
       setError('Impossible de générer le paiement Twint. Veuillez réessayer.')
     } finally {
@@ -600,8 +601,8 @@ function StepCard({ orderId, total, onPaid, t }) {
   const [error,        setError]        = useState('')
 
   useEffect(() => {
-    api.post(`/payments/card/${orderId}`)
-      .then(res => setClientSecret(res.data.data.clientSecret))
+    createCardIntent(orderId)
+      .then(res => setClientSecret(res.clientSecret))
       .catch(() => setError('Impossible d\'initialiser le paiement. Veuillez réessayer.'))
       .finally(() => setLoading(false))
   }, [orderId])
@@ -706,9 +707,11 @@ export default function Checkout() {
   /* Préremplissage depuis le compte utilisateur */
   useEffect(() => {
     if (!isAuthenticated || !user) return
-    api.get('/users/me/addresses')
+    let cancelled = false
+    getAddresses()
       .then(res => {
-        const addresses = res.data?.data ?? []
+        if (cancelled) return
+        const addresses = res.data ?? []
         const def = addresses.find(a => !!a.is_default) ?? addresses[0] ?? null
         setPrefill({
           firstName: user.firstName ?? user.first_name ?? '',
@@ -721,16 +724,18 @@ export default function Checkout() {
         })
       })
       .catch(() => {
-        setPrefill({
+        if (!cancelled) setPrefill({
           firstName: user.firstName ?? user.first_name ?? '',
           lastName:  user.lastName  ?? user.last_name  ?? '',
         })
       })
+    return () => { cancelled = true }
   }, [isAuthenticated, user])
 
   /* Redirection si panier vide (sauf après commande) */
   useEffect(() => {
-    if (items.length === 0 && step < 3 && step !== 'twint' && step !== 'card') {
+    const isPaymentStep = step === 'twint' || step === 'card'
+    if (items.length === 0 && step < 3 && !isPaymentStep) {
       navigate('/panier', { replace: true })
     }
   }, [items.length, step, navigate])
@@ -763,8 +768,11 @@ export default function Checkout() {
 
       if (payment_method === 'twint') {
         setStep('twint')
-      } else {
+      } else if (payment_method === 'card') {
         setStep('card')
+      } else {
+        /* facture et autres modes — confirmation directe */
+        setStep(3)
       }
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {

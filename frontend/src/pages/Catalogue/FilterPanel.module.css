@@ -178,6 +178,102 @@
 .subCatBtn:hover::before,
 .subCatBtn.catBtnActive::before { background: var(--rose); }
 
+/* ── Badges ── */
+.badgeList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.badgeChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: 1px solid var(--rose-border);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.badgeChip::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--badge-color, var(--rose));
+  flex-shrink: 0;
+}
+
+.badgeChip:hover {
+  border-color: var(--badge-color, var(--rose));
+  color: var(--badge-color, var(--rose));
+}
+
+.badgeChipActive {
+  border-color: var(--badge-color, var(--rose));
+  background: color-mix(in srgb, var(--badge-color, var(--rose)) 8%, transparent);
+  color: var(--badge-color, var(--rose));
+  font-weight: 600;
+}
+
+/* ── Note minimale ── */
+.ratingList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ratingBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 7px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.15s;
+}
+
+.ratingBtn:hover { background: var(--rose-pale); }
+
+.ratingBtnActive { background: var(--rose-pale); }
+
+.stars {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.starFilled {
+  color: #f59e0b;
+  fill: #f59e0b;
+}
+
+.starEmpty {
+  color: #d1d5db;
+  fill: none;
+}
+
+.ratingLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ratingBtnActive .ratingLabel {
+  color: var(--rose);
+  font-weight: 600;
+}
+
 /* ── Prix ── */
 .priceRow {
   display: flex;

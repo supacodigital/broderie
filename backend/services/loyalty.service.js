@@ -18,12 +18,12 @@ const processOrderEarning = async (userId, orderId, totalChf) => {
     if (parseFloat(account.total_spend_chf) >= parseFloat(tier.min_spend_chf)) {
       const alreadyRewarded = await loyaltyRepository.tierAlreadyRewarded(userId, tier.id);
       if (!alreadyRewarded) {
-        await loyaltyRepository.createReward(userId, tier.id, {
-          type: tier.reward_type,
-          value: tier.reward_value,
+        // Atomique : INSERT loyalty_reward + UPDATE current_tier_id dans la même transaction
+        await loyaltyRepository.createRewardAndUpdateTier(userId, tier.id, {
+          type:        tier.reward_type,
+          value:       tier.reward_value,
           validityDays: tier.reward_validity_days,
         });
-        await loyaltyRepository.updateAccountTier(userId, tier.id);
       }
     }
   }

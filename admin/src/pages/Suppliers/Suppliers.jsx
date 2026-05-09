@@ -6,8 +6,9 @@ import {
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import api from '../../services/api.js'
+import { getSuppliers, getSupplierDetails, createSupplier, updateSupplier, deleteSupplier } from '../../services/suppliers.service.js'
 import { roundCHF } from '../../utils/chf.js'
+import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import s from './Suppliers.module.css'
 
 const schema = z.object({
@@ -43,9 +44,9 @@ function SupplierFormModal({ supplier, onClose, onSaved }) {
     setApiError('')
     try {
       if (isEdit) {
-        await api.put(`/admin/suppliers/${supplier.id}`, data)
+        await updateSupplier(supplier.id, data)
       } else {
-        await api.post('/admin/suppliers', data)
+        await createSupplier(data)
       }
       setSaved(true)
       setTimeout(() => { onSaved(); onClose() }, 500)
@@ -137,8 +138,8 @@ function SupplierDetailModal({ supplierId, onClose, onEdit }) {
   useEffect(() => {
     setLoading(true)
     setError(false)
-    api.get(`/admin/suppliers/${supplierId}/details`)
-      .then(res => setData(res.data.data))
+    getSupplierDetails(supplierId)
+      .then(res => setData(res.data))
       .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [supplierId])
@@ -282,6 +283,7 @@ export default function Suppliers() {
   const [formModal,  setFormModal]  = useState(null)   // null | 'new' | supplier object
   const [detailId,   setDetailId]   = useState(null)   // id fournisseur pour la modal détail
   const [deleteError, setDeleteError] = useState(null)
+  const [confirm,    setConfirm]    = useState(null)
   const debounceRef = useRef(null)
 
   const handleSearch = (val) => {
@@ -296,8 +298,8 @@ export default function Suppliers() {
     try {
       const params = new URLSearchParams({ limit: 100 })
       if (debouncedSearch) params.set('q', debouncedSearch)
-      const res = await api.get(`/admin/suppliers?${params}`)
-      setSuppliers(res.data.data ?? [])
+      const res = await getSuppliers(Object.fromEntries(params))
+      setSuppliers(res.data ?? [])
     } catch {
       setError(true)
     } finally {
@@ -307,16 +309,20 @@ export default function Suppliers() {
 
   useEffect(() => { load() }, [load])
 
-  const handleDelete = async (id, e) => {
+  const handleDelete = (id, e) => {
     e.stopPropagation()
-    if (!window.confirm('Supprimer ce fournisseur ? Les produits liés ne seront pas supprimés.')) return
-    setDeleteError(null)
-    try {
-      await api.delete(`/admin/suppliers/${id}`)
-      setSuppliers(prev => prev.filter(s => s.id !== id))
-    } catch (err) {
-      setDeleteError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
-    }
+    setConfirm({
+      message: 'Supprimer ce fournisseur ? Les produits liés ne seront pas supprimés.',
+      onConfirm: async () => {
+        setDeleteError(null)
+        try {
+          await deleteSupplier(id)
+          setSuppliers(prev => prev.filter(s => s.id !== id))
+        } catch (err) {
+          setDeleteError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
+        }
+      },
+    })
   }
 
   /* Ouvrir le formulaire d'édition depuis la modal détail */
@@ -327,6 +333,7 @@ export default function Suppliers() {
 
   return (
     <div className={s.page}>
+      {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
       {/* Modal détail fournisseur */}
       {detailId && (
         <SupplierDetailModal

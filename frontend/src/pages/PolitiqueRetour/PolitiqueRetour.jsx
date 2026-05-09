@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight, RotateCcw } from 'lucide-react'
-import api from '../../services/api.js'
+import { getLegalContent } from '../../services/legal.service.js'
 import s from '../CGV/CGV.module.css'
 
 const STATIC_SECTIONS = [
@@ -77,8 +77,8 @@ export default function PolitiqueRetour() {
   const [customText, setCustomText] = useState('')
 
   useEffect(() => {
-    api.get('/legal')
-      .then(res => setCustomText(res.data?.data?.politique_retour ?? ''))
+    getLegalContent()
+      .then(data => setCustomText(data?.data?.politique_retour ?? ''))
       .catch(() => {})
   }, [])
 

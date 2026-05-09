@@ -1,1 +1,0 @@
-import{t as e}from"./createLucideIcon-QZ72AA6X.js";var t=e(`chevron-right`,[[`path`,{d:`m9 18 6-6-6-6`,key:`mthhwq`}]]),n=e=>Math.round(e*20)/20;export{t as n,n as t};

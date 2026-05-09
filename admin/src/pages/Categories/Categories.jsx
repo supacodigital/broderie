@@ -3,7 +3,8 @@ import { Plus, Edit2, Trash2, Tag, AlertTriangle, Check, X, ChevronRight, Search
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import api from '../../services/api.js'
+import { getCategories, createCategory, updateCategory, deleteCategory } from '../../services/categories.service.js'
+import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import s from './Categories.module.css'
 
 const schema = z.object({
@@ -67,9 +68,9 @@ function CategoryModal({ category, categories, onClose, onSaved }) {
     }
     try {
       if (isEdit) {
-        await api.put(`/admin/categories/${category.id}`, payload)
+        await updateCategory(category.id, payload)
       } else {
-        await api.post('/admin/categories', payload)
+        await createCategory(payload)
       }
       setSaved(true)
       setTimeout(() => { onSaved(); onClose() }, 500)
@@ -180,6 +181,7 @@ export default function Categories() {
   const [error,      setError]      = useState(false)
   const [delError,   setDelError]   = useState(null)
   const [modal,      setModal]      = useState(null)
+  const [confirm,    setConfirm]    = useState(null)
   const [search,     setSearch]     = useState('')
   const debounceRef = useRef(null)
 
@@ -187,8 +189,8 @@ export default function Categories() {
     setError(false)
     setLoading(true)
     try {
-      const res = await api.get('/admin/categories?limit=200')
-      setCategories(res.data.data ?? [])
+      const res = await getCategories({ limit: 200 })
+      setCategories(res.data ?? [])
     } catch {
       setError(true)
     } finally {
@@ -198,15 +200,19 @@ export default function Categories() {
 
   useEffect(() => { load() }, [load])
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer cette catégorie ? Les produits liés ne seront pas supprimés.')) return
-    setDelError(null)
-    try {
-      await api.delete(`/admin/categories/${id}`)
-      setCategories(prev => prev.filter(c => c.id !== id))
-    } catch (err) {
-      setDelError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
-    }
+  const handleDelete = (id) => {
+    setConfirm({
+      message: 'Supprimer cette catégorie ? Les produits liés ne seront pas supprimés.',
+      onConfirm: async () => {
+        setDelError(null)
+        try {
+          await deleteCategory(id)
+          setCategories(prev => prev.filter(c => c.id !== id))
+        } catch (err) {
+          setDelError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
+        }
+      },
+    })
   }
 
   /* Tri : parents d'abord, enfants juste après leur parent */
@@ -238,6 +244,7 @@ export default function Categories() {
 
   return (
     <div className={s.page}>
+      {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
       {modal && (
         <CategoryModal
           category={modal === 'new' ? null : modal}

@@ -17,8 +17,8 @@ const findApprovedByProduct = async (productId, { page = 1, limit = 20 }) => {
      LEFT JOIN users u ON u.id = r.user_id
      WHERE r.product_id = ? AND r.is_approved = 1
      ORDER BY r.created_at DESC
-     LIMIT ${limit} OFFSET ${offset}`,
-    [productId]
+     LIMIT ? OFFSET ?`,
+    [productId, limit, offset]
   );
 
   return { rows, total };
@@ -41,8 +41,8 @@ const findApproved = async ({ limit = 3, rating = null }) => {
      INNER JOIN users u ON u.id = r.user_id
      ${where}
      ORDER BY r.created_at DESC
-     LIMIT ${limit}`,
-    params
+     LIMIT ?`,
+    [...params, limit]
   );
 
   return rows;
@@ -74,8 +74,8 @@ const findAll = async ({ page = 1, limit = 20, approved = null }) => {
      INNER JOIN product_translations pt ON pt.product_id = r.product_id AND pt.locale = 'fr'
      ${where}
      ORDER BY r.created_at DESC
-     LIMIT ${limit} OFFSET ${offset}`,
-    params
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
   );
 
   return { rows, total };
