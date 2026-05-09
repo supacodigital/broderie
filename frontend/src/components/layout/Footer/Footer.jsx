@@ -104,12 +104,12 @@ export default function Footer() {
               </Link>
             </li>
             <li>
-              <Link to="/catalogue?featured=true">
+              <Link to="/catalogue?badge=nouveaute">
                 {t("footer.shopLinks.new")}
               </Link>
             </li>
             <li>
-              <Link to="/catalogue?promo=true">
+              <Link to="/catalogue?badge=promo">
                 {t("footer.shopLinks.promo")}
               </Link>
             </li>
@@ -127,7 +127,7 @@ export default function Footer() {
               <Link to="/mon-compte">{t("footer.helpLinks.tracking")}</Link>
             </li>
             <li>
-              <Link to="/faq">{t("footer.helpLinks.faq")}</Link>
+              <Link to="/contact">{t("footer.helpLinks.faq")}</Link>
             </li>
             <li>
               <Link to="/cgv">{t("footer.helpLinks.cgv")}</Link>
