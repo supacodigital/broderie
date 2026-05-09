@@ -19,6 +19,7 @@ const PolitiqueRetour  = lazy(() => import('./pages/PolitiqueRetour/PolitiqueRet
 const ForgotPassword   = lazy(() => import('./pages/ForgotPassword/ForgotPassword.jsx'))
 const ResetPassword  = lazy(() => import('./pages/ResetPassword/ResetPassword.jsx'))
 const OrderDetail    = lazy(() => import('./pages/OrderDetail/OrderDetail.jsx'))
+const Contact        = lazy(() => import('./pages/Contact/Contact.jsx'))
 
 /* Fallback pendant le chargement des chunks */
 function PageLoader() {
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
       { path: '/politique-de-retour',           element: <S><PolitiqueRetour /></S> },
       { path: '/mot-de-passe-oublie',           element: <S><ForgotPassword /></S> },
       { path: '/reinitialiser-mot-de-passe',    element: <S><ResetPassword /></S> },
+      { path: '/contact',                       element: <S><Contact /></S> },
 
       /* Routes protégées — nécessitent une authentification */
       {

@@ -1,10 +1,10 @@
 {
   "nav": {
     "collections": "Collections",
-    "shop": "Shop",
-    "savoirFaire": "Our Story",
-    "reviews": "Reviews",
+    "newArrivals": "New arrivals",
+    "promos": "Promotions",
     "blog": "Blog",
+    "contact": "Contact",
     "search": "Search",
     "account": "My Account",
     "cart": "Cart",

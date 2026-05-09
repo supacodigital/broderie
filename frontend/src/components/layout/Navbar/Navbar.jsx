@@ -5,6 +5,7 @@ import { ShoppingBag, Search, User, LogOut, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../contexts/AuthContext.jsx'
 import { useCart } from '../../../contexts/CartContext.jsx'
 import NavSearch from './NavSearch.jsx'
+import CategoryNav from './CategoryNav.jsx'
 import s from './Navbar.module.css'
 
 export default function Navbar() {
@@ -74,13 +75,21 @@ export default function Navbar() {
             </NavLink>
           </li>
           <li>
-            <NavLink to="/catalogue" className={({ isActive }) => isActive ? s.linkActive : ''}>
-              {t('nav.shop')}
+            <NavLink to="/catalogue?badge=nouveaute" className={({ isActive }) => isActive ? s.linkActive : ''}>
+              {t('nav.newArrivals')}
             </NavLink>
           </li>
-          <li><a href="/#savoir-faire">{t('nav.savoirFaire')}</a></li>
-          <li><a href="/#temoignages">{t('nav.reviews')}</a></li>
+          <li>
+            <NavLink to="/catalogue?badge=promo" className={({ isActive }) => isActive ? s.linkActive : ''}>
+              {t('nav.promos')}
+            </NavLink>
+          </li>
           <li><a href="#">{t('nav.blog')}</a></li>
+          <li>
+            <NavLink to="/contact" className={({ isActive }) => isActive ? s.linkActive : ''}>
+              {t('nav.contact')}
+            </NavLink>
+          </li>
         </ul>
 
         {/* Actions */}
@@ -141,6 +150,9 @@ export default function Navbar() {
       {/* ── Overlay de recherche global ── */}
       <NavSearch open={searchOpen} onClose={closeSearch} />
 
+      {/* ── Barre catégories ── */}
+      <CategoryNav />
+
       {/* ── Menu mobile ── */}
       <div
         id="mobile-menu"
@@ -155,10 +167,10 @@ export default function Navbar() {
 
         <ul role="list">
           <li><NavLink to="/catalogue" onClick={closeMenu}>{t('nav.collections')}</NavLink></li>
-          <li><NavLink to="/catalogue" onClick={closeMenu}>{t('nav.shop')}</NavLink></li>
-          <li><a href="/#savoir-faire" onClick={closeMenu}>{t('nav.savoirFaire')}</a></li>
-          <li><a href="/#temoignages" onClick={closeMenu}>{t('nav.reviews')}</a></li>
+          <li><NavLink to="/catalogue?badge=nouveaute" onClick={closeMenu}>{t('nav.newArrivals')}</NavLink></li>
+          <li><NavLink to="/catalogue?badge=promo" onClick={closeMenu}>{t('nav.promos')}</NavLink></li>
           <li><a href="#" onClick={closeMenu}>{t('nav.blog')}</a></li>
+          <li><NavLink to="/contact" onClick={closeMenu}>{t('nav.contact')}</NavLink></li>
           <li className={s.mobileDivider} aria-hidden="true" />
           {isAuthenticated ? (
             <>

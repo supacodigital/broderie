@@ -1,10 +1,10 @@
 {
   "nav": {
     "collections": "Kollektionen",
-    "shop": "Shop",
-    "savoirFaire": "Know-how",
-    "reviews": "Bewertungen",
+    "newArrivals": "Neuheiten",
+    "promos": "Aktionen",
     "blog": "Blog",
+    "contact": "Kontakt",
     "search": "Suchen",
     "account": "Mein Konto",
     "cart": "Warenkorb",

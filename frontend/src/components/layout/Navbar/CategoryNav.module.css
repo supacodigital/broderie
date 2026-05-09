@@ -1,0 +1,161 @@
+/* ── BARRE CATÉGORIES ─────────────────────────────────── */
+.bar {
+  position: sticky;
+  top: 72px;
+  z-index: 200;
+  background: #fff;
+  border-bottom: 1px solid var(--rose-border);
+  overflow: visible;
+  transition: box-shadow 0.3s;
+}
+
+.barScrolled {
+  box-shadow: 0 2px 12px rgba(219, 39, 119, 0.06);
+}
+
+/* Wrapper scrollable horizontal — séparé du .bar pour que les dropdowns ne soient pas clippés */
+.scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+}
+
+.scroll::-webkit-scrollbar { display: none; }
+
+.list {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  padding: 0 48px;
+  gap: 0;
+  min-width: max-content;
+}
+
+/* ── ITEM ── */
+.item {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* ── LIEN CATÉGORIE ── */
+.link {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 16px;
+  height: 44px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color 0.18s, border-color 0.18s;
+}
+
+.link:hover,
+.linkHovered {
+  color: var(--rose);
+}
+
+.linkActive {
+  color: var(--rose);
+  font-weight: 600;
+  border-bottom-color: var(--rose);
+}
+
+/* ── CHEVRON ── */
+.chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.2s, color 0.18s;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+  color: var(--rose);
+}
+
+/* ── DROPDOWN — rendu en position fixed, coordonnées injectées via style inline ── */
+.dropdown {
+  position: fixed;
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid var(--rose-border);
+  border-top: 2px solid var(--rose);
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  z-index: 300;
+  animation: dropdownIn 0.15s ease;
+}
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dropdownInner {
+  padding: 12px 0 14px;
+}
+
+/* Lien "Tout — Catégorie" */
+.dropdownParentLink {
+  display: block;
+  padding: 8px 20px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rose);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rose-border);
+  margin-bottom: 8px;
+  transition: color 0.15s;
+}
+
+.dropdownParentLink:hover { color: var(--rose-dark, #be185d); }
+
+/* ── SOUS-LIENS ── */
+.subList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.subLink {
+  display: block;
+  padding: 7px 20px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text);
+  text-decoration: none;
+  transition: background 0.13s, color 0.13s, padding-left 0.13s;
+}
+
+.subLink:hover {
+  background: var(--rose-pale);
+  color: var(--rose);
+  padding-left: 26px;
+}
+
+.subLinkActive {
+  color: var(--rose);
+  font-weight: 600;
+  background: var(--rose-pale);
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1024px) {
+  .list { padding: 0 20px; }
+  .link { padding: 0 12px; font-size: 11px; }
+}
+
+@media (max-width: 768px) {
+  .bar { top: 64px; }
+  .link { padding: 0 10px; height: 40px; }
+}

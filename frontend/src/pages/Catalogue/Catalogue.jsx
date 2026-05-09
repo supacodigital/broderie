@@ -157,6 +157,23 @@ export default function Catalogue() {
     setFilters(f => ({ ...f, category: categorySlug ?? '', page: 1 }))
   }, [categorySlug])
 
+  /* Synchronise les filtres quand les searchParams changent depuis l'extérieur (ex: liens navbar) */
+  useEffect(() => {
+    setFilters(f => ({
+      ...f,
+      page:       1,
+      q:          searchParams.get('q')          ?? undefined,
+      min_price:  searchParams.get('min_price')  ?? undefined,
+      max_price:  searchParams.get('max_price')  ?? undefined,
+      in_stock:   searchParams.get('in_stock') === 'true' ? true : undefined,
+      sort:       searchParams.get('sort')        ?? 'created_at',
+      order:      searchParams.get('order')       ?? 'desc',
+      featured:   searchParams.get('featured') === 'true' ? true : undefined,
+      badge:      searchParams.get('badge')       ?? undefined,
+      min_rating: searchParams.get('min_rating')  ? parseInt(searchParams.get('min_rating')) : undefined,
+    }))
+  }, [searchParams])
+
   useEffect(() => {
     getCategories(normalizeLocale(i18n.language))
       .then(d => setCategories(d.data ?? []))
