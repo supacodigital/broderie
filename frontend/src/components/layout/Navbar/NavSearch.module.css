@@ -4,7 +4,7 @@
   inset: 0;
   background: rgba(15, 10, 20, 0.45);
   backdrop-filter: blur(4px);
-  z-index: 101;
+  z-index: 400;
   animation: fadeIn 0.18s ease;
 }
 
@@ -25,7 +25,7 @@
   left: 50%;
   transform: translateX(-50%);
   width: min(680px, 90vw);
-  z-index: 102;
+  z-index: 401;
   animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -280,7 +280,7 @@
     top: 0;
     left: 0;
     right: 0;
-    z-index: 102;
+    z-index: 401;
     background: white;
     border-radius: 0 0 20px 20px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);

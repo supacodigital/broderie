@@ -1,5 +1,6 @@
 {
   "nav": {
+    "home": "Startseite",
     "collections": "Kollektionen",
     "newArrivals": "Neuheiten",
     "promos": "Aktionen",
@@ -23,9 +24,12 @@
     "desc": "Entdecken Sie unsere Kollektion von DMC-Garnen, Sticksets und hochwertigem Schweizer Zubehör. Ideal für Anfängerinnen und Expertinnen.",
     "cta": "Shop entdecken",
     "ctaKits": "Unsere aktuellen Sets",
+    "stat1Value": "2 400+",
     "stat1Label": "Artikel auf Lager",
+    "stat2Value": "12 000+",
     "stat2Label": "Zufriedene Kundinnen",
-    "stat3Label": "Jahre Leidenschaft & Expertise",
+    "stat3Value": "37 Jahre",
+    "stat3Label": "Leidenschaft & Expertise",
     "ratingLabel": "Kundenbewertung"
   },
   "advantages": {
@@ -74,7 +78,8 @@
     "desc": "Neue Kollektionen, exklusive Tutorials und Angebote nur für Abonnentinnen.",
     "placeholder": "ihre@email.ch",
     "label": "Ihre E-Mail-Adresse",
-    "cta": "Abonnieren"
+    "cta": "Abonnieren",
+    "success": "✓ Danke! Sie sind jetzt angemeldet."
   },
   "footer": {
     "desc": "Ihr Schweizer Stickerei-Spezialist seit 1987. Qualität, Leidenschaft und Service mit jedem Stich.",
@@ -100,6 +105,14 @@
     },
     "copyright": "© 2026 Au Point-Compté — Lausanne, Schweiz 🇨🇭 · Gehostet von Infomaniak"
   },
+  "account": {
+    "tabProfile": "Profil",
+    "tabOrders": "Bestellungen",
+    "tabAddresses": "Adressen",
+    "tabWishlist": "Favoriten",
+    "tabLoyalty": "Treue",
+    "myAccount": "Mein Konto"
+  },
   "errors": {
     "network": "Ein Netzwerkfehler ist aufgetreten. Bitte versuchen Sie es erneut.",
     "server": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
@@ -124,6 +137,7 @@
     "stepSummary": "Übersicht",
     "stepConfirm": "Bestätigung",
     "addressTitle": "Lieferadresse",
+    "savedAddresses": "Meine gespeicherten Adressen",
     "firstName": "Vorname",
     "lastName": "Nachname",
     "street": "Adresse",
@@ -156,6 +170,8 @@
     "placeOrder": "Bestellung bestätigen",
     "placingOrder": "Wird verarbeitet…",
     "backToAddress": "Adresse ändern",
+    "infoTwint": "Ein Twint-QR-Code wird nach der Bestätigung angezeigt. Scannen Sie ihn mit der Twint-App.",
+    "infoCard": "Visa und Mastercard akzeptiert. Sichere Zahlung über Stripe.",
     "confirmTitle": "Bestellung bestätigt!",
     "confirmSubtitle": "Danke für Ihre Bestellung",
     "confirmDesc": "Sie erhalten in Kürze eine Bestätigungs-E-Mail.",
@@ -238,6 +254,14 @@
       "generic": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut."
     }
   },
+  "notFound": {
+    "title": "Der Faden hat sich verloren…",
+    "desc": "Diese Seite existiert nicht oder wurde verschoben. Keine Sorge — kehren Sie zur Stickerei zurück!",
+    "backHome": "Zurück zur Startseite",
+    "seeCatalogue": "Zum Shop",
+    "myAccount": "Mein Konto",
+    "myCart": "Mein Warenkorb"
+  },
   "catalogue": {
     "eyebrow": "Unser Shop",
     "allProducts": "Alle Produkte",
@@ -257,6 +281,13 @@
     "sortRating": "Bestbewertet",
     "sortNameAsc": "Name A–Z",
     "resultCount": "{{count}} Produkt",
-    "resultCount_other": "{{count}} Produkte"
+    "resultCount_other": "{{count}} Produkte",
+    "noResultsQuery": "Keine Ergebnisse für \"{{q}}\"",
+    "noResultsFilters": "Versuchen Sie, Ihre Filter anzupassen.",
+    "chipMinPrice": "Min CHF {{price}}",
+    "chipMaxPrice": "Max CHF {{price}}",
+    "chipPromo": "Aktion",
+    "chipCoupDeCoeur": "Herzensempfehlung",
+    "chipExclusif": "Exklusiv"
   }
 }

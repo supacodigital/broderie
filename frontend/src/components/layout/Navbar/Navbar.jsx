@@ -5,7 +5,6 @@ import { ShoppingBag, Search, User, LogOut, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../contexts/AuthContext.jsx'
 import { useCart } from '../../../contexts/CartContext.jsx'
 import NavSearch from './NavSearch.jsx'
-import CategoryNav from './CategoryNav.jsx'
 import s from './Navbar.module.css'
 
 export default function Navbar() {
@@ -149,9 +148,6 @@ export default function Navbar() {
 
       {/* ── Overlay de recherche global ── */}
       <NavSearch open={searchOpen} onClose={closeSearch} />
-
-      {/* ── Barre catégories ── */}
-      <CategoryNav />
 
       {/* ── Menu mobile ── */}
       <div

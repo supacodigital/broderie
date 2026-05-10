@@ -160,6 +160,62 @@
   gap: 4px;
 }
 
+/* ── Adresses sauvegardées ── */
+.savedAddresses {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--rose-border);
+}
+
+.savedAddressesLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.savedAddressList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.savedAddressBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .2s, background .2s;
+  min-width: 160px;
+}
+
+.savedAddressBtn:hover {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.savedAddrLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.savedAddrLine {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* ── Modes de paiement ── */
 .paymentOptions {
   display: flex;
@@ -453,6 +509,14 @@
 .confirmRef strong {
   color: var(--text-dark);
   font-size: 16px;
+}
+
+.confirmOrderLink {
+  color: var(--rose);
+  font-weight: 700;
+  font-size: 16px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .confirmDesc {
@@ -833,4 +897,54 @@
 
 .couponRemove:hover {
   opacity: 1;
+}
+
+/* ── Classes utilitaires remplaçant les styles inline ── */
+
+/* Stepper — wrapper sans boîte (display:contents) */
+.stepperSpan { display: contents; }
+
+/* Ligne de remise coupon dans le récapitulatif */
+.summaryRowDiscount {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: #059669;
+  margin-bottom: 8px;
+}
+.summaryRowDiscount span:last-child { font-weight: 600; }
+
+/* Icône Tag dans la ligne remise */
+.couponTagIcon { margin-right: 4px; }
+
+/* Champ pays — lecture seule */
+.inputReadonly {
+  background: var(--rose-pale) !important;
+  cursor: default !important;
+}
+
+/* Div flex-1 à l'intérieur d'une option de paiement */
+.paymentOptionInner { flex: 1; }
+
+/* Ligne CGV avec espacement supérieur augmenté */
+.cgvRowSpaced { margin-top: 24px; }
+
+/* Erreur CGV avec espacement supérieur */
+.fieldErrorSpaced { margin-top: 4px; }
+
+/* Div actions avec espacement supérieur augmenté */
+.actionsSpaced { margin-top: 24px; }
+
+/* Bouton plein width avec espacement supérieur (Twint / Card) */
+.btnFullWidth {
+  width: 100%;
+  margin-top: 20px;
+}
+
+/* Lien CTA confirmation (pas de text-decoration sur <Link>) */
+.confirmCtaLink {
+  text-decoration: none;
+  padding: 14px 32px;
+  margin-top: 8px;
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, LayoutGrid, List, ArrowUp } from 'lucide-react'
+import { ChevronRight, ArrowUp } from 'lucide-react'
 import { getProducts, getCategories } from '../../services/products.service.js'
 import { normalizeLocale } from '../../utils/locale.js'
 import { useWishlist } from '../../contexts/WishlistContext.jsx'
@@ -15,6 +15,7 @@ import s from './Catalogue.module.css'
 
 /* ── Chips filtres actifs ── */
 function ActiveFilters({ filters, categories, onChange }) {
+  const { t } = useTranslation()
   const chips = []
 
   if (filters.category) {
@@ -35,29 +36,29 @@ function ActiveFilters({ filters, categories, onChange }) {
   if (filters.min_price) {
     chips.push({
       key:   'min_price',
-      label: `Min CHF ${filters.min_price}`,
+      label: t('catalogue.chipMinPrice', { price: filters.min_price }),
       clear: () => onChange({ ...filters, min_price: undefined, page: 1 }),
     })
   }
   if (filters.max_price) {
     chips.push({
       key:   'max_price',
-      label: `Max CHF ${filters.max_price}`,
+      label: t('catalogue.chipMaxPrice', { price: filters.max_price }),
       clear: () => onChange({ ...filters, max_price: undefined, page: 1 }),
     })
   }
   if (filters.in_stock) {
     chips.push({
       key:   'in_stock',
-      label: 'En stock',
+      label: t('catalogue.inStockOnly'),
       clear: () => onChange({ ...filters, in_stock: undefined, page: 1 }),
     })
   }
   if (filters.badge) {
-    const BADGE_LABELS = { nouveaute: 'Nouveauté', promo: 'Promotion', coup_de_coeur: 'Coup de cœur', exclusif: 'Exclusif' }
+    const BADGE_KEYS = { nouveaute: 'catalogue.sortNewBadge', promo: 'catalogue.chipPromo', coup_de_coeur: 'catalogue.chipCoupDeCoeur', exclusif: 'catalogue.chipExclusif' }
     chips.push({
       key:   'badge',
-      label: BADGE_LABELS[filters.badge] ?? filters.badge,
+      label: BADGE_KEYS[filters.badge] ? t(BADGE_KEYS[filters.badge]) : filters.badge,
       clear: () => onChange({ ...filters, badge: undefined, page: 1 }),
     })
   }
@@ -84,7 +85,7 @@ function ActiveFilters({ filters, categories, onChange }) {
           className={s.chipClearAll}
           onClick={() => onChange({ page: 1, limit: filters.limit ?? 20 })}
         >
-          Tout effacer
+          {t('catalogue.clearFilters')}
         </button>
       )}
     </div>
@@ -300,7 +301,7 @@ export default function Catalogue() {
             <EmptyState
               icon="🔍"
               title={t('empty.products')}
-              desc={filters.q ? `Aucun résultat pour "${filters.q}"` : 'Essayez de modifier vos filtres.'}
+              desc={filters.q ? t('catalogue.noResultsQuery', { q: filters.q }) : t('catalogue.noResultsFilters')}
               ctaLabel={t('catalogue.clearFilters')}
               onRetry={() => handleFiltersChange({ page: 1, limit: 20 })}
             />

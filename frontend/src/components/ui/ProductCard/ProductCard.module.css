@@ -8,6 +8,12 @@
   margin-bottom: 14px;
 }
 
+.imageLink {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .image {
   width: 100%;
   height: 100%;

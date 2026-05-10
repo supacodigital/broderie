@@ -43,7 +43,7 @@ function Stepper({ step, t }) {
   return (
     <div className={s.stepper} aria-label="Étapes de commande">
       {steps.map((label, i) => (
-        <span key={label} style={{ display: 'contents' }}>
+        <span key={label} className={s.stepperSpan}>
           <div className={`${s.step} ${i + 1 === step ? s.active : ''} ${i + 1 < step ? s.done : ''}`}>
             <span className={s.stepNum}>
               {i + 1 < step ? <Check size={13} /> : i + 1}
@@ -89,8 +89,8 @@ function OrderSummary({ items, subtotal, discount, couponCode, t }) {
       </div>
 
       {discount > 0 && (
-        <div className={s.summaryRow} style={{ color: '#059669' }}>
-          <span><Tag size={12} style={{ marginRight: 4 }} />{couponCode}</span>
+        <div className={s.summaryRowDiscount}>
+          <span><Tag size={12} className={s.couponTagIcon} />{couponCode}</span>
           <span>− CHF {discount.toFixed(2)}</span>
         </div>
       )}
@@ -112,7 +112,7 @@ function OrderSummary({ items, subtotal, discount, couponCode, t }) {
 }
 
 /* ── Étape 1 : Adresse de livraison ── */
-function StepAddress({ onNext, prefill, t }) {
+function StepAddress({ onNext, prefill, savedAddresses, t }) {
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(buildAddressSchema(t)),
     defaultValues: {
@@ -140,9 +140,43 @@ function StepAddress({ onNext, prefill, t }) {
     })
   }, [prefill, reset])
 
+  /* Sélection d'une adresse sauvegardée → prérempli le formulaire */
+  const fillFromSaved = (addr) => {
+    reset({
+      first_name: prefill?.firstName ?? '',
+      last_name:  prefill?.lastName  ?? '',
+      street:     addr.street ?? '',
+      zip:        addr.zip    ?? '',
+      city:       addr.city   ?? '',
+      canton:     addr.canton ?? '',
+      phone:      addr.phone  ?? '',
+    })
+  }
+
   return (
     <div className={s.panel}>
       <h2 className={s.panelTitle}>{t('checkout.addressTitle')}</h2>
+
+      {/* Sélection rapide d'une adresse sauvegardée */}
+      {savedAddresses.length > 0 && (
+        <div className={s.savedAddresses}>
+          <p className={s.savedAddressesLabel}>{t('checkout.savedAddresses')}</p>
+          <div className={s.savedAddressList}>
+            {savedAddresses.map(addr => (
+              <button
+                key={addr.id}
+                type="button"
+                className={s.savedAddressBtn}
+                onClick={() => fillFromSaved(addr)}
+              >
+                <span className={s.savedAddrLabel}>{addr.label || addr.city}</span>
+                <span className={s.savedAddrLine}>{addr.street}, {addr.zip} {addr.city}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onNext)} noValidate className={s.form}>
 
         <div className={s.row}>
@@ -211,7 +245,7 @@ function StepAddress({ onNext, prefill, t }) {
         <div className={s.field}>
           <label className={s.label}>{t('checkout.country')}</label>
           <input type="text" readOnly value={t('checkout.countrySwitzerland')}
-            className={s.input} style={{ background: 'var(--rose-pale)', cursor: 'default' }} />
+            className={`${s.input} ${s.inputReadonly}`} />
         </div>
 
         <div className={s.field}>
@@ -310,7 +344,7 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
               onChange={() => setPayment(opt.value)}
               className={s.paymentRadio}
             />
-            <div style={{ flex: 1 }}>
+            <div className={s.paymentOptionInner}>
               <p className={s.paymentLabel}>{opt.label}</p>
             </div>
             <span className={s.paymentBadge}>{opt.badge}</span>
@@ -320,14 +354,10 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
 
       {/* Info contextuelle selon le mode choisi */}
       {payment === 'twint' && (
-        <div className={s.paymentInfo}>
-          📱 Un QR code Twint s'affichera après confirmation. Scannez-le avec l'app Twint.
-        </div>
+        <div className={s.paymentInfo}>{t('checkout.infoTwint')}</div>
       )}
       {payment === 'card' && (
-        <div className={s.paymentInfo}>
-          💳 Visa et Mastercard acceptés. Paiement sécurisé par Stripe.
-        </div>
+        <div className={s.paymentInfo}>{t('checkout.infoCard')}</div>
       )}
 
       {/* Code promo */}
@@ -367,7 +397,7 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
       </div>
 
       {/* CGV */}
-      <div className={s.cgvRow} style={{ marginTop: 24 }}>
+      <div className={`${s.cgvRow} ${s.cgvRowSpaced}`}>
         <input
           id="checkout-cgv"
           type="checkbox"
@@ -381,12 +411,12 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
         </label>
       </div>
       {cgvError && (
-        <span className={s.fieldError} style={{ marginTop: 4 }}>
+        <span className={`${s.fieldError} ${s.fieldErrorSpaced}`}>
           <AlertCircle size={12} />{cgvError}
         </span>
       )}
 
-      <div className={s.actions} style={{ marginTop: 24 }}>
+      <div className={`${s.actions} ${s.actionsSpaced}`}>
         <button type="button" className={s.btnBack} onClick={onBack}>
           <ChevronLeft size={16} />{t('checkout.backToAddress')}
         </button>
@@ -448,9 +478,8 @@ function TwintForm({ orderId, onPaid }) {
       )}
       <button
         type="submit"
-        className={s.btnPrimary}
+        className={`${s.btnPrimary} ${s.btnFullWidth}`}
         disabled={!stripe || processing}
-        style={{ width: '100%', marginTop: 20 }}
       >
         {processing
           ? 'Traitement en cours…'
@@ -581,9 +610,8 @@ function CardForm({ orderId, total, onPaid, t }) {
       )}
       <button
         type="submit"
-        className={s.btnPrimary}
+        className={`${s.btnPrimary} ${s.btnFullWidth}`}
         disabled={!stripe || processing}
-        style={{ width: '100%', marginTop: 20 }}
       >
         {processing
           ? 'Traitement en cours…'
@@ -668,7 +696,10 @@ function StepConfirm({ orderId, t }) {
       <p className={s.confirmSubtitle}>{t('checkout.confirmSubtitle')}</p>
       {orderId && (
         <p className={s.confirmRef}>
-          {t('checkout.confirmOrderRef')} : <strong>#{orderId}</strong>
+          {t('checkout.confirmOrderRef')} :{' '}
+          <Link to={`/commandes/${orderId}`} className={s.confirmOrderLink}>
+            #{orderId}
+          </Link>
         </p>
       )}
       <p className={s.confirmDesc}>{t('checkout.confirmDesc')}</p>
@@ -677,8 +708,7 @@ function StepConfirm({ orderId, t }) {
       </div>
       <Link
         to="/catalogue"
-        className={s.btnPrimary}
-        style={{ textDecoration: 'none', padding: '14px 32px', marginTop: 8 }}
+        className={`${s.btnPrimary} ${s.confirmCtaLink}`}
       >
         {t('checkout.confirmCta')}
       </Link>
@@ -693,16 +723,17 @@ export default function Checkout() {
   const { items, subtotal, clearCart } = useCart()
   const { user, isAuthenticated }      = useAuth()
 
-  const [step,          setStep]          = useState(1)
-  const [address,       setAddress]       = useState(null)
-  const [orderId,       setOrderId]       = useState(null)
-  const [paymentMethod, setPaymentMethod] = useState('twint')
-  const [orderTotal,    setOrderTotal]    = useState(0)
-  const [isSubmitting,  setIsSubmitting]  = useState(false)
-  const [globalError,   setGlobalError]   = useState('')
-  const [prefill,       setPrefill]       = useState(null)
-  const [discount,      setDiscount]      = useState(0)
-  const [couponCode,    setCouponCode]    = useState('')
+  const [step,           setStep]           = useState(1)
+  const [address,        setAddress]        = useState(null)
+  const [orderId,        setOrderId]        = useState(null)
+  const [paymentMethod,  setPaymentMethod]  = useState('twint')
+  const [orderTotal,     setOrderTotal]     = useState(0)
+  const [isSubmitting,   setIsSubmitting]   = useState(false)
+  const [globalError,    setGlobalError]    = useState('')
+  const [prefill,        setPrefill]        = useState(null)
+  const [savedAddresses, setSavedAddresses] = useState([])
+  const [discount,       setDiscount]       = useState(0)
+  const [couponCode,     setCouponCode]     = useState('')
 
   /* Préremplissage depuis le compte utilisateur */
   useEffect(() => {
@@ -712,6 +743,7 @@ export default function Checkout() {
       .then(res => {
         if (cancelled) return
         const addresses = res.data ?? []
+        setSavedAddresses(addresses)
         const def = addresses.find(a => !!a.is_default) ?? addresses[0] ?? null
         setPrefill({
           firstName: user.firstName ?? user.first_name ?? '',
@@ -787,7 +819,7 @@ export default function Checkout() {
 
       {/* Fil d'Ariane */}
       <nav className={s.breadcrumb} aria-label="Fil d'Ariane">
-        <Link to="/">Accueil</Link>
+        <Link to="/">{t('nav.home')}</Link>
         <ChevronRight size={13} aria-hidden="true" />
         <Link to="/panier">{t('cart.title')}</Link>
         <ChevronRight size={13} aria-hidden="true" />
@@ -796,38 +828,44 @@ export default function Checkout() {
 
       {step !== 3 && step !== 'twint' && <h1 className={s.heading}>{t('checkout.title')}</h1>}
 
-      {/* Stepper — masqué sur les écrans de paiement */}
-      {step !== 'twint' && step !== 'card' && (
-        <Stepper step={typeof step === 'number' ? step : 3} t={t} />
+      {/* Stepper — toujours visible, bloqué à l'étape 2 pendant le paiement */}
+      {step !== 3 && (
+        <Stepper step={typeof step === 'number' ? step : 2} t={t} />
       )}
 
       {step === 3 && (
         <StepConfirm orderId={orderId} t={t} />
       )}
 
-      {step === 'twint' && (
-        <StepTwint
-          orderId={orderId}
-          total={orderTotal}
-          onPaid={() => { setStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
-          t={t}
-        />
-      )}
-
-      {step === 'card' && (
-        <StepCard
-          orderId={orderId}
-          total={orderTotal}
-          onPaid={() => { setStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
-          t={t}
-        />
+      {(step === 'twint' || step === 'card') && (
+        <div className={s.layout}>
+          <div>
+            {step === 'twint' && (
+              <StepTwint
+                orderId={orderId}
+                total={orderTotal}
+                onPaid={() => { setStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                t={t}
+              />
+            )}
+            {step === 'card' && (
+              <StepCard
+                orderId={orderId}
+                total={orderTotal}
+                onPaid={() => { setStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                t={t}
+              />
+            )}
+          </div>
+          <OrderSummary items={[]} subtotal={orderTotal - SHIPPING_CHF} discount={discount} couponCode={couponCode} t={t} />
+        </div>
       )}
 
       {(step === 1 || step === 2) && (
         <div className={s.layout}>
 
           {step === 1 && (
-            <StepAddress onNext={handleAddressNext} prefill={prefill} t={t} />
+            <StepAddress onNext={handleAddressNext} prefill={prefill} savedAddresses={savedAddresses} t={t} />
           )}
 
           {step === 2 && (

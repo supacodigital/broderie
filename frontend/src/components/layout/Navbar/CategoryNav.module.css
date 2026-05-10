@@ -1,17 +1,13 @@
 /* ── BARRE CATÉGORIES ─────────────────────────────────── */
 .bar {
-  position: sticky;
-  top: 72px;
-  z-index: 200;
+  position: relative;
+  z-index: 1;
   background: #fff;
   border-bottom: 1px solid var(--rose-border);
   overflow: visible;
   transition: box-shadow 0.3s;
 }
 
-.barScrolled {
-  box-shadow: 0 2px 12px rgba(219, 39, 119, 0.06);
-}
 
 /* Wrapper scrollable horizontal — séparé du .bar pour que les dropdowns ne soient pas clippés */
 .scroll {

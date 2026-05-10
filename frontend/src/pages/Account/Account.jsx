@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -27,13 +27,15 @@ const STATUS_CFG = {
   refunded:  { label: 'Remboursée', color: '#9d174d', bg: '#fdf2f8' },
 }
 
-const TABS = [
-  { key: 'profile',   icon: User,    label: 'Profil' },
-  { key: 'orders',    icon: Package, label: 'Commandes' },
-  { key: 'addresses', icon: MapPin,  label: 'Adresses' },
-  { key: 'wishlist',  icon: Heart,   label: 'Favoris' },
-  { key: 'loyalty',   icon: Gift,    label: 'Fidélité' },
-]
+function useTabs(t) {
+  return [
+    { key: 'profile',   icon: User,    label: t('account.tabProfile') },
+    { key: 'orders',    icon: Package, label: t('account.tabOrders') },
+    { key: 'addresses', icon: MapPin,  label: t('account.tabAddresses') },
+    { key: 'wishlist',  icon: Heart,   label: t('account.tabWishlist') },
+    { key: 'loyalty',   icon: Gift,    label: t('account.tabLoyalty') },
+  ]
+}
 
 /* ── Schéma profil ── */
 const profileSchema = z.object({
@@ -69,8 +71,8 @@ function StatusBadge({ status }) {
   )
 }
 
-function formatDate(iso) {
-  return new Intl.DateTimeFormat('fr-CH', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(iso))
+function formatDate(iso, locale = 'fr') {
+  return new Intl.DateTimeFormat(`${locale}-CH`, { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(iso))
 }
 
 /* ── Formulaire changement de mot de passe ── */
@@ -288,6 +290,8 @@ function TabProfile({ user, onSaved }) {
 
 /* ── Onglet Commandes ── */
 function TabOrders() {
+  const { i18n } = useTranslation()
+  const locale = i18n.language?.split('-')[0] ?? 'fr'
   const [orders,  setOrders]  = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -334,7 +338,7 @@ function TabOrders() {
             <div className={s.orderTop}>
               <div>
                 <span className={s.orderId}>Commande #{o.id}</span>
-                <span className={s.orderDate}>{formatDate(o.created_at)}</span>
+                <span className={s.orderDate}>{formatDate(o.created_at, locale)}</span>
               </div>
               <StatusBadge status={o.status} />
             </div>
@@ -605,6 +609,8 @@ function TabWishlist() {
 
 /* ── Onglet Fidélité ── */
 function TabLoyalty() {
+  const { i18n } = useTranslation()
+  const locale = i18n.language?.split('-')[0] ?? 'fr'
   const [data,    setData]    = useState(null)
   const [rewards, setRewards] = useState([])
   const [loading, setLoading] = useState(true)
@@ -717,7 +723,7 @@ function TabLoyalty() {
         <div className={s.rewardList}>
           {rewards.map(reward => {
             const cfg = STATUS_REWARD[reward.status] ?? STATUS_REWARD.pending
-            const expires = reward.expires_at ? new Date(reward.expires_at).toLocaleDateString('fr-CH') : null
+            const expires = reward.expires_at ? new Date(reward.expires_at).toLocaleDateString(`${locale}-CH`) : null
             return (
               <div key={reward.id} className={s.rewardItem}>
                 <div className={s.rewardCode}>{reward.code}</div>
@@ -746,10 +752,16 @@ function TabLoyalty() {
 }
 
 /* ── Page principale ── */
+const VALID_TABS = ['profile', 'orders', 'addresses', 'wishlist', 'loyalty']
+
 export default function Account() {
   const { user, logout } = useAuth()
+  const { t } = useTranslation()
+  const tabs = useTabs(t)
   const navigate = useNavigate()
-  const [tab, setTab] = useState('profile')
+  const [searchParams] = useSearchParams()
+  const initialTab = VALID_TABS.includes(searchParams.get('tab') ?? '') ? searchParams.get('tab') : 'profile'
+  const [tab, setTab] = useState(initialTab)
   const [userData, setUserData] = useState(user ?? {})
 
   const handleLogout = async () => {
@@ -766,7 +778,7 @@ export default function Account() {
       {/* ── En-tête ── */}
       <div className={s.pageHead}>
         <nav className={s.breadcrumb} aria-label="Fil d'Ariane">
-          <Link to="/">Accueil</Link>
+          <Link to="/">{t('nav.home')}</Link>
           <ChevronRight size={13} />
           <span aria-current="page">Mon compte</span>
         </nav>
@@ -786,7 +798,7 @@ export default function Account() {
 
           {/* Onglets */}
           <nav className={s.tabNav} aria-label="Sections du compte">
-            {TABS.map(({ key, icon: Icon, label }) => (
+            {tabs.map(({ key, icon: Icon, label }) => (
               <button
                 key={key}
                 className={`${s.tabBtn} ${tab === key ? s.tabActive : ''}`}

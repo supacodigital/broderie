@@ -1,5 +1,6 @@
 {
   "nav": {
+    "home": "Accueil",
     "collections": "Collections",
     "newArrivals": "Nouveautés",
     "promos": "Promotions",
@@ -23,8 +24,11 @@
     "desc": "Découvrez notre collection de fils DMC, kits de broderie et accessoires de qualité suisse. Idéal pour les débutantes comme les expertes.",
     "cta": "Découvrir la boutique",
     "ctaKits": "Nos kits du moment",
+    "stat1Value": "2 400+",
     "stat1Label": "Références en stock",
+    "stat2Value": "12 000+",
     "stat2Label": "Clientes satisfaites",
+    "stat3Value": "37 ans",
     "stat3Label": "De passion & d'expertise",
     "ratingLabel": "Note clients"
   },
@@ -74,7 +78,8 @@
     "desc": "Nouvelles collections, tutoriels exclusifs et offres réservées aux abonnées.",
     "placeholder": "votre@email.ch",
     "label": "Votre adresse email",
-    "cta": "S'abonner"
+    "cta": "S'abonner",
+    "success": "✓ Merci ! Vous êtes maintenant abonnée."
   },
   "footer": {
     "desc": "Votre spécialiste suisse en broderie depuis 1987. Qualité, passion et service au fil de chaque commande.",
@@ -100,6 +105,14 @@
     },
     "copyright": "© 2026 Au Point-Compté — Lausanne, Suisse 🇨🇭 · Hébergé par Infomaniak"
   },
+  "account": {
+    "tabProfile": "Profil",
+    "tabOrders": "Commandes",
+    "tabAddresses": "Adresses",
+    "tabWishlist": "Favoris",
+    "tabLoyalty": "Fidélité",
+    "myAccount": "Mon compte"
+  },
   "errors": {
     "network": "Une erreur réseau est survenue. Veuillez réessayer.",
     "server": "Une erreur est survenue. Veuillez réessayer.",
@@ -124,6 +137,7 @@
     "stepSummary": "Récapitulatif",
     "stepConfirm": "Confirmation",
     "addressTitle": "Adresse de livraison",
+    "savedAddresses": "Mes adresses enregistrées",
     "firstName": "Prénom",
     "lastName": "Nom",
     "street": "Adresse",
@@ -156,6 +170,8 @@
     "placeOrder": "Confirmer la commande",
     "placingOrder": "Traitement en cours…",
     "backToAddress": "Modifier l'adresse",
+    "infoTwint": "Un QR code Twint s'affichera après confirmation. Scannez-le avec l'app Twint.",
+    "infoCard": "Visa et Mastercard acceptés. Paiement sécurisé par Stripe.",
     "confirmTitle": "Commande confirmée !",
     "confirmSubtitle": "Merci pour votre commande",
     "confirmDesc": "Vous allez recevoir un email de confirmation dans les prochaines minutes.",
@@ -238,6 +254,14 @@
       "generic": "Une erreur est survenue. Veuillez réessayer."
     }
   },
+  "notFound": {
+    "title": "Le fil s'est perdu…",
+    "desc": "Cette page n'existe pas ou a été déplacée. Pas d'inquiétude — revenez à la broderie !",
+    "backHome": "Retour à l'accueil",
+    "seeCatalogue": "Voir le catalogue",
+    "myAccount": "Mon compte",
+    "myCart": "Mon panier"
+  },
   "catalogue": {
     "eyebrow": "Notre boutique",
     "allProducts": "Tous les produits",
@@ -257,6 +281,13 @@
     "sortRating": "Mieux notés",
     "sortNameAsc": "Nom A–Z",
     "resultCount": "{{count}} produit",
-    "resultCount_other": "{{count}} produits"
+    "resultCount_other": "{{count}} produits",
+    "noResultsQuery": "Aucun résultat pour \"{{q}}\"",
+    "noResultsFilters": "Essayez de modifier vos filtres.",
+    "chipMinPrice": "Min CHF {{price}}",
+    "chipMaxPrice": "Max CHF {{price}}",
+    "chipPromo": "Promotion",
+    "chipCoupDeCoeur": "Coup de cœur",
+    "chipExclusif": "Exclusif"
   }
 }

@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom'
-import { Home, ArrowLeft, Search } from 'lucide-react'
+import { Home, Search } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import s from './NotFound.module.css'
 
 export default function NotFound() {
+  const { t } = useTranslation()
+
   return (
     <div className={s.page}>
       <div className={s.inner}>
@@ -13,29 +16,26 @@ export default function NotFound() {
         </div>
 
         <p className={s.code}>404</p>
-        <h1 className={s.title}>Le fil s'est perdu…</h1>
-        <p className={s.desc}>
-          Cette page n'existe pas ou a été déplacée.<br />
-          Pas d'inquiétude — revenez à la broderie !
-        </p>
+        <h1 className={s.title}>{t('notFound.title')}</h1>
+        <p className={s.desc}>{t('notFound.desc')}</p>
 
         <div className={s.actions}>
           <Link to="/" className={s.btnPrimary}>
             <Home size={16} />
-            Retour à l'accueil
+            {t('notFound.backHome')}
           </Link>
           <Link to="/catalogue" className={s.btnSecondary}>
             <Search size={16} />
-            Voir le catalogue
+            {t('notFound.seeCatalogue')}
           </Link>
         </div>
 
         <div className={s.linksRow}>
-          <Link to="/connexion">Mon compte</Link>
+          <Link to="/connexion">{t('notFound.myAccount')}</Link>
           <span>·</span>
-          <Link to="/panier">Mon panier</Link>
+          <Link to="/panier">{t('notFound.myCart')}</Link>
           <span>·</span>
-          <Link to="/cgv">CGV</Link>
+          <Link to="/cgv">{t('footer.helpLinks.cgv')}</Link>
         </div>
       </div>
     </div>

@@ -20,22 +20,22 @@ export default function HeroSection() {
 
         <div className={s.actions}>
           <Link to="/catalogue" className={s.btnPrimary}>{t('hero.cta')}</Link>
-          <Link to="/catalogue?featured=true" className={s.btnSecondary}>
+          <Link to="/catalogue?badge=nouveaute" className={s.btnSecondary}>
             {t('hero.ctaKits')} <ChevronRight size={16} aria-hidden="true" />
           </Link>
         </div>
 
         <div className={s.stats}>
           <div className={s.stat}>
-            <strong>2 400+</strong>
+            <strong>{t('hero.stat1Value')}</strong>
             <span>{t('hero.stat1Label')}</span>
           </div>
           <div className={s.stat}>
-            <strong>12 000+</strong>
+            <strong>{t('hero.stat2Value')}</strong>
             <span>{t('hero.stat2Label')}</span>
           </div>
           <div className={s.stat}>
-            <strong>37 ans</strong>
+            <strong>{t('hero.stat3Value')}</strong>
             <span>{t('hero.stat3Label')}</span>
           </div>
         </div>

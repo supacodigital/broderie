@@ -24,6 +24,31 @@
 
 html { scroll-behavior: smooth; }
 
+/* ── Focus visible global — navigation clavier ── */
+:focus { outline: none; }
+
+:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Focus sur les éléments avec border-radius plus fort */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(219, 39, 119, 0.15);
+  border-radius: 6px;
+}
+
+/* Focus sur les liens de navigation */
+a:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
 body {
   margin: 0;
   font-family: 'Montserrat', sans-serif;

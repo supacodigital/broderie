@@ -29,7 +29,7 @@ export default function NewsletterSection() {
       <p className={s.desc}>{t('newsletter.desc')}</p>
 
       {status === 'success' ? (
-        <p className={s.successMsg}>✓ Merci ! Vous êtes maintenant abonnée.</p>
+        <p className={s.successMsg} role="status">{t('newsletter.success')}</p>
       ) : (
         <form className={s.form} onSubmit={handleSubmit} noValidate>
           <label htmlFor="newsletter-email" className={s.srOnly}>

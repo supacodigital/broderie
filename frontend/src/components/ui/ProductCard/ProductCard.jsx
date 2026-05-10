@@ -18,9 +18,9 @@ const BG_FALLBACKS = [
 
 function Stars({ rating }) {
   return (
-    <div className={s.stars} aria-label={`${rating} étoiles sur 5`}>
+    <div className={s.stars} role="img" aria-label={`${rating} étoiles sur 5`}>
       {[1,2,3,4,5].map(i => (
-        <Star key={i} size={11} fill={i <= rating ? 'currentColor' : 'none'} />
+        <Star key={i} size={11} fill={i <= rating ? 'currentColor' : 'none'} aria-hidden="true" />
       ))}
     </div>
   )
@@ -123,20 +123,22 @@ export default function ProductCard({ product, index = 0, wishlisted = false, on
   return (
     <article className={s.card} aria-label={product.name}>
       <div className={s.imageWrap}>
-        {primaryImage ? (
-          <img
-            src={primaryImage.url}
-            alt={primaryImage.alt ?? product.name}
-            className={s.image}
-            loading="lazy"
-            width="300"
-            height="400"
-          />
-        ) : (
-          <div className={s.imageFallback} style={{ background: bg }} aria-hidden="true">
-            🧵
-          </div>
-        )}
+        <Link to={`/produit/${product.slug}`} className={s.imageLink} tabIndex={-1} aria-hidden="true">
+          {primaryImage ? (
+            <img
+              src={primaryImage.url}
+              alt={primaryImage.alt ?? product.name}
+              className={s.image}
+              loading="lazy"
+              width="300"
+              height="400"
+            />
+          ) : (
+            <div className={s.imageFallback} style={{ background: bg }} aria-hidden="true">
+              🧵
+            </div>
+          )}
+        </Link>
 
         {(() => {
           const b = product.badge

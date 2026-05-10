@@ -18,7 +18,7 @@ export default function Cart() {
 
       {/* ── Fil d'Ariane ── */}
       <nav className={s.breadcrumb} aria-label="Fil d'Ariane">
-        <Link to="/">Accueil</Link>
+        <Link to="/">{t('nav.home')}</Link>
         <ChevronRight size={13} aria-hidden="true" />
         <span aria-current="page">{t('cart.title')}</span>
       </nav>
@@ -50,24 +50,26 @@ export default function Cart() {
               <li key={item.id} className={s.item}>
 
                 {/* Image */}
-                {item.product_image ? (
-                  <img
-                    src={item.product_image}
-                    alt={item.product_name}
-                    className={s.itemImage}
-                    loading="lazy"
-                    width={100}
-                    height={100}
-                  />
-                ) : (
-                  <div
-                    className={s.itemFallback}
-                    style={{ background: item.product_bg ?? 'var(--rose-pale)' }}
-                    aria-hidden="true"
-                  >
-                    {item.product_icon ?? '🧵'}
-                  </div>
-                )}
+                <Link to={`/produit/${item.product_slug ?? item.product_id}`} tabIndex={-1} aria-hidden="true">
+                  {item.product_image ? (
+                    <img
+                      src={item.product_image}
+                      alt={item.product_name}
+                      className={s.itemImage}
+                      loading="lazy"
+                      width={100}
+                      height={100}
+                    />
+                  ) : (
+                    <div
+                      className={s.itemFallback}
+                      style={{ background: item.product_bg ?? 'var(--rose-pale)' }}
+                      aria-hidden="true"
+                    >
+                      {item.product_icon ?? '🧵'}
+                    </div>
+                  )}
+                </Link>
 
                 {/* Infos */}
                 <div className={s.itemInfo}>
@@ -104,6 +106,7 @@ export default function Cart() {
                     <button
                       className={s.qtyBtn}
                       onClick={() => updateQty(item.id, item.quantity + 1)}
+                      disabled={item.stock != null && item.quantity >= item.stock}
                       aria-label="Augmenter la quantité"
                     >
                       <Plus size={14} />

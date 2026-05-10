@@ -6,9 +6,9 @@ import s from './TestimonialsSection.module.css'
 
 function Stars({ rating }) {
   return (
-    <div className={s.stars} aria-label={`${rating} étoiles sur 5`}>
+    <div className={s.stars} role="img" aria-label={`${rating} étoiles sur 5`}>
       {[1, 2, 3, 4, 5].map(i => (
-        <Star key={i} size={14} fill={i <= rating ? 'currentColor' : 'none'} />
+        <Star key={i} size={14} fill={i <= rating ? 'currentColor' : 'none'} aria-hidden="true" />
       ))}
     </div>
   )

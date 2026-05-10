@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown } from 'lucide-react'
@@ -7,15 +7,17 @@ import { normalizeLocale } from '../../../utils/locale.js'
 import s from './CategoryNav.module.css'
 
 export default function CategoryNav() {
-  const { i18n }   = useTranslation()
-  const location   = useLocation()
+  const { i18n, t } = useTranslation()
+  const location     = useLocation()
 
   const [parents,     setParents]     = useState([])
   const [childrenMap, setChildrenMap] = useState({})
-  const [scrolled,    setScrolled]    = useState(false)
   const [openId,      setOpenId]      = useState(null)
   const [dropdownPos, setDropdownPos] = useState({ left: 0, top: 0 })
-  const closeTimer = useRef(null)
+
+  const closeTimer   = useRef(null)
+  const dropdownRef  = useRef(null)
+  const triggerRefs  = useRef({})
 
   useEffect(() => {
     getCategories(normalizeLocale(i18n.language))
@@ -33,40 +35,80 @@ export default function CategoryNav() {
       .catch(() => {})
   }, [i18n.language])
 
-  useEffect(() => {
-    function onScroll() { setScrolled(window.scrollY > 72) }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  /* Ferme le dropdown au changement de page */
-  useEffect(() => { setOpenId(null) }, [location.pathname])
-
-  const handleEnter = useCallback((id, liEl) => {
+  const openDropdown = useCallback((id, liEl) => {
     clearTimeout(closeTimer.current)
     const rect = liEl.getBoundingClientRect()
     setDropdownPos({ left: rect.left, top: rect.bottom })
     setOpenId(id)
   }, [])
 
-  const handleLeave = useCallback(() => {
+  const closeDropdown = useCallback(() => {
     closeTimer.current = setTimeout(() => setOpenId(null), 120)
   }, [])
 
-  const handleDropdownEnter = useCallback(() => {
+  const cancelClose = useCallback(() => {
     clearTimeout(closeTimer.current)
   }, [])
 
-  const activeSlug = location.pathname.split('/catalogue/')[1]?.split('?')[0] ?? ''
-  const openCat    = parents.find(p => p.id === openId)
+  /* Navigation clavier sur le lien déclencheur */
+  const handleTriggerKeyDown = useCallback((e, cat, liEl) => {
+    const children = childrenMap[cat.id] ?? []
+    if (!children.length) return
+
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      clearTimeout(closeTimer.current)
+      const rect = liEl.getBoundingClientRect()
+      setDropdownPos({ left: rect.left, top: rect.bottom })
+      setOpenId(cat.id)
+      /* Focus sur le premier lien du dropdown */
+      setTimeout(() => {
+        dropdownRef.current?.querySelector('a')?.focus()
+      }, 50)
+    }
+  }, [childrenMap])
+
+  /* Navigation clavier dans le dropdown */
+  const handleDropdownKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') {
+      setOpenId(null)
+      /* Rend le focus au trigger */
+      const trigger = triggerRefs.current[openId]
+      trigger?.focus()
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      const links = [...(dropdownRef.current?.querySelectorAll('a') ?? [])]
+      const idx   = links.indexOf(document.activeElement)
+      links[idx + 1]?.focus()
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      const links = [...(dropdownRef.current?.querySelectorAll('a') ?? [])]
+      const idx   = links.indexOf(document.activeElement)
+      if (idx <= 0) {
+        setOpenId(null)
+        triggerRefs.current[openId]?.focus()
+      } else {
+        links[idx - 1]?.focus()
+      }
+    }
+    if (e.key === 'Tab') {
+      /* Ferme le dropdown quand on sort */
+      setOpenId(null)
+    }
+  }, [openId])
+
+  const activeSlug   = location.pathname.split('/catalogue/')[1]?.split('?')[0] ?? ''
+  const openCat      = parents.find(p => p.id === openId)
   const openChildren = openId ? (childrenMap[openId] ?? []) : []
 
   return (
     <>
       <div
-        className={`${s.bar} ${scrolled ? s.barScrolled : ''}`}
+        className={s.bar}
         role="navigation"
-        aria-label="Navigation par catégories"
+        aria-label={t('nav.categoriesLabel', 'Navigation par catégories')}
       >
         <div className={s.scroll}>
           <ul className={s.list} role="list">
@@ -75,7 +117,7 @@ export default function CategoryNav() {
                 to="/catalogue"
                 className={`${s.link} ${!activeSlug ? s.linkActive : ''}`}
               >
-                Tout voir
+                {t('catalogue.allProducts', 'Tout voir')}
               </Link>
             </li>
 
@@ -89,14 +131,16 @@ export default function CategoryNav() {
                 <li
                   key={cat.id}
                   className={s.item}
-                  onMouseEnter={hasChildren ? e => handleEnter(cat.id, e.currentTarget) : undefined}
-                  onMouseLeave={hasChildren ? handleLeave : undefined}
+                  onMouseEnter={hasChildren ? e => openDropdown(cat.id, e.currentTarget) : undefined}
+                  onMouseLeave={hasChildren ? closeDropdown : undefined}
                 >
                   <Link
                     to={`/catalogue/${cat.slug}`}
+                    ref={el => { triggerRefs.current[cat.id] = el }}
                     className={`${s.link} ${isActive ? s.linkActive : ''} ${openId === cat.id ? s.linkHovered : ''}`}
                     aria-haspopup={hasChildren ? 'true' : undefined}
                     aria-expanded={hasChildren ? openId === cat.id : undefined}
+                    onKeyDown={hasChildren ? e => handleTriggerKeyDown(e, cat, e.currentTarget.parentElement) : undefined}
                   >
                     {cat.name}
                     {hasChildren && (
@@ -117,15 +161,22 @@ export default function CategoryNav() {
       {/* Dropdown rendu en dehors du scroll wrapper pour éviter le clipping overflow */}
       {openId && openCat && (
         <div
+          ref={dropdownRef}
           className={s.dropdown}
           style={{ left: dropdownPos.left, top: dropdownPos.top }}
-          onMouseEnter={handleDropdownEnter}
-          onMouseLeave={handleLeave}
-          role="region"
+          onMouseEnter={cancelClose}
+          onMouseLeave={closeDropdown}
+          onKeyDown={handleDropdownKeyDown}
+          role="menu"
           aria-label={`Sous-catégories de ${openCat.name}`}
         >
           <div className={s.dropdownInner}>
-            <Link to={`/catalogue/${openCat.slug}`} className={s.dropdownParentLink}>
+            <Link
+              to={`/catalogue/${openCat.slug}`}
+              className={s.dropdownParentLink}
+              role="menuitem"
+              onClick={() => setOpenId(null)}
+            >
               Tout — {openCat.name}
             </Link>
             <ul className={s.subList} role="list">
@@ -134,6 +185,8 @@ export default function CategoryNav() {
                   <Link
                     to={`/catalogue/${child.slug}`}
                     className={`${s.subLink} ${activeSlug === child.slug ? s.subLinkActive : ''}`}
+                    role="menuitem"
+                    onClick={() => setOpenId(null)}
                   >
                     {child.name}
                   </Link>

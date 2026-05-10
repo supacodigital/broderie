@@ -102,7 +102,7 @@ export default function Product() {
     <div className={s.page}>
       {/* ── Fil d'Ariane ── */}
       <nav className={s.breadcrumb} aria-label="Fil d'Ariane">
-        <Link to="/">{t('nav.collections') === 'Collections' ? 'Accueil' : 'Home'}</Link>
+        <Link to="/">{t('nav.home')}</Link>
         <ChevronRight size={13} aria-hidden="true" />
         <Link to="/catalogue">{t('catalogue.allProducts')}</Link>
         {product.category_name && (

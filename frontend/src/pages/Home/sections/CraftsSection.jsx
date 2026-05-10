@@ -23,7 +23,7 @@ export default function CraftsSection() {
           ))}
         </ul>
 
-        <Link to="/notre-histoire" className={s.btnPrimary}>
+        <Link to="/contact" className={s.btnPrimary}>
           {t('crafts.cta')}
         </Link>
       </div>

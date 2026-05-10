@@ -1,5 +1,6 @@
 {
   "nav": {
+    "home": "Home",
     "collections": "Collections",
     "newArrivals": "New arrivals",
     "promos": "Promotions",
@@ -23,9 +24,12 @@
     "desc": "Discover our collection of DMC threads, embroidery kits and Swiss-quality accessories. Perfect for beginners and experts alike.",
     "cta": "Explore the shop",
     "ctaKits": "Our featured kits",
+    "stat1Value": "2,400+",
     "stat1Label": "References in stock",
+    "stat2Value": "12,000+",
     "stat2Label": "Satisfied customers",
-    "stat3Label": "Years of passion & expertise",
+    "stat3Value": "37 years",
+    "stat3Label": "Of passion & expertise",
     "ratingLabel": "Customer rating"
   },
   "advantages": {
@@ -74,7 +78,8 @@
     "desc": "New collections, exclusive tutorials and subscriber-only offers.",
     "placeholder": "your@email.ch",
     "label": "Your email address",
-    "cta": "Subscribe"
+    "cta": "Subscribe",
+    "success": "✓ Thank you! You are now subscribed."
   },
   "footer": {
     "desc": "Your Swiss embroidery specialist since 1987. Quality, passion and service with every order.",
@@ -100,6 +105,14 @@
     },
     "copyright": "© 2026 Au Point-Compté — Lausanne, Switzerland 🇨🇭 · Hosted by Infomaniak"
   },
+  "account": {
+    "tabProfile": "Profile",
+    "tabOrders": "Orders",
+    "tabAddresses": "Addresses",
+    "tabWishlist": "Favourites",
+    "tabLoyalty": "Loyalty",
+    "myAccount": "My account"
+  },
   "errors": {
     "network": "A network error occurred. Please try again.",
     "server": "An error occurred. Please try again.",
@@ -124,6 +137,7 @@
     "stepSummary": "Summary",
     "stepConfirm": "Confirmation",
     "addressTitle": "Delivery address",
+    "savedAddresses": "My saved addresses",
     "firstName": "First name",
     "lastName": "Last name",
     "street": "Address",
@@ -156,6 +170,8 @@
     "placeOrder": "Place order",
     "placingOrder": "Processing…",
     "backToAddress": "Edit address",
+    "infoTwint": "A Twint QR code will appear after confirmation. Scan it with the Twint app.",
+    "infoCard": "Visa and Mastercard accepted. Secure payment via Stripe.",
     "confirmTitle": "Order confirmed!",
     "confirmSubtitle": "Thank you for your order",
     "confirmDesc": "You will receive a confirmation email within the next few minutes.",
@@ -238,6 +254,14 @@
       "generic": "An error occurred. Please try again."
     }
   },
+  "notFound": {
+    "title": "The thread got lost…",
+    "desc": "This page doesn't exist or has been moved. Don't worry — come back to embroidery!",
+    "backHome": "Back to home",
+    "seeCatalogue": "Browse the shop",
+    "myAccount": "My account",
+    "myCart": "My cart"
+  },
   "catalogue": {
     "eyebrow": "Our shop",
     "allProducts": "All products",
@@ -257,6 +281,13 @@
     "sortRating": "Best rated",
     "sortNameAsc": "Name A–Z",
     "resultCount": "{{count}} product",
-    "resultCount_other": "{{count}} products"
+    "resultCount_other": "{{count}} products",
+    "noResultsQuery": "No results for \"{{q}}\"",
+    "noResultsFilters": "Try adjusting your filters.",
+    "chipMinPrice": "Min CHF {{price}}",
+    "chipMaxPrice": "Max CHF {{price}}",
+    "chipPromo": "Promotion",
+    "chipCoupDeCoeur": "Favourite",
+    "chipExclusif": "Exclusive"
   }
 }
