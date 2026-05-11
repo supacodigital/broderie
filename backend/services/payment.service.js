@@ -195,6 +195,14 @@ const handleWebhook = async (rawBody, signature) => {
         [orderId]
       );
 
+      // Mise à jour du paiement — dans la même transaction pour cohérence
+      const method = intent.payment_method_types?.includes('card') ? 'card' : 'twint';
+      await connection.execute(
+        `UPDATE payments SET status = 'succeeded', provider_payment_id = ?
+         WHERE order_id = ? AND method = ?`,
+        [intent.id, orderId, method]
+      );
+
       await connection.commit();
     } catch (err) {
       await connection.rollback();
@@ -202,10 +210,6 @@ const handleWebhook = async (rawBody, signature) => {
     } finally {
       connection.release();
     }
-
-    // Détermine la méthode depuis les metadata ou le type du PaymentIntent
-    const method = intent.payment_method_types?.includes('card') ? 'card' : 'twint';
-    await paymentRepository.updateStatusByOrder(orderId, method, 'succeeded', intent.id);
 
     // Email + fidélité — non bloquants
     const order = await orderRepository.findById(orderId);

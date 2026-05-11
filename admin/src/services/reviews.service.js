@@ -1,16 +1,15 @@
 import api from './api.js'
 
+// Backend listes: { success, data: [], pagination }
 export async function getReviews(params = {}) {
   const res = await api.get('/admin/reviews', { params })
-  return res.data
+  return { data: res.data.data ?? [], pagination: res.data.pagination ?? {} }
 }
 
 export async function approveReview(id) {
-  const res = await api.put(`/admin/reviews/${id}/approve`)
-  return res.data
+  await api.put(`/admin/reviews/${id}/approve`)
 }
 
 export async function deleteReview(id) {
-  const res = await api.delete(`/admin/reviews/${id}`)
-  return res.data
+  await api.delete(`/admin/reviews/${id}`)
 }

@@ -1,10 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Plus, Edit2, Trash2, Copy, Check, AlertTriangle, X, Search, Shuffle } from 'lucide-react'
+import { formatDate } from '../../utils/date.js'
+import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { getCoupons, createCoupon, updateCoupon, deleteCoupon } from '../../services/coupons.service.js'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
+import { useToast } from '../../contexts/ToastContext.jsx'
 import s from './Coupons.module.css'
 
 const schema = z.object({
@@ -52,7 +55,7 @@ function CouponModal({ coupon, onClose, onSaved }) {
       value:       Number(data.value),
       minOrderChf: Number(data.minOrderChf ?? 0),
       usageLimit:  data.usageLimit !== '' && data.usageLimit != null ? Number(data.usageLimit) : null,
-      expiresAt:   data.expiresAt ? new Date(data.expiresAt).toISOString() : null,
+      expiresAt:   data.expiresAt || null,
       isActive:    !!data.isActive,
     }
     try {
@@ -182,11 +185,6 @@ function CopyCode({ code }) {
   )
 }
 
-function formatDate(iso) {
-  if (!iso) return '—'
-  return new Intl.DateTimeFormat('fr-CH', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date(iso))
-}
-
 function isExpired(expires_at) {
   if (!expires_at) return false
   return new Date(expires_at) < new Date()
@@ -216,10 +214,10 @@ const STATUS_LABELS = {
 
 /* ── Page principale ── */
 export default function Coupons() {
+  const toast = useToast()
   const [coupons,   setCoupons]   = useState([])
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState(false)
-  const [delError,  setDelError]  = useState(null)
   const [modal,     setModal]     = useState(null)
   const [confirm,   setConfirm]   = useState(null)
   const [search,    setSearch]    = useState('')
@@ -245,12 +243,12 @@ export default function Coupons() {
     setConfirm({
       message: 'Supprimer ce coupon ?',
       onConfirm: async () => {
-        setDelError(null)
         try {
           await deleteCoupon(id)
           setCoupons(prev => prev.filter(c => c.id !== id))
+          toast.success('Coupon supprimé.')
         } catch (err) {
-          setDelError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
+          toast.error(err.response?.data?.message ?? 'Erreur lors de la suppression.')
         }
       },
     })
@@ -319,13 +317,7 @@ export default function Coupons() {
         </div>
       </div>
 
-      {(error || delError) && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={14} />
-          {delError ?? 'Erreur de chargement.'}
-          {!delError && <button className={s.retryBtn} onClick={load}>Réessayer</button>}
-        </div>
-      )}
+      {error && <ErrorBanner onRetry={load} />}
 
       <div className={s.card}>
         <div className={s.tableHead}>

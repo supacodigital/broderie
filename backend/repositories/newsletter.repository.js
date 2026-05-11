@@ -34,4 +34,45 @@ const unsubscribe = async (email) => {
   return result.affectedRows > 0;
 };
 
-module.exports = { subscribe, unsubscribe };
+// Liste paginée pour l'admin
+const findAll = async ({ page = 1, limit = 20, search = '', active }) => {
+  const offset = (Number(page) - 1) * Number(limit);
+  const like   = `%${search}%`;
+
+  const params = [like];
+  // LIMIT/OFFSET interpolés car mysql2 ne supporte pas les placeholders ? pour ces clauses
+  let whereActive = '';
+  if (active === '1' || active === '0') {
+    whereActive = ' AND is_active = ?';
+    params.push(Number(active));
+  }
+
+  const [rows] = await pool.execute(
+    `SELECT id, email, locale, is_active, subscribed_at, unsubscribed_at
+     FROM newsletter_subscribers
+     WHERE email LIKE ?${whereActive}
+     ORDER BY subscribed_at DESC
+     LIMIT ${Number(limit)} OFFSET ${Number(offset)}`,
+    params
+  );
+
+  const countParams = [like];
+  if (active === '1' || active === '0') countParams.push(Number(active));
+  const [[{ total }]] = await pool.execute(
+    `SELECT COUNT(*) AS total FROM newsletter_subscribers WHERE email LIKE ?${whereActive}`,
+    countParams
+  );
+
+  return { rows, total };
+};
+
+// Désabonnement manuel par l'admin (soft delete)
+const unsubscribeById = async (id) => {
+  const [result] = await pool.execute(
+    `UPDATE newsletter_subscribers SET is_active = 0, unsubscribed_at = NOW() WHERE id = ?`,
+    [id]
+  );
+  return result.affectedRows > 0;
+};
+
+module.exports = { subscribe, unsubscribe, findAll, unsubscribeById };

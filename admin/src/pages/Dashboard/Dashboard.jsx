@@ -3,13 +3,27 @@ import { Link } from 'react-router-dom'
 import {
   ShoppingBag, Package, Users, Star,
   AlertTriangle, ChevronRight, TrendingUp, TrendingDown,
-  ShoppingCart, RefreshCw,
+  ShoppingCart, RefreshCw, Clock,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
-import { roundCHF } from '../../utils/chf.js'
+import { roundCHF, formatCHF } from '../../utils/chf.js'
 import { fetchDashboardStats } from '../../services/dashboard.service.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
 import s from './Dashboard.module.css'
+
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000
+
+function getGreeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Bonjour'
+  if (h < 18) return 'Bon après-midi'
+  return 'Bonsoir'
+}
+
+function formatTime(date) {
+  if (!date) return null
+  return date.toLocaleTimeString('fr-CH', { hour: '2-digit', minute: '2-digit' })
+}
 
 function StatusBadge({ status }) {
   const cfg = STATUS_CFG[status] ?? { label: status, color: '#6b7280', bg: '#f3f4f6', dot: '#9ca3af' }
@@ -71,17 +85,19 @@ function SkeletonRow() {
 }
 
 export default function Dashboard() {
-  const { loading: authLoading } = useAuth()
-  const [data,    setData]    = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState(false)
+  const { loading: authLoading, user } = useAuth()
+  const [data,      setData]      = useState(null)
+  const [loading,   setLoading]   = useState(true)
+  const [error,     setError]     = useState(false)
+  const [updatedAt, setUpdatedAt] = useState(null)
 
   const load = useCallback(async () => {
     setError(false)
     setLoading(true)
     try {
       const res = await fetchDashboardStats()
-      setData(res.data ?? null)
+      setData(res ?? null)
+      setUpdatedAt(new Date())
     } catch {
       setError(true)
     } finally {
@@ -92,6 +108,13 @@ export default function Dashboard() {
   /* Attendre que le token soit restauré avant d'appeler l'API */
   useEffect(() => {
     if (!authLoading) load()
+  }, [authLoading, load])
+
+  /* Refresh automatique toutes les 5 minutes */
+  useEffect(() => {
+    if (authLoading) return
+    const timer = setInterval(load, REFRESH_INTERVAL_MS)
+    return () => clearInterval(timer)
   }, [authLoading, load])
 
   const stats       = data?.stats        ?? {}
@@ -108,11 +131,21 @@ export default function Dashboard() {
       {/* ── En-tête ── */}
       <div className={s.pageHead}>
         <div>
-          <h1 className={s.pageTitle}>Tableau de bord</h1>
+          <h1 className={s.pageTitle}>
+            {getGreeting()}{user?.firstName ? `, ${user.firstName}` : ''} 👋
+          </h1>
+          <p className={s.pageSubtitle}>Voici ce qui se passe sur votre boutique.</p>
         </div>
-        <button className={s.refreshBtn} onClick={load} disabled={loading} title="Actualiser">
-          <RefreshCw size={15} className={loading ? s.spin : ''} />
-        </button>
+        <div className={s.pageHeadRight}>
+          {updatedAt && (
+            <span className={s.updatedAt}>
+              <Clock size={12} /> Mis à jour à {formatTime(updatedAt)}
+            </span>
+          )}
+          <button className={s.refreshBtn} onClick={load} disabled={loading} title="Actualiser">
+            <RefreshCw size={15} className={loading ? s.spin : ''} />
+          </button>
+        </div>
       </div>
 
       {/* ── Erreur réseau ── */}
@@ -128,7 +161,7 @@ export default function Dashboard() {
         <KpiCard
           icon={ShoppingBag}
           label="CA du mois"
-          value={`CHF ${roundCHF(stats.revenue_month ?? 0).toLocaleString('fr-CH')}`}
+          value={formatCHF(stats.revenue_month ?? 0)}
           trend={stats.revenue_trend}
           trendLabel="vs mois précédent"
           loading={loading}
@@ -178,7 +211,7 @@ export default function Dashboard() {
             <div className={s.ordersTable}>
               <div className={s.ordersHead}>
                 <span>N°</span>
-                <span>Cliente</span>
+                <span>Client</span>
                 <span>Statut</span>
                 <span>Montant</span>
                 <span>Date</span>
@@ -200,7 +233,7 @@ export default function Dashboard() {
                           <span className={s.orderEmail}>{o.customer_email}</span>
                         </div>
                         <StatusBadge status={o.status} />
-                        <span className={s.orderTotal}>CHF {roundCHF(o.total).toFixed(2)}</span>
+                        <span className={s.orderTotal}>{formatCHF(o.total)}</span>
                         <span className={s.orderDate}>{formatRelDate(o.created_at)}</span>
                         <Link to={`/commandes?open=${o.id}`} className={s.detailBtn}>Détail</Link>
                       </div>
@@ -237,7 +270,15 @@ export default function Dashboard() {
                     ? <p className={s.emptyMsg}>Aucune vente ce mois.</p>
                     : topProducts.map(p => (
                         <div key={p.id} className={s.topItem}>
-                          <div className={s.topThumb}><Package size={14} /></div>
+                          <div className={s.topThumb}>
+                            {p.image_url
+                              ? <img src={p.image_url} alt={p.name} onError={e => { e.currentTarget.style.display='none'; e.currentTarget.nextSibling.style.display='flex' }} />
+                              : null
+                            }
+                            <span style={{ display: p.image_url ? 'none' : 'flex', alignItems:'center', justifyContent:'center', width:'100%', height:'100%' }}>
+                              <Package size={14} />
+                            </span>
+                          </div>
                           <div className={s.topInfo}>
                             <span className={s.topName}>{p.name}</span>
                             <span className={s.topCat}>{p.category}</span>
@@ -245,7 +286,7 @@ export default function Dashboard() {
                           <div className={s.topBar}>
                             <div className={s.topBarFill} style={{ width: `${p.pct}%` }} />
                           </div>
-                          <span className={s.topRevenue}>CHF {p.revenue.toLocaleString('fr-CH')}</span>
+                          <span className={s.topRevenue}>{formatCHF(p.revenue)}</span>
                         </div>
                       ))
                 }
@@ -280,14 +321,22 @@ export default function Dashboard() {
                     ? <p className={s.emptyMsg}>Aucune alerte de stock.</p>
                     : lowStock.map(item => (
                         <div key={item.id} className={s.stockItem}>
-                          <div className={s.stockThumb}><Package size={14} /></div>
+                          <div className={s.stockThumb}>
+                            {item.image_url
+                              ? <img src={item.image_url} alt={item.name} onError={e => { e.currentTarget.style.display='none'; e.currentTarget.nextSibling.style.display='flex' }} />
+                              : null
+                            }
+                            <span style={{ display: item.image_url ? 'none' : 'flex', alignItems:'center', justifyContent:'center', width:'100%', height:'100%' }}>
+                              <Package size={14} />
+                            </span>
+                          </div>
                           <div className={s.stockInfo}>
                             <span className={s.stockName}>{item.name}</span>
                             <span className={s.stockQtyLabel} style={{ color: item.urgent ? '#dc2626' : '#d97706' }}>
                               <AlertTriangle size={10} /> {item.stock} unité{item.stock > 1 ? 's' : ''} restante{item.stock > 1 ? 's' : ''}
                             </span>
                           </div>
-                          <Link to="/produits" className={s.commanderBtn}>Modifier</Link>
+                          <Link to={`/produits?edit=${item.id}`} className={s.commanderBtn}>Modifier</Link>
                         </div>
                       ))
                 }
@@ -324,14 +373,20 @@ export default function Dashboard() {
                           <div
                             className={s.chartBarFill}
                             style={{ height: `${bar.pct}%`, opacity: bar.current ? 1 : 0.5 }}
-                          />
+                          >
+                            {bar.value != null && (
+                              <span className={s.chartTooltip}>
+                                {formatCHF(bar.value)}
+                              </span>
+                            )}
+                          </div>
                           <span className={s.chartLabel}>{bar.month}</span>
                         </div>
                       ))}
                     </div>
                     <div className={s.chartTotal}>
                       <span className={s.chartTotalLabel}>
-                        CHF {roundCHF(stats.revenue_month ?? 0).toLocaleString('fr-CH')}
+                        {formatCHF(stats.revenue_month ?? 0)}
                       </span>
                       <span className={s.chartTotalSub}>{currentMonthLabel}</span>
                     </div>

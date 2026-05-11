@@ -124,7 +124,7 @@ export default function Footer() {
               <Link to="/mon-compte">{t("footer.helpLinks.account")}</Link>
             </li>
             <li>
-              <Link to="/mon-compte?tab=commandes">{t("footer.helpLinks.tracking")}</Link>
+              <Link to="/mon-compte?tab=orders">{t("footer.helpLinks.tracking")}</Link>
             </li>
             <li>
               <Link to="/contact">{t("footer.helpLinks.faq")}</Link>

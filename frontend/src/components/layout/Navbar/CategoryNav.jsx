@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getCategories } from '../../../services/products.service.js'
 import { normalizeLocale } from '../../../utils/locale.js'
 import s from './CategoryNav.module.css'
@@ -18,6 +18,32 @@ export default function CategoryNav() {
   const closeTimer   = useRef(null)
   const dropdownRef  = useRef(null)
   const triggerRefs  = useRef({})
+  const scrollRef    = useRef(null)
+  const [canLeft,  setCanLeft]  = useState(false)
+  const [canRight, setCanRight] = useState(false)
+
+  const updateArrows = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanLeft(el.scrollLeft > 0)
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    updateArrows()
+    el.addEventListener('scroll', updateArrows)
+    window.addEventListener('resize', updateArrows)
+    return () => {
+      el.removeEventListener('scroll', updateArrows)
+      window.removeEventListener('resize', updateArrows)
+    }
+  }, [updateArrows, parents])
+
+  const scrollBy = useCallback((dir) => {
+    scrollRef.current?.scrollBy({ left: dir * 200, behavior: 'smooth' })
+  }, [])
 
   useEffect(() => {
     getCategories(normalizeLocale(i18n.language))
@@ -110,7 +136,17 @@ export default function CategoryNav() {
         role="navigation"
         aria-label={t('nav.categoriesLabel', 'Navigation par catégories')}
       >
-        <div className={s.scroll}>
+        {canLeft && (
+          <button className={`${s.arrow} ${s.arrowLeft}`} onClick={() => scrollBy(-1)} aria-label="Défiler à gauche">
+            <ChevronLeft size={16} />
+          </button>
+        )}
+        {canRight && (
+          <button className={`${s.arrow} ${s.arrowRight}`} onClick={() => scrollBy(1)} aria-label="Défiler à droite">
+            <ChevronRight size={16} />
+          </button>
+        )}
+        <div className={s.scroll} ref={scrollRef}>
           <ul className={s.list} role="list">
             <li className={s.item}>
               <Link

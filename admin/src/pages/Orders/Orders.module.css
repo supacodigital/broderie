@@ -571,10 +571,60 @@
   .tableHead, .tableRow {
     grid-template-columns: 60px 1fr 90px 40px;
   }
-  .tableHead span:nth-child(3),
-  .tableRow  span:nth-child(3),
-  .tableHead span:nth-child(4),
-  .tableRow  span:nth-child(4) { display: none; }
+  .tableHead > *:nth-child(3),
+  .tableRow  > *:nth-child(3),
+  .tableHead > *:nth-child(4),
+  .tableRow  > *:nth-child(4) { display: none; }
   .skeletonRow { grid-template-columns: 60px 1fr 90px 40px; }
   .infoGrid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ── Filtres chips ── */
+.filterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.chip {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border, #e5e7eb);
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-muted, #6b7280);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.chip:hover {
+  border-color: var(--rose, #e91e8c);
+  color: var(--rose, #e91e8c);
+}
+.chipActive {
+  background: var(--rose, #e91e8c);
+  border-color: var(--rose, #e91e8c);
+  color: #fff;
+}
+
+.sortHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+.sortHeader:hover { color: var(--rose); }

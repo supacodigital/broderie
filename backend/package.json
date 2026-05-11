@@ -31,7 +31,8 @@
     "sharp": "^0.34.5",
     "shipengine": "^1.0.7",
     "stripe": "^22.1.0",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "jest": "^30.3.0",

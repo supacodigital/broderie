@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useReducer } from 'react'
+import { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react'
 import { roundCHF } from '../utils/chf.js'
 import { addCartItem, fetchCart, removeCartItem, updateCartItem } from '../services/cart.service.js'
 import { useAuth } from './AuthContext.jsx'
@@ -33,6 +33,10 @@ export function CartProvider({ children }) {
   const [state, dispatch] = useReducer(cartReducer, INITIAL)
   const { loading: authLoading } = useAuth()
 
+  /* Référence stable vers l'état courant — évite les stale closures dans les rollbacks */
+  const stateRef = useRef(state)
+  useEffect(() => { stateRef.current = state }, [state])
+
   /* Charge le panier uniquement après la restauration de session auth */
   useEffect(() => {
     if (authLoading) return
@@ -43,6 +47,7 @@ export function CartProvider({ children }) {
 
   /* Ajouter un article — optimistic UI */
   const addItem = useCallback(async ({ product, variant = null, qty = 1 }) => {
+    const snapshot = stateRef.current.items
     const optimisticItem = {
       _optimistic: true,
       id: `opt-${Date.now()}`,
@@ -58,7 +63,7 @@ export function CartProvider({ children }) {
     }
 
     /* Ajout optimiste immédiat */
-    dispatch({ type: 'SET_ITEMS', payload: mergeOrAdd(state.items, optimisticItem) })
+    dispatch({ type: 'SET_ITEMS', payload: mergeOrAdd(snapshot, optimisticItem) })
 
     try {
       const res = await addCartItem(product.id, variant?.id ?? null, qty)
@@ -67,16 +72,16 @@ export function CartProvider({ children }) {
         dispatch({ type: 'SET_ITEMS', payload: serverItems.map(normalizeItem) })
       }
     } catch {
-      /* Rollback : retire l'item optimiste en cas d'erreur */
-      dispatch({ type: 'SET_ITEMS', payload: state.items })
+      /* Rollback vers l'état au moment de l'appel — pas une closure périmée */
+      dispatch({ type: 'SET_ITEMS', payload: snapshot })
     }
-  }, [state.items])
+  }, [])
 
   /* Modifier la quantité */
   const updateQty = useCallback(async (itemId, quantity) => {
     if (quantity < 1) return removeItem(itemId)
 
-    const prev = state.items
+    const prev = stateRef.current.items
     dispatch({
       type: 'SET_ITEMS',
       payload: prev.map(i => i.id === itemId ? { ...i, quantity } : i),
@@ -89,11 +94,11 @@ export function CartProvider({ children }) {
     } catch {
       dispatch({ type: 'SET_ITEMS', payload: prev })
     }
-  }, [state.items])
+  }, [])
 
   /* Supprimer un article */
   const removeItem = useCallback(async (itemId) => {
-    const prev = state.items
+    const prev = stateRef.current.items
     dispatch({ type: 'SET_ITEMS', payload: prev.filter(i => i.id !== itemId) })
 
     try {
@@ -101,7 +106,7 @@ export function CartProvider({ children }) {
     } catch {
       dispatch({ type: 'SET_ITEMS', payload: prev })
     }
-  }, [state.items])
+  }, [])
 
   /* Vider le panier */
   const clearCart = useCallback(() => dispatch({ type: 'CLEAR' }), [])

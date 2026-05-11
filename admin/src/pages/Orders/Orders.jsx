@@ -1,12 +1,17 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
+import { useDebounceSearch } from '../../hooks/useDebounceSearch.js'
 import { useSearchParams } from 'react-router-dom'
 import {
-  Eye, ChevronLeft, ChevronRight, Search,
+  Eye, Search,
   Send, FileText, RefreshCw,
 } from 'lucide-react'
 import { getOrders, getOrderById, updateOrderStatus, sendTwintQr, downloadInvoice } from '../../services/orders.service.js'
-import { roundCHF } from '../../utils/chf.js'
+import { formatCHF } from '../../utils/chf.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
+import SortIcon from '../../components/ui/SortIcon/SortIcon.jsx'
+import Pagination from '../../components/ui/Pagination/Pagination.jsx'
+import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
+import SkeletonTable from '../../components/ui/SkeletonTable/SkeletonTable.jsx'
 import s from './Orders.module.css'
 
 const LIMIT = 20
@@ -43,7 +48,7 @@ function StatusBadge({ status }) {
 
 function formatDate(iso) {
   return new Intl.DateTimeFormat('fr-CH', {
-    day: '2-digit', month: '2-digit', year: '2-digit',
+    day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   }).format(new Date(iso))
 }
@@ -67,19 +72,21 @@ function OrderModal({ orderId, onClose, onUpdated }) {
   const [error,       setError]       = useState('')
 
   useEffect(() => {
+    let cancelled = false
     setLoading(true)
     getOrderById(orderId)
       .then(res => {
-        const o = res.data
-        setOrder(o)
-        setNewStatus(o.status)
+        if (cancelled) return
+        setOrder(res)
+        setNewStatus(res.status)
       })
-      .catch(() => setOrder(null))
-      .finally(() => setLoading(false))
+      .catch(() => { if (!cancelled) setOrder(null) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [orderId])
 
   const handleStatusUpdate = async () => {
-    if (newStatus === order.status) return
+    if (!order || newStatus === order.status) return
     setSaving(true)
     setFeedback('')
     setError('')
@@ -167,19 +174,19 @@ function OrderModal({ orderId, onClose, onUpdated }) {
               </div>
               <div className={s.infoBlock}>
                 <span className={s.infoLabel}>Sous-total</span>
-                <span className={s.infoValue}>CHF {roundCHF(parseFloat(order.subtotal)).toFixed(2)}</span>
+                <span className={s.infoValue}>{formatCHF(order.subtotal)}</span>
               </div>
               <div className={s.infoBlock}>
                 <span className={s.infoLabel}>Livraison</span>
-                <span className={s.infoValue}>CHF {roundCHF(parseFloat(order.shipping_cost)).toFixed(2)}</span>
+                <span className={s.infoValue}>{formatCHF(order.shipping_cost)}</span>
               </div>
               <div className={s.infoBlock}>
                 <span className={s.infoLabel}>TVA incluse</span>
-                <span className={s.infoValue}>CHF {roundCHF(parseFloat(order.tax_amount)).toFixed(2)}</span>
+                <span className={s.infoValue}>{formatCHF(order.tax_amount)}</span>
               </div>
               <div className={s.infoBlock}>
                 <span className={s.infoLabel}>Total TTC</span>
-                <span className={s.infoTotal}>CHF {roundCHF(parseFloat(order.total)).toFixed(2)}</span>
+                <span className={s.infoTotal}>{formatCHF(order.total)}</span>
               </div>
             </div>
 
@@ -195,7 +202,7 @@ function OrderModal({ orderId, onClose, onUpdated }) {
                       {p.sku && <span className={s.itemSku}>Réf. {p.sku}</span>}
                     </div>
                     <span className={s.itemQty}>× {item.quantity}</span>
-                    <span className={s.itemPrice}>CHF {roundCHF(parseFloat(item.unit_price) * item.quantity).toFixed(2)}</span>
+                    <span className={s.itemPrice}>{formatCHF(parseFloat(item.unit_price) * item.quantity)}</span>
                   </div>
                 )
               })}
@@ -299,7 +306,9 @@ export default function Orders() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [page,         setPage]         = useState(1)
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? '')
-  const [search,       setSearch]       = useState('')
+  const { search: searchInput, debouncedSearch: search, handleSearch: handleSearchChange } = useDebounceSearch(300, () => setPage(1))
+  const [sortCol,      setSortCol]      = useState('created_at')
+  const [sortDir,      setSortDir]      = useState('desc')
   const [loading,      setLoading]      = useState(true)
   const [error,        setError]        = useState(false)
   const [selectedId,   setSelectedId]   = useState(() => {
@@ -307,24 +316,40 @@ export default function Orders() {
     return open ? parseInt(open, 10) : null
   })
 
-  const load = useCallback(async () => {
-    setError(false)
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({ page, limit: LIMIT, sort: 'created_at', order: 'desc' })
-      if (statusFilter) params.set('status', statusFilter)
-      if (search)       params.set('q', search)
-      const res = await getOrders(Object.fromEntries(params))
-      setOrders(res.data ?? [])
-      setTotal(res.pagination?.total ?? 0)
-    } catch {
-      setError(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, statusFilter, search])
+  const handleSort = (col) => {
+    const newDir = sortCol === col ? (sortDir === 'asc' ? 'desc' : 'asc') : 'desc'
+    setSortCol(col)
+    setSortDir(newDir)
+    setPage(1)
+  }
 
-  useEffect(() => { load() }, [load])
+  /* Compteur de refresh manuel — incrémenter force le useEffect à se ré-exécuter */
+  const [refreshTick, setRefreshTick] = useState(0)
+  const load = () => setRefreshTick(t => t + 1)
+
+  useEffect(() => {
+    let cancelled = false
+    const run = async () => {
+      setError(false)
+      setLoading(true)
+      try {
+        const params = new URLSearchParams({ page, limit: LIMIT, sort: sortCol, order: sortDir })
+        if (statusFilter) params.set('status', statusFilter)
+        if (search)       params.set('q', search)
+        const res = await getOrders(Object.fromEntries(params))
+        if (!cancelled) {
+          setOrders(res.data ?? [])
+          setTotal(res.pagination?.total ?? 0)
+        }
+      } catch {
+        if (!cancelled) setError(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [page, statusFilter, search, sortCol, sortDir, refreshTick])
 
   /* Applique le filtre status si on arrive depuis le dashboard avec ?status= */
   useEffect(() => {
@@ -356,46 +381,45 @@ export default function Orders() {
             type="search"
             className={s.searchInput}
             placeholder="Rechercher par #ID ou client…"
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1) }}
+            value={searchInput}
+            onChange={e => handleSearchChange(e.target.value)}
           />
         </div>
-        <select
-          className={s.select}
-          value={statusFilter}
-          onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
-        >
-          {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
         <button className={s.refreshBtn} onClick={load} aria-label="Rafraîchir">
           <RefreshCw size={14} />
         </button>
       </div>
 
-      {error && (
-        <div className={s.errorBanner}>
-          Erreur de chargement. <button className={s.retryBtn} onClick={load}>Réessayer</button>
-        </div>
-      )}
+      <div className={s.filterChips}>
+        {STATUS_OPTIONS.map(o => (
+          <button
+            key={o.value}
+            className={`${s.chip} ${statusFilter === o.value ? s.chipActive : ''}`}
+            onClick={() => { setStatusFilter(o.value); setPage(1) }}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      {error && <ErrorBanner onRetry={load} />}
 
       <div className={s.card}>
         <div className={s.tableHead}>
           <span>#</span>
           <span>Client</span>
-          <span>Date</span>
-          <span>Total</span>
+          <button className={s.sortHeader} onClick={() => handleSort('created_at')}>
+            Date <SortIcon col="created_at" sortCol={sortCol} sortDir={sortDir} />
+          </button>
+          <button className={s.sortHeader} onClick={() => handleSort('total')}>
+            Total <SortIcon col="total" sortCol={sortCol} sortDir={sortDir} />
+          </button>
           <span>Statut</span>
           <span></span>
         </div>
 
         {loading ? (
-          <div className={s.loadingRows}>
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className={s.skeletonRow}>
-                {[...Array(6)].map((_, j) => <span key={j} />)}
-              </div>
-            ))}
-          </div>
+          <SkeletonTable rows={5} cols={6} />
         ) : orders.length === 0 ? (
           <p className={s.empty}>Aucune commande trouvée.</p>
         ) : (
@@ -407,7 +431,7 @@ export default function Orders() {
                 <span className={s.customerEmail}>{order.email}</span>
               </div>
               <span className={s.muted}>{formatDate(order.created_at)}</span>
-              <span className={s.bold}>CHF {roundCHF(order.total).toFixed(2)}</span>
+              <span className={s.bold}>{formatCHF(order.total)}</span>
               <StatusBadge status={order.status} />
               <button
                 className={s.iconBtn}
@@ -421,17 +445,7 @@ export default function Orders() {
         )}
       </div>
 
-      {totalPages > 1 && (
-        <div className={s.pagination}>
-          <button className={s.pageBtn} disabled={page === 1} onClick={() => setPage(p => p - 1)}>
-            <ChevronLeft size={16} />
-          </button>
-          <span className={s.pageInfo}>Page {page} / {totalPages}</span>
-          <button className={s.pageBtn} disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   )
 }

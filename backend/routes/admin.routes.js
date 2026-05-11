@@ -11,7 +11,8 @@ const customerController = require('../controllers/admin/customer.controller');
 const loyaltyAdminController = require('../controllers/admin/loyalty.controller');
 const productAdminController = require('../controllers/admin/product.controller');
 const categoryAdminController = require('../controllers/admin/category.controller');
-const couponController   = require('../controllers/admin/coupon.controller');
+const couponController       = require('../controllers/admin/coupon.controller');
+const newsletterAdminController = require('../controllers/admin/newsletter.controller');
 const settingsController = require('../controllers/admin/settings.controller');
 const { upload } = require('../middlewares/upload');
 
@@ -91,5 +92,10 @@ router.put('/loyalty/tiers/:id',    loyaltyAdminController.updateTier);
 router.delete('/loyalty/tiers/:id', loyaltyAdminController.deleteTier);
 router.get('/loyalty/accounts',     loyaltyAdminController.getAccounts);
 router.get('/loyalty/rewards',      loyaltyAdminController.getRewards);
+
+// Newsletter
+router.get('/newsletter',            newsletterAdminController.getAll);
+router.get('/newsletter/export',     newsletterAdminController.exportCsv);
+router.delete('/newsletter/:id',     newsletterAdminController.unsubscribe);
 
 module.exports = router;

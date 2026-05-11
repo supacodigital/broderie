@@ -1,4 +1,5 @@
-const { pool } = require('../config/db');
+const { pool }     = require('../config/db');
+const { roundCHF } = require('../utils/chf.utils');
 
 const findAll = async ({ page = 1, limit = 100 }) => {
   const offset = (page - 1) * limit;
@@ -30,11 +31,17 @@ const findByCode = async (code, excludeId = null) => {
   return rows[0] ?? null;
 };
 
+/* Convertit une date ISO (ou YYYY-MM-DD) en format MySQL DATE */
+const toMysqlDate = (val) => {
+  if (!val) return null;
+  return val.toString().slice(0, 10);
+};
+
 const create = async ({ code, type, value, minOrderChf, usageLimit, expiresAt, isActive }) => {
   const [result] = await pool.execute(
     `INSERT INTO coupons (code, type, value, min_order_chf, usage_limit, expires_at, is_active)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [code.toUpperCase(), type, value, minOrderChf ?? 0, usageLimit ?? null, expiresAt ?? null, isActive !== false ? 1 : 0]
+    [code.toUpperCase(), type, value, minOrderChf ?? 0, usageLimit ?? null, toMysqlDate(expiresAt), isActive !== false ? 1 : 0]
   );
   return result.insertId;
 };
@@ -44,7 +51,7 @@ const update = async (id, { code, type, value, minOrderChf, usageLimit, expiresA
     `UPDATE coupons
      SET code = ?, type = ?, value = ?, min_order_chf = ?, usage_limit = ?, expires_at = ?, is_active = ?
      WHERE id = ?`,
-    [code.toUpperCase(), type, value, minOrderChf ?? 0, usageLimit ?? null, expiresAt ?? null, isActive ? 1 : 0, id]
+    [code.toUpperCase(), type, value, minOrderChf ?? 0, usageLimit ?? null, toMysqlDate(expiresAt), isActive ? 1 : 0, id]
   );
 };
 
@@ -76,10 +83,10 @@ const validate = async (code, orderSubtotal) => {
   }
 
   const discount = coupon.type === 'percent'
-    ? Math.round(orderSubtotal * parseFloat(coupon.value)) / 100
-    : Math.min(parseFloat(coupon.value), orderSubtotal);
+    ? roundCHF(orderSubtotal * parseFloat(coupon.value) / 100)
+    : roundCHF(Math.min(parseFloat(coupon.value), orderSubtotal));
 
-  return { valid: true, coupon, discount: Math.round(discount * 20) / 20 };
+  return { valid: true, coupon, discount };
 };
 
 /* Incrémente le compteur d'utilisation après application */

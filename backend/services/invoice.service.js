@@ -117,7 +117,8 @@ const generateInvoicePDF = ({ order, user }) => {
 
     rowTotals('Sous-total HT estimé', `CHF ${(subtotal - taxAmount + shipping > 0 ? subtotal - taxAmount : 0).toFixed(2)}`);
     rowTotals('Frais de livraison',   `CHF ${shipping.toFixed(2)}`);
-    rowTotals('TVA incluse (8.1%)',   `CHF ${taxAmount.toFixed(2)}`);
+    const blendedRate = subtotal > 0 ? ((taxAmount / subtotal) * 100).toFixed(1) : '8.1';
+    rowTotals(`TVA incluse (${blendedRate}%)`,   `CHF ${taxAmount.toFixed(2)}`);
 
     // Ligne total
     doc.rect(totalsLeft, ty - 2, totalsWidth, 24).fillColor('#fdf2f8').fill();
@@ -137,7 +138,7 @@ const generateInvoicePDF = ({ order, user }) => {
     doc.fontSize(8.5).fillColor(dark).font('Helvetica')
        .text('Veuillez effectuer le virement dans les 10 jours suivant la réception de cette facture.', 60, ty + 24, { width: W - 20 })
        .text('Référence à indiquer : FAC-' + String(order.id).padStart(6, '0'), 60, ty + 38)
-       .text('IBAN : CH00 0000 0000 0000 0000 0  ·  Au Point-Compté, Lausanne', 60, ty + 52);
+       .text(`IBAN : ${process.env.STORE_IBAN || 'À COMPLÉTER'}  ·  Au Point-Compté, Lausanne`, 60, ty + 52);
 
     // ── Pied de page ──────────────────────────────────────────
     doc.fontSize(8).fillColor(muted).font('Helvetica')

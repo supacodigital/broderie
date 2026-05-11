@@ -1,7 +1,10 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
+import { useDebounceSearch } from '../../hooks/useDebounceSearch.js'
+import { useSearchParams } from 'react-router-dom'
 import {
-  Plus, Search, Edit2, Trash2, ChevronLeft, ChevronRight,
+  Plus, Search, Edit2, Trash2,
   ImageOff, Upload, X, Star, AlertTriangle, Check,
+  SlidersHorizontal, RotateCcw,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -13,8 +16,13 @@ import {
 import { getCategories } from '../../services/categories.service.js'
 import { getSuppliers } from '../../services/suppliers.service.js'
 import { getTaxRates } from '../../services/settings.service.js'
-import { roundCHF } from '../../utils/chf.js'
+import { formatCHF } from '../../utils/chf.js'
+import SortIcon from '../../components/ui/SortIcon/SortIcon.jsx'
+import Pagination from '../../components/ui/Pagination/Pagination.jsx'
+import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
+import SkeletonTable from '../../components/ui/SkeletonTable/SkeletonTable.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
+import { useToast } from '../../contexts/ToastContext.jsx'
 import s from './Products.module.css'
 
 const LIMIT = 20
@@ -33,6 +41,10 @@ const schema = z.object({
   isActive:         z.boolean().optional(),
   badge:            z.string().optional(),
   description:      z.string().optional(),
+  nameDe:           z.string().optional(),
+  descriptionDe:    z.string().optional(),
+  nameEn:           z.string().optional(),
+  descriptionEn:    z.string().optional(),
 })
 
 // ── Zone de drop d'images ──────────────────────────────────────────────────
@@ -59,7 +71,7 @@ function ImageDropZone({ productId, images, onImagesChange }) {
         fd.append('isPrimary', images.length === 0 && results.length === 0 ? 'true' : 'false')
         fd.append('alt', file.name.replace(/\.[^.]+$/, ''))
         const res = await uploadProductImage(productId, fd)
-        const img = res.data
+        const img = res
         results.push({ ...img, isPrimary: !!img.is_primary })
       } catch {
         setError("Erreur lors de l'upload d'une image")
@@ -212,6 +224,10 @@ function ProductModal({ product, categories, suppliers, taxRates, onClose, onSav
       isActive:        !!product.is_active,
       badge:           product.badge ?? '',
       description:     product.description_fr ?? '',
+      nameDe:          product.translations?.de?.name ?? '',
+      descriptionDe:   product.translations?.de?.description ?? '',
+      nameEn:          product.translations?.en?.name ?? '',
+      descriptionEn:   product.translations?.en?.description ?? '',
     } : { isActive: true, isFeatured: false, badge: '', stock: 0 },
   })
 
@@ -221,7 +237,7 @@ function ProductModal({ product, categories, suppliers, taxRates, onClose, onSav
     getProductById(product.id)
       .then(res => {
         /* Normalise is_primary (DB snake_case) → isPrimary (camelCase) */
-        const imgs = (res.data?.images ?? []).map(img => ({
+        const imgs = (res?.images ?? []).map(img => ({
           ...img,
           isPrimary: !!img.is_primary,
         }))
@@ -257,6 +273,8 @@ function ProductModal({ product, categories, suppliers, taxRates, onClose, onSav
         badge:           data.badge || null,
         translations: {
           fr: { name: data.name, description: data.description ?? '' },
+          ...(data.nameDe ? { de: { name: data.nameDe, description: data.descriptionDe ?? '' } } : {}),
+          ...(data.nameEn ? { en: { name: data.nameEn, description: data.descriptionEn ?? '' } } : {}),
         },
       }
 
@@ -346,8 +364,8 @@ function ProductModal({ product, categories, suppliers, taxRates, onClose, onSav
                 <label className={s.label}>Fournisseur</label>
                 <select className={s.input} {...register('supplierId')}>
                   <option value="">— Aucun —</option>
-                  {suppliers.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                  {suppliers.map(sup => (
+                    <option key={sup.id} value={sup.id}>{sup.name}</option>
                   ))}
                 </select>
               </div>
@@ -364,7 +382,7 @@ function ProductModal({ product, categories, suppliers, taxRates, onClose, onSav
                 {errors.taxRateId && <span className={s.err}>{errors.taxRateId.message}</span>}
               </div>
 
-              {/* Description */}
+              {/* Description FR */}
               <div className={`${s.field} ${s.fieldFull}`}>
                 <label className={s.label}>Description (FR)</label>
                 <textarea
@@ -373,6 +391,26 @@ function ProductModal({ product, categories, suppliers, taxRates, onClose, onSav
                   placeholder="Description du produit en français…"
                   {...register('description')}
                 />
+              </div>
+
+              {/* Traduction DE */}
+              <div className={s.field}>
+                <label className={s.label}>Nom (DE)</label>
+                <input className={s.input} placeholder="Produktname auf Deutsch…" {...register('nameDe')} />
+              </div>
+              <div className={s.field}>
+                <label className={s.label}>Description (DE)</label>
+                <textarea className={`${s.input} ${s.textarea}`} rows={2} placeholder="Beschreibung auf Deutsch…" {...register('descriptionDe')} />
+              </div>
+
+              {/* Traduction EN */}
+              <div className={s.field}>
+                <label className={s.label}>Nom (EN)</label>
+                <input className={s.input} placeholder="Product name in English…" {...register('nameEn')} />
+              </div>
+              <div className={s.field}>
+                <label className={s.label}>Description (EN)</label>
+                <textarea className={`${s.input} ${s.textarea}`} rows={2} placeholder="Description in English…" {...register('descriptionEn')} />
               </div>
             </div>
 
@@ -430,33 +468,52 @@ function ProductModal({ product, categories, suppliers, taxRates, onClose, onSav
 
 // ── Page principale ────────────────────────────────────────────────────────
 export default function Products() {
-  const [products,   setProducts]   = useState([])
-  const [total,      setTotal]      = useState(0)
-  const [page,       setPage]       = useState(1)
-  const [search,     setSearch]     = useState('')
-  const [filterCat,  setFilterCat]  = useState('')
-  const [loading,    setLoading]    = useState(true)
-  const [error,      setError]      = useState(false)
-  const [modal,      setModal]      = useState(null)
-  const [confirm,    setConfirm]    = useState(null)
-  const [deleteError,setDeleteError]= useState(null)
-  const [categories, setCategories] = useState([])
-  const [suppliers,  setSuppliers]  = useState([])
-  const [taxRates,   setTaxRates]   = useState([])
+  const toast = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [products,    setProducts]    = useState([])
+  const [total,       setTotal]       = useState(0)
+  const [page,        setPage]        = useState(1)
+  const { search: searchInput, debouncedSearch: search, handleSearch: handleSearchChange } = useDebounceSearch(300, () => setPage(1))
+  const [sortCol,     setSortCol]     = useState('created_at')
+  const [sortDir,     setSortDir]     = useState('desc')
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState(false)
+  const [modal,       setModal]       = useState(null)
+  const [confirm,     setConfirm]     = useState(null)
+  const [categories,  setCategories]  = useState([])
+  const [suppliers,   setSuppliers]   = useState([])
+  const [taxRates,    setTaxRates]    = useState([])
+  const [showFilters, setShowFilters] = useState(false)
+  /* Filtres — états primitifs pour que useEffect les détecte fiablement */
+  const [filterCat,      setFilterCat]      = useState('')
+  const [filterSupplier, setFilterSupplier] = useState('')
+  const [filterMinPrice, setFilterMinPrice] = useState('')
+  const [filterMaxPrice, setFilterMaxPrice] = useState('')
+  const [filterInStock,  setFilterInStock]  = useState(false)
+  const [filterIsActive, setFilterIsActive] = useState('')
+  const [filterFeatured, setFilterFeatured] = useState('')
+
+  const activeFilterCount = useMemo(() => [filterCat, filterSupplier, filterMinPrice, filterMaxPrice, filterIsActive, filterFeatured].filter(v => v !== '').length + (filterInStock ? 1 : 0), [filterCat, filterSupplier, filterMinPrice, filterMaxPrice, filterInStock, filterIsActive, filterFeatured])
+
+  const resetFilters = () => {
+    setFilterCat(''); setFilterSupplier(''); setFilterMinPrice(''); setFilterMaxPrice('')
+    setFilterInStock(false); setFilterIsActive(''); setFilterFeatured('')
+    setPage(1)
+  }
+
+  /* Catégories parentes pour le groupe optgroup */
+  const parentCats = useMemo(() => categories.filter(c => !c.parentId), [categories])
+  const childrenOf = (parentId) => categories.filter(c => c.parentId === parentId)
 
   /* Chargement des listes de référence (catégories, fournisseurs, TVA) */
   useEffect(() => {
-    Promise.all([
-      getCategories(),
-      getSuppliers(),
-    ]).then(([catRes, supRes]) => {
-      /* translations est un objet {fr, de, en} — on extrait le nom FR */
-      const raw = (catRes.data.data ?? []).map(c => ({
+    /* getCategories() retourne directement [] */
+    getCategories().then(list => {
+      const raw = list.map(c => ({
         id:       c.id,
         parentId: c.parent_id ?? null,
         name:     c.translations?.fr?.name ?? c.slug,
       }))
-      /* Tri : parents d'abord, puis enfants indentés */
       const parents  = raw.filter(c => !c.parentId)
       const children = raw.filter(c =>  c.parentId)
       const sorted = []
@@ -466,18 +523,17 @@ export default function Products() {
           sorted.push({ ...ch, name: `— ${ch.name}` })
         }
       }
-      /* Ajouter les enfants orphelins éventuels en fin de liste */
       for (const ch of children.filter(c => !parents.find(p => p.id === c.parentId))) {
         sorted.push({ ...ch, name: `— ${ch.name}` })
       }
       setCategories(sorted)
-      setSuppliers(supRes.data.data ?? [])
     }).catch(() => {})
 
-    /* Taux TVA — route admin settings */
-    getTaxRates().then(res => {
-      if (res.data) setTaxRates(res.data)
-    }).catch(() => {
+    /* getSuppliers() retourne { data: [], pagination: {} } */
+    getSuppliers({ limit: 100 }).then(({ data }) => setSuppliers(data)).catch(() => {})
+
+    /* getTaxRates() retourne [] */
+    getTaxRates().then(setTaxRates).catch(() => {
       setTaxRates([
         { id: 1, name: 'Taux normal',   rate: 8.1 },
         { id: 2, name: 'Taux réduit',   rate: 2.6 },
@@ -486,35 +542,66 @@ export default function Products() {
     })
   }, [])
 
-  const load = useCallback(async () => {
-    setError(false)
-    setLoading(true)
-    try {
-      const params = { page, limit: LIMIT, sort: 'created_at', order: 'desc' }
-      if (search)    params.q = search
-      if (filterCat) params.category_id = filterCat
-      const res = await getProducts(params)
-      setProducts(res.data ?? [])
-      setTotal(res.pagination?.total ?? 0)
-    } catch {
-      setError(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, search, filterCat])
+  const handleSort = (col) => {
+    const newDir = sortCol === col ? (sortDir === 'asc' ? 'desc' : 'asc') : 'desc'
+    setSortCol(col)
+    setSortDir(newDir)
+    setPage(1)
+  }
 
-  useEffect(() => { load() }, [load])
+  const [refreshTick, setRefreshTick] = useState(0)
+  const load = () => setRefreshTick(t => t + 1)
+
+  useEffect(() => {
+    let cancelled = false
+    const run = async () => {
+      setError(false)
+      setLoading(true)
+      try {
+        const params = { page, limit: LIMIT, sort: sortCol, order: sortDir }
+        if (search)            params.q           = search
+        if (filterCat)         params.category_id = filterCat
+        if (filterSupplier)    params.supplier_id = filterSupplier
+        if (filterMinPrice)    params.min_price   = filterMinPrice
+        if (filterMaxPrice)    params.max_price   = filterMaxPrice
+        if (filterInStock)     params.in_stock    = 'true'
+        if (filterIsActive)    params.is_active   = filterIsActive
+        if (filterFeatured)    params.is_featured = filterFeatured
+        const res = await getProducts(params)
+        if (!cancelled) {
+          setProducts(res.data ?? [])
+          setTotal(res.pagination?.total ?? 0)
+        }
+      } catch {
+        if (!cancelled) setError(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [page, search, filterCat, filterSupplier, filterMinPrice, filterMaxPrice, filterInStock, filterIsActive, filterFeatured, sortCol, sortDir, refreshTick])
+
+  /* Ouvrir directement la modale si ?edit=ID dans l'URL (ex: depuis dashboard) */
+  useEffect(() => {
+    const editId = searchParams.get('edit')
+    if (!editId) return
+    setSearchParams({}, { replace: true })
+    getProductById(Number(editId))
+      .then(res => { if (res) setModal(res) })
+      .catch(() => {})
+  }, []) // une seule fois au montage
 
   const handleDelete = (id) => {
     setConfirm({
       message: 'Supprimer définitivement ce produit ?',
       onConfirm: async () => {
-        setDeleteError(null)
         try {
           await deleteProduct(id)
           load()
+          toast.success('Produit supprimé.')
         } catch (err) {
-          setDeleteError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
+          toast.error(err.response?.data?.message ?? 'Erreur lors de la suppression.')
         }
       },
     })
@@ -553,55 +640,161 @@ export default function Products() {
             type="search"
             className={s.searchInput}
             placeholder="Rechercher un produit…"
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1) }}
+            value={searchInput}
+            onChange={e => handleSearchChange(e.target.value)}
           />
         </div>
-        {categories.length > 0 && (
-          <select
-            className={s.filter}
-            value={filterCat}
-            onChange={e => { setFilterCat(e.target.value); setPage(1) }}
-          >
-            <option value="">Toutes les catégories</option>
-            {categories.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+        <button
+          className={`${s.filterToggleBtn} ${showFilters ? s.filterToggleActive : ''}`}
+          onClick={() => setShowFilters(v => !v)}
+        >
+          <SlidersHorizontal size={14} />
+          Filtres
+          {activeFilterCount > 0 && (
+            <span className={s.filterBadge}>{activeFilterCount}</span>
+          )}
+        </button>
+        {activeFilterCount > 0 && (
+          <button className={s.resetBtn} onClick={resetFilters}>
+            <RotateCcw size={13} /> Réinitialiser
+          </button>
         )}
       </div>
 
-      {error && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={14} />
-          Erreur de chargement. <button className={s.retryBtn} onClick={load}>Réessayer</button>
+      {showFilters && (
+        <div className={s.filterPanel}>
+          <div className={s.filterGrid}>
+
+            {/* Catégorie avec sous-catégories */}
+            <div className={s.filterField}>
+              <label className={s.filterLabel}>Catégorie</label>
+              <select
+                className={s.filterSelect}
+                value={filterCat}
+                onChange={e => { setFilterCat(e.target.value); setPage(1) }}
+              >
+                <option value="">Toutes</option>
+                {parentCats.map(p => (
+                  <optgroup key={p.id} label={p.name}>
+                    <option value={p.id}>{p.name} (tout)</option>
+                    {childrenOf(p.id).map(ch => (
+                      <option key={ch.id} value={ch.id}>&nbsp;&nbsp;{ch.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+
+            {/* Fournisseur */}
+            <div className={s.filterField}>
+              <label className={s.filterLabel}>Fournisseur</label>
+              <select
+                className={s.filterSelect}
+                value={filterSupplier}
+                onChange={e => { setFilterSupplier(e.target.value); setPage(1) }}
+              >
+                <option value="">Tous</option>
+                {suppliers.map(sup => (
+                  <option key={sup.id} value={sup.id}>{sup.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Fourchette de prix */}
+            <div className={s.filterField}>
+              <label className={s.filterLabel}>Prix min (CHF)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.05"
+                className={s.filterInput}
+                placeholder="0.00"
+                value={filterMinPrice}
+                onChange={e => { setFilterMinPrice(e.target.value); setPage(1) }}
+              />
+            </div>
+            <div className={s.filterField}>
+              <label className={s.filterLabel}>Prix max (CHF)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.05"
+                className={s.filterInput}
+                placeholder="999.00"
+                value={filterMaxPrice}
+                onChange={e => { setFilterMaxPrice(e.target.value); setPage(1) }}
+              />
+            </div>
+
+            {/* Statut */}
+            <div className={s.filterField}>
+              <label className={s.filterLabel}>Statut</label>
+              <select
+                className={s.filterSelect}
+                value={filterIsActive}
+                onChange={e => { setFilterIsActive(e.target.value); setPage(1) }}
+              >
+                <option value="">Tous</option>
+                <option value="true">Actif</option>
+                <option value="false">Inactif</option>
+              </select>
+            </div>
+
+            {/* Mise en avant */}
+            <div className={s.filterField}>
+              <label className={s.filterLabel}>Mise en avant</label>
+              <select
+                className={s.filterSelect}
+                value={filterFeatured}
+                onChange={e => { setFilterFeatured(e.target.value); setPage(1) }}
+              >
+                <option value="">Tous</option>
+                <option value="true">Mis en avant</option>
+                <option value="false">Non</option>
+              </select>
+            </div>
+
+            {/* En stock */}
+            <div className={s.filterField}>
+              <label className={s.filterLabel}>Stock</label>
+              <label className={s.filterCheckbox}>
+                <input
+                  type="checkbox"
+                  checked={filterInStock}
+                  onChange={e => { setFilterInStock(e.target.checked); setPage(1) }}
+                />
+                En stock uniquement
+              </label>
+            </div>
+
+          </div>
+
+          <div className={s.filterActions}>
+            <button className={s.filterClearBtn} onClick={resetFilters}>
+              Tout effacer
+            </button>
+          </div>
         </div>
       )}
-      {deleteError && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={14} />
-          {deleteError}
-        </div>
-      )}
+
+      {error && <ErrorBanner onRetry={load} />}
 
       <div className={s.card}>
         <div className={s.tableHead}>
           <span>Produit</span>
           <span>SKU</span>
-          <span>Prix</span>
-          <span>Stock</span>
+          <button className={s.sortHeader} onClick={() => handleSort('price_chf')}>
+            Prix <SortIcon col="price_chf" sortCol={sortCol} sortDir={sortDir} />
+          </button>
+          <button className={s.sortHeader} onClick={() => handleSort('stock')}>
+            Stock <SortIcon col="stock" sortCol={sortCol} sortDir={sortDir} />
+          </button>
           <span>Statut</span>
           <span />
         </div>
 
         {loading ? (
-          <div className={s.loadingRows}>
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className={s.skeletonRow}>
-                {Array.from({ length: 6 }).map((__, j) => <span key={j} />)}
-              </div>
-            ))}
-          </div>
+          <SkeletonTable rows={8} cols={6} />
         ) : products.length === 0 ? (
           <p className={s.empty}>Aucun produit trouvé.</p>
         ) : (
@@ -610,17 +803,28 @@ export default function Products() {
               <div className={s.productCell}>
                 <div className={s.thumb}>
                   {product.image_url
-                    ? <img src={product.image_url} alt={product.name} />
-                    : <ImageOff size={16} />
+                    ? <img
+                        src={product.image_url}
+                        alt={product.name}
+                        onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }}
+                      />
+                    : null
                   }
+                  <span style={{ display: product.image_url ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                    <ImageOff size={16} />
+                  </span>
                 </div>
                 <div>
                   <p className={s.productName}>{product.name}</p>
-                  {product.category_name && <p className={s.productCat}>{product.category_name}</p>}
+                  <p className={s.productMeta}>
+                    {product.category_name && <span>{product.category_name}</span>}
+                    {product.category_name && product.supplier_name && <span className={s.metaSep}>·</span>}
+                    {product.supplier_name && <span className={s.supplierTag}>{product.supplier_name}</span>}
+                  </p>
                 </div>
               </div>
               <span className={s.sku}>{product.sku ?? '—'}</span>
-              <span className={s.bold}>CHF {roundCHF(product.price_chf).toFixed(2)}</span>
+              <span className={s.bold}>{formatCHF(product.price_chf)}</span>
               <span className={product.stock <= 5 ? s.stockLow : s.stockOk}>
                 {product.stock}
                 {product.stock <= 5 && product.stock > 0 && (
@@ -643,17 +847,7 @@ export default function Products() {
         )}
       </div>
 
-      {totalPages > 1 && (
-        <div className={s.pagination}>
-          <button className={s.pageBtn} disabled={page === 1} onClick={() => setPage(p => p - 1)}>
-            <ChevronLeft size={16} />
-          </button>
-          <span className={s.pageInfo}>Page {page} / {totalPages}</span>
-          <button className={s.pageBtn} disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   )
 }

@@ -1,12 +1,13 @@
-const cartService  = require('../services/cart.service');
+const cartService    = require('../services/cart.service');
 const cartRepository = require('../repositories/cart.repository');
 const { v4: uuidv4 } = require('uuid');
+const env            = require('../config/env');
 
 const CART_COOKIE_OPTS = {
   httpOnly: true,
   maxAge: 30 * 24 * 60 * 60 * 1000,
-  sameSite: process.env.NODE_ENV === 'production' ? 'Strict' : 'Lax',
-  secure: process.env.NODE_ENV === 'production',
+  sameSite: env.nodeEnv === 'production' ? 'Strict' : 'Lax',
+  secure:   env.nodeEnv === 'production',
 };
 
 // Résout les identifiants et fusionne le panier anonyme si l'utilisateur vient de se connecter

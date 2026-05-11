@@ -195,13 +195,15 @@ export default function Catalogue() {
         .filter(([, v]) => v !== undefined && v !== '' && v !== false)
     )
 
-    getProducts(params)
+    const signal = abortRef.current.signal
+    getProducts(params, { signal })
       .then(d => {
+        if (signal.aborted) return
         setProducts(d.data ?? [])
         setPagination(d.pagination ?? { page: 1, totalPages: 1, total: d.data?.length ?? 0 })
       })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false))
+      .catch(err => { if (!signal.aborted) setError(true) })
+      .finally(() => { if (!signal.aborted) setLoading(false) })
   }, [filters, i18n.language])
 
   const handleFiltersChange = useCallback((next) => setFilters(next), [])

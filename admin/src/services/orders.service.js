@@ -1,23 +1,24 @@
 import api from './api.js'
 
+// Backend listes: { success, data: [], pagination }
+// Backend ressource: { success, data: {} }
 export async function getOrders(params = {}) {
   const res = await api.get('/admin/orders', { params })
-  return res.data
+  return { data: res.data.data ?? [], pagination: res.data.pagination ?? {} }
 }
 
 export async function getOrderById(id) {
   const res = await api.get(`/admin/orders/${id}`)
-  return res.data
+  return res.data.data ?? null
 }
 
 export async function updateOrderStatus(id, status, note) {
   const res = await api.put(`/admin/orders/${id}/status`, { status, note })
-  return res.data
+  return res.data.data ?? null
 }
 
 export async function sendTwintQr(orderId) {
-  const res = await api.post(`/admin/orders/${orderId}/twint-email`)
-  return res.data
+  await api.post(`/admin/orders/${orderId}/twint-email`)
 }
 
 export async function downloadInvoice(orderId) {

@@ -6,15 +6,15 @@ import ProductCard from '../../components/ui/ProductCard/ProductCard.jsx'
 import { ProductCardSkeleton } from '../../components/ui/Skeleton/Skeleton.jsx'
 import s from './RelatedProducts.module.css'
 
-export default function RelatedProducts({ categoryId, currentProductId, locale = 'fr' }) {
+export default function RelatedProducts({ categorySlug, currentProductId, locale = 'fr' }) {
   const { t } = useTranslation()
   const [products, setProducts] = useState([])
   const [loading,  setLoading]  = useState(true)
 
   useEffect(() => {
-    if (!categoryId) { setLoading(false); return }
+    if (!categorySlug) { setLoading(false); return }
     let cancelled = false
-    getProducts({ category_id: categoryId, locale, limit: 4, is_active: 1 })
+    getProducts({ category: categorySlug, locale, limit: 4, is_active: 1 })
       .then(d => {
         if (cancelled) return
         const filtered = (d.data ?? []).filter(p => p.id !== currentProductId).slice(0, 4)
@@ -23,7 +23,7 @@ export default function RelatedProducts({ categoryId, currentProductId, locale =
       })
       .catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [categoryId, currentProductId, locale])
+  }, [categorySlug, currentProductId, locale])
 
   if (!loading && products.length === 0) return null
 

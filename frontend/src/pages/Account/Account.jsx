@@ -16,16 +16,10 @@ import { getAddresses, createAddress, updateAddress, deleteAddress } from '../..
 import { getLoyaltyAccount, getLoyaltyRewards } from '../../services/loyalty.service.js'
 import { getWishlist } from '../../services/wishlist.service.js'
 import { roundCHF } from '../../utils/chf.js'
+import { normalizeLocale } from '../../utils/locale.js'
+import { formatDate } from '../../utils/date.js'
+import { STATUS_CFG } from '../../utils/orderStatus.js'
 import s from './Account.module.css'
-
-const STATUS_CFG = {
-  pending:   { label: 'En attente', color: '#d97706', bg: '#fffbeb' },
-  paid:      { label: 'Payée',      color: '#059669', bg: '#ecfdf5' },
-  shipped:   { label: 'Expédiée',   color: '#2563eb', bg: '#eff6ff' },
-  delivered: { label: 'Livrée',     color: '#7c3aed', bg: '#f5f3ff' },
-  cancelled: { label: 'Annulée',    color: '#dc2626', bg: '#fef2f2' },
-  refunded:  { label: 'Remboursée', color: '#9d174d', bg: '#fdf2f8' },
-}
 
 function useTabs(t) {
   return [
@@ -69,10 +63,6 @@ function StatusBadge({ status }) {
       {cfg.label}
     </span>
   )
-}
-
-function formatDate(iso, locale = 'fr') {
-  return new Intl.DateTimeFormat(`${locale}-CH`, { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date(iso))
 }
 
 /* ── Formulaire changement de mot de passe ── */
@@ -291,7 +281,7 @@ function TabProfile({ user, onSaved }) {
 /* ── Onglet Commandes ── */
 function TabOrders() {
   const { i18n } = useTranslation()
-  const locale = i18n.language?.split('-')[0] ?? 'fr'
+  const locale = normalizeLocale(i18n.language)
   const [orders,  setOrders]  = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -338,7 +328,7 @@ function TabOrders() {
             <div className={s.orderTop}>
               <div>
                 <span className={s.orderId}>Commande #{o.id}</span>
-                <span className={s.orderDate}>{formatDate(o.created_at, locale)}</span>
+                <span className={s.orderDate}>{formatDate(o.created_at)}</span>
               </div>
               <StatusBadge status={o.status} />
             </div>
@@ -534,7 +524,7 @@ function TabWishlist() {
 
   useEffect(() => {
     let cancelled = false
-    getWishlist(i18n.language?.split('-')[0] ?? 'fr')
+    getWishlist(normalizeLocale(i18n.language))
       .then(d => { if (!cancelled) setItems(d.data ?? []) })
       .catch(() => { if (!cancelled) setItems([]) })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -610,7 +600,7 @@ function TabWishlist() {
 /* ── Onglet Fidélité ── */
 function TabLoyalty() {
   const { i18n } = useTranslation()
-  const locale = i18n.language?.split('-')[0] ?? 'fr'
+  const locale = normalizeLocale(i18n.language)
   const [data,    setData]    = useState(null)
   const [rewards, setRewards] = useState([])
   const [loading, setLoading] = useState(true)
@@ -723,7 +713,7 @@ function TabLoyalty() {
         <div className={s.rewardList}>
           {rewards.map(reward => {
             const cfg = STATUS_REWARD[reward.status] ?? STATUS_REWARD.pending
-            const expires = reward.expires_at ? new Date(reward.expires_at).toLocaleDateString(`${locale}-CH`) : null
+            const expires = reward.expires_at ? formatDate(reward.expires_at) : null
             return (
               <div key={reward.id} className={s.rewardItem}>
                 <div className={s.rewardCode}>{reward.code}</div>

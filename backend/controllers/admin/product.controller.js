@@ -4,14 +4,33 @@ const { invalidateProducts } = require('../../config/cache');
 const { AppError } = require('../../middlewares/errorHandler');
 const { normalizeLocale } = require('../../utils/locale.utils');
 
+const ALLOWED_SORT_FIELDS = ['created_at', 'price_chf', 'name', 'stock'];
+
 const getAll = async (req, res, next) => {
   try {
-    const page       = Math.max(1, parseInt(req.query.page) || 1);
-    const limit      = Math.min(100, parseInt(req.query.limit) || 20);
-    const search     = req.query.q || '';
-    const categoryId = req.query.category_id ? parseInt(req.query.category_id) : null;
-    const lowStock   = req.query.low_stock === 'true';
-    const { rows, total } = await productAdminRepository.findAllAdmin({ page, limit, search, categoryId, lowStock });
+    const page        = Math.max(1, parseInt(req.query.page) || 1);
+    const limit       = Math.min(100, parseInt(req.query.limit) || 20);
+    const search      = req.query.q || '';
+    const sort        = ALLOWED_SORT_FIELDS.includes(req.query.sort) ? req.query.sort : 'created_at';
+    const order       = req.query.order === 'asc' ? 'asc' : 'desc';
+    const categoryId  = req.query.category_id  ? parseInt(req.query.category_id)  : null;
+    const supplierId  = req.query.supplier_id  ? parseInt(req.query.supplier_id)  : null;
+    const minPrice    = req.query.min_price    ? parseFloat(req.query.min_price)  : null;
+    const maxPrice    = req.query.max_price    ? parseFloat(req.query.max_price)  : null;
+    const inStock     = req.query.in_stock     === 'true';
+    const lowStock    = req.query.low_stock    === 'true';
+    const isActive    = req.query.is_active    === 'true'  ? true
+                      : req.query.is_active    === 'false' ? false : null;
+    const isFeatured  = req.query.is_featured  === 'true'  ? true
+                      : req.query.is_featured  === 'false' ? false : null;
+
+    const { rows, total } = await productAdminRepository.findAllAdmin({
+      page, limit, search, sort, order,
+      categoryId, supplierId,
+      minPrice, maxPrice,
+      inStock, lowStock,
+      isActive, isFeatured,
+    });
     res.json({
       success: true,
       data: rows,

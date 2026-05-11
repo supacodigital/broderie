@@ -57,11 +57,24 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS non autorisé'));
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+
+    // En développement, Vite peut prendre le port suivant si le port configuré est occupé.
+    // On accepte localhost:PORT et localhost:PORT+1 pour CLIENT_URL et ADMIN_URL.
+    if (process.env.NODE_ENV === 'development') {
+      const devFallbacks = allowedOrigins.flatMap(o => {
+        try {
+          const u = new URL(o);
+          if (u.hostname !== 'localhost') return [];
+          const p = Number(u.port);
+          return [`http://localhost:${p + 1}`];
+        } catch { return []; }
+      });
+      if (devFallbacks.includes(origin)) return callback(null, true);
     }
+
+    callback(new Error('CORS non autorisé'));
   },
   credentials: true,
 }));
@@ -114,6 +127,7 @@ app.use('/api/v1/loyalty', require('./routes/loyalty.routes'));
 app.use('/api/v1/products/:id/reviews', require('./routes/reviews.routes'));
 app.use('/api/v1/newsletter', require('./routes/newsletter.routes'));
 app.use('/api/v1/legal',     require('./routes/legal.routes'));
+app.use('/api/v1/contact',   require('./routes/contact.routes'));
 
 // Avis approuvés récents — page d'accueil
 const { getApproved } = require('./controllers/review.controller');

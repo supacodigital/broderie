@@ -3,12 +3,14 @@ import {
   Plus, Edit2, Trash2, Search, X, Check, AlertTriangle,
   Package, TrendingUp, AlertCircle, ShoppingBag,
 } from 'lucide-react'
+import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { getSuppliers, getSupplierDetails, createSupplier, updateSupplier, deleteSupplier } from '../../services/suppliers.service.js'
 import { roundCHF } from '../../utils/chf.js'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
+import { useToast } from '../../contexts/ToastContext.jsx'
 import s from './Suppliers.module.css'
 
 const schema = z.object({
@@ -139,7 +141,7 @@ function SupplierDetailModal({ supplierId, onClose, onEdit }) {
     setLoading(true)
     setError(false)
     getSupplierDetails(supplierId)
-      .then(res => setData(res.data))
+      .then(res => setData(res))
       .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [supplierId])
@@ -275,6 +277,7 @@ function SupplierDetailModal({ supplierId, onClose, onEdit }) {
 
 /* ── Page principale ── */
 export default function Suppliers() {
+  const toast = useToast()
   const [suppliers,  setSuppliers]  = useState([])
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState(false)
@@ -282,7 +285,6 @@ export default function Suppliers() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [formModal,  setFormModal]  = useState(null)   // null | 'new' | supplier object
   const [detailId,   setDetailId]   = useState(null)   // id fournisseur pour la modal détail
-  const [deleteError, setDeleteError] = useState(null)
   const [confirm,    setConfirm]    = useState(null)
   const debounceRef = useRef(null)
 
@@ -314,12 +316,12 @@ export default function Suppliers() {
     setConfirm({
       message: 'Supprimer ce fournisseur ? Les produits liés ne seront pas supprimés.',
       onConfirm: async () => {
-        setDeleteError(null)
         try {
           await deleteSupplier(id)
           setSuppliers(prev => prev.filter(s => s.id !== id))
+          toast.success('Fournisseur supprimé.')
         } catch (err) {
-          setDeleteError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
+          toast.error(err.response?.data?.message ?? 'Erreur lors de la suppression.')
         }
       },
     })
@@ -375,13 +377,7 @@ export default function Suppliers() {
         </div>
       </div>
 
-      {(error || deleteError) && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={14} />
-          {deleteError ?? 'Erreur de chargement.'}
-          {!deleteError && <button className={s.retryBtn} onClick={load}>Réessayer</button>}
-        </div>
-      )}
+      {error && <ErrorBanner onRetry={load} />}
 
       {loading ? (
         <div className={s.grid}>

@@ -1,7 +1,7 @@
 const { pool } = require('../config/db');
 
-// Création d'une commande — transaction atomique (stock + commande + items)
-const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, couponCode = null, discount = 0 }) => {
+// Création d'une commande — transaction atomique (stock + commande + items + coupon + paiement)
+const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint' }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -72,6 +72,21 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
       [orderId, status, userId]
     );
 
+    // Enregistrement du paiement initial — dans la même transaction
+    await connection.execute(
+      `INSERT INTO payments (order_id, provider, amount, currency, method, status)
+       VALUES (?, 'stripe', ?, 'CHF', ?, 'pending')`,
+      [orderId, total, paymentMethod]
+    );
+
+    // Incrémentation du coupon — dans la même transaction
+    if (couponId) {
+      await connection.execute(
+        `UPDATE coupons SET used_count = used_count + 1 WHERE id = ?`,
+        [couponId]
+      );
+    }
+
     await connection.commit();
     return orderId;
   } catch (error) {
@@ -120,7 +135,7 @@ const findById = async (orderId, userId = null) => {
   }
 
   const [orders] = await pool.execute(
-    `SELECT o.id, o.status, o.subtotal, o.shipping_cost, o.tax_amount, o.total,
+    `SELECT o.id, o.status, o.subtotal, o.discount, o.coupon_code, o.shipping_cost, o.tax_amount, o.total,
             o.created_at, o.updated_at, o.user_id,
             o.shipping_street AS street, o.shipping_city AS city,
             o.shipping_zip    AS zip,    o.shipping_country AS country,
@@ -170,4 +185,58 @@ const findById = async (orderId, userId = null) => {
   };
 };
 
-module.exports = { createOrder, findByUserId, findById };
+const VALID_STATUSES = ['pending', 'awaiting_payment', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
+const ALLOWED_SORT   = { created_at: 'o.created_at', total: 'o.total' };
+
+const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order = 'desc', status = null, q = null } = {}) => {
+  const offset    = (page - 1) * limit;
+  const sortField = ALLOWED_SORT[sort] || 'o.created_at';
+  const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
+
+  const params = [];
+  const conditions = [];
+
+  if (status) {
+    const statuses = status.split(',').map(s => s.trim()).filter(s => VALID_STATUSES.includes(s));
+    if (statuses.length === 1) {
+      conditions.push('o.status = ?');
+      params.push(statuses[0]);
+    } else if (statuses.length > 1) {
+      conditions.push(`o.status IN (${statuses.map(() => '?').join(',')})`);
+      params.push(...statuses);
+    }
+  }
+  if (q) {
+    if (/^\d+$/.test(q)) {
+      conditions.push('o.id = ?');
+      params.push(parseInt(q));
+    } else {
+      conditions.push('(u.email LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)');
+      params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+    }
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const [countRows] = await pool.query(
+    `SELECT COUNT(*) AS total FROM orders o INNER JOIN users u ON u.id = o.user_id ${where}`,
+    params
+  );
+  const total = countRows[0].total;
+
+  const [rows] = await pool.query(
+    `SELECT o.id, o.status, o.subtotal, o.shipping_cost, o.tax_amount, o.total,
+            o.created_at, o.updated_at,
+            u.email, u.first_name, u.last_name
+     FROM orders o
+     INNER JOIN users u ON u.id = o.user_id
+     ${where}
+     ORDER BY ${sortField} ${sortOrder}
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+
+  return { rows, total };
+};
+
+module.exports = { createOrder, findByUserId, findById, findAllAdmin };

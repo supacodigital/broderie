@@ -24,6 +24,10 @@ api.interceptors.response.use(
   res => res,
   async error => {
     const original = error.config
+    /* Ne pas intercepter les appels vers refresh-token eux-mêmes (évite la boucle infinie) */
+    if (original.url?.includes('/auth/refresh-token')) return Promise.reject(error)
+    if (original.url?.includes('/auth/login'))          return Promise.reject(error)
+
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true
       try {
@@ -35,7 +39,10 @@ api.interceptors.response.use(
         }
       } catch {
         clearAccessToken()
-        window.location.href = '/admin/connexion'
+        /* Rediriger seulement si on n'est pas déjà sur la page de connexion */
+        if (!window.location.pathname.includes('/connexion')) {
+          window.location.href = '/admin/connexion'
+        }
       }
     }
     return Promise.reject(error)

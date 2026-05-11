@@ -51,13 +51,15 @@ const findSettings = async (keys) => {
 };
 
 const upsertSettings = async (entries) => {
-  for (const [key, value] of Object.entries(entries)) {
-    await pool.execute(
-      `INSERT INTO settings (\`key\`, \`value\`) VALUES (?, ?)
-       ON DUPLICATE KEY UPDATE \`value\` = VALUES(\`value\`)`,
-      [key, value ?? '']
-    );
-  }
+  const pairs = Object.entries(entries);
+  if (pairs.length === 0) return;
+  const placeholders = pairs.map(() => '(?, ?)').join(', ');
+  const params = pairs.flatMap(([key, value]) => [key, value ?? '']);
+  await pool.execute(
+    `INSERT INTO settings (\`key\`, \`value\`) VALUES ${placeholders}
+     ON DUPLICATE KEY UPDATE \`value\` = VALUES(\`value\`)`,
+    params
+  );
 };
 
 module.exports = {

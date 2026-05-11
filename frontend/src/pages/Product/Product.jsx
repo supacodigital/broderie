@@ -146,7 +146,7 @@ export default function Product() {
           reviewCount={product.review_count ?? 0}
         />
         <RelatedProducts
-          categoryId={product.category_id}
+          categorySlug={product.category_slug}
           currentProductId={product.id}
           locale={normalizeLocale(i18n.language)}
         />

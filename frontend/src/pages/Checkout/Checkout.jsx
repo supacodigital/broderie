@@ -289,10 +289,12 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
     setCouponLoading(true)
     try {
       const res = await validateCoupon(couponInput.trim(), subtotal)
-      onCouponApplied({ discount: res.data.discount, code: res.data.code })
+      const couponData = res.data ?? res
+      onCouponApplied({ discount: couponData.discount, code: couponData.code })
       setCouponInput('')
     } catch (err) {
-      setCouponError(err.response?.data?.message ?? 'Code invalide.')
+      const msg = err.response?.data?.message ?? err.message ?? 'Code invalide.'
+      setCouponError(msg)
     } finally {
       setCouponLoading(false)
     }
@@ -723,17 +725,29 @@ export default function Checkout() {
   const { items, subtotal, clearCart } = useCart()
   const { user, isAuthenticated }      = useAuth()
 
-  const [step,           setStep]           = useState(1)
+  /* Restauration depuis sessionStorage après refresh à l'étape paiement */
+  const [step,           setStep]           = useState(() => {
+    const saved = sessionStorage.getItem('checkout_step')
+    return saved === 'twint' || saved === 'card' ? saved : 1
+  })
   const [address,        setAddress]        = useState(null)
-  const [orderId,        setOrderId]        = useState(null)
+  const [orderId,        setOrderId]        = useState(() => {
+    return sessionStorage.getItem('checkout_order_id') || null
+  })
   const [paymentMethod,  setPaymentMethod]  = useState('twint')
-  const [orderTotal,     setOrderTotal]     = useState(0)
+  const [orderTotal,     setOrderTotal]     = useState(() => {
+    return parseFloat(sessionStorage.getItem('checkout_order_total') || '0')
+  })
   const [isSubmitting,   setIsSubmitting]   = useState(false)
   const [globalError,    setGlobalError]    = useState('')
   const [prefill,        setPrefill]        = useState(null)
   const [savedAddresses, setSavedAddresses] = useState([])
-  const [discount,       setDiscount]       = useState(0)
-  const [couponCode,     setCouponCode]     = useState('')
+  const [discount,        setDiscount]       = useState(0)
+  const [couponCode,      setCouponCode]     = useState('')
+  /* Sous-total brut avant remise — figé lors de la création de commande */
+  const [subtotalSnapshot, setSubtotalSnapshot] = useState(0)
+  /* Snapshot des articles avant vidage du panier */
+  const [itemsSnapshot,  setItemsSnapshot]  = useState([])
 
   /* Préremplissage depuis le compte utilisateur */
   useEffect(() => {
@@ -764,13 +778,13 @@ export default function Checkout() {
     return () => { cancelled = true }
   }, [isAuthenticated, user])
 
-  /* Redirection si panier vide (sauf après commande) */
+  /* Redirection si panier vide (sauf après commande ou pendant la soumission) */
   useEffect(() => {
     const isPaymentStep = step === 'twint' || step === 'card'
-    if (items.length === 0 && step < 3 && !isPaymentStep) {
+    if (items.length === 0 && step < 3 && !isPaymentStep && !isSubmitting) {
       navigate('/panier', { replace: true })
     }
-  }, [items.length, step, navigate])
+  }, [items.length, step, isSubmitting, navigate])
 
   const handleAddressNext = (data) => {
     setAddress(data)
@@ -793,22 +807,38 @@ export default function Checkout() {
         })),
       })
       const newOrderId = res.data?.id ?? res.data?.order_id ?? null
+      const newTotal   = res.data?.total ?? roundCHF(subtotal + SHIPPING_CHF)
       setOrderId(newOrderId)
       setPaymentMethod(payment_method)
-      setOrderTotal(res.data?.total ?? roundCHF(subtotal + SHIPPING_CHF))
-      clearCart()
+      setOrderTotal(newTotal)
+      setSubtotalSnapshot(subtotal)
+      setItemsSnapshot([...items])
 
+      if (payment_method === 'twint' || payment_method === 'card') {
+        /* Persistance pour survie au refresh */
+        sessionStorage.setItem('checkout_step',        payment_method)
+        sessionStorage.setItem('checkout_order_id',    String(newOrderId))
+        sessionStorage.setItem('checkout_order_total', String(newTotal))
+      }
+
+      /* Transition vers l'étape de paiement AVANT clearCart() pour éviter
+         la redirection vers /panier (items.length=0 + step=2 déclencherait le guard) */
       if (payment_method === 'twint') {
         setStep('twint')
       } else if (payment_method === 'card') {
         setStep('card')
       } else {
-        /* facture et autres modes — confirmation directe */
+        sessionStorage.removeItem('checkout_step')
+        sessionStorage.removeItem('checkout_order_id')
+        sessionStorage.removeItem('checkout_order_total')
         setStep(3)
       }
+
+      clearCart()
       window.scrollTo({ top: 0, behavior: 'smooth' })
-    } catch {
-      setGlobalError(t('checkout.errors.generic'))
+    } catch (err) {
+      const msg = err.response?.data?.message ?? t('checkout.errors.generic')
+      setGlobalError(msg)
     } finally {
       setIsSubmitting(false)
     }
@@ -826,7 +856,7 @@ export default function Checkout() {
         <span aria-current="page">{t('checkout.title')}</span>
       </nav>
 
-      {step !== 3 && step !== 'twint' && <h1 className={s.heading}>{t('checkout.title')}</h1>}
+      {step !== 3 && step !== 'twint' && step !== 'card' && <h1 className={s.heading}>{t('checkout.title')}</h1>}
 
       {/* Stepper — toujours visible, bloqué à l'étape 2 pendant le paiement */}
       {step !== 3 && (
@@ -844,7 +874,13 @@ export default function Checkout() {
               <StepTwint
                 orderId={orderId}
                 total={orderTotal}
-                onPaid={() => { setStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                onPaid={() => {
+                  sessionStorage.removeItem('checkout_step')
+                  sessionStorage.removeItem('checkout_order_id')
+                  sessionStorage.removeItem('checkout_order_total')
+                  setStep(3)
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
                 t={t}
               />
             )}
@@ -852,12 +888,18 @@ export default function Checkout() {
               <StepCard
                 orderId={orderId}
                 total={orderTotal}
-                onPaid={() => { setStep(3); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                onPaid={() => {
+                  sessionStorage.removeItem('checkout_step')
+                  sessionStorage.removeItem('checkout_order_id')
+                  sessionStorage.removeItem('checkout_order_total')
+                  setStep(3)
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }}
                 t={t}
               />
             )}
           </div>
-          <OrderSummary items={[]} subtotal={orderTotal - SHIPPING_CHF} discount={discount} couponCode={couponCode} t={t} />
+          <OrderSummary items={itemsSnapshot} subtotal={subtotalSnapshot} discount={discount} couponCode={couponCode} t={t} />
         </div>
       )}
 

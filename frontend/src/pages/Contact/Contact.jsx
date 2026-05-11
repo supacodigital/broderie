@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MapPin, Phone, Mail, Clock, Send } from 'lucide-react'
+import axios from 'axios'
 import s from './Contact.module.css'
 
 export default function Contact() {
@@ -27,10 +28,14 @@ export default function Contact() {
     if (Object.keys(errs).length) { setErrors(errs); return }
     setErrors({})
     setSending(true)
-    /* Simulation — à connecter à l'endpoint /api/v1/contact */
-    await new Promise(r => setTimeout(r, 800))
-    setSending(false)
-    setSent(true)
+    try {
+      await axios.post('/api/v1/contact', form)
+      setSent(true)
+    } catch (err) {
+      setErrors({ submit: err.response?.data?.message ?? 'Une erreur est survenue. Veuillez réessayer.' })
+    } finally {
+      setSending(false)
+    }
   }
 
   function handleChange(e) {
@@ -153,6 +158,7 @@ export default function Contact() {
                 {errors.message && <p className={s.error}>{errors.message}</p>}
               </div>
 
+              {errors.submit && <p className={s.error}>{errors.submit}</p>}
               <button type="submit" className={s.btnPrimary} disabled={sending}>
                 {sending ? 'Envoi en cours…' : <><Send size={15} /> Envoyer le message</>}
               </button>

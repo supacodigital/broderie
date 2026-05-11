@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, X, SlidersHorizontal, LayoutGrid, List } from 'lucide-react'
-import { normalizeLocale } from '../../utils/locale.js'
-import { searchProducts } from '../../services/products.service.js'
+import { useProductSearch } from '../../hooks/useProductSearch.js'
+import { roundCHF } from '../../utils/chf.js'
 import s from './SearchBar.module.css'
 
 const SORT_OPTIONS = [
@@ -17,14 +17,25 @@ const SORT_OPTIONS = [
 export default function SearchBar({ filters, onChange, total, onToggleFilters, viewMode, onViewChange }) {
   const { t, i18n } = useTranslation()
 
-  const [inputValue,   setInputValue]   = useState(filters.q ?? '')
-  const [suggestions,  setSuggestions]  = useState([])
-  const [showDropdown, setShowDropdown] = useState(false)
-  const [activeIndex,  setActiveIndex]  = useState(-1)
+  const {
+    value: inputValue,
+    setValue: setInputValue,
+    suggestions,
+    setSuggestions,
+    activeIndex,
+    setActiveIndex,
+    fetchSuggestions,
+    handleKeyDown: handleSearchKeyDown,
+    clearSearch: clearSearchHook,
+  } = useProductSearch(i18n.language, 200, 6)
 
-  const gridDebounce    = useRef(null)
-  const suggestDebounce = useRef(null)
-  const wrapRef         = useRef(null)
+  const [showDropdown, setShowDropdown] = useState(false)
+  const gridDebounce = useRef(null)
+  const wrapRef      = useRef(null)
+
+  useEffect(() => {
+    setShowDropdown(suggestions.length > 0)
+  }, [suggestions])
 
   useEffect(() => {
     function onClickOutside(e) {
@@ -35,26 +46,6 @@ export default function SearchBar({ filters, onChange, total, onToggleFilters, v
     document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [])
-
-  const fetchSuggestions = useCallback((val) => {
-    clearTimeout(suggestDebounce.current)
-    if (val.trim().length < 2) {
-      setSuggestions([])
-      setShowDropdown(false)
-      return
-    }
-    suggestDebounce.current = setTimeout(async () => {
-      try {
-        const res = await searchProducts(val.trim(), { locale: normalizeLocale(i18n.language), limit: 6 })
-        setSuggestions(res.data ?? [])
-        setShowDropdown((res.data ?? []).length > 0)
-        setActiveIndex(-1)
-      } catch {
-        setSuggestions([])
-        setShowDropdown(false)
-      }
-    }, 200)
-  }, [i18n.language])
 
   function handleInput(e) {
     const val = e.target.value
@@ -75,27 +66,14 @@ export default function SearchBar({ filters, onChange, total, onToggleFilters, v
   }
 
   function handleKeyDown(e) {
-    if (!showDropdown || suggestions.length === 0) return
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setActiveIndex(i => Math.min(i + 1, suggestions.length - 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActiveIndex(i => Math.max(i - 1, -1))
-    } else if (e.key === 'Enter' && activeIndex >= 0) {
-      e.preventDefault()
-      selectSuggestion(suggestions[activeIndex])
-    } else if (e.key === 'Escape') {
-      setShowDropdown(false)
-    }
+    if (e.key === 'Escape') { setShowDropdown(false); return }
+    handleSearchKeyDown(e, selectSuggestion)
   }
 
   function clearSearch() {
-    setInputValue('')
-    setSuggestions([])
+    clearSearchHook()
     setShowDropdown(false)
     clearTimeout(gridDebounce.current)
-    clearTimeout(suggestDebounce.current)
     onChange({ ...filters, q: undefined, page: 1 })
   }
 
@@ -132,7 +110,7 @@ export default function SearchBar({ filters, onChange, total, onToggleFilters, v
             value={inputValue}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
-            onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
+            onFocus={() => { if (suggestions.length > 0) setShowDropdown(true) }}
             aria-label={t('catalogue.searchPlaceholder')}
             aria-autocomplete="list"
             aria-expanded={showDropdown}
@@ -162,7 +140,7 @@ export default function SearchBar({ filters, onChange, total, onToggleFilters, v
                   )}
                   <div className={s.suggestionText}>
                     <span className={s.suggestionName}>{p.name}</span>
-                    <span className={s.suggestionPrice}>CHF {parseFloat(p.price_chf).toFixed(2)}</span>
+                    <span className={s.suggestionPrice}>CHF {roundCHF(p.price_chf).toFixed(2)}</span>
                   </div>
                 </li>
               ))}

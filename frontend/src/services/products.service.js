@@ -1,7 +1,7 @@
 import api from './api.js'
 
-export function getProducts(params) {
-  return api.get('/products', { params }).then(r => r.data)
+export function getProducts(params, axiosOptions = {}) {
+  return api.get('/products', { params, ...axiosOptions }).then(r => r.data)
 }
 
 export function getProductBySlug(slug, locale = 'fr') {

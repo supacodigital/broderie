@@ -75,7 +75,7 @@ export default function MentionsLegales() {
 
   useEffect(() => {
     getLegalContent()
-      .then(res => setCustomText(res.data?.data?.mentions_legales ?? ''))
+      .then(res => setCustomText(res.data?.mentions_legales ?? ''))
       .catch(() => {})
   }, [])
 

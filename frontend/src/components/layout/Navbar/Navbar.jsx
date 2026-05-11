@@ -41,15 +41,6 @@ export default function Navbar() {
 
   return (
     <>
-      {/* ── Bannière promo ── */}
-      <div className={s.banner} role="banner">
-        <span>🇨🇭 {t('banner.shipping')}</span>
-        <span className={s.bannerDot}>·</span>
-        <span>{t('banner.newKits')}</span>
-        <span className={s.bannerDot}>·</span>
-        <span>{t('banner.twint')}</span>
-      </div>
-
       {/* ── Navbar principale ── */}
       <nav
         className={`${s.navbar} ${scrolled ? s.navbarScrolled : ''}`}
@@ -83,7 +74,7 @@ export default function Navbar() {
               {t('nav.promos')}
             </NavLink>
           </li>
-          <li><a href="#">{t('nav.blog')}</a></li>
+          <li><Link to="/blog">{t('nav.blog')}</Link></li>
           <li>
             <NavLink to="/contact" className={({ isActive }) => isActive ? s.linkActive : ''}>
               {t('nav.contact')}
@@ -165,7 +156,7 @@ export default function Navbar() {
           <li><NavLink to="/catalogue" onClick={closeMenu}>{t('nav.collections')}</NavLink></li>
           <li><NavLink to="/catalogue?badge=nouveaute" onClick={closeMenu}>{t('nav.newArrivals')}</NavLink></li>
           <li><NavLink to="/catalogue?badge=promo" onClick={closeMenu}>{t('nav.promos')}</NavLink></li>
-          <li><a href="#" onClick={closeMenu}>{t('nav.blog')}</a></li>
+          <li><NavLink to="/blog" onClick={closeMenu}>{t('nav.blog')}</NavLink></li>
           <li><NavLink to="/contact" onClick={closeMenu}>{t('nav.contact')}</NavLink></li>
           <li className={s.mobileDivider} aria-hidden="true" />
           {isAuthenticated ? (

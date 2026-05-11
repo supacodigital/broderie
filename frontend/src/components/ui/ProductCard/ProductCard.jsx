@@ -78,7 +78,7 @@ export default function ProductCard({ product, index = 0, wishlisted = false, on
               <p className={s.listDesc}>{product.description}</p>
             )}
             <div className={s.ratingRow}>
-              <Stars rating={product.avg_rating ?? 5} />
+              <Stars rating={product.avg_rating ?? 0} />
               <span className={s.reviewCount}>({product.review_count ?? 0})</span>
             </div>
           </div>
@@ -193,7 +193,7 @@ export default function ProductCard({ product, index = 0, wishlisted = false, on
             )}
           </p>
           <div className={s.ratingRow}>
-            <Stars rating={product.avg_rating ?? 5} />
+            <Stars rating={product.avg_rating ?? 0} />
             <span className={s.reviewCount}>({product.review_count ?? 0})</span>
           </div>
         </div>

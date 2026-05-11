@@ -14,7 +14,8 @@ const Suppliers  = lazy(() => import('./pages/Suppliers/Suppliers.jsx'))
 const Loyalty    = lazy(() => import('./pages/Loyalty/Loyalty.jsx'))
 const Categories = lazy(() => import('./pages/Categories/Categories.jsx'))
 const Coupons    = lazy(() => import('./pages/Coupons/Coupons.jsx'))
-const Settings   = lazy(() => import('./pages/Settings/Settings.jsx'))
+const Settings    = lazy(() => import('./pages/Settings/Settings.jsx'))
+const Newsletter  = lazy(() => import('./pages/Newsletter/Newsletter.jsx'))
 
 function PageLoader() {
   return (
@@ -56,7 +57,8 @@ export default function App() {
             <Route path="fidelite"   element={<Loyalty />} />
             <Route path="categories" element={<Categories />} />
             <Route path="coupons"    element={<Coupons />} />
-            <Route path="parametres" element={<Settings />} />
+            <Route path="parametres"  element={<Settings />} />
+            <Route path="newsletter"  element={<Newsletter />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

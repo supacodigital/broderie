@@ -4,12 +4,14 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../../services/categories.service.js'
+import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
+import { useToast } from '../../contexts/ToastContext.jsx'
 import s from './Categories.module.css'
 
 const schema = z.object({
   slug:      z.string().min(1, 'Slug requis').regex(/^[a-z0-9-]+$/, 'Minuscules, chiffres et tirets uniquement'),
-  parentId:  z.coerce.number().int().optional().nullable(),
+  parentId:  z.preprocess(v => (v === '' || v == null ? null : Number(v)), z.number().int().nullable().optional()),
   sortOrder: z.coerce.number().int().min(0).optional(),
   nameFr:    z.string().min(1, 'Nom FR requis'),
   nameDe:    z.string().optional(),
@@ -176,10 +178,10 @@ function CategoryModal({ category, categories, onClose, onSaved }) {
 
 /* ── Page principale ── */
 export default function Categories() {
+  const toast = useToast()
   const [categories, setCategories] = useState([])
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState(false)
-  const [delError,   setDelError]   = useState(null)
   const [modal,      setModal]      = useState(null)
   const [confirm,    setConfirm]    = useState(null)
   const [search,     setSearch]     = useState('')
@@ -190,7 +192,7 @@ export default function Categories() {
     setLoading(true)
     try {
       const res = await getCategories({ limit: 200 })
-      setCategories(res.data ?? [])
+      setCategories(res ?? [])
     } catch {
       setError(true)
     } finally {
@@ -204,12 +206,12 @@ export default function Categories() {
     setConfirm({
       message: 'Supprimer cette catégorie ? Les produits liés ne seront pas supprimés.',
       onConfirm: async () => {
-        setDelError(null)
         try {
           await deleteCategory(id)
           setCategories(prev => prev.filter(c => c.id !== id))
+          toast.success('Catégorie supprimée.')
         } catch (err) {
-          setDelError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
+          toast.error(err.response?.data?.message ?? 'Erreur lors de la suppression.')
         }
       },
     })
@@ -277,13 +279,7 @@ export default function Categories() {
         </div>
       </div>
 
-      {(error || delError) && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={14} />
-          {delError ?? 'Erreur de chargement.'}
-          {!delError && <button className={s.retryBtn} onClick={load}>Réessayer</button>}
-        </div>
-      )}
+      {error && <ErrorBanner onRetry={load} />}
 
       <div className={s.card}>
         <div className={s.tableHead}>

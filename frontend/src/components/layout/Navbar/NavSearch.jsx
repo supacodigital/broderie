@@ -1,32 +1,37 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { Search, X, ArrowRight } from 'lucide-react'
-import { normalizeLocale } from '../../../utils/locale.js'
-import { searchProducts } from '../../../services/products.service.js'
+import { useProductSearch } from '../../../hooks/useProductSearch.js'
+import { roundCHF } from '../../../utils/chf.js'
 import s from './NavSearch.module.css'
 
 export default function NavSearch({ open, onClose }) {
   const { t, i18n } = useTranslation()
-  const navigate    = useNavigate()
+  const navigate     = useNavigate()
 
-  const [value,       setValue]       = useState('')
-  const [suggestions, setSuggestions] = useState([])
-  const [activeIndex, setActiveIndex] = useState(-1)
-  const [loading,     setLoading]     = useState(false)
+  const {
+    value,
+    setValue,
+    suggestions,
+    setSuggestions,
+    activeIndex,
+    setActiveIndex,
+    loading,
+    fetchSuggestions,
+    handleKeyDown: handleSearchKeyDown,
+    clearSearch,
+  } = useProductSearch(i18n.language, 200, 5)
 
-  const inputRef    = useRef(null)
-  const debounceRef = useRef(null)
+  const inputRef = useRef(null)
 
   /* Focus à l'ouverture + reset */
   useEffect(() => {
     if (open) {
-      setValue('')
-      setSuggestions([])
-      setActiveIndex(-1)
+      clearSearch()
       setTimeout(() => inputRef.current?.focus(), 80)
     }
-  }, [open])
+  }, [open, clearSearch])
 
   /* Escape ferme */
   useEffect(() => {
@@ -35,23 +40,6 @@ export default function NavSearch({ open, onClose }) {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose])
-
-  const fetchSuggestions = useCallback((val) => {
-    clearTimeout(debounceRef.current)
-    if (val.trim().length < 2) { setSuggestions([]); setLoading(false); return }
-    setLoading(true)
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const res = await searchProducts(val.trim(), { locale: normalizeLocale(i18n.language), limit: 5 })
-        setSuggestions(res.data ?? [])
-        setActiveIndex(-1)
-      } catch {
-        setSuggestions([])
-      } finally {
-        setLoading(false)
-      }
-    }, 200)
-  }, [i18n.language])
 
   function handleInput(e) {
     const val = e.target.value
@@ -65,17 +53,12 @@ export default function NavSearch({ open, onClose }) {
   }
 
   function handleKeyDown(e) {
-    if (e.key === 'ArrowDown') {
+    if (e.key === 'Enter' && activeIndex < 0 && value.trim().length >= 2) {
       e.preventDefault()
-      setActiveIndex(i => Math.min(i + 1, suggestions.length - 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActiveIndex(i => Math.max(i - 1, -1))
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      if (activeIndex >= 0) go(suggestions[activeIndex].name)
-      else if (value.trim().length >= 2) go(value)
+      go(value)
+      return
     }
+    handleSearchKeyDown(e, (product) => go(product.name))
   }
 
   if (!open) return null
@@ -107,7 +90,7 @@ export default function NavSearch({ open, onClose }) {
             {value && (
               <button
                 className={s.clearBtn}
-                onClick={() => { setValue(''); setSuggestions([]); inputRef.current?.focus() }}
+                onClick={() => { clearSearch(); inputRef.current?.focus() }}
                 aria-label="Effacer"
               >
                 <X size={16} />
@@ -141,7 +124,7 @@ export default function NavSearch({ open, onClose }) {
                     <span className={s.resultName}>{p.name}</span>
                     {p.category_name && <span className={s.resultCat}>{p.category_name}</span>}
                   </div>
-                  <span className={s.resultPrice}>CHF {parseFloat(p.price_chf).toFixed(2)}</span>
+                  <span className={s.resultPrice}>CHF {roundCHF(p.price_chf).toFixed(2)}</span>
                   <ArrowRight size={14} className={s.resultArrow} aria-hidden="true" />
                 </li>
               ))}
@@ -177,7 +160,7 @@ export default function NavSearch({ open, onClose }) {
             autoComplete="off"
           />
           {value
-            ? <button className={s.clearBtn} onClick={() => { setValue(''); setSuggestions([]) }} aria-label="Effacer"><X size={16} /></button>
+            ? <button className={s.clearBtn} onClick={clearSearch} aria-label="Effacer"><X size={16} /></button>
             : <button className={s.closeBtn} onClick={onClose} aria-label="Fermer"><X size={20} /></button>
           }
         </div>
@@ -199,7 +182,7 @@ export default function NavSearch({ open, onClose }) {
                 </div>
                 <div className={s.resultInfo}>
                   <span className={s.resultName}>{p.name}</span>
-                  <span className={s.resultPrice}>CHF {parseFloat(p.price_chf).toFixed(2)}</span>
+                  <span className={s.resultPrice}>CHF {roundCHF(p.price_chf).toFixed(2)}</span>
                 </div>
                 <ArrowRight size={14} className={s.resultArrow} aria-hidden="true" />
               </li>

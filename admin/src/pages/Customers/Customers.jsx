@@ -1,28 +1,19 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
-  Search, ChevronLeft, ChevronRight, X,
+  Search, X,
   MapPin, ShoppingBag, AlertTriangle, Gift,
 } from 'lucide-react'
 import { getCustomers, getCustomerById } from '../../services/customers.service.js'
-import { roundCHF } from '../../utils/chf.js'
+import { formatCHF } from '../../utils/chf.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
+import { formatDate, formatDateLong } from '../../utils/date.js'
+import SortIcon from '../../components/ui/SortIcon/SortIcon.jsx'
+import Pagination from '../../components/ui/Pagination/Pagination.jsx'
+import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
+import SkeletonTable from '../../components/ui/SkeletonTable/SkeletonTable.jsx'
 import s from './Customers.module.css'
 
 const LIMIT = 20
-
-function formatDate(iso) {
-  if (!iso) return '—'
-  return new Intl.DateTimeFormat('fr-CH', {
-    day: '2-digit', month: '2-digit', year: '2-digit',
-  }).format(new Date(iso))
-}
-
-function formatDateLong(iso) {
-  if (!iso) return '—'
-  return new Intl.DateTimeFormat('fr-CH', {
-    day: '2-digit', month: 'long', year: 'numeric',
-  }).format(new Date(iso))
-}
 
 function initials(first, last) {
   return `${first?.[0] ?? ''}${last?.[0] ?? ''}`.toUpperCase() || '?'
@@ -35,12 +26,14 @@ function CustomerModal({ customerId, onClose }) {
   const [error,   setError]   = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     setLoading(true)
     setError(false)
     getCustomerById(customerId)
-      .then(res => setData(res.data ?? null))
-      .catch(() => setError(true))
-      .finally(() => setLoading(false))
+      .then(res => { if (!cancelled) setData(res ?? null) })
+      .catch(() => { if (!cancelled) setError(true) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [customerId])
 
   const validOrders = (data?.orders ?? []).filter(o => !['cancelled', 'refunded'].includes(o.status))
@@ -111,7 +104,7 @@ function CustomerModal({ customerId, onClose }) {
                 <span className={s.kpiLbl}>Commande{(data.orders?.length ?? 0) > 1 ? 's' : ''}</span>
               </div>
               <div className={s.kpi}>
-                <span className={s.kpiVal}>CHF {roundCHF(totalSpend).toLocaleString('fr-CH', { minimumFractionDigits: 2 })}</span>
+                <span className={s.kpiVal}>{formatCHF(totalSpend)}</span>
                 <span className={s.kpiLbl}>CA total</span>
               </div>
               <div className={s.kpi}>
@@ -165,7 +158,7 @@ function CustomerModal({ customerId, onClose }) {
                 <div className={s.loyaltyTop}>
                   <div>
                     <span className={s.loyaltySpend}>
-                      CHF {roundCHF(data.loyalty.total_spend_chf).toLocaleString('fr-CH', { minimumFractionDigits: 2 })}
+                      {formatCHF(data.loyalty.total_spend_chf)}
                     </span>
                     <span className={s.loyaltySpendLbl}> cumulés</span>
                   </div>
@@ -180,7 +173,7 @@ function CustomerModal({ customerId, onClose }) {
                       <div key={i} className={s.rewardRow}>
                         <span className={s.rewardCode}>{r.code}</span>
                         <span className={s.rewardVal}>
-                          {r.type === 'fixed' ? `CHF ${roundCHF(parseFloat(r.value)).toFixed(2)}` : `${r.value}%`}
+                          {r.type === 'fixed' ? formatCHF(r.value) : `${r.value}%`}
                         </span>
                         <span className={s.rewardTier}>{r.tier_name}</span>
                         <span className={s.rewardStatus} data-status={r.status}>
@@ -216,7 +209,7 @@ function CustomerModal({ customerId, onClose }) {
                     <div key={o.id} className={s.orderListRow}>
                       <span className={s.orderId}>#{String(o.id).padStart(5, '0')}</span>
                       <span className={s.orderDate}>{formatDate(o.created_at)}</span>
-                      <span className={s.orderTotal}>CHF {roundCHF(parseFloat(o.total)).toFixed(2)}</span>
+                      <span className={s.orderTotal}>{formatCHF(o.total)}</span>
                       <span className={s.orderStatus} style={{ color: cfg.color, background: `${cfg.color}18` }}>
                         {cfg.label}
                       </span>
@@ -240,9 +233,12 @@ export default function Customers() {
   const [page,           setPage]           = useState(1)
   const [search,         setSearch]         = useState('')
   const [debouncedSearch,setDebouncedSearch]= useState('')
+  const [sortCol,        setSortCol]        = useState('created_at')
+  const [sortDir,        setSortDir]        = useState('desc')
   const [loading,        setLoading]        = useState(true)
   const [error,          setError]          = useState(false)
   const [selected,       setSelected]       = useState(null)
+  const [refreshTick,    setRefreshTick]    = useState(0)
   const debounceRef = useRef(null)
 
   /* Debounce 300ms sur la recherche */
@@ -255,23 +251,37 @@ export default function Customers() {
     }, 300)
   }
 
-  const load = useCallback(async () => {
-    setError(false)
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({ page, limit: LIMIT })
-      if (debouncedSearch) params.set('q', debouncedSearch)
-      const res = await getCustomers(Object.fromEntries(params))
-      setCustomers(res.data ?? [])
-      setTotal(res.pagination?.total ?? 0)
-    } catch {
-      setError(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [page, debouncedSearch])
+  const handleSort = (col) => {
+    const newDir = sortCol === col ? (sortDir === 'asc' ? 'desc' : 'asc') : 'desc'
+    setSortCol(col)
+    setSortDir(newDir)
+    setPage(1)
+  }
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    let cancelled = false
+    const run = async () => {
+      setError(false)
+      setLoading(true)
+      try {
+        const params = new URLSearchParams({ page, limit: LIMIT, sort: sortCol, order: sortDir })
+        if (debouncedSearch) params.set('q', debouncedSearch)
+        const res = await getCustomers(Object.fromEntries(params))
+        if (!cancelled) {
+          setCustomers(res.data ?? [])
+          setTotal(res.pagination?.total ?? 0)
+        }
+      } catch {
+        if (!cancelled) setError(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    run()
+    return () => { cancelled = true }
+  }, [page, debouncedSearch, sortCol, sortDir, refreshTick])
+
+  const load = () => setRefreshTick(t => t + 1)
 
   const totalPages = Math.ceil(total / LIMIT)
 
@@ -299,30 +309,23 @@ export default function Customers() {
         </div>
       </div>
 
-      {error && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={14} />
-          Erreur de chargement. <button className={s.retryBtn} onClick={load}>Réessayer</button>
-        </div>
-      )}
+      {error && <ErrorBanner onRetry={load} />}
 
       <div className={s.card}>
         <div className={s.tableHead}>
           <span>Client</span>
           <span>E-mail</span>
           <span>Langue</span>
-          <span>Inscrit le</span>
-          <span>Commandes</span>
+          <button className={s.sortHeader} onClick={() => handleSort('created_at')}>
+            Inscrit le <SortIcon col="created_at" sortCol={sortCol} sortDir={sortDir} />
+          </button>
+          <button className={s.sortHeader} onClick={() => handleSort('order_count')}>
+            Commandes <SortIcon col="order_count" sortCol={sortCol} sortDir={sortDir} />
+          </button>
         </div>
 
         {loading ? (
-          <div className={s.loadingRows}>
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className={s.skeletonRow}>
-                {Array.from({ length: 5 }).map((__, j) => <span key={j} />)}
-              </div>
-            ))}
-          </div>
+          <SkeletonTable rows={8} cols={5} />
         ) : customers.length === 0 ? (
           <p className={s.empty}>Aucun client trouvé.</p>
         ) : (
@@ -341,17 +344,7 @@ export default function Customers() {
         )}
       </div>
 
-      {totalPages > 1 && (
-        <div className={s.pagination}>
-          <button className={s.pageBtn} disabled={page === 1} onClick={() => setPage(p => p - 1)}>
-            <ChevronLeft size={16} />
-          </button>
-          <span className={s.pageInfo}>Page {page} / {totalPages}</span>
-          <button className={s.pageBtn} disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   )
 }

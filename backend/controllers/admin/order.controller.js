@@ -1,6 +1,6 @@
 const orderRepository   = require('../../repositories/order.repository');
 const userRepository    = require('../../repositories/user.repository');
-const { pool }          = require('../../config/db');
+const { pool }          = require('../../config/db'); // requis pour updateStatus (transaction)
 const { AppError }      = require('../../middlewares/errorHandler');
 const emailService      = require('../../services/email.service');
 const shippingService   = require('../../services/shipping.service');
@@ -12,59 +12,17 @@ const VALID_STATUSES = ['pending', 'awaiting_payment', 'paid', 'processing', 'sh
 
 const getAll = async (req, res, next) => {
   try {
-    const page   = Math.max(1, parseInt(req.query.page) || 1);
-    const limit  = Math.min(100, parseInt(req.query.limit) || 20);
-    const offset = (page - 1) * limit;
-    const status = req.query.status || null;
-    const q      = req.query.q?.trim() || null;
+    const page  = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, parseInt(req.query.limit) || 20);
 
-    const params = [];
-    const conditions = [];
-
-    if (status) {
-      /* Supporte un statut unique ou une liste séparée par virgule : "pending,awaiting_payment" */
-      const statuses = status.split(',').map(s => s.trim()).filter(s => VALID_STATUSES.includes(s));
-      if (statuses.length === 1) {
-        conditions.push('o.status = ?');
-        params.push(statuses[0]);
-      } else if (statuses.length > 1) {
-        conditions.push(`o.status IN (${statuses.map(() => '?').join(',')})`);
-        params.push(...statuses);
-      }
-    }
-    if (q) {
-      /* Recherche par ID numérique ou par nom/email client */
-      if (/^\d+$/.test(q)) {
-        conditions.push('o.id = ?');
-        params.push(parseInt(q));
-      } else {
-        conditions.push('(u.email LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)');
-        params.push(`%${q}%`, `%${q}%`, `%${q}%`);
-      }
-    }
-
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-
-    const [countRows] = await pool.query(
-      `SELECT COUNT(*) AS total
-       FROM orders o
-       INNER JOIN users u ON u.id = o.user_id
-       ${where}`,
-      params
-    );
-    const total = countRows[0].total;
-
-    const [rows] = await pool.query(
-      `SELECT o.id, o.status, o.subtotal, o.shipping_cost, o.tax_amount, o.total,
-              o.created_at, o.updated_at,
-              u.email, u.first_name, u.last_name
-       FROM orders o
-       INNER JOIN users u ON u.id = o.user_id
-       ${where}
-       ORDER BY o.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
-    );
+    const { rows, total } = await orderRepository.findAllAdmin({
+      page,
+      limit,
+      sort:   req.query.sort   || 'created_at',
+      order:  req.query.order  || 'desc',
+      status: req.query.status || null,
+      q:      req.query.q?.trim() || null,
+    });
 
     res.json({
       success: true,
@@ -168,7 +126,8 @@ const updateStatus = async (req, res, next) => {
           console.error('[Email] Statut non envoyé :', err.message);
         });
 
-        if (status === 'refunded' || status === 'cancelled') {
+        // Débit fidélité uniquement si la commande avait été payée
+        if (status === 'refunded' || (status === 'cancelled' && ['paid', 'processing', 'shipped', 'delivered'].includes(order.status))) {
           loyaltyService.processRefund(order.user_id, order.id, order.total).catch((err) => {
             console.error('[Fidélité] Débit remboursement échoué :', err.message);
           });

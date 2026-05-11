@@ -16,6 +16,7 @@ import {
   Heart,
   Tag,
   Ticket,
+  Mail,
   Settings,
   LogOut,
   Menu,
@@ -57,8 +58,9 @@ const NAV_TOOLS = [
   { to: "/fournisseurs", icon: Truck, label: "Fournisseurs" },
   { to: "/fidelite", icon: Heart, label: "Fidélité" },
   { to: "/categories", icon: Tag, label: "Catégories" },
-  { to: "/coupons", icon: Ticket, label: "Promotions" },
-  { to: "/parametres", icon: Settings, label: "Paramètres" },
+  { to: "/coupons",     icon: Ticket,   label: "Promotions"  },
+  { to: "/newsletter",  icon: Mail,     label: "Newsletter"  },
+  { to: "/parametres",  icon: Settings, label: "Paramètres"  },
 ];
 
 function greetingText() {
@@ -188,6 +190,7 @@ export default function AdminLayout() {
 
   /* Charge les compteurs de badges + stock critique toutes les 60s */
   useEffect(() => {
+    let cancelled = false;
     async function fetchBadges() {
       try {
         const [ordersRes, reviewsRes, stockRes] = await Promise.all([
@@ -195,6 +198,7 @@ export default function AdminLayout() {
           getReviews({ approved: false, limit: 1 }),
           getProducts({ low_stock: true, limit: 1 }),
         ]);
+        if (cancelled) return;
         setPendingOrders(ordersRes.pagination?.total ?? 0);
         setPendingReviews(reviewsRes.pagination?.total ?? 0);
         setLowStock(stockRes.pagination?.total ?? 0);
@@ -204,7 +208,7 @@ export default function AdminLayout() {
     }
     fetchBadges();
     const interval = setInterval(fetchBadges, 60_000);
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
   const NAV_MAIN = buildNavMain(pendingOrders, pendingReviews);
@@ -218,7 +222,7 @@ export default function AdminLayout() {
     },
     pendingReviews > 0 && {
       icon: Star,
-      title: `${pendingReviews} avis${pendingReviews > 1 ? "" : ""} à modérer`,
+      title: `${pendingReviews} avis${pendingReviews > 1 ? "s" : ""} à modérer`,
       to: "/avis",
     },
     lowStock > 0 && {

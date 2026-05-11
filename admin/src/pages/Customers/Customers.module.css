@@ -546,8 +546,28 @@ a.coordValue:hover { text-decoration: underline; }
 
 @media (max-width: 768px) {
   .tableHead, .tableRow { grid-template-columns: 1fr 1fr 80px; }
-  .tableHead span:nth-child(3),
-  .tableRow  span:nth-child(3),
-  .tableHead span:nth-child(4),
-  .tableRow  span:nth-child(4) { display: none; }
+  .tableHead > *:nth-child(3),
+  .tableRow  > *:nth-child(3),
+  .tableHead > *:nth-child(4),
+  .tableRow  > *:nth-child(4) { display: none; }
 }
+
+.sortHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+.sortHeader:hover { color: var(--rose); }

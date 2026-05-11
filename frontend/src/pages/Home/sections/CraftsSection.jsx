@@ -9,7 +9,14 @@ export default function CraftsSection() {
   return (
     <section className={s.section} id="savoir-faire" aria-label="Notre savoir-faire">
       <div className={s.visual} aria-hidden="true">
-        <div className={s.visualInner}>🧵</div>
+        <img
+          src="/histoire.webp"
+          alt=""
+          className={s.visualImg}
+          width="800"
+          height="600"
+          loading="lazy"
+        />
       </div>
 
       <div className={s.content}>

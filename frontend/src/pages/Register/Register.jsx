@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, AlertCircle, UserPlus } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
-import s from '../Login/Login.module.css'
+import s from './Register.module.css'
 
 function buildSchema(t) {
   return z.object({

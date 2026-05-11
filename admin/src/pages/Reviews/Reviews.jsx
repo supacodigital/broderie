@@ -1,8 +1,14 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Check, Trash2, Star, AlertTriangle } from 'lucide-react'
+import { Check, Trash2, Star } from 'lucide-react'
 import { getReviews, approveReview, deleteReview } from '../../services/reviews.service.js'
+import { formatDate } from '../../utils/date.js'
+import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
+import Pagination from '../../components/ui/Pagination/Pagination.jsx'
+import { useToast } from '../../contexts/ToastContext.jsx'
 import s from './Reviews.module.css'
+
+const LIMIT = 20
 
 const FILTERS = [
   { value: 'pending',  label: 'En attente' },
@@ -20,30 +26,24 @@ function Stars({ rating }) {
   )
 }
 
-function formatDate(iso) {
-  if (!iso) return '—'
-  return new Intl.DateTimeFormat('fr-CH', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  }).format(new Date(iso))
-}
-
 export default function Reviews() {
+  const toast = useToast()
   const [reviews,  setReviews]  = useState([])
   const [total,    setTotal]    = useState(0)
   const [filter,   setFilter]   = useState('pending')
+  const [page,     setPage]     = useState(1)
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState(false)
   /* compteurs par onglet pour les badges */
   const [counts,      setCounts]      = useState({ pending: 0, approved: 0, all: 0 })
   const [actionCount, setActionCount] = useState(0)
-  const [actionError, setActionError] = useState(null)
   const [confirm,     setConfirm]     = useState(null)
 
   const load = useCallback(async () => {
     setError(false)
     setLoading(true)
     try {
-      const params = { limit: 50 }
+      const params = { limit: LIMIT, page }
       if (filter === 'approved') params.approved = 'true'
       if (filter === 'pending')  params.approved = 'false'
       const res = await getReviews(params)
@@ -54,7 +54,7 @@ export default function Reviews() {
     } finally {
       setLoading(false)
     }
-  }, [filter])
+  }, [filter, page])
 
   /* Compteurs indépendants du filtre actif — chargés une fois */
   useEffect(() => {
@@ -74,13 +74,18 @@ export default function Reviews() {
   useEffect(() => { load() }, [load])
 
   const handleApprove = async (id) => {
-    setActionError(null)
     try {
       await approveReview(id)
-      setReviews(prev => prev.map(r => r.id === id ? { ...r, is_approved: 1 } : r))
+      if (filter === 'pending') {
+        setReviews(prev => prev.filter(r => r.id !== id))
+        setTotal(t => t - 1)
+      } else {
+        setReviews(prev => prev.map(r => r.id === id ? { ...r, is_approved: 1 } : r))
+      }
       setActionCount(c => c + 1)
+      toast.success('Avis approuvé.')
     } catch {
-      setActionError('Erreur lors de l\'approbation.')
+      toast.error('Erreur lors de l\'approbation.')
     }
   }
 
@@ -88,14 +93,14 @@ export default function Reviews() {
     setConfirm({
       message: 'Supprimer cet avis définitivement ?',
       onConfirm: async () => {
-        setActionError(null)
         try {
           await deleteReview(id)
           setReviews(prev => prev.filter(r => r.id !== id))
           setTotal(t => t - 1)
           setActionCount(c => c + 1)
+          toast.success('Avis supprimé.')
         } catch {
-          setActionError('Erreur lors de la suppression.')
+          toast.error('Erreur lors de la suppression.')
         }
       },
     })
@@ -116,7 +121,7 @@ export default function Reviews() {
           <button
             key={f.value}
             className={`${s.tab} ${filter === f.value ? s.tabActive : ''}`}
-            onClick={() => setFilter(f.value)}
+            onClick={() => { setFilter(f.value); setPage(1) }}
           >
             {f.label}
             {counts[f.value] > 0 && (
@@ -128,19 +133,7 @@ export default function Reviews() {
         ))}
       </div>
 
-      {actionError && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={14} />
-          {actionError}
-        </div>
-      )}
-
-      {error && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={14} />
-          Erreur de chargement. <button className={s.retryBtn} onClick={load}>Réessayer</button>
-        </div>
-      )}
+      {error && <ErrorBanner onRetry={load} />}
 
       <div className={s.list}>
         {loading ? (
@@ -182,6 +175,8 @@ export default function Reviews() {
           ))
         )}
       </div>
+
+      <Pagination page={page} totalPages={Math.ceil(total / LIMIT)} onPageChange={setPage} />
     </div>
   )
 }

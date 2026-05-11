@@ -1,8 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Plus, Edit2, Trash2, AlertTriangle, Check, X,
-  Users, Gift, CheckCircle, Clock, Search, ChevronLeft, ChevronRight,
+  Users, Gift, CheckCircle, Clock, Search,
 } from 'lucide-react'
+import { formatDate } from '../../utils/date.js'
+import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
+import Pagination from '../../components/ui/Pagination/Pagination.jsx'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -17,6 +20,7 @@ import {
 } from '../../services/loyalty.service.js'
 import { roundCHF } from '../../utils/chf.js'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
+import { useToast } from '../../contexts/ToastContext.jsx'
 import s from './Loyalty.module.css'
 
 const schema = z.object({
@@ -28,13 +32,6 @@ const schema = z.object({
   isActive:           z.boolean().optional(),
   sortOrder:          z.coerce.number().int().min(0).optional(),
 })
-
-function formatDate(iso) {
-  if (!iso) return '—'
-  return new Intl.DateTimeFormat('fr-CH', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  }).format(new Date(iso))
-}
 
 /* ── Modale création/édition palier ── */
 function TierModal({ tier, onClose, onSaved }) {
@@ -140,7 +137,7 @@ function GlobalKpis() {
 
   useEffect(() => {
     getLoyaltyKpis()
-      .then(res => setKpis(res.data))
+      .then(res => setKpis(res))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -172,10 +169,10 @@ function GlobalKpis() {
 
 /* ── Onglet paliers ── */
 function TiersTab() {
+  const toast = useToast()
   const [tiers,   setTiers]   = useState([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(false)
-  const [delError,setDelError]= useState(null)
   const [modal,   setModal]   = useState(null)
   const [confirm, setConfirm] = useState(null)
 
@@ -184,7 +181,7 @@ function TiersTab() {
     setLoading(true)
     try {
       const res = await getLoyaltyTiers()
-      setTiers(res.data ?? [])
+      setTiers(res ?? [])
     } catch {
       setError(true)
     } finally {
@@ -198,12 +195,12 @@ function TiersTab() {
     setConfirm({
       message: 'Supprimer ce palier ?',
       onConfirm: async () => {
-        setDelError(null)
         try {
           await deleteLoyaltyTier(id)
           setTiers(prev => prev.filter(t => t.id !== id))
+          toast.success('Palier supprimé.')
         } catch (err) {
-          setDelError(err.response?.data?.message ?? 'Erreur lors de la suppression.')
+          toast.error(err.response?.data?.message ?? 'Erreur lors de la suppression.')
         }
       },
     })
@@ -226,13 +223,7 @@ function TiersTab() {
         />
       )}
 
-      {(error || delError) && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={14} />
-          {delError ?? 'Erreur de chargement.'}
-          {!delError && <button className={s.retryBtn} onClick={load}>Réessayer</button>}
-        </div>
-      )}
+      {error && <ErrorBanner onRetry={load} />}
 
       <div className={s.tierList}>
         {loading ? (
@@ -240,10 +231,20 @@ function TiersTab() {
         ) : tiers.length === 0 ? (
           <p className={s.empty}>Aucun palier configuré.</p>
         ) : (
-          tiers.map(tier => (
+          tiers.map((tier, idx) => {
+            const metalColors = [
+              { bg: '#cd7f32', text: '#fff', shadow: 'rgba(205,127,50,0.3)' },  // Bronze
+              { bg: '#a8a9ad', text: '#fff', shadow: 'rgba(168,169,173,0.3)' }, // Argent
+              { bg: '#d4af37', text: '#fff', shadow: 'rgba(212,175,55,0.3)' },  // Or
+              { bg: '#b9f2ff', text: '#0d7390', shadow: 'rgba(185,242,255,0.3)' }, // Platine
+            ]
+            const metal = metalColors[idx] ?? metalColors[metalColors.length - 1]
+            return (
             <div key={tier.id} className={s.tierCard}>
               <div className={s.tierLeft}>
-                <div className={s.tierIcon}>{tier.sort_order ?? '—'}</div>
+                <div className={s.tierIcon} style={{ background: metal.bg, color: metal.text, boxShadow: `0 2px 8px ${metal.shadow}` }}>
+                  {tier.sort_order ?? idx + 1}
+                </div>
                 <div>
                   <p className={s.tierName}>{tier.name}</p>
                   <p className={s.tierThreshold}>
@@ -272,7 +273,8 @@ function TiersTab() {
                 </button>
               </div>
             </div>
-          ))
+            )
+          })
         )}
       </div>
     </>
@@ -337,12 +339,7 @@ function AccountsTab() {
         <span className={s.accountTotal}>{total} compte{total !== 1 ? 's' : ''}</span>
       </div>
 
-      {error && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={14} />
-          Erreur de chargement. <button className={s.retryBtn} onClick={() => load(page)}>Réessayer</button>
-        </div>
-      )}
+      {error && <ErrorBanner onRetry={() => load(page)} />}
 
       <div className={s.accountCard}>
         <div className={s.accountListHead}>
@@ -384,17 +381,7 @@ function AccountsTab() {
         )}
       </div>
 
-      {totalPages > 1 && (
-        <div className={s.pagination}>
-          <button className={s.pageBtn} disabled={page <= 1} onClick={() => load(page - 1)}>
-            <ChevronLeft size={16} />
-          </button>
-          <span className={s.pageInfo}>Page {page} / {totalPages}</span>
-          <button className={s.pageBtn} disabled={page >= totalPages} onClick={() => load(page + 1)}>
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
+      <Pagination page={page} totalPages={totalPages} onPageChange={p => load(p)} />
     </>
   )
 }
@@ -460,12 +447,7 @@ function RewardsTab() {
         <span className={s.accountTotal}>{total} bon{total !== 1 ? 's' : ''}</span>
       </div>
 
-      {error && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={14} />
-          Erreur de chargement. <button className={s.retryBtn} onClick={() => load(page)}>Réessayer</button>
-        </div>
-      )}
+      {error && <ErrorBanner onRetry={() => load(page)} />}
 
       <div className={s.accountCard}>
         <div className={s.rewardListHead}>
@@ -505,17 +487,7 @@ function RewardsTab() {
         )}
       </div>
 
-      {totalPages > 1 && (
-        <div className={s.pagination}>
-          <button className={s.pageBtn} disabled={page <= 1} onClick={() => load(page - 1)}>
-            <ChevronLeft size={16} />
-          </button>
-          <span className={s.pageInfo}>Page {page} / {totalPages}</span>
-          <button className={s.pageBtn} disabled={page >= totalPages} onClick={() => load(page + 1)}>
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
+      <Pagination page={page} totalPages={totalPages} onPageChange={p => load(p)} />
     </>
   )
 }

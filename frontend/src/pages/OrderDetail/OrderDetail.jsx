@@ -1,46 +1,20 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, Package, Truck, CheckCircle, XCircle, Clock,
-  RotateCcw, CreditCard, FileText, RefreshCw, Loader2,
-  MapPin, ChevronRight,
+  ArrowLeft, Clock, FileText, RefreshCw, Loader2,
+  Truck, MapPin, ChevronRight,
 } from 'lucide-react'
 import { getOrderById } from '../../services/orders.service.js'
 import { createTwintIntent } from '../../services/payments.service.js'
+import { roundCHF } from '../../utils/chf.js'
+import { formatDate, formatDateTime } from '../../utils/date.js'
+import { STATUS_CFG } from '../../utils/orderStatus.js'
 import s from './OrderDetail.module.css'
-
-/* ── Config statuts ── */
-const STATUS_CFG = {
-  pending:          { label: 'En attente',      color: '#d97706', bg: '#fffbeb',  icon: Clock       },
-  awaiting_payment: { label: 'Paiement attendu', color: '#ea580c', bg: '#fff7ed', icon: CreditCard  },
-  paid:             { label: 'Payée',            color: '#059669', bg: '#ecfdf5', icon: CheckCircle },
-  processing:       { label: 'En préparation',   color: '#0891b2', bg: '#ecfeff', icon: Package     },
-  shipped:          { label: 'Expédiée',         color: '#2563eb', bg: '#eff6ff', icon: Truck       },
-  delivered:        { label: 'Livrée',           color: '#7c3aed', bg: '#f5f3ff', icon: CheckCircle },
-  cancelled:        { label: 'Annulée',          color: '#dc2626', bg: '#fef2f2', icon: XCircle     },
-  refunded:         { label: 'Remboursée',       color: '#9d174d', bg: '#fdf2f8', icon: RotateCcw   },
-}
 
 const PAYMENT_LABELS = {
   invoice: 'Facture',
   twint:   'Twint QR',
   card:    'Carte bancaire',
-}
-
-/* ── Utilitaires ── */
-const roundCHF = (n) => Math.round(n * 20) / 20
-
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString('fr-CH', {
-    day: '2-digit', month: 'long', year: 'numeric',
-  })
-}
-
-function formatDateTime(iso) {
-  return new Date(iso).toLocaleString('fr-CH', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
 }
 
 function StatusBadge({ status }) {
@@ -263,7 +237,7 @@ export default function OrderDetail() {
           <div className={s.errorState}>
             <p>{error}</p>
             {error !== 'Commande introuvable.' && (
-              <button className={s.retryBtn} onClick={loadOrder}>Réessayer</button>
+              <button className={s.retryBtn} onClick={() => setReload(r => r + 1)}>Réessayer</button>
             )}
             <Link to="/mon-compte" className={s.backLink}>Retour à mon compte</Link>
           </div>
@@ -334,7 +308,7 @@ export default function OrderDetail() {
                   {/* Récapitulatif financier */}
                   <div className={s.totals}>
                     <div className={s.totalRow}>
-                      <span>Sous-total HT</span>
+                      <span>Sous-total TTC</span>
                       <span>CHF {roundCHF(order.subtotal).toFixed(2)}</span>
                     </div>
                     <div className={s.totalRow}>
@@ -342,7 +316,7 @@ export default function OrderDetail() {
                       <span>CHF {roundCHF(order.shipping_cost).toFixed(2)}</span>
                     </div>
                     <div className={s.totalRow}>
-                      <span>TVA (8.1%)</span>
+                      <span>TVA incluse</span>
                       <span>CHF {roundCHF(order.tax_amount).toFixed(2)}</span>
                     </div>
                     <div className={`${s.totalRow} ${s.totalFinal}`}>

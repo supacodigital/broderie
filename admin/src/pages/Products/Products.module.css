@@ -52,6 +52,142 @@
 
 .filter:focus { border-color: var(--rose); }
 
+/* ── Bouton toggle filtres ── */
+.filterToggleBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  white-space: nowrap;
+}
+.filterToggleBtn:hover  { border-color: var(--rose); }
+.filterToggleActive     { border-color: var(--rose); background: #fff5f5; color: var(--rose); }
+
+.filterBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--rose);
+  color: #fff;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.resetBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 12px;
+  background: transparent;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 9px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color .2s, color .2s;
+}
+.resetBtn:hover { border-color: var(--rose); color: var(--rose); }
+
+/* ── Panneau filtres avancés ── */
+.filterPanel {
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 14px;
+  padding: 18px 20px 14px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+}
+
+.filterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.filterLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.filterSelect,
+.filterInput {
+  padding: 8px 10px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  background: #fff;
+  color: var(--text-dark);
+  transition: border-color .2s;
+}
+.filterSelect:focus,
+.filterInput:focus { border-color: var(--rose); }
+
+.filterCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-dark);
+  cursor: pointer;
+  padding-top: 4px;
+}
+.filterCheckbox input { accent-color: var(--rose); width: 15px; height: 15px; }
+
+.filterActions {
+  display: flex;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--rose-border);
+}
+
+.filterApplyBtn {
+  padding: 9px 20px;
+  background: var(--rose);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.filterApplyBtn:hover { background: var(--rose-dark); }
+
+.filterClearBtn {
+  padding: 9px 14px;
+  background: transparent;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 9px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color .2s, color .2s;
+}
+.filterClearBtn:hover { border-color: var(--rose); color: var(--rose); }
+
 .searchWrap {
   position: relative;
   max-width: 340px;
@@ -149,6 +285,24 @@
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+.productMeta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.metaSep { opacity: .4; }
+
+.supplierTag {
+  color: var(--rose);
+  font-weight: 500;
+  opacity: .85;
 }
 
 .sku { font-size: 12px; color: var(--text-muted); font-family: monospace; }
@@ -632,8 +786,28 @@
 
 @media (max-width: 768px) {
   .tableHead, .tableRow { grid-template-columns: 1fr 80px 70px 60px; }
-  .tableHead span:nth-child(2),
-  .tableRow  span:nth-child(2) { display: none; }
+  .tableHead > *:nth-child(2),
+  .tableRow  > *:nth-child(2) { display: none; }
   .formGrid { grid-template-columns: 1fr; }
   .skeletonRow { grid-template-columns: 1fr 80px 70px 60px; }
 }
+
+.sortHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+.sortHeader:hover { color: var(--rose); }

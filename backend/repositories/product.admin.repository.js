@@ -88,9 +88,9 @@ const addImage = async ({ productId, url, urlThumbnail, urlMedium, urlLarge, alt
     );
   }
   const [result] = await pool.execute(
-    `INSERT INTO product_images (product_id, url, alt, sort_order, is_primary)
-     VALUES (?, ?, ?, ?, ?)`,
-    [productId, url, alt || null, sortOrder || 0, isPrimary ? 1 : 0]
+    `INSERT INTO product_images (product_id, url, url_thumbnail, url_medium, url_large, alt, sort_order, is_primary)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [productId, url, urlThumbnail || null, urlMedium || null, urlLarge || null, alt || null, sortOrder || 0, isPrimary ? 1 : 0]
   );
   return result.insertId;
 };
@@ -162,27 +162,69 @@ const findByIdAdmin = async (id, locale = 'fr') => {
   return { ...rows[0], description_fr: rows[0].description, images };
 };
 
-// Liste admin avec soft-deleted et inactifs
-const findAllAdmin = async ({ page = 1, limit = 20, search = '', categoryId = null, lowStock = false }) => {
-  const offset = (page - 1) * limit;
+const ALLOWED_SORT_ADMIN = {
+  created_at: 'p.created_at',
+  price_chf:  'p.price_chf',
+  name:       'pt.name',
+  stock:      'p.stock',
+};
+
+// Liste admin — inclut produits inactifs et soft-deleted visibles, filtres étendus
+const findAllAdmin = async ({
+  page = 1, limit = 20, search = '',
+  categoryId = null, supplierId = null,
+  minPrice = null, maxPrice = null,
+  inStock = false, lowStock = false,
+  isActive = null, isFeatured = null,
+  sort = 'created_at', order = 'desc',
+} = {}) => {
+  const offset    = (page - 1) * limit;
+  const sortField = ALLOWED_SORT_ADMIN[sort] || 'p.created_at';
+  const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
+
   const params = ['fr'];
   let where = 'WHERE p.deleted_at IS NULL';
 
   if (search) {
-    where += ' AND pt.name LIKE ?';
-    params.push(`%${search}%`);
+    where += ' AND (pt.name LIKE ? OR p.sku LIKE ? OR sup.name LIKE ?)';
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
   if (categoryId) {
-    where += ' AND p.category_id = ?';
-    params.push(categoryId);
+    /* Inclut la catégorie parente ET ses sous-catégories */
+    where += ' AND p.category_id IN (SELECT id FROM categories WHERE id = ? OR parent_id = ?)';
+    params.push(categoryId, categoryId);
+  }
+  if (supplierId) {
+    where += ' AND p.supplier_id = ?';
+    params.push(supplierId);
+  }
+  if (minPrice !== null) {
+    where += ' AND p.price_chf >= ?';
+    params.push(minPrice);
+  }
+  if (maxPrice !== null) {
+    where += ' AND p.price_chf <= ?';
+    params.push(maxPrice);
+  }
+  if (inStock) {
+    where += ' AND p.stock > 0';
   }
   if (lowStock) {
     where += ' AND p.stock <= 5 AND p.is_active = 1';
+  }
+  if (isActive !== null) {
+    where += ' AND p.is_active = ?';
+    params.push(isActive ? 1 : 0);
+  }
+  if (isFeatured !== null) {
+    where += ' AND p.is_featured = ?';
+    params.push(isFeatured ? 1 : 0);
   }
 
   const [countRows] = await pool.query(
     `SELECT COUNT(*) AS total FROM products p
      INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
+     LEFT JOIN suppliers sup ON sup.id = p.supplier_id
      ${where}`,
     params
   );
@@ -193,14 +235,16 @@ const findAllAdmin = async ({ page = 1, limit = 20, search = '', categoryId = nu
             p.is_active, p.is_featured, p.badge, p.category_id, p.supplier_id, p.tax_rate_id, p.created_at,
             pt.name, pt.description AS description_fr,
             ct.name AS category_name,
+            sup.name AS supplier_name,
             pi.url AS image_url
      FROM products p
      INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
      LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN category_translations ct ON ct.category_id = c.id AND ct.locale = 'fr'
+     LEFT JOIN suppliers sup ON sup.id = p.supplier_id
      LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
      ${where}
-     ORDER BY p.created_at DESC
+     ORDER BY ${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );

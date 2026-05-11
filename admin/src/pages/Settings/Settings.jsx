@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Save, Check, AlertCircle, AlertTriangle } from 'lucide-react'
+import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText } from 'lucide-react'
+import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import {
   getStoreSettings,
   updateStoreSettings,
@@ -51,7 +52,7 @@ function StoreTab() {
     setLoading(true)
     try {
       const res = await getStoreSettings()
-      setValues(prev => ({ ...prev, ...res.data }))
+      setValues(prev => ({ ...prev, ...res }))
     } catch {
       setError(true)
     } finally {
@@ -89,12 +90,7 @@ function StoreTab() {
       title="Informations de la boutique"
       desc="Ces informations apparaissent sur les factures et emails transactionnels envoyés à vos clients."
     >
-      {error && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={13} />
-          Erreur de chargement. <button className={s.retryBtn} onClick={load}>Réessayer</button>
-        </div>
-      )}
+      {error && <ErrorBanner onRetry={load} />}
       {loading ? (
         <div className={s.skeletonRow}>
           {[1,2,3,4].map(i => <div key={i} className={s.skeleton} />)}
@@ -141,7 +137,7 @@ function TaxTab() {
     setLoading(true)
     try {
       const res = await getTaxRates()
-      setRates(res.data ?? [])
+      setRates(res ?? [])
     } catch {
       setError(true)
     } finally {
@@ -161,7 +157,7 @@ function TaxTab() {
     try {
       const payload = rates.map(r => ({ id: r.id, rate: parseFloat(r.rate) }))
       const res = await updateTaxRates(payload)
-      setRates(res.data ?? rates)
+      setRates(res ?? rates)
       setStatus('saved')
     } catch {
       setStatus('error')
@@ -179,12 +175,7 @@ function TaxTab() {
       title="Taux de TVA (AFC)"
       desc="Taux en vigueur en Suisse. Toute modification doit être validée avec votre fiduciaire avant d'être appliquée."
     >
-      {error && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={13} />
-          Erreur de chargement. <button className={s.retryBtn} onClick={load}>Réessayer</button>
-        </div>
-      )}
+      {error && <ErrorBanner onRetry={load} />}
       {loading ? (
         <div className={s.skeletonRow}>
           {[1,2,3].map(i => <div key={i} className={s.skeleton} />)}
@@ -242,7 +233,7 @@ function ShippingTab() {
     setLoading(true)
     try {
       const res = await getShippingRates()
-      setRates(res.data ?? [])
+      setRates(res ?? [])
     } catch {
       setError(true)
     } finally {
@@ -266,7 +257,7 @@ function ShippingTab() {
         estimatedDays: r.estimated_days,
       }))
       const res = await updateShippingRates(payload)
-      setRates(res.data ?? rates)
+      setRates(res ?? rates)
       setStatus('saved')
     } catch {
       setStatus('error')
@@ -281,12 +272,7 @@ function ShippingTab() {
       title="Frais de port"
       desc="Livraison Suisse uniquement via La Poste CH. Les frais sont toujours facturés au client."
     >
-      {error && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={13} />
-          Erreur de chargement. <button className={s.retryBtn} onClick={load}>Réessayer</button>
-        </div>
-      )}
+      {error && <ErrorBanner onRetry={load} />}
       {loading ? (
         <div className={s.skeletonList}>
           {[1,2,3].map(i => <div key={i} className={s.skeleton} />)}
@@ -353,7 +339,7 @@ function LegalTab() {
     setLoading(true)
     try {
       const res = await getLegalSettings()
-      setValues(prev => ({ ...prev, ...res.data }))
+      setValues(prev => ({ ...prev, ...res }))
     } catch {
       setError(true)
     } finally {
@@ -399,12 +385,7 @@ function LegalTab() {
 
   return (
     <>
-      {error && (
-        <div className={s.errorBanner}>
-          <AlertTriangle size={13} />
-          Erreur de chargement. <button className={s.retryBtn} onClick={load}>Réessayer</button>
-        </div>
-      )}
+      {error && <ErrorBanner onRetry={load} />}
 
       <div className={s.legalNote}>
         <AlertCircle size={13} />
@@ -442,10 +423,10 @@ function LegalTab() {
 
 /* ── Page principale ── */
 const TABS = [
-  { key: 'store',    label: 'Boutique'       },
-  { key: 'shipping', label: 'Livraison'      },
-  { key: 'tax',      label: 'TVA'            },
-  { key: 'legal',    label: 'Textes légaux'  },
+  { key: 'store',    label: 'Boutique',      icon: Store,    desc: 'Nom, email, téléphone'    },
+  { key: 'shipping', label: 'Livraison',     icon: Truck,    desc: 'Tarifs Swiss Post'         },
+  { key: 'tax',      label: 'TVA',           icon: Receipt,  desc: 'Taux AFC suisses'          },
+  { key: 'legal',    label: 'Textes légaux', icon: FileText, desc: 'CGV, mentions, retours'    },
 ]
 
 export default function Settings() {
@@ -458,23 +439,30 @@ export default function Settings() {
         <p className={s.pageDesc}>Configuration générale de la boutique</p>
       </div>
 
-      <div className={s.tabs}>
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            className={`${s.tab} ${tab === t.key ? s.tabActive : ''}`}
-            onClick={() => setTab(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <div className={s.settingsLayout}>
+        <nav className={s.tabs}>
+          {TABS.map(t => {
+            const Icon = t.icon
+            return (
+              <button
+                key={t.key}
+                className={`${s.tab} ${tab === t.key ? s.tabActive : ''}`}
+                onClick={() => setTab(t.key)}
+              >
+                <Icon size={15} className={s.tabIcon} />
+                <span className={s.tabLabel}>{t.label}</span>
+                <span className={s.tabDesc}>{t.desc}</span>
+              </button>
+            )
+          })}
+        </nav>
 
-      <div className={s.tabContent}>
-        {tab === 'store'    && <StoreTab />}
-        {tab === 'shipping' && <ShippingTab />}
-        {tab === 'tax'      && <TaxTab />}
-        {tab === 'legal'    && <LegalTab />}
+        <div className={s.tabContent}>
+          {tab === 'store'    && <StoreTab />}
+          {tab === 'shipping' && <ShippingTab />}
+          {tab === 'tax'      && <TaxTab />}
+          {tab === 'legal'    && <LegalTab />}
+        </div>
       </div>
     </div>
   )

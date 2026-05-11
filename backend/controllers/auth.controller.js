@@ -1,11 +1,12 @@
-const authService = require('../services/auth.service');
+const authService        = require('../services/auth.service');
+const { AppError }       = require('../middlewares/errorHandler');
 
 const register = async (req, res, next) => {
   try {
     const { email, password, firstName, lastName, locale } = req.body;
 
     if (!email || !password || !firstName || !lastName) {
-      return next(new (require('../middlewares/errorHandler').AppError)('Champs obligatoires manquants : email, password, firstName, lastName.', 400));
+      return next(new AppError('Champs obligatoires manquants : email, password, firstName, lastName.', 400));
     }
 
     const { user, accessToken, refreshToken } = await authService.register({
@@ -100,7 +101,7 @@ const refreshToken = async (req, res, next) => {
 const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
-    if (!email) return next(new (require('../middlewares/errorHandler').AppError)('Email requis.', 400));
+    if (!email) return next(new AppError('Email requis.', 400));
 
     // Toujours répondre 200 — anti-énumération d'emails
     await authService.forgotPassword(email);
@@ -114,7 +115,7 @@ const resetPassword = async (req, res, next) => {
   try {
     const { token, password } = req.body;
     if (!token || !password) {
-      return next(new (require('../middlewares/errorHandler').AppError)('Token et mot de passe requis.', 400));
+      return next(new AppError('Token et mot de passe requis.', 400));
     }
     await authService.resetPassword(token, password);
     res.json({ success: true, message: 'Mot de passe réinitialisé avec succès.' });

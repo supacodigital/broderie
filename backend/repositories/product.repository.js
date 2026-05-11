@@ -146,13 +146,14 @@ const findById = async (id, locale = 'fr') => {
 const search = async ({ q, locale = 'fr', page = 1, limit = 20 }) => {
   const offset = (page - 1) * limit;
 
+  const qBoolean = q + '*';
   const [countRows] = await pool.execute(
     `SELECT COUNT(*) AS total
      FROM products p
      INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
      WHERE p.is_active = 1 AND p.deleted_at IS NULL
        AND MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE)`,
-    [locale, q]
+    [locale, qBoolean]
   );
   const total = countRows[0].total;
 
@@ -170,7 +171,7 @@ const search = async ({ q, locale = 'fr', page = 1, limit = 20 }) => {
      GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, pi.url, pi.alt, tr.rate, tr.name
      ORDER BY relevance DESC
      LIMIT ? OFFSET ?`,
-    [q, locale, locale, q, limit, offset]
+    [qBoolean, locale, locale, qBoolean, limit, offset]
   );
 
   return { rows, total };
