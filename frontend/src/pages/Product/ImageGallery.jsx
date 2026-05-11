@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
 import s from './ImageGallery.module.css'
 
@@ -124,8 +125,8 @@ export default function ImageGallery({ images = [], productName = '', fallbackIc
         </div>
       )}
 
-      {/* ── Lightbox zoom ── */}
-      {zoomed && hasImages && (
+      {/* ── Lightbox zoom — rendue via portal pour éviter les conflits z-index/sticky ── */}
+      {zoomed && hasImages && createPortal(
         <div
           className={s.lightbox}
           role="dialog"
@@ -148,7 +149,8 @@ export default function ImageGallery({ images = [], productName = '', fallbackIc
               <button className={`${s.lightboxArrow} ${s.lightboxRight}`} onClick={e => { e.stopPropagation(); next() }} aria-label="Image suivante"><ChevronRight size={28} /></button>
             </>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

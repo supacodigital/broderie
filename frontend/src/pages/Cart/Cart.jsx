@@ -13,11 +13,13 @@ import {
 import { useCart } from "../../contexts/CartContext.jsx";
 import { roundCHF } from "../../utils/chf.js";
 import { getShippingRate } from "../../services/shipping.service.js";
+import { normalizeLocale } from "../../utils/locale.js";
 import EmptyState from "../../components/ui/EmptyState/EmptyState.jsx";
+import CartSuggestions from "./CartSuggestions.jsx";
 import s from "./Cart.module.css";
 
 export default function Cart() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { items, itemCount, subtotal, totalWeightKg, updateQty, removeItem } = useCart();
   const [shipping, setShipping] = useState(null);
 
@@ -201,6 +203,9 @@ export default function Cart() {
           </aside>
         </div>
       )}
+
+      {/* ── Suggestions produits ── */}
+      <CartSuggestions items={items} locale={normalizeLocale(i18n.language)} />
     </div>
   );
 }

@@ -230,7 +230,15 @@ export default function ReviewsSection({ productId, avgRating = 0, reviewCount =
                   {t('auth.login', 'Se connecter')}
                 </Link>
               </div>
-            ) : submitted ? null : (
+            ) : submitted ? (
+              <div className={s.formSuccess}>
+                <CheckCircle size={22} className={s.formSuccessIcon} />
+                <div>
+                  <p className={s.formSuccessTitle}>{t('review.successTitle', 'Merci pour votre avis !')}</p>
+                  <p className={s.formSuccessSub}>{t('review.successSub', 'Il sera publié après validation par notre équipe.')}</p>
+                </div>
+              </div>
+            ) : (
               <ReviewForm
                 productId={productId}
                 onSubmitted={() => setSubmitted(true)}

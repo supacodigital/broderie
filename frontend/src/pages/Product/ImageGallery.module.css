@@ -152,15 +152,18 @@
 .thumb:hover    { border-color: var(--rose-border); }
 .thumbActive    { border-color: var(--rose); }
 
-/* ── Lightbox ── */
+/* ── Lightbox — rendue sur document.body via portal ── */
 .lightbox {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.9);
-  z-index: 300;
+  background: rgba(0,0,0,0.92);
+  /* z-index > navbar (200) + menus déroulants (199) */
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* nécessaire pour que le focus clavier fonctionne */
+  outline: none;
 }
 
 .lightboxClose {
@@ -175,13 +178,17 @@
   line-height: 1;
   opacity: 0.7;
   transition: opacity 0.2s;
+  z-index: 1;
 }
 
 .lightboxClose:hover { opacity: 1; }
 
 .lightboxImg {
-  max-width: 90vw;
-  max-height: 90vh;
+  display: block;
+  max-width: min(90vw, 900px);
+  max-height: 85vh;
+  width: auto;
+  height: auto;
   object-fit: contain;
   border-radius: 4px;
 }

@@ -1,37 +1,47 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
 import { getProducts } from '../../services/products.service.js'
 import ProductCard from '../../components/ui/ProductCard/ProductCard.jsx'
 import { ProductCardSkeleton } from '../../components/ui/Skeleton/Skeleton.jsx'
-import s from './RelatedProducts.module.css'
+import s from './CartSuggestions.module.css'
 
-export default function RelatedProducts({ categorySlug, currentProductId, locale = 'fr' }) {
+export default function CartSuggestions({ items, locale = 'fr' }) {
   const { t } = useTranslation()
   const [products, setProducts] = useState([])
-  const [loading,  setLoading]  = useState(true)
+  const [loading,  setLoading]  = useState(false)
 
   useEffect(() => {
-    if (!categorySlug) { setLoading(false); return }
+    if (!items || items.length === 0) { setProducts([]); return }
+
+    const lastItem      = items[items.length - 1]
+    const categorySlug  = lastItem.category_slug
+    if (!categorySlug) { setProducts([]); return }
+
+    const cartProductIds = new Set(items.map(i => i.product_id))
     let cancelled = false
-    getProducts({ category: categorySlug, locale, limit: 5, in_stock: 'true' })
+    setLoading(true)
+
+    getProducts({ category: categorySlug, locale, limit: 6, in_stock: 'true' })
       .then(d => {
         if (cancelled) return
-        const filtered = (d.data ?? []).filter(p => p.id !== currentProductId).slice(0, 4)
+        const filtered = (d.data ?? [])
+          .filter(p => !cartProductIds.has(p.id))
+          .slice(0, 4)
         setProducts(filtered)
         setLoading(false)
       })
       .catch(() => { if (!cancelled) setLoading(false) })
+
     return () => { cancelled = true }
-  }, [categorySlug, currentProductId, locale])
+  }, [items, locale])
 
   if (!loading && products.length === 0) return null
 
   return (
-    <section className={s.section} aria-label="Produits similaires">
+    <section className={s.section} aria-label="Suggestions">
       <div className={s.header}>
-        <p className={s.eyebrow}>{t('product.relatedEyebrow')}</p>
-        <h2 className={s.title}>{t('product.relatedTitle')}</h2>
+        <p className={s.eyebrow}>{t('cart.suggestionsEyebrow', 'Vous aimerez aussi')}</p>
+        <h2 className={s.title}>{t('cart.suggestionsTitle', 'Complétez votre commande')}</h2>
       </div>
 
       <div className={s.grid}>
@@ -39,10 +49,6 @@ export default function RelatedProducts({ categorySlug, currentProductId, locale
           ? Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)
           : products.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)
         }
-      </div>
-
-      <div className={s.cta}>
-        <Link to="/catalogue" className={s.btn}>{t('products.viewAll')}</Link>
       </div>
     </section>
   )

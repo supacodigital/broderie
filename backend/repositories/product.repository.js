@@ -6,6 +6,7 @@ const PRODUCT_COLUMNS = `
   p.weight_kg, p.is_featured, p.badge, p.category_id, p.supplier_id, p.created_at,
   pt.name, pt.description,
   ct.name AS category_name,
+  c.slug AS category_slug,
   pi.url AS image_url, pi.alt AS image_alt,
   tr.rate AS tax_rate, tr.name AS tax_name,
   COALESCE(ROUND(AVG(r.rating), 1), 0) AS avg_rating,
@@ -88,11 +89,12 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
      FROM products p
      INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
      LEFT JOIN category_translations ct ON ct.category_id = p.category_id AND ct.locale = ?
+     LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      LEFT JOIN reviews r ON r.product_id = p.id AND r.is_approved = 1
      WHERE ${conditions.join(' AND ')}
-     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, pi.url, pi.alt, tr.rate, tr.name
+     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.alt, tr.rate, tr.name
      ORDER BY ${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
     [locale, locale, ...params, limit, offset]
@@ -108,12 +110,14 @@ const findById = async (id, locale = 'fr') => {
             p.weight_kg, p.is_featured, p.badge, p.category_id, p.supplier_id, p.created_at,
             pt.name, pt.description,
             ct.name AS category_name,
+            c.slug AS category_slug,
             tr.rate AS tax_rate, tr.name AS tax_name,
             COALESCE(ROUND((SELECT AVG(rating) FROM reviews WHERE product_id = p.id AND is_approved = 1), 1), 0) AS avg_rating,
             (SELECT COUNT(*) FROM reviews WHERE product_id = p.id AND is_approved = 1) AS review_count
      FROM products p
      INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
      LEFT JOIN category_translations ct ON ct.category_id = p.category_id AND ct.locale = ?
+     LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      WHERE p.id = ? AND p.is_active = 1 AND p.deleted_at IS NULL
      LIMIT 1`,
@@ -163,12 +167,13 @@ const search = async ({ q, locale = 'fr', page = 1, limit = 20 }) => {
      FROM products p
      INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
      LEFT JOIN category_translations ct ON ct.category_id = p.category_id AND ct.locale = ?
+     LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      LEFT JOIN reviews r ON r.product_id = p.id AND r.is_approved = 1
      WHERE p.is_active = 1 AND p.deleted_at IS NULL
        AND MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE)
-     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, pi.url, pi.alt, tr.rate, tr.name
+     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.alt, tr.rate, tr.name
      ORDER BY relevance DESC
      LIMIT ? OFFSET ?`,
     [qBoolean, locale, locale, qBoolean, limit, offset]
@@ -197,11 +202,12 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
      FROM products p
      INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
      LEFT JOIN category_translations ct ON ct.category_id = p.category_id AND ct.locale = ?
+     LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      LEFT JOIN reviews r ON r.product_id = p.id AND r.is_approved = 1
      WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.category_id = ?
-     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, pi.url, pi.alt, tr.rate, tr.name
+     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.alt, tr.rate, tr.name
      ORDER BY ${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
     [locale, locale, categoryId, limit, offset]
@@ -217,12 +223,14 @@ const findBySlug = async (slug, locale = 'fr') => {
             p.weight_kg, p.is_featured, p.badge, p.category_id, p.supplier_id, p.created_at,
             pt.name, pt.description,
             ct.name AS category_name,
+            c.slug AS category_slug,
             tr.rate AS tax_rate, tr.name AS tax_name,
             COALESCE(ROUND((SELECT AVG(rating) FROM reviews WHERE product_id = p.id AND is_approved = 1), 1), 0) AS avg_rating,
             (SELECT COUNT(*) FROM reviews WHERE product_id = p.id AND is_approved = 1) AS review_count
      FROM products p
      INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
      LEFT JOIN category_translations ct ON ct.category_id = p.category_id AND ct.locale = ?
+     LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      WHERE p.slug = ? AND p.is_active = 1 AND p.deleted_at IS NULL
      LIMIT 1`,

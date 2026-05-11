@@ -21,11 +21,14 @@ const findCartItems = async (cartId) => {
             pt.name AS product_name,
             pt.slug AS product_slug,
             pi.url AS image_url,
-            p.stock, p.weight_kg, p.is_active, p.deleted_at
+            p.stock, p.weight_kg, p.is_active, p.deleted_at,
+            p.category_id,
+            c.slug AS category_slug
      FROM cart_items ci
      INNER JOIN products p ON p.id = ci.product_id
      INNER JOIN product_translations pt ON pt.product_id = ci.product_id AND pt.locale = 'fr'
      LEFT JOIN product_images pi ON pi.product_id = ci.product_id AND pi.is_primary = 1
+     LEFT JOIN categories c ON c.id = p.category_id
      WHERE ci.cart_id = ?`,
     [cartId]
   );
