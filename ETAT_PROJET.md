@@ -11,11 +11,13 @@ Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 | Backend API | ✅ Complet |
 | Boutique client (frontend) | ✅ Complet |
 | Back-office admin | ✅ Complet |
+| Authentification Google OAuth | ✅ Complet |
 | Paiement Stripe (Twint + Carte) | ✅ Fonctionnel en mode test |
 | Emails transactionnels | ✅ Fonctionnels (Mailtrap en dev) |
 | Programme de fidélité | ✅ Complet |
 | Codes promo | ✅ Complet |
 | Tests automatisés | ✅ ~140/140 verts (estimation) |
+| Couverture BDD (27/27 tables) | ✅ 100% couvertes |
 | Déploiement Infomaniak | ❌ Non démarré |
 | Migration 1800 clients | ❌ En attente du fichier client |
 | Expédition La Poste CH | ⚠️ Code complet (mock) — accès API client manquants |
@@ -27,7 +29,7 @@ Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 
 ### Backend
 
-- **Auth** — JWT access token en mémoire + refresh token httpOnly, register, login, logout, forgot/reset password
+- **Auth** — JWT access token en mémoire + refresh token httpOnly, register, login, logout, forgot/reset password, **connexion Google OAuth** (google-auth-library, flux frontend-driven, liaison automatique compte existant)
 - **Catalogue** — produits avec filtres, tri, pagination, search FULLTEXT, catégories multilingues (FR/DE/EN)
 - **Panier** — visiteur anonyme (session cookie) et utilisateur connecté, fusion panier à la connexion
 - **Commandes** — création atomique (transaction MySQL, décrémentation stock), liste, détail, historique statuts
@@ -51,9 +53,11 @@ Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 - **Checkout (3 étapes)** — adresse (préremplie depuis le compte), paiement (Twint QR ou carte), confirmation, frais de port dynamiques depuis l'API
 - **Code promo** — saisie dans le checkout, validation live, affichage remise dans le récapitulatif
 - **Compte client** — profil, adresses, commandes, historique, onglet fidélité (solde, palier, bons disponibles)
-- **Auth** — connexion, inscription, mot de passe oublié/réinitialisation
+- **Auth** — connexion, inscription, mot de passe oublié/réinitialisation, **bouton Google OAuth** (Login + Register)
+- **Notre histoire** — page dédiée avec texte de Julie, timeline 1995/2026, traduite FR/DE/EN
 - **Pages légales** — CGV, mentions légales, politique de retour
 - **404 personnalisée**
+- **Avis Google** — lien vers la fiche Google Business dans la section témoignages
 
 ### Admin back-office
 
@@ -146,15 +150,15 @@ Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 
 ## Variables d'environnement à configurer pour la production
 
-Fichier `.env.production` à créer (ne jamais committer) :
+Fichier `backend/.env.production` à créer (ne jamais committer) :
 
 ```env
 NODE_ENV=production
 PORT=3000
 
 # Domaines
-CLIENT_URL=https://broderie-domaine.ch
-ADMIN_URL=https://broderie-domaine.ch/admin
+CLIENT_URL=https://broderie.ch
+ADMIN_URL=https://broderie.ch/admin
 
 # Base de données Infomaniak
 DB_HOST=<host MySQL Infomaniak>
@@ -164,26 +168,45 @@ DB_USER=<utilisateur dédié>
 DB_PASSWORD=<mot de passe>
 
 # JWT — générer des secrets aléatoires forts (openssl rand -base64 64)
-JWT_SECRET=<secret fort>
+JWT_ACCESS_SECRET=<secret fort>
 JWT_REFRESH_SECRET=<secret fort>
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
 
 # Stripe production
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
-VITE_STRIPE_PUBLIC_KEY=pk_live_...
 
 # Emails Infomaniak Mail
 MAIL_HOST=mail.infomaniak.com
 MAIL_PORT=587
-MAIL_USER=noreply@broderie-domaine.ch
+MAIL_USER=noreply@broderie.ch
 MAIL_PASSWORD=<mot de passe email>
-MAIL_FROM=Au Point-Compté <noreply@broderie-domaine.ch>
+MAIL_FROM=Au Point-Compté <noreply@broderie.ch>
+MAIL_CONTACT=contact@broderie.ch
+
+# Google OAuth
+GOOGLE_CLIENT_ID=<client ID Google Cloud Console>
+# Ajouter https://broderie.ch dans les origines autorisées de la Google Console
 
 # La Poste CH — accès API expédition
 SWISS_POST_CLIENT_ID=<client ID La Poste CH>
 SWISS_POST_CLIENT_SECRET=<client secret La Poste CH>
 SWISS_POST_KUNDENNUMMER=<numéro client La Poste>
 SWISS_POST_FRANKIERNUMMER=<numéro affranchissement>
+
+# Infomaniak Cloud Storage
+STORAGE_ENDPOINT=https://s3.pub1.infomaniak.cloud
+STORAGE_BUCKET=broderie-media
+STORAGE_ACCESS_KEY=<clé accès>
+STORAGE_SECRET_KEY=<clé secrète>
+```
+
+Fichier `frontend/.env.production` :
+
+```env
+VITE_STRIPE_PUBLIC_KEY=pk_live_...
+VITE_GOOGLE_CLIENT_ID=<même client ID que le backend>
 ```
 
 ---
