@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Heart, ShoppingBag, Star, Truck, RefreshCw, Shield, ChevronDown, ChevronUp } from 'lucide-react'
+import { Heart, ShoppingBag, Star, Truck, RefreshCw, Shield, ChevronDown, ChevronUp, Gift } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { roundCHF } from '../../utils/chf.js'
 import s from './ProductInfo.module.css'
 
@@ -97,6 +98,16 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
           Prix TTC · TVA {tva.rate}% incluse (CHF {tva.tva.toFixed(2)})
         </p>
       )}
+
+      {/* ── Programme de fidélité ── */}
+      <Link to="/mon-compte?tab=loyalty" className={s.loyaltyHint}>
+        <Gift size={14} className={s.loyaltyIcon} aria-hidden="true" />
+        <span>
+          Cet achat vous rapporte{' '}
+          <strong>CHF {effectivePrice.toFixed(2)}</strong>{' '}
+          dans votre programme de fidélité
+        </span>
+      </Link>
 
       {/* ── Variantes ── */}
       {hasVariants && Object.entries(variantGroups).map(([groupName, opts]) => (

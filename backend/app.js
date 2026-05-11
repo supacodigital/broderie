@@ -129,6 +129,7 @@ app.use('/api/v1/products/:id/reviews', require('./routes/reviews.routes'));
 app.use('/api/v1/newsletter', require('./routes/newsletter.routes'));
 app.use('/api/v1/legal',     require('./routes/legal.routes'));
 app.use('/api/v1/contact',   require('./routes/contact.routes'));
+app.use('/api/v1/consent',   require('./routes/consent.routes'));
 
 // Avis approuvés récents — page d'accueil
 const { getApproved } = require('./controllers/review.controller');

@@ -82,8 +82,35 @@
   font-family: 'Montserrat', sans-serif;
   font-size: 11px;
   color: var(--text-muted);
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
+
+/* ── Fidélité ── */
+.loyaltyHint {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+  border: 1px solid var(--rose-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text);
+  text-decoration: none;
+  margin-bottom: 24px;
+  transition: border-color 0.2s, background 0.2s;
+  align-self: flex-start;
+}
+
+.loyaltyHint:hover {
+  border-color: var(--rose);
+  background: #fce7f3;
+}
+
+.loyaltyHint strong { color: var(--rose); }
+
+.loyaltyIcon { color: var(--rose); flex-shrink: 0; }
 
 /* ── Variantes ── */
 .variantGroup { margin-bottom: 20px; }
