@@ -79,7 +79,11 @@ export default function Navbar() {
               {t('nav.promos')}
             </NavLink>
           </li>
-          <li><Link to="/blog">{t('nav.blog')}</Link></li>
+          <li>
+            <NavLink to="/notre-histoire" className={({ isActive }) => isActive ? s.linkActive : ''}>
+              {t('nav.about')}
+            </NavLink>
+          </li>
           <li>
             <NavLink to="/contact" className={({ isActive }) => isActive ? s.linkActive : ''}>
               {t('nav.contact')}
@@ -207,10 +211,10 @@ export default function Navbar() {
             <ChevronRight size={18} className={s.mobileLinkArrow} />
           </NavLink>
 
-          <NavLink to="/blog" className={({ isActive }) => `${s.mobileLink} ${isActive ? s.mobileLinkActive : ''}`} onClick={closeMenu}>
+          <NavLink to="/notre-histoire" className={({ isActive }) => `${s.mobileLink} ${isActive ? s.mobileLinkActive : ''}`} onClick={closeMenu}>
             <span className={s.mobileLinkContent}>
-              <span className={s.mobileLinkText}>{t('nav.blog')}</span>
-              <span className={s.mobileLinkSub}>Conseils & inspirations</span>
+              <span className={s.mobileLinkText}>{t('nav.about')}</span>
+              <span className={s.mobileLinkSub}>{t('nav.aboutSub')}</span>
             </span>
             <ChevronRight size={18} className={s.mobileLinkArrow} />
           </NavLink>

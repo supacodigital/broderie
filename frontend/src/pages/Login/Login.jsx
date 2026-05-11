@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, AlertCircle, LogIn } from 'lucide-react'
 import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../../contexts/AuthContext.jsx'
-import { loginWithGoogle } from '../../services/auth.service.js'
 import s from './Login.module.css'
 
 function buildSchema(t) {
@@ -19,7 +18,7 @@ function buildSchema(t) {
 
 export default function Login() {
   const { t }      = useTranslation()
-  const { login }  = useAuth()
+  const { login, loginGoogle } = useAuth()
   const navigate   = useNavigate()
   const location   = useLocation()
 
@@ -39,7 +38,7 @@ export default function Login() {
     setGlobalError('')
     setGoogleLoading(true)
     try {
-      await loginWithGoogle(credential)
+      await loginGoogle(credential)
       navigate(from, { replace: true })
     } catch {
       setGlobalError(t('auth.errors.googleFailed'))

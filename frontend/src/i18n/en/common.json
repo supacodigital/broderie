@@ -4,7 +4,8 @@
     "collections": "Collections",
     "newArrivals": "New arrivals",
     "promos": "Promotions",
-    "blog": "Blog",
+    "about": "Our story",
+    "aboutSub": "Julie & Au Point-Compté",
     "contact": "Contact",
     "search": "Search",
     "account": "My Account",
@@ -74,6 +75,22 @@
     "desc": "Over 3,200 verified reviews — average rating 4.9/5.",
     "googleCta": "See all our Google reviews",
     "googleAriaLabel": "See all Google reviews for Au Point-Compté (opens in new tab)"
+  },
+  "about": {
+    "eyebrow": "Our story",
+    "title": "Who am I?",
+    "subtitle": "A passion passed on — a shop that continues to live.",
+    "pullQuote": "Passionate about embroidery for many years…",
+    "whoTitle": "Who am I?",
+    "who1": "My name is Julie and I am delighted to have taken over the Au Point-Compté shop on 1 January 2026.",
+    "who2": "The shop was founded by Dorothée Bornick in 1995. It is a beautiful story that I am proud to carry on today.",
+    "who3": "Passionate about embroidery for many years, I have always been fascinated by the delicacy of counted stitch, the richness of threads and the beauty of handmade creations. Taking over this shop was an obvious choice for me: a place dedicated to creativity, sharing and craftsmanship.",
+    "missionTitle": "My mission",
+    "mission1": "Through Au Point-Compté, I wish to keep this passion alive and share it by offering a carefully curated selection of fabrics, threads, patterns and accessories — for beginners and experienced embroiderers alike.",
+    "mission2": "My goal is simple: to make the shop a warm space where everyone can find inspiration, advice and the joy of creating. I look forward to welcoming you.",
+    "signature": "Julie",
+    "timeline1995": "Shop founded by Dorothée Bornick",
+    "timeline2026": "Taken over by Julie — a new chapter begins"
   },
   "newsletter": {
     "title": "Stay inspired",

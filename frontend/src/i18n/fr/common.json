@@ -4,7 +4,8 @@
     "collections": "Collections",
     "newArrivals": "Nouveautés",
     "promos": "Promotions",
-    "blog": "Blog",
+    "about": "Notre histoire",
+    "aboutSub": "Julie & Au Point-Compté",
     "contact": "Contact",
     "search": "Rechercher",
     "account": "Mon compte",
@@ -74,6 +75,22 @@
     "desc": "Plus de 3 200 avis vérifiés — note moyenne 4.9/5.",
     "googleCta": "Voir tous nos avis sur Google",
     "googleAriaLabel": "Voir tous les avis Google de Au Point-Compté (nouvel onglet)"
+  },
+  "about": {
+    "eyebrow": "Notre histoire",
+    "title": "Qui suis-je ?",
+    "subtitle": "Une passion transmise, une boutique qui continue de vivre.",
+    "pullQuote": "Passionnée de broderie depuis de nombreuses années…",
+    "whoTitle": "Qui suis-je ?",
+    "who1": "Je m'appelle Julie et j'ai le plaisir d'avoir repris la boutique Au Point-Compté le 1er janvier 2026.",
+    "who2": "La boutique a été créée par Dorothée Bornick en 1995. C'est une belle histoire que je suis fière de poursuivre aujourd'hui.",
+    "who3": "Passionnée de broderie depuis de nombreuses années, j'ai toujours été fascinée par la finesse du point compté, la richesse des fils et la beauté des créations réalisées à la main. Reprendre cette boutique a été pour moi une évidence : un lieu dédié à la créativité, au partage et au savoir-faire.",
+    "missionTitle": "Ma mission",
+    "mission1": "À travers Au Point-Compté, je souhaite faire vivre et transmettre cette passion en vous proposant une sélection soignée de toiles, fils, grilles et accessoires, pour accompagner aussi bien les débutantes que les brodeuses confirmées dans leurs projets.",
+    "mission2": "Mon objectif est simple : faire de la boutique un espace chaleureux où chacun peut trouver inspiration, conseils et plaisir de créer. Au plaisir de vous accueillir et de partager ensemble de beaux moments autour du fil et de l'aiguille.",
+    "signature": "Julie",
+    "timeline1995": "Fondation de la boutique par Dorothée Bornick",
+    "timeline2026": "Reprise par Julie — une nouvelle page s'écrit"
   },
   "newsletter": {
     "title": "Restez inspirée",

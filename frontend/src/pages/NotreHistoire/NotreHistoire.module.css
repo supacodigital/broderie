@@ -1,0 +1,179 @@
+/* ── Page Notre Histoire ── */
+.page {
+  background: #fff;
+}
+
+/* ── Hero ── */
+.hero {
+  text-align: center;
+  padding: 80px 40px 64px;
+  background: linear-gradient(160deg, #fff9fc 0%, #fce7f3 60%, #fff0f7 100%);
+}
+
+.eyebrow {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rose);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.eyebrow::before,
+.eyebrow::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 1px;
+  background: var(--rose-border);
+}
+
+.title {
+  font-family: 'Great Vibes', cursive;
+  font-size: clamp(44px, 5vw, 68px);
+  color: var(--text);
+  line-height: 1.1;
+  margin-bottom: 20px;
+}
+
+.subtitle {
+  font-family: 'Cormorant Infant', serif;
+  font-size: 19px;
+  font-weight: 300;
+  font-style: italic;
+  color: var(--text-muted);
+  max-width: 540px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+/* ── Contenu ── */
+.content {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 72px 40px 96px;
+}
+
+/* ── Citation en exergue ── */
+.pullQuote {
+  font-family: 'Great Vibes', cursive;
+  font-size: clamp(24px, 3vw, 32px);
+  color: var(--rose);
+  text-align: center;
+  line-height: 1.5;
+  margin: 0 0 64px;
+  padding: 32px 40px;
+  border-top: 1px solid var(--rose-border);
+  border-bottom: 1px solid var(--rose-border);
+}
+
+/* ── Article ── */
+.article {
+  background: #fff;
+}
+
+.section {
+  margin-bottom: 40px;
+}
+
+.sectionTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 20px;
+}
+
+.paragraph {
+  font-family: 'Cormorant Infant', serif;
+  font-size: 19px;
+  font-weight: 400;
+  color: var(--text-muted);
+  line-height: 1.85;
+  margin-bottom: 18px;
+}
+
+/* ── Séparateur ── */
+.divider {
+  text-align: center;
+  margin: 40px 0;
+}
+
+.dividerSymbol {
+  font-size: 20px;
+  color: var(--rose-border);
+}
+
+/* ── Signature ── */
+.signature {
+  font-family: 'Great Vibes', cursive;
+  font-size: 36px;
+  color: var(--rose);
+  margin-top: 40px;
+}
+
+/* ── Timeline ── */
+.timeline {
+  margin-top: 72px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--rose-pale);
+  border-radius: 16px;
+  padding: 40px 48px;
+}
+
+.timelineItem {
+  flex: 1;
+  text-align: center;
+}
+
+.timelineYear {
+  display: block;
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--rose);
+  margin-bottom: 10px;
+}
+
+.timelineText {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.timelineConnector {
+  width: 60px;
+  height: 1px;
+  background: var(--rose-border);
+  flex-shrink: 0;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .hero    { padding: 56px 24px 48px; }
+  .content { padding: 48px 24px 72px; }
+  .pullQuote { padding: 24px 20px; font-size: 22px; }
+
+  .timeline {
+    flex-direction: column;
+    gap: 24px;
+    padding: 32px 24px;
+  }
+
+  .timelineConnector {
+    width: 1px;
+    height: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .title { font-size: 38px; }
+}

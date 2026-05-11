@@ -4,7 +4,8 @@
     "collections": "Kollektionen",
     "newArrivals": "Neuheiten",
     "promos": "Aktionen",
-    "blog": "Blog",
+    "about": "Unsere Geschichte",
+    "aboutSub": "Julie & Au Point-Compté",
     "contact": "Kontakt",
     "search": "Suchen",
     "account": "Mein Konto",
@@ -74,6 +75,22 @@
     "desc": "Über 3 200 verifizierte Bewertungen — Durchschnittsnote 4.9/5.",
     "googleCta": "Alle Google-Bewertungen ansehen",
     "googleAriaLabel": "Alle Google-Bewertungen von Au Point-Compté ansehen (neuer Tab)"
+  },
+  "about": {
+    "eyebrow": "Unsere Geschichte",
+    "title": "Wer bin ich?",
+    "subtitle": "Eine Leidenschaft, die weitergegeben wird — ein Geschäft, das weiterlebt.",
+    "pullQuote": "Seit vielen Jahren von der Stickerei begeistert…",
+    "whoTitle": "Wer bin ich?",
+    "who1": "Ich heisse Julie und habe die Freude, das Geschäft Au Point-Compté am 1. Januar 2026 übernommen zu haben.",
+    "who2": "Das Geschäft wurde 1995 von Dorothée Bornick gegründet. Es ist eine schöne Geschichte, die ich heute stolz weiterführe.",
+    "who3": "Seit vielen Jahren von der Stickerei begeistert, war ich schon immer fasziniert von der Feinheit des Kreuzstichmusters, der Vielfalt der Fäden und der Schönheit der handgefertigten Arbeiten. Die Übernahme dieses Geschäfts war für mich selbstverständlich: ein Ort für Kreativität, Austausch und Handwerkskunst.",
+    "missionTitle": "Meine Mission",
+    "mission1": "Mit Au Point-Compté möchte ich diese Leidenschaft weiterleben und weitergeben, indem ich Ihnen eine sorgfältige Auswahl an Stoffen, Fäden, Mustern und Zubehör anbiete — für Anfängerinnen wie für erfahrene Stickerinnen.",
+    "mission2": "Mein Ziel ist einfach: das Geschäft zu einem herzlichen Ort zu machen, an dem jeder Inspiration, Rat und Freude am Gestalten findet. Ich freue mich, Sie willkommen zu heissen.",
+    "signature": "Julie",
+    "timeline1995": "Gründung des Geschäfts durch Dorothée Bornick",
+    "timeline2026": "Übernahme durch Julie — eine neue Seite beginnt"
   },
   "newsletter": {
     "title": "Bleiben Sie inspiriert",

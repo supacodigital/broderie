@@ -7,7 +7,6 @@ import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, AlertCircle, UserPlus } from 'lucide-react'
 import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../../contexts/AuthContext.jsx'
-import { loginWithGoogle } from '../../services/auth.service.js'
 import s from './Register.module.css'
 
 function buildSchema(t) {
@@ -26,7 +25,7 @@ function buildSchema(t) {
 
 export default function Register() {
   const { t }        = useTranslation()
-  const { register: authRegister } = useAuth()
+  const { register: authRegister, loginGoogle } = useAuth()
   const navigate     = useNavigate()
 
   const [showPwd,       setShowPwd]       = useState(false)
@@ -44,7 +43,7 @@ export default function Register() {
     setGlobalError('')
     setGoogleLoading(true)
     try {
-      await loginWithGoogle(credential)
+      await loginGoogle(credential)
       navigate('/mon-compte', { replace: true })
     } catch {
       setGlobalError(t('auth.errors.googleFailed'))
