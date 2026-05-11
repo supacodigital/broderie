@@ -296,7 +296,7 @@
   border-radius: 2px;
   padding: 8px 10px;
   font-family: 'Montserrat', sans-serif;
-  font-size: 13px;
+  font-size: 16px;
   color: var(--text-dark);
   width: 100%;
   outline: none;
@@ -351,4 +351,8 @@
   .panelOpen { transform: translateX(0); }
 
   .closeBtn { display: flex; }
+}
+
+@media (max-width: 480px) {
+  .panel { width: 85vw; }
 }

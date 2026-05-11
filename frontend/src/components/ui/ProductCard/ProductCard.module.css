@@ -198,6 +198,31 @@
   color: var(--text-muted);
 }
 
+/* ── Responsive mobile ProductCard (grille) ── */
+@media (max-width: 640px) {
+  /* Bouton panier toujours visible sur mobile (pas de hover) */
+  .addBtn {
+    transform: translateY(0);
+    font-size: 10px;
+    padding: 9px;
+  }
+
+  /* Wishlist toujours visible */
+  .wishlistBtn {
+    opacity: 1;
+    transform: translateY(0);
+    width: 30px;
+    height: 30px;
+  }
+
+  .name { font-size: 14px; }
+  .price { font-size: 13px; }
+  .brand { font-size: 9px; }
+  .imageWrap { margin-bottom: 10px; }
+
+  .stockWarning { bottom: 38px; font-size: 9px; }
+}
+
 /* ── Vue liste ── */
 .cardList {
   display: flex;
@@ -341,3 +366,26 @@
 
 .addBtnList:hover:not(:disabled) { background: var(--rose-dark); }
 .addBtnList:disabled { background: #d1d5db; cursor: not-allowed; }
+
+/* ── Responsive mobile vue liste ── */
+@media (max-width: 640px) {
+  .cardList { gap: 12px; padding: 12px 16px; }
+
+  .listImageWrap { width: 72px; height: 72px; }
+
+  .listBody { flex-direction: column; gap: 10px; }
+
+  .listActions {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .listBtns { gap: 6px; }
+
+  .listName { font-size: 15px; }
+  .listDesc { display: none; }
+
+  .addBtnList { padding: 7px 12px; font-size: 10px; }
+}

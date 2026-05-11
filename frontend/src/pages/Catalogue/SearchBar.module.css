@@ -68,7 +68,7 @@
   border: 1px solid var(--rose-border);
   border-radius: 2px;
   font-family: 'Montserrat', sans-serif;
-  font-size: 13px;
+  font-size: 16px;
   color: var(--text-dark);
   outline: none;
   background: white;
@@ -124,7 +124,7 @@
   border-radius: 2px;
   padding: 8px 12px;
   font-family: 'Montserrat', sans-serif;
-  font-size: 12px;
+  font-size: 16px;
   color: var(--text-dark);
   background: white;
   cursor: pointer;

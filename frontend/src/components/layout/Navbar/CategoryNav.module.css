@@ -178,6 +178,14 @@
 }
 
 @media (max-width: 768px) {
-  .bar { top: 64px; }
-  .link { padding: 0 10px; height: 40px; }
+  .link { padding: 0 10px; height: 40px; font-size: 11px; }
+  /* Masque les dropdowns — hover inutilisable sur touch */
+  .dropdown { display: none; }
+  /* Masque les flèches desktop — scroll natif suffit */
+  .arrow { display: none; }
+  .scroll { padding: 0 12px; }
+}
+
+@media (max-width: 480px) {
+  .link { padding: 0 8px; font-size: 10px; height: 38px; }
 }

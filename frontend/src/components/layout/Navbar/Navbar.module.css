@@ -168,29 +168,46 @@
   display: none;
 }
 
-/* ── MENU MOBILE ─────────────────────────────────────── */
+/* ── MENU MOBILE — plein écran ───────────────────────── */
 .mobileMenu {
   position: fixed;
-  top: 0;
-  right: 0;
-  width: min(300px, 85vw);
-  height: 100dvh;
-  background: white;
+  inset: 0;
   z-index: 200;
-  padding: 0;
-  transform: translateX(100%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.12);
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  background: #fdf2f8;
+  overflow-y: auto;
+  /* invisible par défaut */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .mobileMenuOpen {
-  transform: translateX(0);
+  opacity: 1;
+  visibility: visible;
 }
 
-/* Bouton fermer en haut du panel */
+/* En-tête du menu plein écran */
+.mobileHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 64px;
+  border-bottom: 1px solid var(--rose-border);
+  background: white;
+  flex-shrink: 0;
+}
+
+.mobileHeaderLogo {
+  font-family: 'Great Vibes', cursive;
+  font-size: 26px;
+  color: var(--rose);
+  line-height: 1;
+  text-decoration: none;
+}
+
 .mobileClose {
   background: none;
   border: none;
@@ -198,72 +215,179 @@
   color: var(--text-muted);
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 20px 20px 8px;
-  transition: color 0.2s;
-  align-self: flex-end;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transition: color 0.2s, background 0.2s;
 }
 
-.mobileClose:hover { color: var(--rose); }
+.mobileClose:hover { color: var(--rose); background: var(--rose-pale); }
 
-.mobileMenu ul {
-  list-style: none;
+/* Corps du menu */
+.mobileBody {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 8px 0 40px;
+  padding: 24px 20px 40px;
+  gap: 8px;
 }
 
-.mobileMenu li a,
-.mobileMenu li button.mobileLogout {
+/* Section label */
+.mobileSectionLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 4px;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+/* Lien principal */
+.mobileLink {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 15px 28px;
-  font-family: 'Montserrat', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text);
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: white;
+  border-radius: 12px;
   text-decoration: none;
-  border-bottom: 1px solid var(--rose-border);
-  transition: color 0.2s, background 0.15s;
-  width: 100%;
+  border: 1px solid transparent;
+  transition: border-color 0.2s, background 0.2s;
+  animation: menuItemIn 0.35s ease both;
 }
 
-.mobileMenu li a:hover,
-.mobileMenu li a:focus { color: var(--rose); background: var(--rose-pale); }
+.mobileLink:hover,
+.mobileLink:focus {
+  border-color: var(--rose-border);
+  background: white;
+}
 
+.mobileLinkText {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-dark);
+  letter-spacing: 0.01em;
+}
+
+.mobileLinkSub {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.mobileLinkContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mobileLinkArrow {
+  color: var(--rose-border);
+  transition: color 0.2s, transform 0.2s;
+}
+
+.mobileLink:hover .mobileLinkArrow,
+.mobileLink:focus .mobileLinkArrow {
+  color: var(--rose);
+  transform: translateX(3px);
+}
+
+/* Lien actif */
+.mobileLinkActive {
+  border-color: var(--rose-border);
+  background: white;
+}
+
+.mobileLinkActive .mobileLinkText { color: var(--rose); }
+.mobileLinkActive .mobileLinkArrow { color: var(--rose); }
+
+/* Séparateur */
 .mobileDivider {
   height: 1px;
   background: var(--rose-border);
-  margin: 8px 28px;
+  margin: 8px 0;
 }
 
-.mobileLogout {
+/* Bouton déconnexion */
+.mobileLogoutBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
   background: none;
   border: none;
-  border-bottom: 1px solid var(--rose-border) !important;
+  border-radius: 12px;
   cursor: pointer;
-  font: inherit;
-  color: var(--text-muted) !important;
   width: 100%;
-  text-align: left;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: color 0.2s, background 0.2s;
 }
 
-.mobileLogout:hover {
-  color: var(--rose) !important;
-  background: var(--rose-pale);
+.mobileLogoutBtn:hover {
+  color: var(--rose);
+  background: white;
 }
 
-/* ── OVERLAY ─────────────────────────────────────────── */
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  z-index: 199;
-  backdrop-filter: blur(2px);
+/* Pied de menu — panier */
+.mobileCartBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  background: var(--rose);
+  border-radius: 14px;
+  text-decoration: none;
+  margin-top: 8px;
+  transition: background 0.2s;
 }
+
+.mobileCartBtn:hover { background: #be185d; }
+
+.mobileCartLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: 0.04em;
+}
+
+.mobileCartCount {
+  background: white;
+  color: var(--rose);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 20px;
+  padding: 4px 12px;
+  min-width: 28px;
+  text-align: center;
+}
+
+/* Animation items au slide-in */
+@keyframes menuItemIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.mobileLink:nth-child(1) { animation-delay: 0.04s; }
+.mobileLink:nth-child(2) { animation-delay: 0.08s; }
+.mobileLink:nth-child(3) { animation-delay: 0.12s; }
+.mobileLink:nth-child(4) { animation-delay: 0.16s; }
+.mobileLink:nth-child(5) { animation-delay: 0.20s; }
+.mobileLink:nth-child(6) { animation-delay: 0.24s; }
+
+/* ── OVERLAY (desktop fallback, non utilisé sur mobile fullscreen) ── */
+.overlay { display: none; }
 
 /* ── RESPONSIVE ──────────────────────────────────────── */
 @media (max-width: 1024px) {

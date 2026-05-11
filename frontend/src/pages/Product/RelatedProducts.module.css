@@ -68,4 +68,5 @@
 .btn:hover { background: var(--rose); color: white; }
 
 @media (max-width: 1024px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 640px)  { .grid { grid-template-columns: 1fr 1fr; gap: 14px; } }
+@media (max-width: 640px)  { .grid { grid-template-columns: 1fr 1fr; gap: 12px; } }
+@media (max-width: 640px)  { .section { padding: 48px 0 0; margin-top: 48px; } }

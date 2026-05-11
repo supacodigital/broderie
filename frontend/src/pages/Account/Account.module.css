@@ -242,7 +242,7 @@
   border: 1.5px solid var(--rose-border);
   border-radius: 9px;
   font-family: "Montserrat", sans-serif;
-  font-size: 13px;
+  font-size: 16px;
   color: var(--text-dark);
   background: #fff;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -298,6 +298,7 @@
   justify-content: flex-end;
   gap: 10px;
   margin-top: 4px;
+  margin-bottom: 24px;
 }
 
 /* ── Boutons ── */
@@ -698,12 +699,45 @@
   border-radius: 10px;
   background: #fff;
 }
+.rewardCodeWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
 .rewardCode {
   font-family: monospace;
   font-size: 14px;
   font-weight: 700;
   color: var(--rose);
   letter-spacing: .05em;
+}
+.copyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-muted);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.copyBtn:hover {
+  border-color: var(--rose);
+  color: var(--rose);
+  background: var(--rose-pale);
+}
+.copyBtnDone {
+  border-color: #059669;
+  color: #059669;
+  background: #ecfdf5;
 }
 .rewardValue {
   font-size: 14px;
@@ -716,6 +750,10 @@
   color: var(--text-muted);
   white-space: nowrap;
 }
+.rewardBottom {
+  display: contents;
+}
+
 .rewardStatus {
   font-size: 11px;
   font-weight: 600;
@@ -911,27 +949,44 @@
   }
   .sidebar {
     position: static;
+    overflow: hidden;
   }
+  /* Onglets — scroll horizontal, style tab bar */
   .tabNav {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 10px 12px;
+    gap: 6px;
   }
+  .tabNav::-webkit-scrollbar { display: none; }
   .tabBtn {
-    flex: 1;
-    min-width: 120px;
+    flex: 0 0 auto;        /* annule le flex:1 du desktop */
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    width: auto;
+    min-width: 0;
     justify-content: center;
   }
-  .tabArrow {
-    display: none;
-  }
+  /* Cache la flèche chevron sur mobile */
+  .tabArrow { display: none; }
+  /* Supprime le flex:1 du label en mode colonne */
+  .tabBtn span { flex: unset; }
 }
 
 @media (max-width: 640px) {
   .page {
-    padding: 20px 16px 60px;
+    padding: 16px 12px 60px;
   }
   .panel {
-    padding: 20px 16px;
+    padding: 16px 14px;
+    border-radius: 12px;
   }
   .formRow {
     grid-template-columns: 1fr;
@@ -945,4 +1000,50 @@
   .wishlistGrid {
     grid-template-columns: repeat(2, 1fr);
   }
+  /* Onglets encore plus compacts sur petit écran */
+  .tabBtn {
+    padding: 9px 14px;
+    font-size: 10px;
+  }
+  /* Boutons pleine largeur sur mobile */
+  .formActions {
+    flex-direction: column;
+  }
+  .btnPrimary,
+  .btnSecondary {
+    width: 100%;
+    justify-content: center;
+  }
+  /* Bons de réduction : layout colonne sur mobile */
+  .rewardItem {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+  }
+  .rewardCodeWrap {
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  .rewardCode {
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 160px;
+  }
+  /* Ligne inférieure : valeur + date + statut */
+  .rewardBottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  /* Cache le texte du bouton copier, garde juste l'icône */
+  .copyBtn span { display: none; }
+  .copyBtn { padding: 6px 8px; }
+  .rewardValue { font-size: 13px; }
+  .rewardMeta  { font-size: 11px; }
 }

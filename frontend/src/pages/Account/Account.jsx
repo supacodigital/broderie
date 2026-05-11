@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
   User, Package, MapPin, Heart, LogOut, ChevronRight,
-  Check, AlertCircle, Plus, Pencil, Trash2, Star, X, Gift,
+  Check, AlertCircle, Plus, Pencil, Trash2, Star, X, Gift, Copy,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useWishlist } from '../../contexts/WishlistContext.jsx'
@@ -604,6 +604,14 @@ function TabLoyalty() {
   const [data,    setData]    = useState(null)
   const [rewards, setRewards] = useState([])
   const [loading, setLoading] = useState(true)
+  const [copiedId, setCopiedId] = useState(null)
+
+  function copyCode(id, code) {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopiedId(id)
+      setTimeout(() => setCopiedId(null), 2000)
+    })
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -716,22 +724,37 @@ function TabLoyalty() {
             const expires = reward.expires_at ? formatDate(reward.expires_at) : null
             return (
               <div key={reward.id} className={s.rewardItem}>
-                <div className={s.rewardCode}>{reward.code}</div>
-                <div className={s.rewardValue}>
-                  {reward.type === 'fixed'
-                    ? `CHF ${parseFloat(reward.value).toFixed(2)}`
-                    : `${parseFloat(reward.value).toFixed(0)}% de réduction`
-                  }
+                <div className={s.rewardCodeWrap}>
+                  <span className={s.rewardCode}>{reward.code}</span>
+                  {reward.status === 'available' && (
+                    <button
+                      className={`${s.copyBtn} ${copiedId === reward.id ? s.copyBtnDone : ''}`}
+                      onClick={() => copyCode(reward.id, reward.code)}
+                      aria-label="Copier le code"
+                      title="Copier le code"
+                    >
+                      {copiedId === reward.id ? <Check size={14} /> : <Copy size={14} />}
+                      <span>{copiedId === reward.id ? 'Copié !' : 'Copier'}</span>
+                    </button>
+                  )}
                 </div>
-                <div className={s.rewardMeta}>
-                  {expires && <span>Expire le {expires}</span>}
+                <div className={s.rewardBottom}>
+                  <div className={s.rewardValue}>
+                    {reward.type === 'fixed'
+                      ? `CHF ${parseFloat(reward.value).toFixed(2)}`
+                      : `${parseFloat(reward.value).toFixed(0)}% de réduction`
+                    }
+                  </div>
+                  <div className={s.rewardMeta}>
+                    {expires && <span>Expire le {expires}</span>}
+                  </div>
+                  <span
+                    className={s.rewardStatus}
+                    style={{ color: cfg.color, background: cfg.bg }}
+                  >
+                    {cfg.label}
+                  </span>
                 </div>
-                <span
-                  className={s.rewardStatus}
-                  style={{ color: cfg.color, background: cfg.bg }}
-                >
-                  {cfg.label}
-                </span>
               </div>
             )
           })}

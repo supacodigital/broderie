@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ShoppingBag, Search, User, LogOut, Menu, X } from 'lucide-react'
+import { ShoppingBag, Search, User, LogOut, Menu, X, ChevronRight } from 'lucide-react'
 import { useAuth } from '../../../contexts/AuthContext.jsx'
 import { useCart } from '../../../contexts/CartContext.jsx'
 import NavSearch from './NavSearch.jsx'
@@ -12,10 +12,14 @@ export default function Navbar() {
   const { isAuthenticated, user, logout } = useAuth()
   const { itemCount } = useCart()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [scrolled,    setScrolled]    = useState(false)
   const [menuOpen,    setMenuOpen]    = useState(false)
   const [searchOpen,  setSearchOpen]  = useState(false)
+
+  /* Ferme le menu au changement de route */
+  useEffect(() => { setMenuOpen(false) }, [location.pathname])
 
   useEffect(() => {
     function onScroll() { setScrolled(window.scrollY > 8) }
@@ -140,50 +144,108 @@ export default function Navbar() {
       {/* ── Overlay de recherche global ── */}
       <NavSearch open={searchOpen} onClose={closeSearch} />
 
-      {/* ── Menu mobile ── */}
+      {/* ── Menu mobile plein écran ── */}
       <div
         id="mobile-menu"
         className={`${s.mobileMenu} ${menuOpen ? s.mobileMenuOpen : ''}`}
         aria-hidden={!menuOpen}
-        aria-label="Menu de navigation mobile"
+        aria-modal="true"
+        role="dialog"
+        aria-label="Menu de navigation"
       >
-        {/* Fermer */}
-        <button className={s.mobileClose} onClick={closeMenu} aria-label="Fermer le menu">
-          <X size={22} />
-        </button>
+        {/* En-tête */}
+        <div className={s.mobileHeader}>
+          <Link to="/" className={s.mobileHeaderLogo} onClick={closeMenu}>
+            Au Point-Compté
+          </Link>
+          <button className={s.mobileClose} onClick={closeMenu} aria-label="Fermer le menu">
+            <X size={22} />
+          </button>
+        </div>
 
-        <ul role="list">
-          <li><NavLink to="/catalogue" onClick={closeMenu}>{t('nav.collections')}</NavLink></li>
-          <li><NavLink to="/catalogue?badge=nouveaute" onClick={closeMenu}>{t('nav.newArrivals')}</NavLink></li>
-          <li><NavLink to="/catalogue?badge=promo" onClick={closeMenu}>{t('nav.promos')}</NavLink></li>
-          <li><NavLink to="/blog" onClick={closeMenu}>{t('nav.blog')}</NavLink></li>
-          <li><NavLink to="/contact" onClick={closeMenu}>{t('nav.contact')}</NavLink></li>
-          <li className={s.mobileDivider} aria-hidden="true" />
+        {/* Corps */}
+        <div className={s.mobileBody}>
+          {/* Navigation */}
+          <p className={s.mobileSectionLabel}>Navigation</p>
+
+          <NavLink to="/catalogue" className={({ isActive }) => `${s.mobileLink} ${isActive ? s.mobileLinkActive : ''}`} onClick={closeMenu}>
+            <span className={s.mobileLinkContent}>
+              <span className={s.mobileLinkText}>{t('nav.collections')}</span>
+              <span className={s.mobileLinkSub}>Tous nos produits</span>
+            </span>
+            <ChevronRight size={18} className={s.mobileLinkArrow} />
+          </NavLink>
+
+          <NavLink to="/catalogue?badge=nouveaute" className={s.mobileLink} onClick={closeMenu}>
+            <span className={s.mobileLinkContent}>
+              <span className={s.mobileLinkText}>{t('nav.newArrivals')}</span>
+              <span className={s.mobileLinkSub}>Dernières arrivées</span>
+            </span>
+            <ChevronRight size={18} className={s.mobileLinkArrow} />
+          </NavLink>
+
+          <NavLink to="/catalogue?badge=promo" className={s.mobileLink} onClick={closeMenu}>
+            <span className={s.mobileLinkContent}>
+              <span className={s.mobileLinkText}>{t('nav.promos')}</span>
+              <span className={s.mobileLinkSub}>Offres en cours</span>
+            </span>
+            <ChevronRight size={18} className={s.mobileLinkArrow} />
+          </NavLink>
+
+          <NavLink to="/blog" className={({ isActive }) => `${s.mobileLink} ${isActive ? s.mobileLinkActive : ''}`} onClick={closeMenu}>
+            <span className={s.mobileLinkContent}>
+              <span className={s.mobileLinkText}>{t('nav.blog')}</span>
+              <span className={s.mobileLinkSub}>Conseils & inspirations</span>
+            </span>
+            <ChevronRight size={18} className={s.mobileLinkArrow} />
+          </NavLink>
+
+          <NavLink to="/contact" className={({ isActive }) => `${s.mobileLink} ${isActive ? s.mobileLinkActive : ''}`} onClick={closeMenu}>
+            <span className={s.mobileLinkContent}>
+              <span className={s.mobileLinkText}>{t('nav.contact')}</span>
+              <span className={s.mobileLinkSub}>Nous écrire</span>
+            </span>
+            <ChevronRight size={18} className={s.mobileLinkArrow} />
+          </NavLink>
+
+          {/* Compte */}
+          <div className={s.mobileDivider} aria-hidden="true" />
+          <p className={s.mobileSectionLabel}>Mon espace</p>
+
           {isAuthenticated ? (
             <>
-              <li><NavLink to="/mon-compte" onClick={closeMenu}>{t('nav.account')}</NavLink></li>
-              <li>
-                <button className={s.mobileLogout} onClick={handleLogout}>
-                  <LogOut size={16} />
-                  Déconnexion
-                </button>
-              </li>
+              <NavLink to="/mon-compte" className={({ isActive }) => `${s.mobileLink} ${isActive ? s.mobileLinkActive : ''}`} onClick={closeMenu}>
+                <span className={s.mobileLinkContent}>
+                  <span className={s.mobileLinkText}>{t('nav.account')}</span>
+                  <span className={s.mobileLinkSub}>{user?.first_name ?? 'Mon profil'}</span>
+                </span>
+                <User size={18} className={s.mobileLinkArrow} />
+              </NavLink>
+              <button className={s.mobileLogoutBtn} onClick={handleLogout}>
+                <LogOut size={16} />
+                Déconnexion
+              </button>
             </>
           ) : (
-            <li><NavLink to="/connexion" onClick={closeMenu}>{t('nav.account')}</NavLink></li>
+            <NavLink to="/connexion" className={({ isActive }) => `${s.mobileLink} ${isActive ? s.mobileLinkActive : ''}`} onClick={closeMenu}>
+              <span className={s.mobileLinkContent}>
+                <span className={s.mobileLinkText}>{t('nav.account')}</span>
+                <span className={s.mobileLinkSub}>Se connecter</span>
+              </span>
+              <User size={18} className={s.mobileLinkArrow} />
+            </NavLink>
           )}
-          <li><NavLink to="/panier" onClick={closeMenu}>{t('nav.cart')}</NavLink></li>
-        </ul>
-      </div>
 
-      {/* Overlay fermeture menu mobile */}
-      {menuOpen && (
-        <div
-          className={s.overlay}
-          aria-hidden="true"
-          onClick={closeMenu}
-        />
-      )}
+          {/* Panier — CTA en bas */}
+          <Link to="/panier" className={s.mobileCartBtn} onClick={closeMenu}>
+            <span className={s.mobileCartLabel}>
+              <ShoppingBag size={16} style={{ verticalAlign: 'middle', marginRight: 8 }} />
+              {t('nav.cart')}
+            </span>
+            <span className={s.mobileCartCount}>{itemCount > 0 ? itemCount : '0'}</span>
+          </Link>
+        </div>
+      </div>
     </>
   )
 }
