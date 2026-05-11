@@ -5,7 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, AlertCircle, LogIn } from 'lucide-react'
+import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../../contexts/AuthContext.jsx'
+import { loginWithGoogle } from '../../services/auth.service.js'
 import s from './Login.module.css'
 
 function buildSchema(t) {
@@ -23,6 +25,7 @@ export default function Login() {
 
   const [showPwd,      setShowPwd]      = useState(false)
   const [globalError,  setGlobalError]  = useState('')
+  const [googleLoading, setGoogleLoading] = useState(false)
 
   /* Redirige vers la page demandée ou /mon-compte après connexion */
   const from = location.state?.from?.pathname ?? '/mon-compte'
@@ -30,6 +33,20 @@ export default function Login() {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(buildSchema(t)),
   })
+
+  const handleGoogleLogin = async ({ credential }) => {
+    if (!credential) return
+    setGlobalError('')
+    setGoogleLoading(true)
+    try {
+      await loginWithGoogle(credential)
+      navigate(from, { replace: true })
+    } catch {
+      setGlobalError(t('auth.errors.googleFailed'))
+    } finally {
+      setGoogleLoading(false)
+    }
+  }
 
   const onSubmit = async (values) => {
     setGlobalError('')
@@ -126,6 +143,25 @@ export default function Login() {
           </button>
 
         </form>
+
+        {/* Séparateur Google */}
+        <div className={s.divider}>
+          <span className={s.dividerLine} />
+          <span className={s.dividerText}>{t('auth.orContinueWith')}</span>
+          <span className={s.dividerLine} />
+        </div>
+
+        {/* Bouton Google */}
+        <div className={`${s.googleWrap} ${googleLoading ? s.googleLoading : ''}`}>
+          <GoogleLogin
+            onSuccess={handleGoogleLogin}
+            onError={() => setGlobalError(t('auth.errors.googleFailed'))}
+            width="360"
+            text="signin_with"
+            shape="rectangular"
+            locale="fr"
+          />
+        </div>
 
         {/* Pied */}
         <p className={s.footer}>

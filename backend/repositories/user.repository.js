@@ -24,12 +24,12 @@ const findById = async (id) => {
   return rows[0] || null;
 };
 
-// Création d'un nouvel utilisateur
-const create = async ({ email, passwordHash, firstName, lastName, locale = 'fr' }) => {
+// Création d'un nouvel utilisateur — password_hash nullable pour les comptes Google
+const create = async ({ email, passwordHash = null, firstName, lastName, locale = 'fr', googleId = null, avatarUrl = null }) => {
   const [result] = await pool.execute(
-    `INSERT INTO users (email, password_hash, first_name, last_name, role, locale, is_active)
-     VALUES (?, ?, ?, ?, 'client', ?, 1)`,
-    [email, passwordHash, firstName, lastName, locale]
+    `INSERT INTO users (email, password_hash, first_name, last_name, role, locale, google_id, avatar_url, is_active)
+     VALUES (?, ?, ?, ?, 'client', ?, ?, ?, 1)`,
+    [email, passwordHash, firstName, lastName, locale, googleId, avatarUrl]
   );
   return result.insertId;
 };
@@ -132,6 +132,26 @@ const deleteAddress = async (addressId, userId) => {
   }
 };
 
+// Recherche un utilisateur actif par google_id
+const findByGoogleId = async (googleId) => {
+  const [rows] = await pool.execute(
+    `SELECT id, email, first_name, last_name, role, locale, avatar_url, is_active, deleted_at
+     FROM users
+     WHERE google_id = ? AND deleted_at IS NULL
+     LIMIT 1`,
+    [googleId]
+  );
+  return rows[0] || null;
+};
+
+// Lie un google_id à un compte existant et met à jour l'avatar
+const linkGoogleAccount = async (userId, googleId, avatarUrl) => {
+  await pool.execute(
+    `UPDATE users SET google_id = ?, avatar_url = ? WHERE id = ?`,
+    [googleId, avatarUrl || null, userId]
+  );
+};
+
 // Recherche un utilisateur par id avec son hash de mot de passe — usage interne uniquement (changePassword)
 const findByIdWithPassword = async (id) => {
   const [rows] = await pool.execute(
@@ -171,7 +191,8 @@ const updatePassword = async (userId, passwordHash) => {
 };
 
 module.exports = {
-  findByEmail, findById, findByIdWithPassword, create, emailExists, update,
+  findByEmail, findById, findByIdWithPassword, findByGoogleId, linkGoogleAccount,
+  create, emailExists, update,
   findAddresses, createAddress, updateAddress, deleteAddress,
   saveResetToken, findByResetToken, updatePassword,
 };

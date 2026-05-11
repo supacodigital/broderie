@@ -95,6 +95,10 @@ const changePassword = async (req, res, next) => {
     const user = await userRepository.findByIdWithPassword(req.user.id);
     if (!user) return next(new AppError('Utilisateur introuvable.', 404));
 
+    if (!user.password_hash) {
+      return next(new AppError('Ce compte utilise la connexion Google. La modification du mot de passe n\'est pas disponible.', 400));
+    }
+
     const valid = await bcrypt.compare(current_password, user.password_hash);
     if (!valid) return next(new AppError('Mot de passe actuel incorrect.', 401));
 

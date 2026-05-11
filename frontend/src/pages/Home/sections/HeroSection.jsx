@@ -52,7 +52,7 @@ export default function HeroSection() {
           width="800"
           height="900"
           loading="eager"
-          fetchpriority="high"
+          fetchPriority="high"
         />
         <div className={s.visualOverlay} />
         <div className={s.ratingCard}>

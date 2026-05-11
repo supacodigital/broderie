@@ -71,7 +71,9 @@
   "testimonials": {
     "eyebrow": "Kundenbewertungen",
     "title": "Sie vertrauen uns",
-    "desc": "Über 3 200 verifizierte Bewertungen — Durchschnittsnote 4.9/5."
+    "desc": "Über 3 200 verifizierte Bewertungen — Durchschnittsnote 4.9/5.",
+    "googleCta": "Alle Google-Bewertungen ansehen",
+    "googleAriaLabel": "Alle Google-Bewertungen von Au Point-Compté ansehen (neuer Tab)"
   },
   "newsletter": {
     "title": "Bleiben Sie inspiriert",
@@ -238,6 +240,7 @@
     "loadingRegister": "Konto wird erstellt…",
     "cgvAccept": "Ich akzeptiere die",
     "cgvLink": "Allgemeinen Geschäftsbedingungen",
+    "orContinueWith": "oder weiter mit",
     "errors": {
       "emailRequired": "E-Mail-Adresse ist erforderlich",
       "emailInvalid": "Ungültiges E-Mail-Format",
@@ -249,7 +252,8 @@
       "cgvRequired": "Sie müssen die AGB akzeptieren",
       "invalidCredentials": "E-Mail oder Passwort falsch",
       "emailTaken": "Diese E-Mail-Adresse wird bereits verwendet",
-      "generic": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut."
+      "generic": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
+      "googleFailed": "Die Anmeldung mit Google ist fehlgeschlagen. Bitte versuchen Sie es erneut."
     }
   },
   "notFound": {

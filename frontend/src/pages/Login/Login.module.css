@@ -245,6 +245,41 @@
 
 .footer a:hover { text-decoration: underline; }
 
+/* ── Séparateur "ou" ── */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 16px;
+}
+
+.dividerLine {
+  flex: 1;
+  height: 1px;
+  background: var(--rose-border, #fce7f3);
+}
+
+.dividerText {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Bouton Google ── */
+.googleWrap {
+  display: flex;
+  justify-content: center;
+  transition: opacity 0.2s;
+}
+
+.googleWrap.googleLoading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 /* ── Responsive ── */
 @media (max-width: 480px) {
   .card    { padding: 32px 20px; }

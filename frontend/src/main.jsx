@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 
 /* Initialisation i18n — doit être importé avant les composants */
 import './i18n/index.js'
@@ -16,8 +17,10 @@ const spinStyle = document.createElement('style')
 spinStyle.textContent = '@keyframes spin { to { transform: rotate(360deg); } }'
 document.head.appendChild(spinStyle)
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
+
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
+  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <AuthProvider>
       <CartProvider>
         <WishlistProvider>
@@ -25,5 +28,5 @@ createRoot(document.getElementById('root')).render(
         </WishlistProvider>
       </CartProvider>
     </AuthProvider>
-  </StrictMode>,
+  </GoogleOAuthProvider>,
 )

@@ -5,7 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, AlertCircle, UserPlus } from 'lucide-react'
+import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../../contexts/AuthContext.jsx'
+import { loginWithGoogle } from '../../services/auth.service.js'
 import s from './Register.module.css'
 
 function buildSchema(t) {
@@ -27,14 +29,29 @@ export default function Register() {
   const { register: authRegister } = useAuth()
   const navigate     = useNavigate()
 
-  const [showPwd,     setShowPwd]     = useState(false)
-  const [showPwd2,    setShowPwd2]    = useState(false)
-  const [globalError, setGlobalError] = useState('')
+  const [showPwd,       setShowPwd]       = useState(false)
+  const [showPwd2,      setShowPwd2]      = useState(false)
+  const [globalError,   setGlobalError]   = useState('')
+  const [googleLoading, setGoogleLoading] = useState(false)
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(buildSchema(t)),
     defaultValues: { cgv: false },
   })
+
+  const handleGoogleLogin = async ({ credential }) => {
+    if (!credential) return
+    setGlobalError('')
+    setGoogleLoading(true)
+    try {
+      await loginWithGoogle(credential)
+      navigate('/mon-compte', { replace: true })
+    } catch {
+      setGlobalError(t('auth.errors.googleFailed'))
+    } finally {
+      setGoogleLoading(false)
+    }
+  }
 
   const onSubmit = async (values) => {
     setGlobalError('')
@@ -203,6 +220,25 @@ export default function Register() {
           </button>
 
         </form>
+
+        {/* Séparateur Google */}
+        <div className={s.divider}>
+          <span className={s.dividerLine} />
+          <span className={s.dividerText}>{t('auth.orContinueWith')}</span>
+          <span className={s.dividerLine} />
+        </div>
+
+        {/* Bouton Google */}
+        <div className={`${s.googleWrap} ${googleLoading ? s.googleLoading : ''}`}>
+          <GoogleLogin
+            onSuccess={handleGoogleLogin}
+            onError={() => setGlobalError(t('auth.errors.googleFailed'))}
+            width="360"
+            text="signup_with"
+            shape="rectangular"
+            locale="fr"
+          />
+        </div>
 
         {/* Pied */}
         <p className={s.footer}>

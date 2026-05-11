@@ -32,6 +32,13 @@ export async function resetPassword(token, password) {
   return res.data
 }
 
+export async function loginWithGoogle(idToken) {
+  const res = await api.post('/auth/google/verify', { idToken })
+  const token = res.data.data?.accessToken ?? res.data.data?.access_token
+  if (token) setAccessToken(token)
+  return res.data
+}
+
 export async function getMe() {
   const res = await api.get('/users/me')
   return res.data

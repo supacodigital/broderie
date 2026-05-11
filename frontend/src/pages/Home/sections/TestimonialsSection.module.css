@@ -141,6 +141,49 @@
   gap: 4px;
 }
 
+/* ── Bouton Google ── */
+.googleCta {
+  display: flex;
+  justify-content: center;
+  margin-top: 48px;
+}
+
+.googleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+  text-decoration: none;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.googleBtn:hover {
+  border-color: #4285F4;
+  box-shadow: 0 4px 16px rgba(66,133,244,0.15);
+  transform: translateY(-1px);
+}
+
+/* ── Skeleton ── */
+.skeleton {
+  min-height: 200px;
+  background: linear-gradient(90deg, #f5e9ef 25%, #fce7f3 50%, #f5e9ef 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 @media (max-width: 1024px) {
   .section { padding: 64px 40px; }
   .grid    { grid-template-columns: 1fr; }

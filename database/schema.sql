@@ -60,18 +60,21 @@ SET FOREIGN_KEY_CHECKS = 1;
 CREATE TABLE users (
   id            INT UNSIGNED    NOT NULL AUTO_INCREMENT,
   email         VARCHAR(255)    NOT NULL,
-  password_hash VARCHAR(255)    NOT NULL,
+  password_hash VARCHAR(255)    NULL DEFAULT NULL,
   first_name    VARCHAR(100)    NOT NULL,
   last_name     VARCHAR(100)    NOT NULL,
   role          ENUM('client', 'admin', 'super_admin') NOT NULL DEFAULT 'client',
   locale        ENUM('fr', 'de', 'en') NOT NULL DEFAULT 'fr',
+  google_id     VARCHAR(255)    NULL DEFAULT NULL,
+  avatar_url    VARCHAR(500)    NULL DEFAULT NULL,
   is_active     TINYINT(1)      NOT NULL DEFAULT 1,
   deleted_at    DATETIME        NULL DEFAULT NULL,
   created_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_users_email (email),
-  INDEX idx_users_role (role),
-  INDEX idx_users_deleted (deleted_at)
+  UNIQUE KEY uq_users_email    (email),
+  UNIQUE KEY uq_users_google   (google_id),
+  INDEX idx_users_role         (role),
+  INDEX idx_users_deleted      (deleted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================

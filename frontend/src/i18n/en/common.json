@@ -71,7 +71,9 @@
   "testimonials": {
     "eyebrow": "Customer reviews",
     "title": "They trust us",
-    "desc": "Over 3,200 verified reviews — average rating 4.9/5."
+    "desc": "Over 3,200 verified reviews — average rating 4.9/5.",
+    "googleCta": "See all our Google reviews",
+    "googleAriaLabel": "See all Google reviews for Au Point-Compté (opens in new tab)"
   },
   "newsletter": {
     "title": "Stay inspired",
@@ -238,6 +240,7 @@
     "loadingRegister": "Creating account…",
     "cgvAccept": "I accept the",
     "cgvLink": "Terms & Conditions",
+    "orContinueWith": "or continue with",
     "errors": {
       "emailRequired": "Email address is required",
       "emailInvalid": "Invalid email format",
@@ -249,7 +252,8 @@
       "cgvRequired": "You must accept the Terms & Conditions",
       "invalidCredentials": "Incorrect email or password",
       "emailTaken": "This email address is already taken",
-      "generic": "An error occurred. Please try again."
+      "generic": "An error occurred. Please try again.",
+      "googleFailed": "Google sign-in failed. Please try again."
     }
   },
   "notFound": {

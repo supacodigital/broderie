@@ -71,7 +71,9 @@
   "testimonials": {
     "eyebrow": "Avis clients",
     "title": "Elles nous font confiance",
-    "desc": "Plus de 3 200 avis vérifiés — note moyenne 4.9/5."
+    "desc": "Plus de 3 200 avis vérifiés — note moyenne 4.9/5.",
+    "googleCta": "Voir tous nos avis sur Google",
+    "googleAriaLabel": "Voir tous les avis Google de Au Point-Compté (nouvel onglet)"
   },
   "newsletter": {
     "title": "Restez inspirée",
@@ -238,6 +240,7 @@
     "loadingRegister": "Création du compte…",
     "cgvAccept": "J'accepte les",
     "cgvLink": "Conditions Générales de Vente",
+    "orContinueWith": "ou continuer avec",
     "errors": {
       "emailRequired": "L'adresse email est obligatoire",
       "emailInvalid": "Format d'email invalide",
@@ -249,7 +252,8 @@
       "cgvRequired": "Vous devez accepter les CGV",
       "invalidCredentials": "Email ou mot de passe incorrect",
       "emailTaken": "Cette adresse email est déjà utilisée",
-      "generic": "Une erreur est survenue. Veuillez réessayer."
+      "generic": "Une erreur est survenue. Veuillez réessayer.",
+      "googleFailed": "La connexion avec Google a échoué. Veuillez réessayer."
     }
   },
   "notFound": {

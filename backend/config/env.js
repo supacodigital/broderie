@@ -14,6 +14,9 @@ module.exports = {
   /* Stripe */
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
 
+  /* Google OAuth */
+  googleClientId: process.env.GOOGLE_CLIENT_ID ?? null,
+
   /* Emails */
   mailFrom:    process.env.MAIL_FROM,
   mailContact: process.env.MAIL_CONTACT ?? process.env.MAIL_FROM,
