@@ -112,8 +112,9 @@ export function CartProvider({ children }) {
   const clearCart = useCallback(() => dispatch({ type: 'CLEAR' }), [])
 
   /* Valeurs calculées */
-  const itemCount = state.items.reduce((sum, i) => sum + i.quantity, 0)
-  const subtotal  = roundCHF(state.items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0))
+  const itemCount     = state.items.reduce((sum, i) => sum + i.quantity, 0)
+  const subtotal      = roundCHF(state.items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0))
+  const totalWeightKg = state.items.reduce((sum, i) => sum + (parseFloat(i.weight_kg ?? 0) * i.quantity), 0)
 
   const value = {
     items: state.items,
@@ -121,6 +122,7 @@ export function CartProvider({ children }) {
     error: state.error,
     itemCount,
     subtotal,
+    totalWeightKg,
     addItem,
     updateQty,
     removeItem,

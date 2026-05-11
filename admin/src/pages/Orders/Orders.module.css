@@ -522,6 +522,65 @@
 
 .btnSecondary:hover { border-color: var(--rose); color: var(--rose); }
 
+/* ── Étiquette La Poste CH ── */
+.labelRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btnLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  background: var(--rose, #e91e8c);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s;
+  align-self: flex-start;
+}
+
+.btnLabel:hover:not(:disabled) { opacity: 0.88; }
+.btnLabel:disabled { opacity: .6; cursor: not-allowed; }
+
+.trackingCurrent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+
+.trackingCurrent svg { color: var(--rose); }
+
+/* ── Tracking manuel ── */
+.trackingRow {
+  display: flex;
+  gap: 8px;
+}
+
+.trackingInput {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: 'Montserrat', sans-serif;
+  color: var(--text-dark);
+  background: #fff;
+  outline: none;
+  transition: border-color .15s;
+}
+
+.trackingInput:focus { border-color: var(--rose); }
+
 /* ── Feedback ── */
 .feedbackOk {
   padding: 8px 12px;

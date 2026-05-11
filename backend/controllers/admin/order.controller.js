@@ -1,6 +1,6 @@
 const orderRepository   = require('../../repositories/order.repository');
 const userRepository    = require('../../repositories/user.repository');
-const { pool }          = require('../../config/db'); // requis pour updateStatus (transaction)
+const { pool }          = require('../../config/db');
 const { AppError }      = require('../../middlewares/errorHandler');
 const emailService      = require('../../services/email.service');
 const shippingService   = require('../../services/shipping.service');
@@ -88,32 +88,15 @@ const updateStatus = async (req, res, next) => {
       if (!user) return;
 
       if (status === 'shipped') {
-        /* Génération étiquette ShipEngine si l'adresse de livraison est disponible */
-        let trackingNumber = note?.match(/[A-Z0-9]{10,}/)?.[0] ?? null;
+        /* Génération automatique de l'étiquette si aucun tracking existant */
+        let trackingNumber = order.tracking_number ?? null;
 
-        const shippingAddress = order.street ? {
-          street:  order.street,
-          city:    order.city,
-          zip:     order.zip,
-          country: order.country,
-          canton:  order.canton,
-        } : null;
-
-        if (!trackingNumber && shippingAddress) {
+        if (!trackingNumber && order.street) {
           try {
-            const label = await shippingService.createLabel({
-              order,
-              address: shippingAddress,
-            });
+            const label = await shippingService.generateLabel(orderId, order);
             trackingNumber = label.trackingNumber;
-
-            /* Sauvegarde du numéro de suivi dans la commande */
-            await pool.execute(
-              `UPDATE orders SET tracking_number = ? WHERE id = ?`,
-              [trackingNumber, orderId]
-            );
           } catch (err) {
-            console.error('[ShipEngine] Étiquette non générée :', err.message);
+            console.error('[La Poste CH] Étiquette non générée :', err.message);
           }
         }
 

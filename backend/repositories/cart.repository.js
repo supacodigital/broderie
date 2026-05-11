@@ -16,10 +16,12 @@ const findCart = async ({ userId, sessionId }) => {
 const findCartItems = async (cartId) => {
   const [items] = await pool.execute(
     `SELECT ci.id, ci.product_id, ci.variant_id, ci.quantity,
-            ci.price_snapshot, ci.tax_rate_snapshot,
+            ci.price_snapshot, ci.price_snapshot AS unit_price,
+            ci.tax_rate_snapshot,
             pt.name AS product_name,
+            pt.slug AS product_slug,
             pi.url AS image_url,
-            p.stock, p.is_active, p.deleted_at
+            p.stock, p.weight_kg, p.is_active, p.deleted_at
      FROM cart_items ci
      INNER JOIN products p ON p.id = ci.product_id
      INNER JOIN product_translations pt ON pt.product_id = ci.product_id AND pt.locale = 'fr'

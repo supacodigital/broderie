@@ -546,6 +546,58 @@
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── Bloc suivi de colis ── */
+.trackingBlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.trackingIcon {
+  color: var(--rose);
+  flex-shrink: 0;
+}
+
+.trackingInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.trackingLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.trackingNumber {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: var(--text-dark);
+  letter-spacing: 0.03em;
+}
+
+.trackingLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  background: var(--rose);
+  color: #fff;
+  border-radius: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.trackingLink:hover { background: var(--rose-dark); }
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .grid {

@@ -462,6 +462,25 @@
   margin-top: 8px;
 }
 
+/* Transporteur affiché dans le récap livraison */
+.summaryCarrier {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Animation pendant le chargement des frais */
+.shippingLoading {
+  display: inline-block;
+  color: var(--text-muted);
+  animation: shippingPulse 1s ease-in-out infinite;
+}
+
+@keyframes shippingPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
 /* ── Page confirmation ── */
 .confirmWrap {
   grid-column: 1 / -1;
@@ -812,15 +831,21 @@
 
 /* ── Code promo ── */
 .couponSection {
+  margin-top: 20px;
   margin-bottom: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rose-border);
 }
 
 .couponTitle {
-  font-family: 'Playfair Display', serif;
-  font-size: 14px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-dark);
   margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .couponRow {
@@ -831,19 +856,20 @@
 .couponInput {
   flex: 1;
   padding: 10px 14px;
-  border: 1px solid var(--border-light);
+  border: 1.5px solid var(--rose-border);
   border-radius: 8px;
   font-family: 'Montserrat', sans-serif;
   font-size: 13px;
   color: var(--text-dark);
   background: #fff;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
   text-transform: uppercase;
+  outline: none;
 }
 
 .couponInput:focus {
-  outline: none;
-  border-color: var(--primary);
+  border-color: var(--rose);
+  box-shadow: 0 0 0 3px rgba(244, 114, 182, 0.15);
 }
 
 .couponBtn {

@@ -140,6 +140,7 @@ const findById = async (orderId, userId = null) => {
             o.shipping_street AS street, o.shipping_city AS city,
             o.shipping_zip    AS zip,    o.shipping_country AS country,
             o.shipping_canton AS canton,
+            o.tracking_number, o.label_url, o.label_id,
             u.first_name, u.last_name, u.email
      FROM orders o
      INNER JOIN users u ON u.id = o.user_id

@@ -82,7 +82,8 @@ describe('Commandes — flux complet', () => {
     expect(res.body.data).toHaveProperty('id');
     // Facture = awaiting_payment, Twint/carte = pending
     expect(['pending', 'awaiting_payment']).toContain(res.body.data.status);
-    expect(res.body.data.shipping_cost).toBe('8.50');
+    // Frais dynamiques selon le poids — au moins CHF 8.50
+    expect(parseFloat(res.body.data.shipping_cost)).toBeGreaterThanOrEqual(8.50);
     expect(Array.isArray(res.body.data.items)).toBe(true);
     expect(res.body.data.items.length).toBeGreaterThan(0);
 

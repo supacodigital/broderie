@@ -374,6 +374,112 @@ describe('Admin — Fournisseurs', () => {
   });
 });
 
+// ── Expédition admin (La Poste CH) ───────────────────────────────────────────
+
+describe('Admin — Expédition La Poste CH', () => {
+  let orderId = null;
+
+  beforeAll(async () => {
+    const clientToken = await getClientToken();
+
+    const prodRes = await request(app)
+      .get('/api/v1/products')
+      .query({ locale: 'fr', in_stock: 'true', limit: 1 });
+
+    const produit = prodRes.body.data?.[0];
+    if (produit) {
+      await request(app)
+        .post('/api/v1/cart/items')
+        .set('Authorization', `Bearer ${clientToken}`)
+        .send({ productId: produit.id, quantity: 1 });
+
+      const orderRes = await request(app)
+        .post('/api/v1/orders')
+        .set('Authorization', `Bearer ${clientToken}`);
+
+      orderId = orderRes.body.data?.id ?? null;
+    }
+  });
+
+  test('POST /admin/orders/:id/label génère une étiquette et retourne un numéro de suivi', async () => {
+    if (!orderId) return;
+    const adminToken = await getAdminToken();
+
+    const res = await request(app)
+      .post(`/api/v1/admin/orders/${orderId}/label`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('trackingNumber');
+    expect(res.body.data).toHaveProperty('labelUrl');
+    expect(res.body.data).toHaveProperty('labelId');
+    expect(typeof res.body.data.trackingNumber).toBe('string');
+  });
+
+  test('GET /admin/orders/:id/label retourne un PDF (Content-Type application/pdf)', async () => {
+    if (!orderId) return;
+    const adminToken = await getAdminToken();
+
+    const res = await request(app)
+      .get(`/api/v1/admin/orders/${orderId}/label`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/application\/pdf/);
+  });
+
+  test('GET /admin/orders/:id/label sur commande inconnue retourne 404', async () => {
+    const adminToken = await getAdminToken();
+
+    const res = await request(app)
+      .get('/api/v1/admin/orders/999999/label')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('PUT /admin/orders/:id/tracking enregistre un numéro de suivi manuel', async () => {
+    if (!orderId) return;
+    const adminToken = await getAdminToken();
+
+    const res = await request(app)
+      .put(`/api/v1/admin/orders/${orderId}/tracking`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ tracking_number: '98.44.123456.01234567' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('tracking_number', '98.44.123456.01234567');
+  });
+
+  test('PUT /admin/orders/:id/tracking sans numéro retourne 400', async () => {
+    if (!orderId) return;
+    const adminToken = await getAdminToken();
+
+    const res = await request(app)
+      .put(`/api/v1/admin/orders/${orderId}/tracking`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('routes expédition sans token retournent 401', async () => {
+    const [genLabel, downloadLabel, updateTracking] = await Promise.all([
+      request(app).post('/api/v1/admin/orders/1/label'),
+      request(app).get('/api/v1/admin/orders/1/label'),
+      request(app).put('/api/v1/admin/orders/1/tracking').send({ trackingNumber: 'test' }),
+    ]);
+
+    expect(genLabel.status).toBe(401);
+    expect(downloadLabel.status).toBe(401);
+    expect(updateTracking.status).toBe(401);
+  });
+});
+
 // ── Clients admin ─────────────────────────────────────────────────────────────
 
 describe('Admin — Clients', () => {

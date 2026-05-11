@@ -13,8 +13,8 @@ import { createOrder } from '../../services/orders.service.js'
 import { createTwintIntent, createCardIntent } from '../../services/payments.service.js'
 import { validateCoupon } from '../../services/coupons.service.js'
 import { getAddresses } from '../../services/addresses.service.js'
+import { getShippingRate } from '../../services/shipping.service.js'
 import { roundCHF } from '../../utils/chf.js'
-import { SHIPPING_CHF } from '../../utils/shipping.js'
 import s from './Checkout.module.css'
 
 /* Chargement différé de Stripe — singleton garanti */
@@ -58,9 +58,9 @@ function Stepper({ step, t }) {
 }
 
 /* ── Mini récapitulatif (colonne droite) ── */
-function OrderSummary({ items, subtotal, discount, couponCode, t }) {
+function OrderSummary({ items, subtotal, discount, couponCode, shipping, shippingLoading, t }) {
   const discounted = roundCHF(subtotal - (discount ?? 0))
-  const total      = roundCHF(discounted + SHIPPING_CHF)
+  const total      = shipping ? roundCHF(discounted + shipping.price_chf) : null
   return (
     <aside className={s.summary}>
       <h2 className={s.summaryTitle}>{t('checkout.summaryTitle')}</h2>
@@ -96,15 +96,23 @@ function OrderSummary({ items, subtotal, discount, couponCode, t }) {
       )}
 
       <div className={s.summaryRow}>
-        <span>{t('checkout.shipping')}</span>
-        <span>{t('checkout.shippingValue')}</span>
+        <span>
+          {t('checkout.shipping')}
+          {shipping && <span className={s.summaryCarrier}> · {shipping.carrier} · {shipping.estimated_days}j</span>}
+        </span>
+        <span>
+          {shippingLoading
+            ? <span className={s.shippingLoading}>…</span>
+            : shipping ? `CHF ${shipping.price_chf.toFixed(2)}` : '…'
+          }
+        </span>
       </div>
 
       <hr className={s.summaryDivider} />
 
       <div className={s.summaryTotal}>
         <span>{t('checkout.total')}</span>
-        <span>CHF {total.toFixed(2)}</span>
+        <span>{total !== null ? `CHF ${total.toFixed(2)}` : '…'}</span>
       </div>
       <p className={s.taxNote}>{t('checkout.taxLine')}</p>
     </aside>
@@ -271,7 +279,7 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
 
 /* ── Étape 2 : Mode de paiement + CGV ── */
 function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, subtotal, onCouponApplied, discount, couponCode, t }) {
-  const [payment,     setPayment]     = useState('twint')
+  const [payment,     setPayment]     = useState('card')
   const [cgv,         setCgv]         = useState(false)
   const [cgvError,    setCgvError]    = useState('')
   const [couponInput, setCouponInput] = useState('')
@@ -279,8 +287,8 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
   const [couponLoading, setCouponLoading] = useState(false)
 
   const PAYMENT_OPTIONS = [
-    { value: 'twint', label: t('checkout.paymentTwint'), badge: '📱' },
     { value: 'card',  label: t('checkout.paymentCard'),  badge: '💳' },
+    { value: 'twint', label: t('checkout.paymentTwint'), badge: '📱' },
   ]
 
   const handleApplyCoupon = async () => {
@@ -720,10 +728,10 @@ function StepConfirm({ orderId, t }) {
 
 /* ── Orchestrateur principal ── */
 export default function Checkout() {
-  const { t }                          = useTranslation()
-  const navigate                       = useNavigate()
-  const { items, subtotal, clearCart } = useCart()
-  const { user, isAuthenticated }      = useAuth()
+  const { t }                                        = useTranslation()
+  const navigate                                     = useNavigate()
+  const { items, subtotal, totalWeightKg, clearCart } = useCart()
+  const { user, isAuthenticated }                    = useAuth()
 
   /* Restauration depuis sessionStorage après refresh à l'étape paiement */
   const [step,           setStep]           = useState(() => {
@@ -744,6 +752,9 @@ export default function Checkout() {
   const [savedAddresses, setSavedAddresses] = useState([])
   const [discount,        setDiscount]       = useState(0)
   const [couponCode,      setCouponCode]     = useState('')
+  /* Frais de port — chargés dynamiquement depuis l'API à l'étape 2 */
+  const [shipping,        setShipping]        = useState(null)
+  const [shippingLoading, setShippingLoading] = useState(false)
   /* Sous-total brut avant remise — figé lors de la création de commande */
   const [subtotalSnapshot, setSubtotalSnapshot] = useState(0)
   /* Snapshot des articles avant vidage du panier */
@@ -786,6 +797,18 @@ export default function Checkout() {
     }
   }, [items.length, step, isSubmitting, navigate])
 
+  /* Chargement des frais de port depuis l'API à l'entrée de l'étape 2 */
+  useEffect(() => {
+    if (step !== 2) return
+    let cancelled = false
+    setShippingLoading(true)
+    getShippingRate(totalWeightKg)
+      .then(data => { if (!cancelled) setShipping(data) })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setShippingLoading(false) })
+    return () => { cancelled = true }
+  }, [step, totalWeightKg])
+
   const handleAddressNext = (data) => {
     setAddress(data)
     setStep(2)
@@ -807,7 +830,7 @@ export default function Checkout() {
         })),
       })
       const newOrderId = res.data?.id ?? res.data?.order_id ?? null
-      const newTotal   = res.data?.total ?? roundCHF(subtotal + SHIPPING_CHF)
+      const newTotal   = res.data?.total ?? 0
       setOrderId(newOrderId)
       setPaymentMethod(payment_method)
       setOrderTotal(newTotal)
@@ -899,7 +922,7 @@ export default function Checkout() {
               />
             )}
           </div>
-          <OrderSummary items={itemsSnapshot} subtotal={subtotalSnapshot} discount={discount} couponCode={couponCode} t={t} />
+          <OrderSummary items={itemsSnapshot} subtotal={subtotalSnapshot} discount={discount} couponCode={couponCode} shipping={shipping} shippingLoading={false} t={t} />
         </div>
       )}
 
@@ -925,7 +948,7 @@ export default function Checkout() {
             />
           )}
 
-          <OrderSummary items={items} subtotal={subtotal} discount={discount} couponCode={couponCode} t={t} />
+          <OrderSummary items={items} subtotal={subtotal} discount={discount} couponCode={couponCode} shipping={shipping} shippingLoading={shippingLoading} t={t} />
         </div>
       )}
     </div>

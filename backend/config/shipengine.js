@@ -1,11 +1,17 @@
-const ShipEngine = require('shipengine');
+/* Configuration transporteur Swiss Post (La Poste CH)
+   En attente des accès API : CLIENT_ID, CLIENT_SECRET, KUNDENNUMMER, FRANKIERNUMMER
+   Le service shipping.service.js fonctionne en mode mock jusqu'à réception des accès. */
 
-if (!process.env.SHIPENGINE_API_KEY) {
-  console.warn('[ShipEngine] SHIPENGINE_API_KEY manquante — étiquettes d\'expédition désactivées');
+const SWISS_POST_CONFIG = {
+  clientId:        process.env.SWISS_POST_CLIENT_ID        ?? null,
+  clientSecret:    process.env.SWISS_POST_CLIENT_SECRET    ?? null,
+  kundennummer:    process.env.SWISS_POST_KUNDENNUMMER     ?? null,
+  frankiernummer:  process.env.SWISS_POST_FRANKIERNUMMER   ?? null,
+  isMock: !process.env.SWISS_POST_CLIENT_ID,
 }
 
-const shipengine = process.env.SHIPENGINE_API_KEY
-  ? new ShipEngine.default({ apiKey: process.env.SHIPENGINE_API_KEY })
-  : null;
+if (SWISS_POST_CONFIG.isMock) {
+  console.warn('[Swiss Post] Accès API non configurés — mode mock actif (shipping.service.js)')
+}
 
-module.exports = shipengine;
+module.exports = SWISS_POST_CONFIG

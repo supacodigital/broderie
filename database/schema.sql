@@ -282,6 +282,8 @@ CREATE TABLE orders (
   shipping_country CHAR(2)        NULL DEFAULT 'CH',
   shipping_canton  CHAR(2)        NULL DEFAULT NULL,
   tracking_number  VARCHAR(100)   NULL DEFAULT NULL,
+  label_url        VARCHAR(500)   NULL DEFAULT NULL,
+  label_id         VARCHAR(100)   NULL DEFAULT NULL,
   created_at      DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),

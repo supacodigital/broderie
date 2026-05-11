@@ -32,3 +32,28 @@ export async function downloadInvoice(orderId) {
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
 }
+
+/* Génère une étiquette La Poste CH pour la commande */
+export async function generateLabel(orderId) {
+  const res = await api.post(`/admin/orders/${orderId}/label`)
+  return res.data.data ?? null
+}
+
+/* Télécharge l'étiquette PDF via Axios (nécessite le token auth) */
+export async function downloadLabel(orderId) {
+  const res = await api.get(`/admin/orders/${orderId}/label`, { responseType: 'blob' })
+  const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `etiquette-${String(orderId).padStart(6, '0')}.pdf`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+/* Sauvegarde un numéro de suivi saisi manuellement */
+export async function updateTracking(orderId, trackingNumber) {
+  const res = await api.put(`/admin/orders/${orderId}/tracking`, { tracking_number: trackingNumber })
+  return res.data.data ?? null
+}

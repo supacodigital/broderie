@@ -123,6 +123,7 @@ app.use('/api/v1/orders', require('./routes/orders.routes'));
 app.use('/api/v1/coupons', require('./routes/coupons.routes'));
 app.use('/api/v1/users', require('./routes/users.routes'));
 app.use('/api/v1/admin', require('./routes/admin.routes'));
+app.use('/api/v1/shipping', require('./routes/shipping.routes'));
 app.use('/api/v1/loyalty', require('./routes/loyalty.routes'));
 app.use('/api/v1/products/:id/reviews', require('./routes/reviews.routes'));
 app.use('/api/v1/newsletter', require('./routes/newsletter.routes'));

@@ -326,6 +326,28 @@ export default function OrderDetail() {
                   </div>
                 </section>
 
+                {/* Suivi de colis — visible si tracking_number disponible */}
+                {order.tracking_number && ['shipped', 'delivered'].includes(order.status) && (
+                  <section className={s.card}>
+                    <h2 className={s.cardTitle}>Suivi de votre colis</h2>
+                    <div className={s.trackingBlock}>
+                      <Truck size={16} className={s.trackingIcon} />
+                      <div className={s.trackingInfo}>
+                        <span className={s.trackingLabel}>Numéro de suivi</span>
+                        <strong className={s.trackingNumber}>{order.tracking_number}</strong>
+                      </div>
+                      <a
+                        href={`https://www.post.ch/fr/outils/suivi-de-colis?track=${order.tracking_number}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={s.trackingLink}
+                      >
+                        Suivre sur post.ch →
+                      </a>
+                    </div>
+                  </section>
+                )}
+
                 {/* Paiement Twint en attente */}
                 {showTwint && (
                   <TwintBlock orderId={order.id} onPaid={handlePaid} />
@@ -407,7 +429,6 @@ export default function OrderDetail() {
                     <MapPin size={14} className={s.deliveryIcon} />
                     <div>
                       <p className={s.deliveryCarrier}>Swiss Post — La Poste</p>
-                      <p className={s.deliveryDelay}>Délai estimé : 1-2 jours ouvrables</p>
                     </div>
                   </div>
                 </section>

@@ -3,9 +3,9 @@ import { useDebounceSearch } from '../../hooks/useDebounceSearch.js'
 import { useSearchParams } from 'react-router-dom'
 import {
   Eye, Search,
-  Send, FileText, RefreshCw,
+  Send, FileText, RefreshCw, Package, Download, Truck,
 } from 'lucide-react'
-import { getOrders, getOrderById, updateOrderStatus, sendTwintQr, downloadInvoice } from '../../services/orders.service.js'
+import { getOrders, getOrderById, updateOrderStatus, sendTwintQr, downloadInvoice, generateLabel, downloadLabel, updateTracking } from '../../services/orders.service.js'
 import { formatCHF } from '../../utils/chf.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
 import SortIcon from '../../components/ui/SortIcon/SortIcon.jsx'
@@ -62,14 +62,17 @@ function formatDateLong(iso) {
 
 /* ── Modal détail commande ── */
 function OrderModal({ orderId, onClose, onUpdated }) {
-  const [order,       setOrder]       = useState(null)
-  const [loading,     setLoading]     = useState(true)
-  const [newStatus,   setNewStatus]   = useState('')
-  const [note,        setNote]        = useState('')
-  const [saving,      setSaving]      = useState(false)
-  const [sendingQr,   setSendingQr]   = useState(false)
-  const [feedback,    setFeedback]    = useState('')
-  const [error,       setError]       = useState('')
+  const [order,           setOrder]           = useState(null)
+  const [loading,         setLoading]         = useState(true)
+  const [newStatus,       setNewStatus]       = useState('')
+  const [note,            setNote]            = useState('')
+  const [saving,          setSaving]          = useState(false)
+  const [sendingQr,       setSendingQr]       = useState(false)
+  const [generatingLabel, setGeneratingLabel] = useState(false)
+  const [trackingInput,   setTrackingInput]   = useState('')
+  const [savingTracking,  setSavingTracking]  = useState(false)
+  const [feedback,        setFeedback]        = useState('')
+  const [error,           setError]           = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -122,6 +125,44 @@ function OrderModal({ orderId, onClose, onUpdated }) {
       await downloadInvoice(orderId)
     } catch {
       setError('Impossible de télécharger la facture.')
+    }
+  }
+
+  const handleGenerateLabel = async () => {
+    setGeneratingLabel(true)
+    setFeedback('')
+    setError('')
+    try {
+      const label = await generateLabel(orderId)
+      setOrder(prev => ({ ...prev, tracking_number: label.trackingNumber, label_url: label.labelUrl }))
+      setFeedback(`Étiquette générée — suivi : ${label.trackingNumber}`)
+      onUpdated?.()
+    } catch {
+      setError('Impossible de générer l\'étiquette. Vérifiez la connexion au serveur.')
+    } finally {
+      setGeneratingLabel(false)
+    }
+  }
+
+  const handleDownloadLabel = () => {
+    downloadLabel(orderId)
+  }
+
+  const handleSaveTracking = async () => {
+    if (!trackingInput.trim()) return
+    setSavingTracking(true)
+    setFeedback('')
+    setError('')
+    try {
+      await updateTracking(orderId, trackingInput.trim())
+      setOrder(prev => ({ ...prev, tracking_number: trackingInput.trim() }))
+      setTrackingInput('')
+      setFeedback('Numéro de suivi enregistré.')
+      onUpdated?.()
+    } catch {
+      setError('Impossible d\'enregistrer le numéro de suivi.')
+    } finally {
+      setSavingTracking(false)
     }
   }
 
@@ -290,6 +331,57 @@ function OrderModal({ orderId, onClose, onUpdated }) {
               >
                 <FileText size={13} /> Télécharger la facture PDF
               </button>
+            </div>
+
+            {/* Étiquette La Poste CH */}
+            <div className={s.actionBlock}>
+              <label className={s.infoLabel}>Étiquette d'expédition (La Poste CH)</label>
+              <div className={s.labelRow}>
+                <button
+                  className={s.btnLabel}
+                  onClick={handleGenerateLabel}
+                  disabled={generatingLabel}
+                >
+                  {generatingLabel
+                    ? <><RefreshCw size={13} className={s.spin} /> Génération…</>
+                    : <><Package size={13} /> Générer l'étiquette</>
+                  }
+                </button>
+                {order.label_url && (
+                  <button className={s.btnSecondary} onClick={handleDownloadLabel}>
+                    <Download size={13} /> Télécharger PDF
+                  </button>
+                )}
+              </div>
+              {order.tracking_number && (
+                <p className={s.trackingCurrent}>
+                  <Truck size={12} /> Suivi actuel : <strong>{order.tracking_number}</strong>
+                </p>
+              )}
+              <p className={s.noteHint}>Génère l'étiquette via La Poste CH et sauvegarde le numéro de suivi automatiquement.</p>
+            </div>
+
+            {/* Tracking manuel */}
+            <div className={s.actionBlock}>
+              <label className={s.infoLabel}>Numéro de suivi (saisie manuelle)</label>
+              <div className={s.trackingRow}>
+                <input
+                  type="text"
+                  className={s.trackingInput}
+                  placeholder="Ex : 99.00.123456.78901234"
+                  value={trackingInput}
+                  onChange={e => setTrackingInput(e.target.value.trim())}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveTracking()}
+                />
+                <button
+                  className={s.btnSave}
+                  onClick={handleSaveTracking}
+                  disabled={savingTracking || !trackingInput.trim()}
+                >
+                  {savingTracking ? <RefreshCw size={13} className={s.spin} /> : 'Enregistrer'}
+                </button>
+              </div>
+              <p className={s.noteHint}>À utiliser uniquement si la génération automatique a échoué.</p>
             </div>
 
           </div>

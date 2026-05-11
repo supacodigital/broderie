@@ -21,7 +21,7 @@ module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port:    parseInt(process.env.PORT || '3000', 10),
 
-  /* Informations boutique (ShipEngine, emails) */
+  /* Informations boutique (expédition, emails) */
   shopName:    process.env.SHOP_NAME    ?? 'Au Point-Compté',
   shopPhone:   process.env.SHOP_PHONE   ?? '+41000000000',
   shopAddress: process.env.SHOP_ADDRESS ?? 'Rue de la Boutique 1',
@@ -29,6 +29,9 @@ module.exports = {
   shopCanton:  process.env.SHOP_CANTON  ?? 'GE',
   shopZip:     process.env.SHOP_ZIP     ?? '1200',
 
-  /* ShipEngine */
-  shipengineCarrierId: process.env.SHIPENGINE_SWISS_POST_CARRIER_ID ?? '',
+  /* Swiss Post API (La Poste CH) — renseignés quand le client fournit les accès */
+  swissPostClientId:       process.env.SWISS_POST_CLIENT_ID       ?? null,
+  swissPostClientSecret:   process.env.SWISS_POST_CLIENT_SECRET   ?? null,
+  swissPostKundennummer:   process.env.SWISS_POST_KUNDENNUMMER    ?? null,
+  swissPostFrankiernummer: process.env.SWISS_POST_FRANKIERNUMMER  ?? null,
 }

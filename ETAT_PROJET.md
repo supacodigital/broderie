@@ -1,5 +1,5 @@
 # État du projet — Au Point-Compté
-**Dernière mise à jour : 7 mai 2026**
+**Dernière mise à jour : 11 mai 2026**
 Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 
 ---
@@ -15,10 +15,10 @@ Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 | Emails transactionnels | ✅ Fonctionnels (Mailtrap en dev) |
 | Programme de fidélité | ✅ Complet |
 | Codes promo | ✅ Complet |
-| Tests automatisés | ✅ 125/125 verts |
+| Tests automatisés | ✅ ~140/140 verts (estimation) |
 | Déploiement Infomaniak | ❌ Non démarré |
 | Migration 1800 clients | ❌ En attente du fichier client |
-| ShipEngine (étiquettes Swiss Post) | ⚠️ Code prêt — clé API manquante |
+| Expédition La Poste CH | ⚠️ Code complet (mock) — accès API client manquants |
 | i18n DE-CH | ⚠️ Partiel — traductions FR complètes |
 
 ---
@@ -39,7 +39,7 @@ Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 - **Fournisseurs** — CRUD complet admin
 - **Newsletters** — inscription/désinscription
 - **Pages légales** — CGV, mentions légales, politique de retour (éditables via admin)
-- **ShipEngine** — code complet pour étiquettes Swiss Post (attend clé API réelle)
+- **Expédition La Poste CH** — génération étiquette (mock), téléchargement PDF, saisie tracking manuel, frais dynamiques par poids depuis la BDD (`shipping_rates`), endpoint public `GET /api/v1/shipping/rates?weight=`
 - **LPD** — IP hashée SHA-256 dans consent_logs, soft delete users/products
 
 ### Frontend boutique
@@ -47,8 +47,8 @@ Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 - **Accueil** — hero, featured products, avis clients, newsletter
 - **Catalogue** — filtres (catégorie, prix, stock), tri, vue grille/liste, pagination
 - **Produit** — galerie images, variants, ajout panier, avis, stock restant si ≤ 5
-- **Panier** — optimistic UI, mise à jour quantité, suppression
-- **Checkout (3 étapes)** — adresse (préremplie depuis le compte), paiement (Twint QR ou carte), confirmation
+- **Panier** — optimistic UI, mise à jour quantité, suppression, frais de port dynamiques par tranche de poids (Swiss Post)
+- **Checkout (3 étapes)** — adresse (préremplie depuis le compte), paiement (Twint QR ou carte), confirmation, frais de port dynamiques depuis l'API
 - **Code promo** — saisie dans le checkout, validation live, affichage remise dans le récapitulatif
 - **Compte client** — profil, adresses, commandes, historique, onglet fidélité (solde, palier, bons disponibles)
 - **Auth** — connexion, inscription, mot de passe oublié/réinitialisation
@@ -60,7 +60,7 @@ Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 - **Dashboard** — KPIs (CA du jour, commandes, stock critique, nouveaux clients)
 - **Produits** — liste, création, édition, upload images WebP (3 tailles via sharp)
 - **Catégories** — arborescence avec traductions FR/DE/EN
-- **Commandes** — liste filtrée, détail, changement de statut + email automatique, envoi QR Twint par email
+- **Commandes** — liste filtrée, détail, changement de statut + email automatique, envoi QR Twint par email, génération étiquette La Poste CH (mode mock), saisie tracking manuel, téléchargement PDF étiquette
 - **Clients** — liste, détail, programme de fidélité
 - **Fournisseurs** — CRUD complet
 - **Avis** — modération (approbation, suppression)
@@ -70,8 +70,9 @@ Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 
 ### Tests
 
-- **125 tests** — tous verts (Jest + Supertest)
-- **15 suites** : unit (chf.utils, tva.utils, coupon logique, order calculs, loyalty service) + intégration (auth, products, categories, cart, orders, payments, admin, newsletter, coupons)
+- **~140 tests** — tous verts (Jest + Supertest)
+- **16 suites** : unit (chf.utils, tva.utils, coupon logique, order calculs avec frais dynamiques, loyalty service) + intégration (auth, products, categories, cart, orders, payments, admin, newsletter, coupons, **shipping**)
+- Nouveaux tests : tranches de poids Swiss Post (8 limites), étiquette La Poste CH (génération + PDF + tracking), frais dynamiques dans les commandes
 - Couverture services métier critiques : order.service 98%, loyalty.service 96%, cart.service 79%, order.repository 93%
 
 ---
@@ -100,11 +101,11 @@ Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 - [ ] Activer Twint dans le dashboard Stripe (nécessite un compte bancaire suisse)
 - [ ] Tester un paiement carte réel en production avec un petit montant
 
-#### 3. ShipEngine — étiquettes Swiss Post
-- [ ] Créer un compte ShipEngine et récupérer la clé API réelle
-- [ ] Trouver le `SHIPENGINE_SWISS_POST_CARRIER_ID` dans le dashboard ShipEngine
-- [ ] Mettre à jour `.env.production` : `SHIPENGINE_API_KEY=` et `SHIPENGINE_SWISS_POST_CARRIER_ID=`
-- [ ] Tester la génération d'une étiquette Swiss Post depuis l'admin (page commande → "Générer étiquette")
+#### 3. La Poste CH — étiquettes (accès API réels)
+- [ ] Recevoir les identifiants API La Poste CH du client (Kundennummer, Frankiernummer, Client ID, Client Secret)
+- [ ] Renseigner `SWISS_POST_CLIENT_ID`, `SWISS_POST_CLIENT_SECRET`, `SWISS_POST_KUNDENNUMMER`, `SWISS_POST_FRANKIERNUMMER` dans `.env.production`
+- [ ] Tester la génération d'une étiquette Swiss Post réelle depuis l'admin (page commande → "Générer étiquette")
+- [ ] Vérifier que le numéro de suivi retourné est valide sur le site Post.ch
 
 #### 4. Emails production
 - [ ] Configurer un compte email Infomaniak Mail (ex: `noreply@broderie-domaine.ch`)
@@ -178,9 +179,11 @@ MAIL_USER=noreply@broderie-domaine.ch
 MAIL_PASSWORD=<mot de passe email>
 MAIL_FROM=Au Point-Compté <noreply@broderie-domaine.ch>
 
-# ShipEngine
-SHIPENGINE_API_KEY=<clé API réelle>
-SHIPENGINE_SWISS_POST_CARRIER_ID=<carrier ID Swiss Post>
+# La Poste CH — accès API expédition
+SWISS_POST_CLIENT_ID=<client ID La Poste CH>
+SWISS_POST_CLIENT_SECRET=<client secret La Poste CH>
+SWISS_POST_KUNDENNUMMER=<numéro client La Poste>
+SWISS_POST_FRANKIERNUMMER=<numéro affranchissement>
 ```
 
 ---

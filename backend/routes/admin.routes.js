@@ -11,9 +11,10 @@ const customerController = require('../controllers/admin/customer.controller');
 const loyaltyAdminController = require('../controllers/admin/loyalty.controller');
 const productAdminController = require('../controllers/admin/product.controller');
 const categoryAdminController = require('../controllers/admin/category.controller');
-const couponController       = require('../controllers/admin/coupon.controller');
+const couponController          = require('../controllers/admin/coupon.controller');
 const newsletterAdminController = require('../controllers/admin/newsletter.controller');
-const settingsController = require('../controllers/admin/settings.controller');
+const settingsController        = require('../controllers/admin/settings.controller');
+const shippingAdminController   = require('../controllers/admin/shipping.controller');
 const { upload } = require('../middlewares/upload');
 
 // Toutes les routes admin nécessitent auth + rôle admin ou super_admin
@@ -53,6 +54,11 @@ router.get('/orders', adminOrderController.getAll);
 router.get('/orders/:id', adminOrderController.getById);
 router.put('/orders/:id/status', adminOrderController.updateStatus);
 router.get('/orders/:id/invoice', adminOrderController.downloadInvoice);
+
+// Expédition — étiquette La Poste CH + tracking manuel
+router.post('/orders/:id/label',    shippingAdminController.generateLabel);
+router.get('/orders/:id/label',     shippingAdminController.downloadLabel);
+router.put('/orders/:id/tracking',  shippingAdminController.updateTracking);
 
 // Avis clients
 router.get('/reviews', reviewController.getAll);

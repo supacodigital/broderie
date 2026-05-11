@@ -13,7 +13,7 @@
     "cartItems_other": "Panier — {{count}} articles"
   },
   "banner": {
-    "shipping": "Livraison rapide 1–2 jours · CHF 8.50 en Suisse",
+    "shipping": "Livraison rapide en Suisse via La Poste",
     "newKits": "Nouveaux kits printemps disponibles",
     "twint": "Paiement par Twint accepté"
   },
@@ -158,8 +158,7 @@
     "qty": "Qté",
     "price": "Prix",
     "subtotal": "Sous-total",
-    "shipping": "Livraison (Post CH)",
-    "shippingValue": "CHF 8.50",
+    "shipping": "Livraison",
     "taxLine": "TVA 8.1% incluse",
     "total": "Total à payer",
     "paymentMethod": "Mode de paiement",
@@ -205,7 +204,6 @@
     "summary": "Récapitulatif",
     "subtotal": "Sous-total",
     "shipping": "Frais de livraison",
-    "shippingValue": "CHF 8.50",
     "tax": "TVA 8.1% incluse",
     "total": "Total",
     "checkout": "Passer la commande",

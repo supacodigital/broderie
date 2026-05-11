@@ -1,30 +1,14 @@
-const orderRepository    = require('../repositories/order.repository');
-const cartRepository     = require('../repositories/cart.repository');
-const userRepository     = require('../repositories/user.repository');
-const paymentRepository  = require('../repositories/payment.repository');
-const couponRepository   = require('../repositories/coupon.repository');
-const settingsRepository = require('../repositories/settings.repository');
-const { AppError }       = require('../middlewares/errorHandler');
-const { roundCHF }       = require('../utils/chf.utils');
-const emailService       = require('./email.service');
+const orderRepository   = require('../repositories/order.repository');
+const cartRepository    = require('../repositories/cart.repository');
+const userRepository    = require('../repositories/user.repository');
+const paymentRepository = require('../repositories/payment.repository');
+const couponRepository  = require('../repositories/coupon.repository');
+const { AppError }      = require('../middlewares/errorHandler');
+const { roundCHF }      = require('../utils/chf.utils');
+const { getShippingCost } = require('../utils/shipping.utils');
+const emailService      = require('./email.service');
 
 const VALID_METHODS = ['twint', 'card', 'invoice'];
-
-// Frais de port par défaut — remplacés par les taux DB si disponibles
-const DEFAULT_SHIPPING_COST = 8.50;
-
-const getShippingCost = async (weightKg = 0) => {
-  try {
-    const rates = await settingsRepository.findAllShippingRates();
-    if (!rates || rates.length === 0) return DEFAULT_SHIPPING_COST;
-    const matched = rates.find(
-      r => weightKg >= parseFloat(r.min_weight) && weightKg <= parseFloat(r.max_weight)
-    );
-    return matched ? roundCHF(parseFloat(matched.price_chf)) : roundCHF(parseFloat(rates[0].price_chf));
-  } catch {
-    return DEFAULT_SHIPPING_COST;
-  }
-};
 
 const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponCode = null, address = null }) => {
   if (!VALID_METHODS.includes(paymentMethod)) {

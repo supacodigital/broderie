@@ -13,7 +13,7 @@
     "cartItems_other": "Warenkorb — {{count}} Artikel"
   },
   "banner": {
-    "shipping": "Schnelle Lieferung 1–2 Tage · CHF 8.50 in der Schweiz",
+    "shipping": "Schnelle Lieferung in der Schweiz via Post CH",
     "newKits": "Neue Frühlings-Sets verfügbar",
     "twint": "Zahlung per Twint akzeptiert"
   },
@@ -158,8 +158,7 @@
     "qty": "Menge",
     "price": "Preis",
     "subtotal": "Zwischensumme",
-    "shipping": "Versand (Post CH)",
-    "shippingValue": "CHF 8.50",
+    "shipping": "Versand",
     "taxLine": "MwSt. 8.1% inkl.",
     "total": "Gesamtbetrag",
     "paymentMethod": "Zahlungsmethode",
@@ -205,7 +204,6 @@
     "summary": "Zusammenfassung",
     "subtotal": "Zwischensumme",
     "shipping": "Versandkosten",
-    "shippingValue": "CHF 8.50",
     "tax": "MwSt. 8.1% inkl.",
     "total": "Gesamtsumme",
     "checkout": "Zur Kasse",
