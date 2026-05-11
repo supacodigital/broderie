@@ -1,14 +1,41 @@
+const { z }              = require('zod');
 const authService        = require('../services/auth.service');
 const { AppError }       = require('../middlewares/errorHandler');
+const env                = require('../config/env');
+
+const LOCALES = ['fr', 'de', 'en'];
+
+const registerSchema = z.object({
+  email:     z.string().email(),
+  password:  z.string().min(8).max(128),
+  firstName: z.string().min(1).max(100),
+  lastName:  z.string().min(1).max(100),
+  locale:    z.enum(LOCALES).optional().default('fr'),
+});
+
+const loginSchema = z.object({
+  email:    z.string().email(),
+  password: z.string().min(1).max(128),
+});
+
+const forgotSchema = z.object({
+  email: z.string().email(),
+});
+
+const resetSchema = z.object({
+  token:    z.string().min(1),
+  password: z.string().min(8).max(128),
+});
 
 const register = async (req, res, next) => {
   try {
-    const { email, password, firstName, lastName, locale } = req.body;
-
-    if (!email || !password || !firstName || !lastName) {
-      return next(new AppError('Champs obligatoires manquants : email, password, firstName, lastName.', 400));
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const errors = parsed.error.errors.map(e => ({ field: e.path[0], message: e.message }));
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors });
     }
 
+    const { email, password, firstName, lastName, locale } = parsed.data;
     const { user, accessToken, refreshToken } = await authService.register({
       email, password, firstName, lastName, locale,
     });
@@ -36,7 +63,12 @@ const register = async (req, res, next) => {
 
 const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Email ou mot de passe invalide.' });
+    }
+
+    const { email, password } = parsed.data;
     const { user, accessToken, refreshToken } = await authService.login({ email, password });
 
     res.cookie('refreshToken', refreshToken, authService.refreshCookieOptions());
@@ -61,7 +93,6 @@ const login = async (req, res, next) => {
 };
 
 const logout = async (req, res) => {
-  const env = require('../config/env');
   res.clearCookie('refreshToken', {
     httpOnly: true,
     secure: env.nodeEnv === 'production',
@@ -100,11 +131,13 @@ const refreshToken = async (req, res, next) => {
 
 const forgotPassword = async (req, res, next) => {
   try {
-    const { email } = req.body;
-    if (!email) return next(new AppError('Email requis.', 400));
+    const parsed = forgotSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Email invalide.' });
+    }
 
     // Toujours répondre 200 — anti-énumération d'emails
-    await authService.forgotPassword(email);
+    await authService.forgotPassword(parsed.data.email);
     res.json({ success: true, message: 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.' });
   } catch (error) {
     next(error);
@@ -113,11 +146,12 @@ const forgotPassword = async (req, res, next) => {
 
 const resetPassword = async (req, res, next) => {
   try {
-    const { token, password } = req.body;
-    if (!token || !password) {
-      return next(new AppError('Token et mot de passe requis.', 400));
+    const parsed = resetSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const errors = parsed.error.errors.map(e => ({ field: e.path[0], message: e.message }));
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors });
     }
-    await authService.resetPassword(token, password);
+    await authService.resetPassword(parsed.data.token, parsed.data.password);
     res.json({ success: true, message: 'Mot de passe réinitialisé avec succès.' });
   } catch (error) {
     next(error);

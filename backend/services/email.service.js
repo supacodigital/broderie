@@ -9,6 +9,17 @@ const BASE_URL = env.clientUrl   || 'https://broderie-domaine.ch';
 // Helpers communs
 // ─────────────────────────────────────────────
 
+// Échappe les caractères HTML — obligatoire avant toute interpolation de données utilisateur dans un template email
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 // Mise en page HTML commune à tous les emails
 function layout(content, locale = 'fr') {
   const footerText = {
@@ -85,7 +96,7 @@ function orderItemRow(item) {
   const snap   = typeof item.product_snapshot_json === 'string'
     ? JSON.parse(item.product_snapshot_json)
     : (item.product_snapshot_json ?? {});
-  const name   = snap.name ?? `Produit #${item.product_id}`;
+  const name   = escapeHtml(snap.name ?? `Produit #${item.product_id}`);
   const price  = roundCHF(parseFloat(item.unit_price) * item.quantity);
   return `<tr>
     <td style="padding:8px 0;border-bottom:1px solid #fbcfe8;font-size:13px;color:#1E1020;">
@@ -101,7 +112,8 @@ function orderItemRow(item) {
 // 1. Email de bienvenue — après inscription
 // ─────────────────────────────────────────────
 async function sendWelcome({ user }) {
-  const locale = user.locale ?? 'fr';
+  const locale    = user.locale ?? 'fr';
+  const firstName = escapeHtml(user.first_name);
 
   const subjects = {
     fr: 'Bienvenue chez Au Point-Compté 🧵',
@@ -111,7 +123,7 @@ async function sendWelcome({ user }) {
 
   const bodies = {
     fr: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-           Bienvenue, ${user.first_name} !
+           Bienvenue, ${firstName} !
          </h1>
          <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
            Votre compte Au Point-Compté est créé. Découvrez notre catalogue de broderies suisses
@@ -123,7 +135,7 @@ async function sendWelcome({ user }) {
          </p>
          ${btn(`${BASE_URL}/catalogue`, 'Découvrir la boutique')}`,
     de: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-           Willkommen, ${user.first_name}!
+           Willkommen, ${firstName}!
          </h1>
          <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
            Ihr Au Point-Compté Konto wurde erstellt. Entdecken Sie unsere Kollektion
@@ -131,7 +143,7 @@ async function sendWelcome({ user }) {
          </p>
          ${btn(`${BASE_URL}/catalogue`, 'Zum Shop')}`,
     en: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-           Welcome, ${user.first_name}!
+           Welcome, ${firstName}!
          </h1>
          <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
            Your Au Point-Compté account is ready. Explore our Swiss embroidery collection
@@ -152,12 +164,14 @@ async function sendWelcome({ user }) {
 // 2. Confirmation de commande
 // ─────────────────────────────────────────────
 async function sendOrderConfirmation({ user, order }) {
-  const locale = user.locale ?? 'fr';
+  const locale    = user.locale ?? 'fr';
+  const firstName = escapeHtml(user.first_name);
+  const orderId   = parseInt(order.id, 10);
 
   const subjects = {
-    fr: `Confirmation de votre commande #${order.id} — Au Point-Compté`,
-    de: `Bestellbestätigung #${order.id} — Au Point-Compté`,
-    en: `Order confirmation #${order.id} — Au Point-Compté`,
+    fr: `Confirmation de votre commande #${orderId} — Au Point-Compté`,
+    de: `Bestellbestätigung #${orderId} — Au Point-Compté`,
+    en: `Order confirmation #${orderId} — Au Point-Compté`,
   };
 
   const itemsHtml = (order.items ?? []).map(orderItemRow).join('');
@@ -183,17 +197,17 @@ VAT included|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n'),
   }).join('');
 
   const titles = {
-    fr: `Merci pour votre commande, ${user.first_name} !`,
-    de: `Vielen Dank für Ihre Bestellung, ${user.first_name}!`,
-    en: `Thank you for your order, ${user.first_name}!`,
+    fr: `Merci pour votre commande, ${firstName} !`,
+    de: `Vielen Dank für Ihre Bestellung, ${firstName}!`,
+    en: `Thank you for your order, ${firstName}!`,
   };
 
   const intros = {
-    fr: `Nous avons bien reçu votre commande <strong>#${order.id}</strong>.
+    fr: `Nous avons bien reçu votre commande <strong>#${orderId}</strong>.
          Vous serez notifié(e) dès l'expédition avec votre numéro de suivi Post CH.`,
-    de: `Wir haben Ihre Bestellung <strong>#${order.id}</strong> erhalten.
+    de: `Wir haben Ihre Bestellung <strong>#${orderId}</strong> erhalten.
          Sie werden benachrichtigt, sobald das Paket versendet wird.`,
-    en: `We have received your order <strong>#${order.id}</strong>.
+    en: `We have received your order <strong>#${orderId}</strong>.
          You will be notified as soon as it ships with your Post CH tracking number.`,
   };
 
@@ -251,26 +265,30 @@ VAT included|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n'),
 // 3. Notification d'expédition
 // ─────────────────────────────────────────────
 async function sendOrderShipped({ user, order, trackingNumber }) {
-  const locale = user.locale ?? 'fr';
+  const locale          = user.locale ?? 'fr';
+  const firstName       = escapeHtml(user.first_name);
+  const orderId         = parseInt(order.id, 10);
+  const safeTracking    = escapeHtml(trackingNumber);
+  const trackUrl = `https://www.post.ch/fr/outils/suivi-de-colis?track=${encodeURIComponent(trackingNumber)}`;
 
   const subjects = {
-    fr: `Votre commande #${order.id} est en route ! 📦`,
-    de: `Ihre Bestellung #${order.id} ist unterwegs! 📦`,
-    en: `Your order #${order.id} has shipped! 📦`,
+    fr: `Votre commande #${orderId} est en route ! 📦`,
+    de: `Ihre Bestellung #${orderId} ist unterwegs! 📦`,
+    en: `Your order #${orderId} has shipped! 📦`,
   };
 
   const titles = {
-    fr: `Votre colis est parti, ${user.first_name} !`,
-    de: `Ihr Paket ist unterwegs, ${user.first_name}!`,
-    en: `Your parcel is on its way, ${user.first_name}!`,
+    fr: `Votre colis est parti, ${firstName} !`,
+    de: `Ihr Paket ist unterwegs, ${firstName}!`,
+    en: `Your parcel is on its way, ${firstName}!`,
   };
 
   const intros = {
-    fr: `Votre commande <strong>#${order.id}</strong> a été expédiée aujourd'hui via La Poste Suisse.
+    fr: `Votre commande <strong>#${orderId}</strong> a été expédiée aujourd'hui via La Poste Suisse.
          Votre numéro de suivi :`,
-    de: `Ihre Bestellung <strong>#${order.id}</strong> wurde heute über Die Schweizer Post versandt.
+    de: `Ihre Bestellung <strong>#${orderId}</strong> wurde heute über Die Schweizer Post versandt.
          Ihre Sendungsnummer:`,
-    en: `Your order <strong>#${order.id}</strong> has been shipped today via Swiss Post.
+    en: `Your order <strong>#${orderId}</strong> has been shipped today via Swiss Post.
          Your tracking number:`,
   };
 
@@ -286,8 +304,6 @@ async function sendOrderShipped({ user, order, trackingNumber }) {
     en: 'Estimated delivery: 1–2 business days in Switzerland.',
   };
 
-  const trackUrl = `https://www.post.ch/fr/outils/suivi-de-colis?track=${trackingNumber}`;
-
   const body = `
     <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
       ${titles[locale] ?? titles.fr}
@@ -296,7 +312,7 @@ async function sendOrderShipped({ user, order, trackingNumber }) {
       ${intros[locale] ?? intros.fr}
     </p>
     <div style="background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:16px 24px;display:inline-block;font-size:18px;font-weight:700;color:#DB2777;letter-spacing:.08em;font-family:monospace;">
-      ${trackingNumber}
+      ${safeTracking}
     </div>
     <p style="margin:16px 0 0;font-size:13px;color:#9D6480;">
       ${deliveryNotes[locale] ?? deliveryNotes.fr}
@@ -433,8 +449,9 @@ async function sendOrderStatusUpdate({ user, order, newStatus }) {
 // 6. Email de bienvenue migration (clients importés)
 // ─────────────────────────────────────────────
 async function sendMigrationWelcome({ user, resetToken }) {
-  const locale = user.locale ?? 'fr';
-  const resetUrl = `${BASE_URL}/reinitialiser-mot-de-passe?token=${resetToken}`;
+  const locale    = user.locale ?? 'fr';
+  const firstName = escapeHtml(user.first_name);
+  const resetUrl  = `${BASE_URL}/reinitialiser-mot-de-passe?token=${resetToken}`;
 
   const subjects = {
     fr: 'Votre compte Au Point-Compté est prêt — choisissez votre mot de passe',
@@ -444,7 +461,7 @@ async function sendMigrationWelcome({ user, resetToken }) {
 
   const body = `
     <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-      Bonjour ${user.first_name},
+      Bonjour ${firstName},
     </h1>
     <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
       Votre compte a été transféré sur notre nouveau site. Votre email et votre historique

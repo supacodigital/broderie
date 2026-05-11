@@ -1,10 +1,40 @@
+const { z }                  = require('zod');
 const productAdminRepository = require('../../repositories/product.admin.repository');
-const { processImage } = require('../../config/sharp');
+const { processImage }       = require('../../config/sharp');
 const { invalidateProducts } = require('../../config/cache');
-const { AppError } = require('../../middlewares/errorHandler');
-const { normalizeLocale } = require('../../utils/locale.utils');
+const { AppError }           = require('../../middlewares/errorHandler');
+const { normalizeLocale }    = require('../../utils/locale.utils');
 
 const ALLOWED_SORT_FIELDS = ['created_at', 'price_chf', 'name', 'stock'];
+
+const translationSchema = z.object({
+  name:        z.string().min(1).max(255),
+  description: z.string().max(10000).optional().nullable(),
+  slug:        z.string().max(255).optional().nullable(),
+});
+
+const productBodySchema = z.object({
+  categoryId:      z.number().int().positive(),
+  supplierId:      z.number().int().positive().optional().nullable(),
+  slug:            z.string().min(1).max(255),
+  priceChf:        z.number().positive().max(99999),
+  comparePriceChf: z.number().positive().max(99999).optional().nullable(),
+  taxRateId:       z.number().int().positive(),
+  sku:             z.string().max(100).optional().nullable(),
+  stock:           z.number().int().min(0).optional().default(0),
+  weightKg:        z.number().positive().max(999).optional().nullable(),
+  isFeatured:      z.boolean().optional().default(false),
+  badge:           z.string().max(50).optional().nullable(),
+  translations: z.object({
+    fr: translationSchema,
+    de: translationSchema.optional(),
+    en: translationSchema.optional(),
+  }),
+});
+
+const productUpdateSchema = productBodySchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
 
 const getAll = async (req, res, next) => {
   try {
@@ -53,15 +83,13 @@ const getById = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, badge, translations } = req.body;
-
-    if (!categoryId || !slug || !priceChf || !taxRateId) {
-      return next(new AppError('Champs obligatoires manquants : categoryId, slug, priceChf, taxRateId.', 400));
-    }
-    if (!translations?.fr?.name) {
-      return next(new AppError('La traduction française (translations.fr.name) est obligatoire.', 400));
+    const parsed = productBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      const errors = parsed.error.errors.map(e => ({ field: e.path.join('.'), message: e.message }));
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors });
     }
 
+    const { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, badge, translations } = parsed.data;
     const productId = await productAdminRepository.create({
       categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, badge, translations,
     });
@@ -76,9 +104,16 @@ const create = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id);
-    const { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, isActive, badge, translations } = req.body;
+    const id = parseInt(req.params.id, 10);
+    if (!id || id < 1) return next(new AppError('ID produit invalide.', 400));
 
+    const parsed = productUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const errors = parsed.error.errors.map(e => ({ field: e.path.join('.'), message: e.message }));
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors });
+    }
+
+    const { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, isActive, badge, translations } = parsed.data;
     await productAdminRepository.update(id, {
       categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, isActive, badge, translations,
     });

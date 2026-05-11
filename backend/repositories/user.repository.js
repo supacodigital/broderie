@@ -132,6 +132,15 @@ const deleteAddress = async (addressId, userId) => {
   }
 };
 
+// Recherche un utilisateur par id avec son hash de mot de passe — usage interne uniquement (changePassword)
+const findByIdWithPassword = async (id) => {
+  const [rows] = await pool.execute(
+    `SELECT id, email, password_hash FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+    [id]
+  );
+  return rows[0] || null;
+};
+
 // Sauvegarde d'un token de réinitialisation de mot de passe (hachage SHA-256, expiration 1h)
 const saveResetToken = async (userId, tokenHash, expiresAt) => {
   await pool.execute(
@@ -162,7 +171,7 @@ const updatePassword = async (userId, passwordHash) => {
 };
 
 module.exports = {
-  findByEmail, findById, create, emailExists, update,
+  findByEmail, findById, findByIdWithPassword, create, emailExists, update,
   findAddresses, createAddress, updateAddress, deleteAddress,
   saveResetToken, findByResetToken, updatePassword,
 };

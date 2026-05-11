@@ -92,7 +92,7 @@ const changePassword = async (req, res, next) => {
       return next(new AppError('Le nouveau mot de passe doit contenir au moins 8 caractères.', 400));
     }
 
-    const user = await userRepository.findById(req.user.id);
+    const user = await userRepository.findByIdWithPassword(req.user.id);
     if (!user) return next(new AppError('Utilisateur introuvable.', 404));
 
     const valid = await bcrypt.compare(current_password, user.password_hash);

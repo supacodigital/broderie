@@ -1,7 +1,20 @@
+const { z }          = require('zod');
 const cartService    = require('../services/cart.service');
 const cartRepository = require('../repositories/cart.repository');
 const { v4: uuidv4 } = require('uuid');
 const env            = require('../config/env');
+
+const addItemSchema = z.object({
+  product_id: z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number)]).optional(),
+  productId:  z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number)]).optional(),
+  variant_id: z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number)]).optional().nullable(),
+  variantId:  z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number)]).optional().nullable(),
+  quantity:   z.number().int().min(1).max(999).optional().default(1),
+}).refine(d => d.product_id != null || d.productId != null, { message: 'product_id requis.' });
+
+const updateItemSchema = z.object({
+  quantity: z.number().int().min(1).max(999),
+});
 
 const CART_COOKIE_OPTS = {
   httpOnly: true,
@@ -48,10 +61,15 @@ const getCart = async (req, res, next) => {
 
 const addItem = async (req, res, next) => {
   try {
+    const parsed = addItemSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const errors = parsed.error.errors.map(e => ({ field: e.path[0], message: e.message }));
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors });
+    }
     const { userId, sessionId } = await resolveIdentifiers(req, res);
-    const { product_id, productId: pid, variant_id, variantId: vid, quantity = 1 } = req.body;
-    const productId = product_id ?? pid;
-    const variantId = variant_id ?? vid ?? null;
+    const productId = parsed.data.product_id ?? parsed.data.productId;
+    const variantId = parsed.data.variant_id ?? parsed.data.variantId ?? null;
+    const { quantity } = parsed.data;
     const cart = await cartService.addItem({ userId, sessionId, productId, variantId, quantity });
     res.json({ success: true, data: cart });
   } catch (error) {
@@ -61,10 +79,16 @@ const addItem = async (req, res, next) => {
 
 const updateItem = async (req, res, next) => {
   try {
+    const parsed = updateItemSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Quantité invalide (entier entre 1 et 999).' });
+    }
+    const itemId = parseInt(req.params.id, 10);
+    if (!itemId || itemId < 1) {
+      return res.status(400).json({ success: false, message: 'ID article invalide.' });
+    }
     const { userId, sessionId } = await resolveIdentifiers(req, res);
-    const itemId = parseInt(req.params.id);
-    const { quantity } = req.body;
-    const cart = await cartService.updateItem({ userId, sessionId, itemId, quantity });
+    const cart = await cartService.updateItem({ userId, sessionId, itemId, quantity: parsed.data.quantity });
     res.json({ success: true, data: cart });
   } catch (error) {
     next(error);

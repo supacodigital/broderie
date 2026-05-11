@@ -15,7 +15,8 @@ module.exports = {
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
 
   /* Emails */
-  mailFrom: process.env.MAIL_FROM,
+  mailFrom:    process.env.MAIL_FROM,
+  mailContact: process.env.MAIL_CONTACT ?? process.env.MAIL_FROM,
 
   /* Environnement */
   nodeEnv: process.env.NODE_ENV || 'development',
