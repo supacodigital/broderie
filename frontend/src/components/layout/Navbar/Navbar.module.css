@@ -163,6 +163,12 @@
   gap: 4px;
 }
 
+/* ── LANGUE — desktop uniquement ─────────────────────── */
+.langDesktop {
+  display: flex;
+  align-items: center;
+}
+
 /* ── BURGER — mobile uniquement ──────────────────────── */
 .burger {
   display: none;
@@ -399,6 +405,7 @@
   .navbar         { padding: 0 16px; height: 64px; }
   .links          { display: none; }
   .accountDesktop { display: none; }
+  .langDesktop    { display: none; }
   .burger         { display: flex; }
 
   /* Raccourcit le texte du logo sur petit écran */

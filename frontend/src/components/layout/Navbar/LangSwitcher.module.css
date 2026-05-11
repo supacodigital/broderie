@@ -1,0 +1,51 @@
+/* ── Variante navbar (desktop) ── */
+.wrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--rose-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.btn {
+  background: none;
+  border: none;
+  padding: 5px 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.btn + .btn {
+  border-left: 1px solid var(--rose-border);
+}
+
+.btn:hover {
+  color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.btnActive {
+  color: var(--rose);
+  background: var(--rose-pale);
+  font-weight: 700;
+}
+
+/* ── Variante mobile (menu plein écran) ── */
+.wrapMobile {
+  border-radius: 12px;
+  border: 1.5px solid var(--rose-border);
+  width: 100%;
+}
+
+.wrapMobile .btn {
+  flex: 1;
+  font-size: 13px;
+  padding: 12px 0;
+  text-align: center;
+}

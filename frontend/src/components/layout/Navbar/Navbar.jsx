@@ -5,6 +5,7 @@ import { ShoppingBag, Search, User, LogOut, Menu, X, ChevronRight } from 'lucide
 import { useAuth } from '../../../contexts/AuthContext.jsx'
 import { useCart } from '../../../contexts/CartContext.jsx'
 import NavSearch from './NavSearch.jsx'
+import LangSwitcher from './LangSwitcher.jsx'
 import s from './Navbar.module.css'
 
 export default function Navbar() {
@@ -88,6 +89,11 @@ export default function Navbar() {
 
         {/* Actions */}
         <div className={s.actions}>
+          {/* Sélecteur de langue — desktop */}
+          <div className={s.langDesktop}>
+            <LangSwitcher variant="navbar" />
+          </div>
+
           {/* Loupe — ouvre la recherche globale */}
           <button
             className={`${s.iconBtn} ${searchOpen ? s.iconBtnActive : ''}`}
@@ -165,6 +171,15 @@ export default function Navbar() {
 
         {/* Corps */}
         <div className={s.mobileBody}>
+          {/* Panier — CTA en haut */}
+          <Link to="/panier" className={s.mobileCartBtn} onClick={closeMenu}>
+            <span className={s.mobileCartLabel}>
+              <ShoppingBag size={16} style={{ verticalAlign: 'middle', marginRight: 8 }} />
+              {t('nav.cart')}
+            </span>
+            <span className={s.mobileCartCount}>{itemCount > 0 ? itemCount : '0'}</span>
+          </Link>
+
           {/* Navigation */}
           <p className={s.mobileSectionLabel}>Navigation</p>
 
@@ -236,14 +251,10 @@ export default function Navbar() {
             </NavLink>
           )}
 
-          {/* Panier — CTA en bas */}
-          <Link to="/panier" className={s.mobileCartBtn} onClick={closeMenu}>
-            <span className={s.mobileCartLabel}>
-              <ShoppingBag size={16} style={{ verticalAlign: 'middle', marginRight: 8 }} />
-              {t('nav.cart')}
-            </span>
-            <span className={s.mobileCartCount}>{itemCount > 0 ? itemCount : '0'}</span>
-          </Link>
+          {/* Langue */}
+          <div className={s.mobileDivider} aria-hidden="true" />
+          <p className={s.mobileSectionLabel}>Langue</p>
+          <LangSwitcher variant="mobile" />
         </div>
       </div>
     </>
