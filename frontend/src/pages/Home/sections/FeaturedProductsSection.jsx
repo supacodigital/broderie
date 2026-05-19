@@ -17,7 +17,7 @@ export default function FeaturedProductsSection() {
     let cancelled = false;
     getProducts({
       featured: true,
-      limit: 8,
+      limit: 5,
       locale: normalizeLocale(i18n.language),
     })
       .then((res) => {
@@ -44,21 +44,25 @@ export default function FeaturedProductsSection() {
         </div>
 
         {loading ? (
-          <div className={s.grid}>
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className={s.skeleton} aria-hidden="true" />
-            ))}
+          <div className={s.bento}>
+            <div className={`${s.skeleton} ${s.skeletonLarge}`} aria-hidden="true" />
+            <div className={s.skeleton} aria-hidden="true" />
+            <div className={s.skeleton} aria-hidden="true" />
+            <div className={s.skeleton} aria-hidden="true" />
+            <div className={s.skeleton} aria-hidden="true" />
           </div>
         ) : (
-          <div className={s.grid}>
+          <div className={s.bento}>
             {products.map((product, i) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                index={i}
-                wishlisted={wishlist.has(product.id)}
-                onWishlist={toggleWishlist}
-              />
+              <div key={product.id} className={i === 0 ? s.bentoLarge : s.bentoSmall}>
+                <ProductCard
+                  product={product}
+                  index={i}
+                  wishlisted={wishlist.has(product.id)}
+                  onWishlist={toggleWishlist}
+                  featured={i === 0}
+                />
+              </div>
             ))}
           </div>
         )}

@@ -1,0 +1,21 @@
+{
+  "name": "broderie-e2e",
+  "version": "1.0.0",
+  "description": "Tests End-to-End Playwright — Broderie E-Commerce CH",
+  "type": "module",
+  "scripts": {
+    "test":           "playwright test",
+    "test:frontend":  "playwright test --project=frontend",
+    "test:admin":     "playwright test --project=admin",
+    "test:auth":      "playwright test tests/auth.spec.js",
+    "test:catalogue": "playwright test tests/catalogue.spec.js",
+    "test:cart":      "playwright test tests/cart.spec.js",
+    "test:headed":    "playwright test --headed",
+    "test:debug":     "playwright test --debug",
+    "report":         "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "dotenv": "^17.4.2"
+  }
+}

@@ -63,7 +63,7 @@ const addItem = async (req, res, next) => {
   try {
     const parsed = addItemSchema.safeParse(req.body);
     if (!parsed.success) {
-      const errors = parsed.error.errors.map(e => ({ field: e.path[0], message: e.message }));
+      const errors = parsed.error.issues.map(e => ({ field: e.path[0], message: e.message }));
       return res.status(400).json({ success: false, message: 'Données invalides.', errors });
     }
     const { userId, sessionId } = await resolveIdentifiers(req, res);

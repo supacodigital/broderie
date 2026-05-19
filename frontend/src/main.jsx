@@ -19,6 +19,17 @@ document.head.appendChild(spinStyle)
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
 
+/* Logs de démarrage — visibles uniquement en développement */
+if (import.meta.env.DEV) {
+  const pkg = { version: import.meta.env.VITE_APP_VERSION ?? '(non définie)' }
+  console.groupCollapsed('%c🛍️  BRODERIE — Frontend démarré', 'color:#6366f1;font-weight:bold;font-size:13px')
+  console.log('%cEnv         %c' + import.meta.env.MODE,      'color:gray', 'color:#22c55e;font-weight:bold')
+  console.log('%cAPI URL     %c' + (import.meta.env.VITE_API_URL ?? '/api/v1'), 'color:gray', 'color:#38bdf8')
+  console.log('%cVersion     %c' + pkg.version,               'color:gray', 'color:#f59e0b')
+  console.log('%cGoogle Auth %c' + (GOOGLE_CLIENT_ID ? '✅ configuré' : '⚠️  VITE_GOOGLE_CLIENT_ID manquant'), 'color:gray', 'color:inherit')
+  console.groupEnd()
+}
+
 createRoot(document.getElementById('root')).render(
   <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <AuthProvider>

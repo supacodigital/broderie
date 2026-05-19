@@ -1,10 +1,10 @@
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useDebounceSearch } from '../../hooks/useDebounceSearch.js'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Edit2, Trash2,
   ImageOff, Upload, X, Star, AlertTriangle, Check,
-  SlidersHorizontal, RotateCcw,
+  SlidersHorizontal, RotateCcw, Layout, Eye, GripVertical, ChevronDown,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -26,6 +26,226 @@ import { useToast } from '../../contexts/ToastContext.jsx'
 import s from './Products.module.css'
 
 const LIMIT = 20
+const FEATURED_MAX = 5
+
+// ── Aperçu bento ──────────────────────────────────────────────────────────
+function BentoPreview({ products, onClose }) {
+  return (
+    <div className={s.previewOverlay} onClick={onClose}>
+      <div className={s.previewModal} onClick={e => e.stopPropagation()}>
+        <div className={s.previewHead}>
+          <span className={s.previewTitle}>Aperçu — Vitrine home</span>
+          <button className={s.previewClose} onClick={onClose} aria-label="Fermer"><X size={15} /></button>
+        </div>
+        <p className={s.previewSub}>Tel qu'il s'affichera sur la page d'accueil</p>
+        <div className={s.previewBento}>
+          {Array.from({ length: FEATURED_MAX }).map((_, i) => {
+            const p = products[i]
+            const isFirst = i === 0
+            return (
+              <div key={p?.id ?? `empty-${i}`} className={`${s.previewSlot} ${isFirst ? s.previewSlotLarge : ''}`}>
+                <div className={s.previewImg}>
+                  {p?.image_url
+                    ? <img src={p.image_url} alt={p.name} />
+                    : <ImageOff size={20} />
+                  }
+                </div>
+                {p ? (
+                  <div className={s.previewInfo}>
+                    <p className={s.previewName}>{p.name}</p>
+                    <p className={s.previewPrice}>CHF {Number(p.price_chf).toFixed(2)}</p>
+                  </div>
+                ) : (
+                  <p className={s.previewEmpty}>Slot vide</p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Recherche inline pour slot vide ──────────────────────────────────────
+function SlotSearch({ onAdd, onClose }) {
+  const [q, setQ]           = useState('')
+  const [results, setResults] = useState([])
+  const [loading, setLoading] = useState(false)
+  const inputRef              = useRef(null)
+
+  useEffect(() => { inputRef.current?.focus() }, [])
+
+  useEffect(() => {
+    if (q.length < 2) { setResults([]); return }
+    setLoading(true)
+    const timer = setTimeout(() => {
+      getProducts({ q, limit: 6, is_active: 'true' })
+        .then(res => setResults(res.data ?? []))
+        .catch(() => setResults([]))
+        .finally(() => setLoading(false))
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [q])
+
+  return (
+    <div className={s.slotSearch}>
+      <div className={s.slotSearchInput}>
+        <Search size={12} className={s.slotSearchIcon} />
+        <input
+          ref={inputRef}
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="Rechercher un produit…"
+          className={s.slotSearchField}
+        />
+        <button onClick={onClose} className={s.slotSearchClose}><X size={12} /></button>
+      </div>
+      {loading && <p className={s.slotSearchLoading}>Recherche…</p>}
+      {!loading && results.length > 0 && (
+        <ul className={s.slotSearchResults}>
+          {results.map(p => (
+            <li key={p.id}>
+              <button className={s.slotSearchResult} onClick={() => onAdd(p)}>
+                <div className={s.slotSearchThumb}>
+                  {p.image_url
+                    ? <img src={p.image_url} alt={p.name} />
+                    : <ImageOff size={10} />
+                  }
+                </div>
+                <span className={s.slotSearchName}>{p.name}</span>
+                <span className={s.slotSearchPrice}>CHF {Number(p.price_chf).toFixed(2)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!loading && q.length >= 2 && results.length === 0 && (
+        <p className={s.slotSearchEmpty}>Aucun résultat</p>
+      )}
+    </div>
+  )
+}
+
+// ── Bande vitrine home ─────────────────────────────────────────────────────
+function FeaturedSlots({ featuredProducts, onEdit, onRemove, onAdd, onReorder }) {
+  const count              = featuredProducts.length
+  const [open, setOpen]         = useState(true)
+  const [preview, setPreview]   = useState(false)
+  const [activeSearch, setActiveSearch] = useState(null) // index du slot ouvert
+  const dragIdx            = useRef(null)
+  const [dragOver, setDragOver] = useState(null)
+
+  const handleDragStart = (i) => { dragIdx.current = i }
+  const handleDragOver  = (e, i) => { e.preventDefault(); setDragOver(i) }
+  const handleDrop      = (i) => {
+    if (dragIdx.current === null || dragIdx.current === i) { setDragOver(null); return }
+    const reordered = [...featuredProducts]
+    const [moved]   = reordered.splice(dragIdx.current, 1)
+    reordered.splice(i, 0, moved)
+    onReorder(reordered)
+    dragIdx.current = null
+    setDragOver(null)
+  }
+  const handleDragEnd = () => { dragIdx.current = null; setDragOver(null) }
+
+  return (
+    <>
+      {preview && <BentoPreview products={featuredProducts} onClose={() => setPreview(false)} />}
+      <div className={s.featuredBar}>
+        <button className={s.featuredBarHead} onClick={() => setOpen(v => !v)} aria-expanded={open}>
+          <Layout size={14} className={s.featuredBarIcon} />
+          <span className={s.featuredBarTitle}>Vitrine home — bento grid</span>
+          <span className={`${s.featuredBarCount} ${count >= FEATURED_MAX ? s.featuredBarCountFull : ''}`}>
+            {count} / {FEATURED_MAX}
+          </span>
+          {count > FEATURED_MAX && (
+            <span className={s.featuredBarWarn}>
+              <AlertTriangle size={12} /> {count - FEATURED_MAX} de trop
+            </span>
+          )}
+          <ChevronDown size={15} className={`${s.featuredBarChevron} ${open ? s.featuredBarChevronOpen : ''}`} />
+        </button>
+
+        {open && (
+          <>
+          <div className={s.featuredBarActions}>
+            <button className={s.previewBtn} onClick={e => { e.stopPropagation(); setPreview(true) }}>
+              <Eye size={13} /> Aperçu
+            </button>
+          </div>
+          <div className={s.featuredSlots}>
+          {Array.from({ length: FEATURED_MAX }).map((_, i) => {
+            const product = featuredProducts[i]
+            const isFirst = i === 0
+            const isDragTarget = dragOver === i
+
+            if (product) {
+              return (
+                <div
+                  key={product.id}
+                  className={`${s.featuredSlot} ${isFirst ? s.featuredSlotLarge : ''} ${isDragTarget ? s.featuredSlotDragOver : ''}`}
+                  draggable
+                  onDragStart={() => handleDragStart(i)}
+                  onDragOver={e => handleDragOver(e, i)}
+                  onDrop={() => handleDrop(i)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className={s.featuredSlotDragHandle} title="Glisser pour réordonner">
+                    <GripVertical size={12} />
+                  </div>
+                  {isFirst && <span className={s.featuredSlotLabel}>Grande carte</span>}
+                  <div className={s.featuredSlotImg}>
+                    {product.image_url
+                      ? <img src={product.image_url} alt={product.name} />
+                      : <ImageOff size={16} />
+                    }
+                  </div>
+                  <p className={s.featuredSlotName}>{product.name}</p>
+                  <p className={s.featuredSlotPrice}>{product.price_chf ? `CHF ${Number(product.price_chf).toFixed(2)}` : ''}</p>
+                  <div className={s.featuredSlotActions}>
+                    <button className={s.featuredSlotEdit} onClick={() => onEdit(product)} title="Modifier">
+                      <Edit2 size={11} />
+                    </button>
+                    <button className={s.featuredSlotRemove} onClick={() => onRemove(product)} title="Retirer de la home">
+                      <X size={11} />
+                    </button>
+                  </div>
+                </div>
+              )
+            }
+
+            /* Slot vide */
+            return (
+              <div
+                key={`empty-${i}`}
+                className={`${s.featuredSlot} ${s.featuredSlotEmpty} ${isFirst ? s.featuredSlotLarge : ''} ${isDragTarget ? s.featuredSlotDragOver : ''}`}
+                onDragOver={e => handleDragOver(e, i)}
+                onDrop={() => handleDrop(i)}
+              >
+                {isFirst && <span className={s.featuredSlotLabel}>Grande carte</span>}
+                {activeSearch === i ? (
+                  <SlotSearch
+                    onAdd={(p) => { onAdd(p); setActiveSearch(null) }}
+                    onClose={() => setActiveSearch(null)}
+                  />
+                ) : (
+                  <button className={s.featuredSlotAddBtn} onClick={() => setActiveSearch(i)}>
+                    <Plus size={16} />
+                    <span>Ajouter</span>
+                  </button>
+                )}
+              </div>
+            )
+          })}
+          </div>
+          <p className={s.featuredBarHint}>Glissez les cartes pour changer l'ordre · Le slot 1 s'affiche en grande carte</p>
+          </>
+        )}
+      </div>
+    </>
+  )
+}
 
 const schema = z.object({
   name:             z.string().min(1, 'Nom requis'),
@@ -552,6 +772,69 @@ export default function Products() {
   const [refreshTick, setRefreshTick] = useState(0)
   const load = () => setRefreshTick(t => t + 1)
 
+  const [featuredProducts, setFeaturedProducts] = useState([])
+
+  /* Charge les produits featured pour la bande vitrine */
+  const loadFeatured = useCallback(() => {
+    getProducts({ is_featured: 'true', limit: 10, sort: 'created_at', order: 'asc' })
+      .then(res => setFeaturedProducts(res.data ?? []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => { loadFeatured() }, [loadFeatured])
+
+  /* Construit le payload complet à partir d'un produit existant pour le PATCH featured */
+  const buildFeaturedPayload = useCallback(async (product, isFeatured) => {
+    const full = await getProductById(product.id)
+    return {
+      categoryId:      full.category_id,
+      supplierId:      full.supplier_id ?? null,
+      taxRateId:       full.tax_rate_id,
+      priceChf:        Number(full.price_chf),
+      comparePriceChf: full.compare_price_chf ? Number(full.compare_price_chf) : null,
+      sku:             full.sku ?? null,
+      stock:           full.stock ?? 0,
+      weightKg:        full.weight_kg ? Number(full.weight_kg) : null,
+      isFeatured,
+      isActive:        !!full.is_active,
+      badge:           full.badge ?? null,
+      translations: {
+        fr: { name: full.name, description: full.description_fr ?? '' },
+        ...(full.translations?.de?.name ? { de: { name: full.translations.de.name, description: full.translations.de.description ?? '' } } : {}),
+        ...(full.translations?.en?.name ? { en: { name: full.translations.en.name, description: full.translations.en.description ?? '' } } : {}),
+      },
+    }
+  }, [])
+
+  const handleRemoveFeatured = useCallback(async (product) => {
+    try {
+      const payload = await buildFeaturedPayload(product, false)
+      await updateProduct(product.id, payload)
+      loadFeatured()
+      load()
+      toast.success(`"${product.name}" retiré de la vitrine.`)
+    } catch {
+      toast.error('Erreur lors de la mise à jour.')
+    }
+  }, [buildFeaturedPayload, loadFeatured, toast])
+
+  const handleAddFeatured = useCallback(async (product) => {
+    try {
+      const payload = await buildFeaturedPayload(product, true)
+      await updateProduct(product.id, payload)
+      loadFeatured()
+      load()
+      toast.success(`"${product.name}" ajouté à la vitrine.`)
+    } catch {
+      toast.error('Erreur lors de la mise à jour.')
+    }
+  }, [buildFeaturedPayload, loadFeatured, toast])
+
+  /* Réordonne localement (optimistic) — pas de colonne sort en DB, ordre visuel via state */
+  const handleReorderFeatured = useCallback((reordered) => {
+    setFeaturedProducts(reordered)
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     const run = async () => {
@@ -619,7 +902,7 @@ export default function Products() {
           suppliers={suppliers}
           taxRates={taxRates}
           onClose={() => setModal(null)}
-          onSaved={load}
+          onSaved={() => { load(); loadFeatured() }}
         />
       )}
 
@@ -776,6 +1059,14 @@ export default function Products() {
           </div>
         </div>
       )}
+
+      <FeaturedSlots
+        featuredProducts={featuredProducts}
+        onEdit={(product) => setModal(product)}
+        onRemove={handleRemoveFeatured}
+        onAdd={handleAddFeatured}
+        onReorder={handleReorderFeatured}
+      />
 
       {error && <ErrorBanner onRetry={load} />}
 

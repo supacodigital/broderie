@@ -32,8 +32,7 @@ describe('loyalty.service — processOrderEarning()', () => {
 
     await loyaltyService.processOrderEarning(1, 5, 150);
 
-    expect(loyaltyRepository.createReward).not.toHaveBeenCalled();
-    expect(loyaltyRepository.updateAccountTier).not.toHaveBeenCalled();
+    expect(loyaltyRepository.createRewardAndUpdateTier).not.toHaveBeenCalled();
   });
 
   test('génère une récompense quand le palier est atteint pour la première fois', async () => {
@@ -44,18 +43,16 @@ describe('loyalty.service — processOrderEarning()', () => {
       { id: 1, min_spend_chf: '200.00', reward_type: 'fixed', reward_value: '20.00', reward_validity_days: 90 },
     ]);
     loyaltyRepository.tierAlreadyRewarded.mockResolvedValue(false);
-    loyaltyRepository.createReward.mockResolvedValue();
-    loyaltyRepository.updateAccountTier.mockResolvedValue();
+    loyaltyRepository.createRewardAndUpdateTier.mockResolvedValue();
 
     await loyaltyService.processOrderEarning(1, 5, 220);
 
     expect(loyaltyRepository.tierAlreadyRewarded).toHaveBeenCalledWith(1, 1);
-    expect(loyaltyRepository.createReward).toHaveBeenCalledWith(1, 1, {
+    expect(loyaltyRepository.createRewardAndUpdateTier).toHaveBeenCalledWith(1, 1, {
       type: 'fixed',
       value: '20.00',
       validityDays: 90,
     });
-    expect(loyaltyRepository.updateAccountTier).toHaveBeenCalledWith(1, 1);
   });
 
   test('ne régénère pas de récompense si le palier a déjà été atteint', async () => {
@@ -69,7 +66,7 @@ describe('loyalty.service — processOrderEarning()', () => {
 
     await loyaltyService.processOrderEarning(1, 7, 350);
 
-    expect(loyaltyRepository.createReward).not.toHaveBeenCalled();
+    expect(loyaltyRepository.createRewardAndUpdateTier).not.toHaveBeenCalled();
   });
 
   test('gère plusieurs paliers et génère un bon par palier non encore atteint', async () => {
@@ -84,13 +81,12 @@ describe('loyalty.service — processOrderEarning()', () => {
     loyaltyRepository.tierAlreadyRewarded
       .mockResolvedValueOnce(true)  // palier 1
       .mockResolvedValueOnce(false); // palier 2
-    loyaltyRepository.createReward.mockResolvedValue();
-    loyaltyRepository.updateAccountTier.mockResolvedValue();
+    loyaltyRepository.createRewardAndUpdateTier.mockResolvedValue();
 
     await loyaltyService.processOrderEarning(1, 8, 600);
 
-    expect(loyaltyRepository.createReward).toHaveBeenCalledTimes(1);
-    expect(loyaltyRepository.createReward).toHaveBeenCalledWith(1, 2, expect.any(Object));
+    expect(loyaltyRepository.createRewardAndUpdateTier).toHaveBeenCalledTimes(1);
+    expect(loyaltyRepository.createRewardAndUpdateTier).toHaveBeenCalledWith(1, 2, expect.any(Object));
   });
 });
 

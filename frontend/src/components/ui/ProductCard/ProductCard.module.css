@@ -22,7 +22,8 @@
   transition: transform 0.5s ease;
 }
 
-.card:hover .image { transform: scale(1.05); }
+.card:hover .image,
+.cardFeatured:hover .image { transform: scale(1.05); }
 
 .imageFallback {
   width: 100%;
@@ -34,7 +35,8 @@
   transition: transform 0.5s ease;
 }
 
-.card:hover .imageFallback { transform: scale(1.05); }
+.card:hover .imageFallback,
+.cardFeatured:hover .imageFallback { transform: scale(1.05); }
 
 /* ── Badges ── */
 .badge {
@@ -100,7 +102,8 @@
   z-index: 1;
 }
 
-.card:hover .wishlistBtn { opacity: 1; transform: translateY(0); }
+.card:hover .wishlistBtn,
+.cardFeatured:hover .wishlistBtn { opacity: 1; transform: translateY(0); }
 .wishlistBtn:hover { color: var(--rose); transform: scale(1.1) !important; }
 
 /* ── Bouton ajouter au panier ── */
@@ -129,7 +132,8 @@
   cursor: not-allowed;
 }
 
-.card:hover .addBtn { transform: translateY(0); }
+.card:hover .addBtn,
+.cardFeatured:hover .addBtn { transform: translateY(0); }
 
 /* ── Infos ── */
 .info {
@@ -221,6 +225,23 @@
   .imageWrap { margin-bottom: 10px; }
 
   .stockWarning { bottom: 38px; font-size: 9px; }
+}
+
+/* ── Mode featured (grande carte bento) ── */
+.cardFeatured { cursor: pointer; }
+
+.cardFeatured .imageWrap {
+  aspect-ratio: 2 / 3;
+  margin-bottom: 16px;
+}
+
+.cardFeatured .name {
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+.cardFeatured .price {
+  font-size: 16px;
 }
 
 /* ── Vue liste ── */

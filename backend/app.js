@@ -157,13 +157,55 @@ app.use(errorHandler);
 // Démarrage du serveur
 const PORT = process.env.PORT || 3000;
 
+const ROUTES = [
+  { path: '/api/v1/auth',              label: 'Auth'         },
+  { path: '/api/v1/products',          label: 'Produits'     },
+  { path: '/api/v1/categories',        label: 'Catégories'   },
+  { path: '/api/v1/cart',              label: 'Panier'       },
+  { path: '/api/v1/orders',            label: 'Commandes'    },
+  { path: '/api/v1/coupons',           label: 'Coupons'      },
+  { path: '/api/v1/users',             label: 'Utilisateurs' },
+  { path: '/api/v1/admin',             label: 'Admin'        },
+  { path: '/api/v1/shipping',          label: 'Livraison'    },
+  { path: '/api/v1/loyalty',           label: 'Fidélité'     },
+  { path: '/api/v1/payments',          label: 'Paiements'    },
+  { path: '/api/v1/reviews',           label: 'Avis'         },
+  { path: '/api/v1/newsletter',        label: 'Newsletter'   },
+  { path: '/api/v1/legal',             label: 'Légal'        },
+  { path: '/api/v1/contact',           label: 'Contact'      },
+  { path: '/api/v1/consent',           label: 'Consentement' },
+];
+
 const start = async () => {
   await testConnection();
+
   app.listen(PORT, () => {
-    console.log(`🚀 Serveur démarré sur le port ${PORT} [${process.env.NODE_ENV}]`);
+    const isDev = process.env.NODE_ENV === 'development';
+    const line  = '─'.repeat(52);
+
+    console.log(`\n┌${line}┐`);
+    console.log(`│  🚀  BRODERIE — Serveur Express démarré${' '.repeat(12)}│`);
+    console.log(`├${line}┤`);
+    console.log(`│  Env          : ${(process.env.NODE_ENV || 'development').padEnd(34)}│`);
+    console.log(`│  Port         : ${String(PORT).padEnd(34)}│`);
+    console.log(`│  Health       : ${'http://localhost:' + PORT + '/health'.padEnd(34)}│`);
+    if (isDev) {
+      console.log(`│  Client       : ${(process.env.CLIENT_URL || '—').padEnd(34)}│`);
+      console.log(`│  Admin        : ${(process.env.ADMIN_URL  || '—').padEnd(34)}│`);
+    }
+    console.log(`├${line}┤`);
+    console.log(`│  Routes API montées :${' '.repeat(30)}│`);
+    for (const r of ROUTES) {
+      const label = `  ✓  ${r.label.padEnd(14)} ${r.path}`;
+      console.log(`│${label.padEnd(52)}│`);
+    }
+    console.log(`└${line}┘\n`);
   });
 };
 
-start();
+/* Démarre le serveur uniquement si ce fichier est exécuté directement (pas importé par Jest) */
+if (require.main === module) {
+  start();
+}
 
 module.exports = app;

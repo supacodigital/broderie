@@ -20,13 +20,14 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-/* Rafraîchit automatiquement le token sur 401 */
+/* Rafraîchit automatiquement le token sur 401 — sauf pour les routes /auth/ */
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config
 
-    if (error.response?.status === 401 && !original._retry) {
+    const isAuthRoute = original.url?.includes('/auth/')
+    if (error.response?.status === 401 && !original._retry && !isAuthRoute) {
       original._retry = true
       try {
         const { data } = await axios.post(

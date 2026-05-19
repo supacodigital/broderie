@@ -85,7 +85,7 @@ const create = async (req, res, next) => {
   try {
     const parsed = productBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      const errors = parsed.error.errors.map(e => ({ field: e.path.join('.'), message: e.message }));
+      const errors = parsed.error.issues.map(e => ({ field: e.path.join('.'), message: e.message }));
       return res.status(400).json({ success: false, message: 'Données invalides.', errors });
     }
 
@@ -109,7 +109,7 @@ const update = async (req, res, next) => {
 
     const parsed = productUpdateSchema.safeParse(req.body);
     if (!parsed.success) {
-      const errors = parsed.error.errors.map(e => ({ field: e.path.join('.'), message: e.message }));
+      const errors = parsed.error.issues.map(e => ({ field: e.path.join('.'), message: e.message }));
       return res.status(400).json({ success: false, message: 'Données invalides.', errors });
     }
 

@@ -20,7 +20,9 @@ const pool = mysql.createPool({
 const testConnection = async () => {
   try {
     const connection = await pool.getConnection();
-    console.log('✅ Connexion MySQL établie');
+    const [rows] = await connection.query('SELECT VERSION() AS version, DATABASE() AS db');
+    const { version, db } = rows[0];
+    console.log(`✅ MySQL connecté  — host: ${process.env.DB_HOST}:${process.env.DB_PORT || 3306} | base: ${db} | version: ${version}`);
     connection.release();
   } catch (error) {
     console.error('❌ Erreur connexion MySQL:', error.message);

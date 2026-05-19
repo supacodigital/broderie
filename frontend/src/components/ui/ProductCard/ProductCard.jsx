@@ -26,7 +26,7 @@ function Stars({ rating }) {
   )
 }
 
-export default function ProductCard({ product, index = 0, wishlisted = false, onWishlist, onAddToCart, mode = 'grid' }) {
+export default function ProductCard({ product, index = 0, wishlisted = false, onWishlist, onAddToCart, mode = 'grid', featured = false }) {
   const { t }      = useTranslation()
   const { addItem } = useCart()
   const [added, setAdded] = useState(false)
@@ -121,7 +121,7 @@ export default function ProductCard({ product, index = 0, wishlisted = false, on
   }
 
   return (
-    <article className={s.card} aria-label={product.name}>
+    <article className={featured ? s.cardFeatured : s.card} aria-label={product.name}>
       <div className={s.imageWrap}>
         <Link to={`/produit/${product.slug}`} className={s.imageLink} tabIndex={-1} aria-hidden="true">
           {primaryImage ? (

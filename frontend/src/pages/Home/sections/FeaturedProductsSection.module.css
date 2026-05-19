@@ -39,11 +39,21 @@
   color: var(--text-muted);
 }
 
-/* ── GRILLE ── */
-.grid {
+/* ── BENTO GRID ── */
+.bento {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
+  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 20px;
+}
+
+.bentoLarge {
+  grid-column: 1;
+  grid-row: 1 / 3;
+}
+
+.bentoSmall {
+  /* les 4 petites remplissent les 2 lignes × 2 colonnes à droite */
 }
 
 /* ── SKELETON ── */
@@ -53,6 +63,12 @@
   background: linear-gradient(90deg, #f0e6ef 25%, #fce7f3 50%, #f0e6ef 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
+}
+
+.skeletonLarge {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  aspect-ratio: 2 / 3;
 }
 
 @keyframes shimmer {
@@ -87,15 +103,31 @@
 
 /* ── RESPONSIVE ── */
 @media (max-width: 1200px) {
-  .grid { grid-template-columns: repeat(3, 1fr); }
+  .bento { grid-template-columns: 2fr 1fr 1fr; gap: 16px; }
   .inner { padding: 48px 40px; }
 }
 
-@media (max-width: 768px) {
-  .grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
-  .inner { padding: 40px 16px; }
+/* Tablette : grande carte en haut sur toute la largeur, puis 2 colonnes */
+@media (max-width: 900px) {
+  .bento {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+  }
+  .bentoLarge {
+    grid-column: 1 / 3;
+    grid-row: auto;
+  }
+  .skeletonLarge {
+    grid-column: 1 / 3;
+    grid-row: auto;
+    aspect-ratio: 16 / 9;
+  }
+  .inner { padding: 40px 24px; }
 }
 
 @media (max-width: 480px) {
-  .grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .bento { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .bentoLarge { grid-column: 1 / 3; }
+  .skeletonLarge { grid-column: 1 / 3; aspect-ratio: 4 / 3; }
+  .inner { padding: 32px 16px; }
 }

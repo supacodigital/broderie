@@ -53,7 +53,7 @@ describe('order.service — méthode de paiement invalide', () => {
     cartRepository.findCartItems.mockResolvedValue([makeCartItem()]);
 
     await expect(
-      orderService.createOrder({ userId: 1, paymentMethod: 'invoice' })
+      orderService.createOrder({ userId: 1, paymentMethod: 'bitcoin' })
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 });
@@ -145,7 +145,9 @@ describe('order.service — calcul avec coupon percent', () => {
         total,
       })
     );
-    expect(couponRepository.incrementUsage).toHaveBeenCalledWith(7);
+    /* incrementUsage est déclenché à la confirmation du paiement (webhook Stripe),
+       pas à la création de la commande */
+    expect(couponRepository.incrementUsage).not.toHaveBeenCalled();
   });
 });
 

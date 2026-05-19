@@ -66,7 +66,7 @@ describe('Paiement — Validation méthode', () => {
     const res = await request(app)
       .post('/api/v1/orders')
       .set('Authorization', `Bearer ${token}`)
-      .send({ payment_method: 'invoice' });
+      .send({ payment_method: 'bitcoin' });
 
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);

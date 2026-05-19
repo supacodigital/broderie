@@ -3,12 +3,13 @@ const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const authController = require('../controllers/auth.controller');
 
-// Rate limiting renforcé sur les routes auth (voir CLAUDE.md section sécurité)
+// Rate limiting renforcé sur les routes auth — désactivé hors production (dev + test)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV !== 'production',
   message: { success: false, message: 'Trop de tentatives, veuillez réessayer dans 15 minutes.' },
 });
 
