@@ -18,6 +18,8 @@ export default function FeaturedProductsSection() {
     getProducts({
       featured: true,
       limit: 5,
+      sort: 'updated_at',
+      order: 'desc',
       locale: normalizeLocale(i18n.language),
     })
       .then((res) => {

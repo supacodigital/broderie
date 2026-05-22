@@ -61,6 +61,7 @@ const buildFilters = (filters) => {
 // Champs autorisés pour le tri — protection contre l'injection
 const ALLOWED_SORT_FIELDS = {
   created_at: 'p.created_at',
+  updated_at: 'p.updated_at',
   price_chf: 'p.price_chf',
   name: 'pt.name',
   stock: 'p.stock',

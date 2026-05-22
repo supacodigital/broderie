@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Edit2, Trash2,
   ImageOff, Upload, X, Star, AlertTriangle, Check,
-  SlidersHorizontal, RotateCcw, Layout, Eye, GripVertical, ChevronDown,
+  SlidersHorizontal, RotateCcw, Layout, Eye, ChevronDown,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -128,26 +128,11 @@ function SlotSearch({ onAdd, onClose }) {
 }
 
 // ── Bande vitrine home ─────────────────────────────────────────────────────
-function FeaturedSlots({ featuredProducts, onEdit, onRemove, onAdd, onReorder }) {
-  const count              = featuredProducts.length
-  const [open, setOpen]         = useState(true)
-  const [preview, setPreview]   = useState(false)
-  const [activeSearch, setActiveSearch] = useState(null) // index du slot ouvert
-  const dragIdx            = useRef(null)
-  const [dragOver, setDragOver] = useState(null)
-
-  const handleDragStart = (i) => { dragIdx.current = i }
-  const handleDragOver  = (e, i) => { e.preventDefault(); setDragOver(i) }
-  const handleDrop      = (i) => {
-    if (dragIdx.current === null || dragIdx.current === i) { setDragOver(null); return }
-    const reordered = [...featuredProducts]
-    const [moved]   = reordered.splice(dragIdx.current, 1)
-    reordered.splice(i, 0, moved)
-    onReorder(reordered)
-    dragIdx.current = null
-    setDragOver(null)
-  }
-  const handleDragEnd = () => { dragIdx.current = null; setDragOver(null) }
+function FeaturedSlots({ featuredProducts, onEdit, onRemove, onAdd }) {
+  const count                           = featuredProducts.length
+  const [open, setOpen]                 = useState(true)
+  const [preview, setPreview]           = useState(false)
+  const [activeSearch, setActiveSearch] = useState(null)
 
   return (
     <>
@@ -178,22 +163,13 @@ function FeaturedSlots({ featuredProducts, onEdit, onRemove, onAdd, onReorder })
           {Array.from({ length: FEATURED_MAX }).map((_, i) => {
             const product = featuredProducts[i]
             const isFirst = i === 0
-            const isDragTarget = dragOver === i
 
             if (product) {
               return (
                 <div
                   key={product.id}
-                  className={`${s.featuredSlot} ${isFirst ? s.featuredSlotLarge : ''} ${isDragTarget ? s.featuredSlotDragOver : ''}`}
-                  draggable
-                  onDragStart={() => handleDragStart(i)}
-                  onDragOver={e => handleDragOver(e, i)}
-                  onDrop={() => handleDrop(i)}
-                  onDragEnd={handleDragEnd}
+                  className={`${s.featuredSlot} ${isFirst ? s.featuredSlotLarge : ''}`}
                 >
-                  <div className={s.featuredSlotDragHandle} title="Glisser pour réordonner">
-                    <GripVertical size={12} />
-                  </div>
                   {isFirst && <span className={s.featuredSlotLabel}>Grande carte</span>}
                   <div className={s.featuredSlotImg}>
                     {product.image_url
@@ -219,9 +195,7 @@ function FeaturedSlots({ featuredProducts, onEdit, onRemove, onAdd, onReorder })
             return (
               <div
                 key={`empty-${i}`}
-                className={`${s.featuredSlot} ${s.featuredSlotEmpty} ${isFirst ? s.featuredSlotLarge : ''} ${isDragTarget ? s.featuredSlotDragOver : ''}`}
-                onDragOver={e => handleDragOver(e, i)}
-                onDrop={() => handleDrop(i)}
+                className={`${s.featuredSlot} ${s.featuredSlotEmpty} ${isFirst ? s.featuredSlotLarge : ''}`}
               >
                 {isFirst && <span className={s.featuredSlotLabel}>Grande carte</span>}
                 {activeSearch === i ? (
@@ -239,7 +213,7 @@ function FeaturedSlots({ featuredProducts, onEdit, onRemove, onAdd, onReorder })
             )
           })}
           </div>
-          <p className={s.featuredBarHint}>Glissez les cartes pour changer l'ordre · Le slot 1 s'affiche en grande carte</p>
+          <p className={s.featuredBarHint}>Le slot 1 s'affiche en grande carte · Modifiez un produit pour le placer en tête</p>
           </>
         )}
       </div>
@@ -830,10 +804,6 @@ export default function Products() {
     }
   }, [buildFeaturedPayload, loadFeatured, toast])
 
-  /* Réordonne localement (optimistic) — pas de colonne sort en DB, ordre visuel via state */
-  const handleReorderFeatured = useCallback((reordered) => {
-    setFeaturedProducts(reordered)
-  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -1065,7 +1035,6 @@ export default function Products() {
         onEdit={(product) => setModal(product)}
         onRemove={handleRemoveFeatured}
         onAdd={handleAddFeatured}
-        onReorder={handleReorderFeatured}
       />
 
       {error && <ErrorBanner onRetry={load} />}

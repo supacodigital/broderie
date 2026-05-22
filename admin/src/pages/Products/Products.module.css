@@ -110,32 +110,12 @@
   overflow: hidden;
   background: var(--rose-pale);
   transition: border-color .15s, box-shadow .15s, opacity .15s;
-  cursor: grab;
+  cursor: default;
 }
 
 .featuredSlot:hover { border-color: var(--rose); }
-.featuredSlot:active { cursor: grabbing; }
-
-.featuredSlotDragOver {
-  border-color: var(--rose) !important;
-  box-shadow: 0 0 0 3px rgba(219, 39, 119, 0.18);
-}
 
 .featuredSlotLarge { border-color: var(--rose); background: #fff0f6; }
-
-/* Poignée drag */
-.featuredSlotDragHandle {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  color: var(--text-muted);
-  opacity: 0;
-  transition: opacity .15s;
-  z-index: 2;
-  cursor: grab;
-}
-
-.featuredSlot:hover .featuredSlotDragHandle { opacity: 1; }
 
 .featuredSlotLabel {
   position: absolute;
