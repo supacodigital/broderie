@@ -56,6 +56,10 @@
     "viewAll": "Alle Produkte ansehen",
     "reviews": "({{count}} Bewertungen)"
   },
+  "wishlist": {
+    "loginRequired": "Melden Sie sich an, um dieses Produkt zu Ihren Favoriten hinzuzufügen.",
+    "loginCta": "Anmelden"
+  },
   "crafts": {
     "eyebrow": "Unsere Geschichte",
     "title": "Liebe zum Garn seit 1987",
@@ -227,7 +231,10 @@
     "total": "Gesamtsumme",
     "checkout": "Zur Kasse",
     "securePayment": "100% sichere Zahlung",
-    "freeReturn": "Rückgabe innerhalb von 14 Tagen"
+    "freeReturn": "Rückgabe innerhalb von 14 Tagen",
+    "itemAdded": "Artikel in den Warenkorb gelegt",
+    "viewCart": "Warenkorb ansehen",
+    "addFailed": "Artikel konnte nicht hinzugefügt werden. Bitte erneut versuchen."
   },
   "auth": {
     "loginTitle": "Anmelden",
@@ -258,6 +265,19 @@
     "cgvAccept": "Ich akzeptiere die",
     "cgvLink": "Allgemeinen Geschäftsbedingungen",
     "orContinueWith": "oder weiter mit",
+    "aside": {
+      "tagline": "Stickerei und Kreuzstich, auf Schweizer Art.",
+      "subtext": "Finden Sie Ihre Bestellungen, Favoriten und Ihr Treueprogramm an einem Ort.",
+      "perk1": "Sorgfältige Lieferung in die ganze Schweiz",
+      "perk2": "Sichere Zahlung — Twint & Karte",
+      "perk3": "Exklusives Treueprogramm",
+      "registerTagline": "Werden Sie Teil von Au Point-Compté.",
+      "registerSubtext": "Erstellen Sie Ihr Konto, um Ihre Bestellungen zu verfolgen und von unseren Treuevorteilen zu profitieren.",
+      "switchToRegisterPrompt": "Noch kein Konto?",
+      "switchToRegisterCta": "Konto erstellen",
+      "switchToLoginPrompt": "Bereits ein Konto?",
+      "switchToLoginCta": "Anmelden"
+    },
     "errors": {
       "emailRequired": "E-Mail-Adresse ist erforderlich",
       "emailInvalid": "Ungültiges E-Mail-Format",

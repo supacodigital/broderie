@@ -56,6 +56,10 @@
     "viewAll": "View all products",
     "reviews": "({{count}} reviews)"
   },
+  "wishlist": {
+    "loginRequired": "Sign in to add this product to your favourites.",
+    "loginCta": "Sign in"
+  },
   "crafts": {
     "eyebrow": "Our story",
     "title": "A love of thread since 1987",
@@ -227,7 +231,10 @@
     "total": "Total",
     "checkout": "Proceed to checkout",
     "securePayment": "100% secure payment",
-    "freeReturn": "14-day return policy"
+    "freeReturn": "14-day return policy",
+    "itemAdded": "Item added to cart",
+    "viewCart": "View cart",
+    "addFailed": "Could not add the item. Please try again."
   },
   "auth": {
     "loginTitle": "Sign in",
@@ -258,6 +265,19 @@
     "cgvAccept": "I accept the",
     "cgvLink": "Terms & Conditions",
     "orContinueWith": "or continue with",
+    "aside": {
+      "tagline": "Embroidery and cross-stitch, the Swiss way.",
+      "subtext": "Find your orders, favourites and loyalty programme all in one place.",
+      "perk1": "Careful delivery across Switzerland",
+      "perk2": "Secure payment — Twint & card",
+      "perk3": "Exclusive loyalty programme",
+      "registerTagline": "Join Au Point-Compté.",
+      "registerSubtext": "Create your account to track your orders and enjoy our loyalty benefits.",
+      "switchToRegisterPrompt": "No account yet?",
+      "switchToRegisterCta": "Create an account",
+      "switchToLoginPrompt": "Already have an account?",
+      "switchToLoginCta": "Sign in"
+    },
     "errors": {
       "emailRequired": "Email address is required",
       "emailInvalid": "Invalid email format",

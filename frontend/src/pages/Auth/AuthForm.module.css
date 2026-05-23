@@ -1,26 +1,10 @@
-/* ── Page auth — layout centré ── */
-.page {
-  min-height: calc(100vh - 120px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 20px;
-  background: linear-gradient(160deg, #fff9fc 0%, #fce7f3 50%, #fff0f7 100%);
-}
-
-.card {
-  background: #fff;
-  border-radius: 20px;
-  box-shadow: 0 8px 40px rgba(190, 24, 93, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
-  padding: 48px 40px;
-  width: 100%;
-  max-width: 440px;
-}
+/* ── Styles partagés des formulaires d'authentification (login + register) ── */
+/* Le layout deux colonnes et le panneau glissant sont dans AuthLayout.module.css */
 
 /* ── En-tête ── */
 .header {
   text-align: center;
-  margin-bottom: 36px;
+  margin-bottom: 28px;
 }
 
 .logo {
@@ -213,21 +197,35 @@
   cursor: not-allowed;
 }
 
-/* ── Erreur globale ── */
+/* ── Erreur globale — minimaliste : fond très léger, sans bordure ni ombre ── */
 .globalError {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  padding: 10px 14px;
+  /* Marge pour ne pas coller l'en-tête au-dessus ni le formulaire en dessous */
+  margin: 4px 0 20px;
+  background: #fef5f5;
   border-radius: 8px;
   font-family: 'Montserrat', sans-serif;
   font-size: 13px;
+  line-height: 1.45;
   color: #dc2626;
+  /* Entrée douce, jamais depuis scale(0) */
+  animation: errorIn 0.2s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-/* ── Pied de formulaire ── */
+/* L'icône ne doit pas rétrécir sur un message multi-lignes */
+.globalError svg {
+  flex-shrink: 0;
+}
+
+@keyframes errorIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Pied de formulaire (lien de bascule visible surtout en mobile) ── */
 .footer {
   text-align: center;
   margin-top: 24px;
@@ -280,9 +278,9 @@
   pointer-events: none;
 }
 
-/* ── Responsive ── */
+.title { font-size: 28px; }
+
 @media (max-width: 480px) {
-  .card    { padding: 32px 20px; }
-  .title   { font-size: 24px; }
-  .row     { grid-template-columns: 1fr; }
+  .title { font-size: 24px; }
+  .row   { grid-template-columns: 1fr; }
 }

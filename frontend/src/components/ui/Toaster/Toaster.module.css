@@ -1,0 +1,135 @@
+/* ── Zone d'affichage des toasts — bas droit de l'écran ── */
+.region {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* La pile ne capte pas les clics en dehors des toasts eux-mêmes */
+  pointer-events: none;
+}
+
+/* ── Toast individuel ── */
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 280px;
+  max-width: 380px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--rose-border);
+  border-left: 3px solid var(--rose);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(131, 24, 67, 0.10);
+  font-family: 'Montserrat', sans-serif;
+  /* Entrée douce depuis le bas — jamais depuis scale(0) */
+  animation: toastIn 0.22s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--rose-pale);
+  color: var(--rose);
+}
+
+/* ── Variantes — teinte la bordure gauche et le rond d'icône ── */
+.success {
+  border-left-color: #16a34a;
+}
+.success .icon {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.error {
+  border-left-color: #dc2626;
+}
+.error .icon {
+  background: #fef5f5;
+  color: #dc2626;
+}
+
+.info {
+  border-left-color: #2563eb;
+}
+.info .icon {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+.message {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-dark);
+}
+
+/* Lien d'action (ex : « Se connecter ») */
+.actionLink {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--rose);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease-out;
+}
+
+.actionLink:hover { color: var(--rose-dark); }
+
+/* Bouton fermeture */
+.close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 6px;
+  transition: background 0.15s ease-out, color 0.15s ease-out;
+}
+
+.close:hover {
+  background: var(--rose-pale);
+  color: var(--rose);
+}
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .region {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+  .toast { max-width: none; }
+}
+
+/* Respecte la préférence d'animation réduite */
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}

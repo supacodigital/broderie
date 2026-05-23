@@ -1,0 +1,224 @@
+/* ── Page auth plein écran ── */
+.page {
+  min-height: calc(100vh - 120px);
+  display: flex;
+  background: #fff;
+}
+
+/* Courbe de glissement façon iOS — fluide et naturelle */
+.shell {
+  --ease-slide: cubic-bezier(0.65, 0, 0.35, 1);
+  --slide-dur: 620ms;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #fff;
+}
+
+/* ── PANNEAUX DE FORMULAIRE ──
+   Chaque formulaire occupe la moitié de la largeur. On les positionne en absolu
+   pour qu'ils restent fixes pendant que le panneau rose glisse par-dessus. */
+.formPane {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 48px 44px;
+  box-sizing: border-box;
+  /* Le formulaire défile à l'intérieur de sa colonne au lieu de déborder de l'écran */
+  overflow-y: auto;
+  transition: opacity 0.4s var(--ease-slide);
+}
+
+.formInner {
+  width: 100%;
+  max-width: 400px;
+  /* margin auto vertical : centré quand ça tient, défile proprement quand le contenu est trop haut */
+  margin: auto 0;
+}
+
+/* Connexion : moitié gauche */
+.formLogin    { left: 0; }
+/* Inscription : moitié droite */
+.formRegister { right: 0; }
+
+/* Le formulaire inactif est masqué et non focusable (le panneau rose le couvre) */
+.shell:not(.shellRegister) .formRegister,
+.shell.shellRegister .formLogin {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── PANNEAU DE MARQUE GLISSANT ── */
+.aside {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: 48px 44px;
+  box-sizing: border-box;
+  color: #fff;
+  overflow: hidden;
+  background: linear-gradient(150deg, var(--rose-light) 0%, var(--rose) 55%, var(--rose-dark) 100%);
+  /* Au repos (connexion) : panneau à droite */
+  transform: translateX(100%);
+  border-radius: 28px 0 0 28px;
+  transition: transform var(--slide-dur) var(--ease-slide),
+              border-radius var(--slide-dur) var(--ease-slide);
+}
+
+/* Mode inscription : le panneau glisse vers la gauche */
+.shell.shellRegister .aside {
+  transform: translateX(0%);
+  border-radius: 0 28px 28px 0;
+}
+
+/* Halo décoratif subtil */
+.aside::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 80% 0%, rgba(255, 255, 255, 0.18), transparent 55%);
+  pointer-events: none;
+}
+
+/* Les deux contenus du panneau sont superposés ; on fond entre les deux */
+.asideContent {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: 0 44px;
+  transition: opacity 0.35s var(--ease-slide), transform 0.45s var(--ease-slide);
+}
+
+/* Le contenu inactif disparaît en fondu + léger décalage */
+.asideHidden {
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+}
+
+.asideLogo {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px;
+  color: #fff;
+  display: block;
+  margin-bottom: 28px;
+}
+
+.asideTagline {
+  font-family: 'Playfair Display', serif;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0 0 16px;
+}
+
+.asideSubtext {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.88);
+  margin: 0 0 32px;
+}
+
+.asidePerks {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0;
+  margin: 0 0 32px;
+}
+
+.asidePerk {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.asidePerkIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* ── Invite à basculer connexion ↔ inscription ── */
+.asideSwitch {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.asideSwitchBtn {
+  padding: 9px 20px;
+  border: 1.5px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+  background: transparent;
+  color: #fff;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.18s ease-out, color 0.18s ease-out, transform 0.12s ease-out;
+}
+
+.asideSwitchBtn:hover {
+  background: #fff;
+  color: var(--rose);
+}
+
+.asideSwitchBtn:active {
+  transform: scale(0.97);
+}
+
+/* ── RESPONSIVE ──
+   Sous 860px : le panneau glissant est inutilisable. On masque l'aside,
+   on empile les formulaires (un seul visible selon le mode), pleine largeur. */
+@media (max-width: 860px) {
+  .aside { display: none; }
+
+  .formPane {
+    position: relative;
+    width: 100%;
+    height: auto;
+    padding: 36px 24px;
+  }
+
+  /* On n'affiche que le formulaire actif (l'autre est retiré du flux) */
+  .shell:not(.shellRegister) .formRegister,
+  .shell.shellRegister .formLogin {
+    display: none;
+  }
+
+  .formInner { max-width: 460px; }
+}
+
+/* Respecte la préférence d'animation réduite : on retire le glissement */
+@media (prefers-reduced-motion: reduce) {
+  .aside,
+  .asideContent,
+  .formPane {
+    transition: none;
+  }
+}

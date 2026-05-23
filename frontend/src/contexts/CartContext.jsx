@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { roundCHF } from '../utils/chf.js'
 import { addCartItem, fetchCart, removeCartItem, updateCartItem } from '../services/cart.service.js'
 import { useAuth } from './AuthContext.jsx'
+import { useToastShortcuts } from '../hooks/useToastShortcuts.jsx'
 
 /* ── État initial ── */
 const INITIAL = { items: [], loading: false, error: null }
@@ -32,6 +34,8 @@ const CartContext = createContext(null)
 export function CartProvider({ children }) {
   const [state, dispatch] = useReducer(cartReducer, INITIAL)
   const { loading: authLoading } = useAuth()
+  const toast = useToastShortcuts()
+  const { t }  = useTranslation()
 
   /* Référence stable vers l'état courant — évite les stale closures dans les rollbacks */
   const stateRef = useRef(state)
@@ -71,11 +75,15 @@ export function CartProvider({ children }) {
       if (serverItems.length) {
         dispatch({ type: 'SET_ITEMS', payload: serverItems.map(normalizeItem) })
       }
+      /* Confirmation visuelle avec lien direct vers le panier */
+      toast.success(t('cart.itemAdded'), { to: '/panier', label: t('cart.viewCart') })
     } catch {
       /* Rollback vers l'état au moment de l'appel — pas une closure périmée */
       dispatch({ type: 'SET_ITEMS', payload: snapshot })
+      /* Erreur réseau : on prévient l'utilisateur au lieu de le laisser sans feedback */
+      toast.error(t('cart.addFailed'))
     }
-  }, [])
+  }, [toast, t])
 
   /* Modifier la quantité */
   const updateQty = useCallback(async (itemId, quantity) => {

@@ -111,14 +111,9 @@ export default function Navbar() {
           {/* Compte — desktop */}
           <div className={s.accountDesktop}>
             {isAuthenticated ? (
-              <>
-                <Link to="/mon-compte" className={s.iconBtn} aria-label={t('nav.account')} title={user?.first_name ?? t('nav.account')}>
-                  <User size={20} />
-                </Link>
-                <button className={s.iconBtn} onClick={handleLogout} aria-label="Déconnexion">
-                  <LogOut size={20} />
-                </button>
-              </>
+              <Link to="/mon-compte" className={s.iconBtn} aria-label={t('nav.account')} title={user?.first_name ?? t('nav.account')}>
+                <User size={20} />
+              </Link>
             ) : (
               <Link to="/connexion" className={s.iconBtn} aria-label={t('nav.account')}>
                 <User size={20} />

@@ -3,6 +3,7 @@ import Navbar from '../Navbar/Navbar.jsx'
 import CategoryNav from '../Navbar/CategoryNav.jsx'
 import Footer from '../Footer/Footer.jsx'
 import CookieBanner from '../../ui/CookieBanner/CookieBanner.jsx'
+import Toaster from '../../ui/Toaster/Toaster.jsx'
 import s from './Layout.module.css'
 
 export default function Layout() {
@@ -15,6 +16,7 @@ export default function Layout() {
       </main>
       <Footer />
       <CookieBanner />
+      <Toaster />
     </div>
   )
 }

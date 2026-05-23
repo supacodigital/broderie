@@ -9,8 +9,7 @@ const Catalogue = lazy(() => import('./pages/Catalogue/Catalogue.jsx'))
 const Product   = lazy(() => import('./pages/Product/Product.jsx'))
 const Cart      = lazy(() => import('./pages/Cart/Cart.jsx'))
 const Checkout  = lazy(() => import('./pages/Checkout/Checkout.jsx'))
-const Login     = lazy(() => import('./pages/Login/Login.jsx'))
-const Register  = lazy(() => import('./pages/Register/Register.jsx'))
+const AuthLayout = lazy(() => import('./pages/Auth/AuthLayout.jsx'))
 const Account   = lazy(() => import('./pages/Account/Account.jsx'))
 const NotFound  = lazy(() => import('./pages/NotFound/NotFound.jsx'))
 const CGV              = lazy(() => import('./pages/CGV/CGV.jsx'))
@@ -57,8 +56,15 @@ export const router = createBrowserRouter([
       { path: '/catalogue',                element: <S><Catalogue /></S> },
       { path: '/catalogue/:categorySlug',  element: <S><Catalogue /></S> },
       { path: '/produit/:slug',            element: <S><Product /></S> },
-      { path: '/connexion',                element: <S><Login /></S> },
-      { path: '/inscription',              element: <S><Register /></S> },
+      /* Connexion + inscription partagent AuthLayout comme route parente : il reste monté
+         pendant que l'URL bascule entre les deux enfants → le panneau glisse en continu */
+      {
+        element: <S><AuthLayout /></S>,
+        children: [
+          { path: '/connexion',   element: null },
+          { path: '/inscription', element: null },
+        ],
+      },
       { path: '/cgv',                           element: <S><CGV /></S> },
       { path: '/mentions-legales',              element: <S><MentionsLegales /></S> },
       { path: '/politique-de-retour',           element: <S><PolitiqueRetour /></S> },

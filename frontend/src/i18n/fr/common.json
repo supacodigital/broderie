@@ -56,6 +56,10 @@
     "viewAll": "Voir tous les produits",
     "reviews": "({{count}} avis)"
   },
+  "wishlist": {
+    "loginRequired": "Connectez-vous pour ajouter ce produit à vos favoris.",
+    "loginCta": "Se connecter"
+  },
   "crafts": {
     "eyebrow": "Notre histoire",
     "title": "L'amour du fil depuis 1987",
@@ -227,7 +231,10 @@
     "total": "Total",
     "checkout": "Passer la commande",
     "securePayment": "Paiement 100% sécurisé",
-    "freeReturn": "Retour sous 14 jours"
+    "freeReturn": "Retour sous 14 jours",
+    "itemAdded": "Article ajouté au panier",
+    "viewCart": "Voir le panier",
+    "addFailed": "Impossible d'ajouter l'article. Veuillez réessayer."
   },
   "auth": {
     "loginTitle": "Connexion",
@@ -258,6 +265,19 @@
     "cgvAccept": "J'accepte les",
     "cgvLink": "Conditions Générales de Vente",
     "orContinueWith": "ou continuer avec",
+    "aside": {
+      "tagline": "Broderie et point de croix, à la suisse.",
+      "subtext": "Retrouvez vos commandes, vos favoris et votre programme de fidélité en un seul endroit.",
+      "perk1": "Livraison soignée dans toute la Suisse",
+      "perk2": "Paiement sécurisé — Twint & carte",
+      "perk3": "Programme de fidélité exclusif",
+      "registerTagline": "Rejoignez Au Point-Compté.",
+      "registerSubtext": "Créez votre compte pour suivre vos commandes et profiter de nos avantages fidélité.",
+      "switchToRegisterPrompt": "Pas encore de compte ?",
+      "switchToRegisterCta": "Créer un compte",
+      "switchToLoginPrompt": "Déjà un compte ?",
+      "switchToLoginCta": "Se connecter"
+    },
     "errors": {
       "emailRequired": "L'adresse email est obligatoire",
       "emailInvalid": "Format d'email invalide",

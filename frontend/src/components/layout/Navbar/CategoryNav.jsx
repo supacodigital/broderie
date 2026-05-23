@@ -61,12 +61,19 @@ export default function CategoryNav() {
       .catch(() => {})
   }, [i18n.language])
 
+  /* Calcule la position du mega-menu en le recadrant pour qu'il ne déborde pas à droite */
+  const computePos = useCallback((rect) => {
+    const MENU_WIDTH = 360 // largeur min du mega-menu — voir .dropdown
+    const MARGIN     = 16  // marge de sécurité par rapport au bord du viewport
+    const maxLeft    = window.innerWidth - MENU_WIDTH - MARGIN
+    return { left: Math.max(MARGIN, Math.min(rect.left, maxLeft)), top: rect.bottom }
+  }, [])
+
   const openDropdown = useCallback((id, liEl) => {
     clearTimeout(closeTimer.current)
-    const rect = liEl.getBoundingClientRect()
-    setDropdownPos({ left: rect.left, top: rect.bottom })
+    setDropdownPos(computePos(liEl.getBoundingClientRect()))
     setOpenId(id)
-  }, [])
+  }, [computePos])
 
   const closeDropdown = useCallback(() => {
     closeTimer.current = setTimeout(() => setOpenId(null), 120)
@@ -84,15 +91,14 @@ export default function CategoryNav() {
     if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
       e.preventDefault()
       clearTimeout(closeTimer.current)
-      const rect = liEl.getBoundingClientRect()
-      setDropdownPos({ left: rect.left, top: rect.bottom })
+      setDropdownPos(computePos(liEl.getBoundingClientRect()))
       setOpenId(cat.id)
       /* Focus sur le premier lien du dropdown */
       setTimeout(() => {
         dropdownRef.current?.querySelector('a')?.focus()
       }, 50)
     }
-  }, [childrenMap])
+  }, [childrenMap, computePos])
 
   /* Navigation clavier dans le dropdown */
   const handleDropdownKeyDown = useCallback((e) => {
@@ -194,7 +200,7 @@ export default function CategoryNav() {
         </div>
       </div>
 
-      {/* Dropdown rendu en dehors du scroll wrapper pour éviter le clipping overflow */}
+      {/* Mega-menu rendu en dehors du scroll wrapper pour éviter le clipping overflow */}
       {openId && openCat && (
         <div
           ref={dropdownRef}
@@ -207,24 +213,37 @@ export default function CategoryNav() {
           aria-label={`Sous-catégories de ${openCat.name}`}
         >
           <div className={s.dropdownInner}>
-            <Link
-              to={`/catalogue/${openCat.slug}`}
-              className={s.dropdownParentLink}
-              role="menuitem"
-              onClick={() => setOpenId(null)}
-            >
-              Tout — {openCat.name}
-            </Link>
+            {/* En-tête : nom de la catégorie + lien « Tout voir » + nombre de produits */}
+            <div className={s.megaHeader}>
+              <span className={s.megaTitle}>{openCat.name}</span>
+              <Link
+                to={`/catalogue/${openCat.slug}`}
+                className={s.megaAllLink}
+                role="menuitem"
+                onClick={() => setOpenId(null)}
+              >
+                {t('catalogue.viewAll', 'Tout voir')}
+                {openCat.product_count != null && (
+                  <span className={s.megaCount}>{openCat.product_count}</span>
+                )}
+                <ChevronRight size={13} aria-hidden="true" />
+              </Link>
+            </div>
+
+            {/* Sous-catégories réparties automatiquement en colonnes */}
             <ul className={s.subList} role="list">
               {openChildren.map(child => (
-                <li key={child.id}>
+                <li key={child.id} className={s.subItem}>
                   <Link
                     to={`/catalogue/${child.slug}`}
                     className={`${s.subLink} ${activeSlug === child.slug ? s.subLinkActive : ''}`}
                     role="menuitem"
                     onClick={() => setOpenId(null)}
                   >
-                    {child.name}
+                    <span className={s.subName}>{child.name}</span>
+                    {child.product_count != null && (
+                      <span className={s.subCount}>{child.product_count}</span>
+                    )}
                   </Link>
                 </li>
               ))}

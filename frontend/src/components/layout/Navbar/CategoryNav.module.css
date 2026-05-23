@@ -100,75 +100,157 @@
   color: var(--rose);
 }
 
-/* ── DROPDOWN — rendu en position fixed, coordonnées injectées via style inline ── */
+/* ── MEGA-MENU — rendu en position fixed, coordonnées injectées via style inline ── */
 .dropdown {
   position: fixed;
-  min-width: 220px;
+  min-width: 360px;
+  /* Plafonné pour ne pas déborder du viewport sur les grandes catégories */
+  max-width: min(640px, calc(100vw - 32px));
   background: #fff;
   border: 1px solid var(--rose-border);
   border-top: 2px solid var(--rose);
-  border-radius: 0 0 8px 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 12px 40px rgba(131, 24, 67, 0.10);
   z-index: 300;
-  animation: dropdownIn 0.15s ease;
+  transform-origin: top left;
+  /* Entrée douce : jamais depuis scale(0) — easing fort façon iOS */
+  animation: dropdownIn 0.18s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 @keyframes dropdownIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .dropdownInner {
-  padding: 12px 0 14px;
+  padding: 16px 8px 18px;
 }
 
-/* Lien "Tout — Catégorie" */
-.dropdownParentLink {
-  display: block;
-  padding: 8px 20px;
+/* ── EN-TÊTE DU MEGA-MENU ── */
+.megaHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 14px 12px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--rose-border);
+}
+
+.megaTitle {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+/* Lien « Tout voir » avec compteur de produits */
+.megaAllLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
   font-family: 'Montserrat', sans-serif;
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   color: var(--rose);
   text-decoration: none;
-  border-bottom: 1px solid var(--rose-border);
-  margin-bottom: 8px;
-  transition: color 0.15s;
+  transition: color 0.15s, gap 0.15s;
 }
 
-.dropdownParentLink:hover { color: var(--rose-dark, #be185d); }
+.megaAllLink:hover {
+  color: var(--rose-dark);
+  gap: 9px;
+}
 
-/* ── SOUS-LIENS ── */
+.megaCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--rose-pale);
+  color: var(--rose);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* ── SOUS-LIENS — répartis automatiquement en colonnes ── */
 .subList {
   list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+  /* Colonnes auto : 1 colonne si peu d'items, jusqu'à 3 sur grande catégorie */
+  columns: 2;
+  column-gap: 4px;
+  padding: 0;
+  margin: 0;
+}
+
+.subItem {
+  /* Empêche un lien d'être coupé entre deux colonnes */
+  break-inside: avoid;
 }
 
 .subLink {
-  display: block;
-  padding: 7px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 6px;
   font-family: 'Montserrat', sans-serif;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 400;
   color: var(--text);
   text-decoration: none;
-  transition: background 0.13s, color 0.13s, padding-left 0.13s;
+  /* On anime uniquement transform/background/color — jamais padding (reflow) */
+  transition: background 0.13s ease-out, color 0.13s ease-out, transform 0.13s ease-out;
+}
+
+.subName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subCount {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: color 0.13s ease-out;
 }
 
 .subLink:hover {
   background: var(--rose-pale);
   color: var(--rose);
-  padding-left: 26px;
+  /* Léger glissement sans déclencher de reflow */
+  transform: translateX(3px);
+}
+
+.subLink:hover .subCount {
+  color: var(--rose);
 }
 
 .subLinkActive {
   color: var(--rose);
   font-weight: 600;
   background: var(--rose-pale);
+}
+
+.subLinkActive .subCount {
+  color: var(--rose);
+}
+
+/* Respecte la préférence d'animation réduite : on garde l'opacité, on retire le mouvement */
+@media (prefers-reduced-motion: reduce) {
+  .dropdown { animation: none; }
+  .subLink:hover { transform: none; }
+  .megaAllLink:hover { gap: 6px; }
 }
 
 /* ── RESPONSIVE ── */
