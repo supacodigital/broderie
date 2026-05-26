@@ -75,8 +75,6 @@ export function CartProvider({ children }) {
       if (serverItems.length) {
         dispatch({ type: 'SET_ITEMS', payload: serverItems.map(normalizeItem) })
       }
-      /* Confirmation visuelle avec lien direct vers le panier */
-      toast.success(t('cart.itemAdded'), { to: '/panier', label: t('cart.viewCart') })
     } catch {
       /* Rollback vers l'état au moment de l'appel — pas une closure périmée */
       dispatch({ type: 'SET_ITEMS', payload: snapshot })

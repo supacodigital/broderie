@@ -10,6 +10,7 @@ import './index.css'
 import { router } from './router.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 import { CartProvider } from './contexts/CartContext.jsx'
+import { CartDrawerProvider } from './contexts/CartDrawerContext.jsx'
 import { WishlistProvider } from './contexts/WishlistContext.jsx'
 import { ToastProvider } from './contexts/ToastContext.jsx'
 
@@ -37,9 +38,11 @@ createRoot(document.getElementById('root')).render(
       {/* ToastProvider au sommet — tout contexte/composant en dessous peut afficher des toasts */}
       <ToastProvider>
         <CartProvider>
-          <WishlistProvider>
-            <RouterProvider router={router} />
-          </WishlistProvider>
+          <CartDrawerProvider>
+            <WishlistProvider>
+              <RouterProvider router={router} />
+            </WishlistProvider>
+          </CartDrawerProvider>
         </CartProvider>
       </ToastProvider>
     </AuthProvider>

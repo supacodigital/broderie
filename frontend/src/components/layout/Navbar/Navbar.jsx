@@ -4,14 +4,17 @@ import { useTranslation } from 'react-i18next'
 import { ShoppingBag, Search, User, LogOut, Menu, X, ChevronRight } from 'lucide-react'
 import { useAuth } from '../../../contexts/AuthContext.jsx'
 import { useCart } from '../../../contexts/CartContext.jsx'
+import { useCartDrawer } from '../../../contexts/CartDrawerContext.jsx'
 import NavSearch from './NavSearch.jsx'
 import LangSwitcher from './LangSwitcher.jsx'
+import CartDrawer from '../CartDrawer/CartDrawer.jsx'
 import s from './Navbar.module.css'
 
 export default function Navbar() {
   const { t } = useTranslation()
   const { isAuthenticated, user, logout } = useAuth()
   const { itemCount } = useCart()
+  const { openCartDrawer } = useCartDrawer()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -121,17 +124,18 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Panier */}
-          <Link
-            to="/panier"
+          {/* Panier — ouvre le drawer latéral */}
+          <button
+            type="button"
             className={s.iconBtn}
             aria-label={t('nav.cartItems', { count: itemCount })}
+            onClick={openCartDrawer}
           >
             <ShoppingBag size={20} />
             {itemCount > 0 && (
               <span className={s.badge} aria-hidden="true">{itemCount}</span>
             )}
-          </Link>
+          </button>
 
           {/* Burger — mobile uniquement */}
           <button
@@ -256,6 +260,9 @@ export default function Navbar() {
           <LangSwitcher variant="mobile" />
         </div>
       </div>
+
+      {/* ── Drawer panier latéral ── */}
+      <CartDrawer />
     </>
   )
 }

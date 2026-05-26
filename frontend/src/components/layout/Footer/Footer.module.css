@@ -131,22 +131,20 @@
   color: rgba(255, 255, 255, 0.3);
 }
 
-.payments {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.credit {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.3);
 }
 
-.payBadge {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
-  padding: 4px 10px;
-  font-family: 'Montserrat', sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.45);
-  letter-spacing: 0.05em;
+.credit a {
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  transition: color 160ms ease-out;
+}
+
+.credit a:hover {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* ── Responsive ── */
@@ -159,5 +157,4 @@
   .footer  { padding: 48px 20px 28px; }
   .grid    { grid-template-columns: 1fr; gap: 32px; }
   .bottom  { flex-direction: column; gap: 16px; text-align: center; }
-  .payments { flex-wrap: wrap; justify-content: center; }
 }
