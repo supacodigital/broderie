@@ -31,7 +31,10 @@
     "stat2Label": "Zufriedene Kundinnen",
     "stat3Value": "37 Jahre",
     "stat3Label": "Leidenschaft & Expertise",
-    "ratingLabel": "Kundenbewertung"
+    "ratingLabel": "Kundenbewertung",
+    "ratingDetail": "4.9 / 5 — 3 200 Bewertungen",
+    "badgeSwiss": "Made in",
+    "badgeSwissPlace": "Vuarrens, Schweiz"
   },
   "advantages": {
     "shipping": { "title": "Schnelle Lieferung",   "desc": "1–2 Tage in der Schweiz via Post CH" },

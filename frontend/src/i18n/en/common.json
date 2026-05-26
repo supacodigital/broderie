@@ -31,7 +31,10 @@
     "stat2Label": "Satisfied customers",
     "stat3Value": "37 years",
     "stat3Label": "Of passion & expertise",
-    "ratingLabel": "Customer rating"
+    "ratingLabel": "Customer rating",
+    "ratingDetail": "4.9 / 5 — 3,200 reviews",
+    "badgeSwiss": "Made in",
+    "badgeSwissPlace": "Vuarrens, Switzerland"
   },
   "advantages": {
     "shipping": { "title": "Fast delivery",    "desc": "1–2 days in Switzerland via Swiss Post" },
