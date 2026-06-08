@@ -7,8 +7,17 @@ const { AppError }      = require('../middlewares/errorHandler');
 const { roundCHF }      = require('../utils/chf.utils');
 const { getShippingCost } = require('../utils/shipping.utils');
 const emailService      = require('./email.service');
+const invoiceService    = require('./invoice.service');
 
-const VALID_METHODS = ['twint', 'card', 'invoice'];
+const VALID_METHODS = ['card', 'twint', 'invoice_qr', 'pickup'];
+
+// Statut initial de la commande selon la méthode de paiement choisie
+const INITIAL_STATUS_BY_METHOD = {
+  card:       'pending',          // paiement Stripe carte ensuite
+  twint:      'pending',          // paiement Stripe Twint ensuite
+  invoice_qr: 'pending_invoice',  // facture QR envoyée, paiement sous 30 jours
+  pickup:     'pending_pickup',   // retrait + paiement en boutique
+};
 
 const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponCode = null, address = null }) => {
   if (!VALID_METHODS.includes(paymentMethod)) {
@@ -53,12 +62,17 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
     }, 0)
   );
 
+  // Click & Collect : aucun envoi postal → frais de port à 0 (seule exception à la règle « frais toujours payants »)
+  const isPickup = paymentMethod === 'pickup';
   const totalWeightKg = activeItems.reduce((sum, item) => sum + (parseFloat(item.weight_kg ?? 0) * item.quantity), 0);
-  const shippingCost = await getShippingCost(totalWeightKg);
+  const shippingCost = isPickup ? 0 : await getShippingCost(totalWeightKg);
   const total = roundCHF(discountedSubtotal + shippingCost);
 
-  // Statut initial — toujours en attente de paiement Stripe
-  const initialStatus = 'pending';
+  // Statut initial selon la méthode (Stripe : pending — facture/retrait : statut dédié)
+  const initialStatus = INITIAL_STATUS_BY_METHOD[paymentMethod] ?? 'pending';
+
+  // Facture QR : génération d'une référence de paiement figée sur la commande
+  const qrReference = paymentMethod === 'invoice_qr' ? invoiceService.generateQrReference() : null;
 
   const orderId = await orderRepository.createOrder({
     userId,
@@ -73,6 +87,7 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
     discount,
     couponId,
     paymentMethod,
+    qrReference,
   });
 
   // Vider le panier après confirmation de la commande
@@ -80,12 +95,21 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
 
   const order = await orderRepository.findById(orderId);
 
-  // Email de confirmation — non bloquant
+  // Emails — non bloquants
   userRepository.findById(userId).then((user) => {
     if (!user) return;
+
+    // Email de confirmation systématique
     emailService.sendOrderConfirmation({ user, order }).catch((err) => {
       console.error('[Email] Confirmation commande non envoyée :', err.message);
     });
+
+    // Facture QR : email dédié avec la QR-facture suisse en pièce jointe PDF
+    if (paymentMethod === 'invoice_qr') {
+      invoiceService.sendInvoiceEmail({ user, order }).catch((err) => {
+        console.error('[Email] Facture QR non envoyée :', err.message);
+      });
+    }
   }).catch(() => {});
 
   return order;

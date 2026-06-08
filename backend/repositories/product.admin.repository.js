@@ -1,15 +1,15 @@
 const { pool } = require('../config/db');
 
 // Création d'un produit avec ses traductions — transaction atomique
-const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, badge, translations }) => {
+const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, isMadeToOrder, badge, translations }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
     const [result] = await connection.execute(
-      `INSERT INTO products (category_id, supplier_id, slug, price_chf, compare_price_chf, tax_rate_id, sku, stock, weight_kg, is_featured, badge, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, taxRateId, sku || null, stock || 0, weightKg || null, isFeatured ? 1 : 0, badge || null]
+      `INSERT INTO products (category_id, supplier_id, slug, price_chf, compare_price_chf, tax_rate_id, sku, stock, weight_kg, is_featured, is_made_to_order, badge, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, taxRateId, sku || null, stock || 0, weightKg || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null]
     );
     const productId = result.insertId;
 
@@ -33,7 +33,7 @@ const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf,
 };
 
 // Mise à jour d'un produit avec ses traductions
-const update = async (id, { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, isActive, badge, translations }) => {
+const update = async (id, { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, isMadeToOrder, isActive, badge, translations }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -41,13 +41,13 @@ const update = async (id, { categoryId, supplierId, slug, priceChf, comparePrice
     /* slug non modifiable en édition — on ne le met à jour que s'il est fourni */
     const slugClause = slug ? 'slug = ?,' : '';
     const baseParams = slug
-      ? [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, taxRateId, sku || null, stock, weightKg || null, isFeatured ? 1 : 0, badge || null, isActive ? 1 : 0, id]
-      : [categoryId, supplierId || null,       priceChf, comparePriceChf || null, taxRateId, sku || null, stock, weightKg || null, isFeatured ? 1 : 0, badge || null, isActive ? 1 : 0, id];
+      ? [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, taxRateId, sku || null, stock, weightKg || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, isActive ? 1 : 0, id]
+      : [categoryId, supplierId || null,       priceChf, comparePriceChf || null, taxRateId, sku || null, stock, weightKg || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, isActive ? 1 : 0, id];
 
     await connection.execute(
       `UPDATE products SET category_id = ?, supplier_id = ?, ${slugClause} price_chf = ?,
        compare_price_chf = ?, tax_rate_id = ?, sku = ?, stock = ?, weight_kg = ?,
-       is_featured = ?, badge = ?, is_active = ? WHERE id = ?`,
+       is_featured = ?, is_made_to_order = ?, badge = ?, is_active = ? WHERE id = ?`,
       baseParams
     );
 
@@ -137,7 +137,7 @@ const setPrimaryImage = async (imageId, productId) => {
 const findByIdAdmin = async (id, locale = 'fr') => {
   const [rows] = await pool.execute(
     `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
-            p.weight_kg, p.is_featured, p.is_active, p.badge, p.category_id, p.supplier_id,
+            p.weight_kg, p.is_featured, p.is_made_to_order, p.is_active, p.badge, p.category_id, p.supplier_id,
             p.tax_rate_id, p.created_at,
             pt.name, pt.description,
             tr.rate AS tax_rate, tr.name AS tax_name
@@ -232,7 +232,7 @@ const findAllAdmin = async ({
 
   const [rows] = await pool.query(
     `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg,
-            p.is_active, p.is_featured, p.badge, p.category_id, p.supplier_id, p.tax_rate_id, p.created_at,
+            p.is_active, p.is_featured, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.tax_rate_id, p.created_at,
             pt.name, pt.description AS description_fr,
             ct.name AS category_name,
             sup.name AS supplier_name,

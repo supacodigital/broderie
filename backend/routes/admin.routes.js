@@ -69,11 +69,6 @@ router.delete('/reviews/:id', reviewController.remove);
 router.get('/customers', customerController.getAll);
 router.get('/customers/:id', customerController.getById);
 
-// Paiements — envoi QR Twint par email
-const paymentController = require('../controllers/payment.controller');
-
-router.post('/orders/:orderId/twint-email', paymentController.sendTwintQrByEmail);
-
 // Paramètres
 router.get('/settings/tax-rates',  settingsController.getTaxRates);
 router.put('/settings/tax-rates',  settingsController.updateTaxRates);

@@ -188,6 +188,21 @@
   margin-bottom: 20px;
 }
 
+/* Badge « sur commande » — ton neutre/positif, distinct du stock faible (jaune) et de l'épuisé (rouge) */
+.madeToOrder {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6d28d9;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  border-radius: 4px;
+  padding: 8px 14px;
+  margin-bottom: 20px;
+}
+
 /* ── Quantité + Panier ── */
 .addRow {
   display: flex;

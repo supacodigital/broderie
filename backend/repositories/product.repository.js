@@ -3,7 +3,7 @@ const { pool } = require('../config/db');
 // Colonnes produit sélectionnées explicitement — jamais SELECT *
 const PRODUCT_COLUMNS = `
   p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
-  p.weight_kg, p.is_featured, p.badge, p.category_id, p.supplier_id, p.created_at,
+  p.weight_kg, p.is_featured, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.created_at,
   pt.name, pt.description,
   ct.name AS category_name,
   c.slug AS category_slug,
@@ -39,6 +39,9 @@ const buildFilters = (filters) => {
   }
   if (filters.inStock) {
     conditions.push('p.stock > 0');
+  }
+  if (filters.madeToOrder) {
+    conditions.push('p.is_made_to_order = 1');
   }
   if (filters.featured) {
     conditions.push('p.is_featured = 1');
@@ -95,7 +98,7 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      LEFT JOIN reviews r ON r.product_id = p.id AND r.is_approved = 1
      WHERE ${conditions.join(' AND ')}
-     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.alt, tr.rate, tr.name
+     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.alt, tr.rate, tr.name
      ORDER BY ${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
     [locale, locale, ...params, limit, offset]
@@ -108,7 +111,7 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
 const findById = async (id, locale = 'fr') => {
   const [rows] = await pool.execute(
     `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
-            p.weight_kg, p.is_featured, p.badge, p.category_id, p.supplier_id, p.created_at,
+            p.weight_kg, p.is_featured, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.created_at,
             pt.name, pt.description,
             ct.name AS category_name,
             c.slug AS category_slug,
@@ -174,7 +177,7 @@ const search = async ({ q, locale = 'fr', page = 1, limit = 20 }) => {
      LEFT JOIN reviews r ON r.product_id = p.id AND r.is_approved = 1
      WHERE p.is_active = 1 AND p.deleted_at IS NULL
        AND MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE)
-     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.alt, tr.rate, tr.name
+     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.alt, tr.rate, tr.name
      ORDER BY relevance DESC
      LIMIT ? OFFSET ?`,
     [qBoolean, locale, locale, qBoolean, limit, offset]
@@ -208,7 +211,7 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      LEFT JOIN reviews r ON r.product_id = p.id AND r.is_approved = 1
      WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.category_id = ?
-     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.alt, tr.rate, tr.name
+     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.alt, tr.rate, tr.name
      ORDER BY ${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
     [locale, locale, categoryId, limit, offset]
@@ -221,7 +224,7 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
 const findBySlug = async (slug, locale = 'fr') => {
   const [rows] = await pool.execute(
     `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
-            p.weight_kg, p.is_featured, p.badge, p.category_id, p.supplier_id, p.created_at,
+            p.weight_kg, p.is_featured, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.created_at,
             pt.name, pt.description,
             ct.name AS category_name,
             c.slug AS category_slug,

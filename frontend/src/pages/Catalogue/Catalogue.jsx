@@ -54,6 +54,13 @@ function ActiveFilters({ filters, categories, onChange }) {
       clear: () => onChange({ ...filters, in_stock: undefined, page: 1 }),
     })
   }
+  if (filters.made_to_order) {
+    chips.push({
+      key:   'made_to_order',
+      label: t('catalogue.madeToOrderOnly'),
+      clear: () => onChange({ ...filters, made_to_order: undefined, page: 1 }),
+    })
+  }
   if (filters.badge) {
     const BADGE_KEYS = { nouveaute: 'catalogue.sortNewBadge', promo: 'catalogue.chipPromo', coup_de_coeur: 'catalogue.chipCoupDeCoeur', exclusif: 'catalogue.chipExclusif' }
     chips.push({
@@ -147,6 +154,7 @@ export default function Catalogue() {
     min_price:searchParams.get('min_price') ?? undefined,
     max_price:searchParams.get('max_price') ?? undefined,
     in_stock: searchParams.get('in_stock') === 'true' ? true : undefined,
+    made_to_order: searchParams.get('made_to_order') === 'true' ? true : undefined,
     sort:       searchParams.get('sort')      ?? 'created_at',
     order:      searchParams.get('order')     ?? 'desc',
     featured:   searchParams.get('featured') === 'true' ? true : undefined,
@@ -167,6 +175,7 @@ export default function Catalogue() {
       min_price:  searchParams.get('min_price')  ?? undefined,
       max_price:  searchParams.get('max_price')  ?? undefined,
       in_stock:   searchParams.get('in_stock') === 'true' ? true : undefined,
+      made_to_order: searchParams.get('made_to_order') === 'true' ? true : undefined,
       sort:       searchParams.get('sort')        ?? 'created_at',
       order:      searchParams.get('order')       ?? 'desc',
       featured:   searchParams.get('featured') === 'true' ? true : undefined,

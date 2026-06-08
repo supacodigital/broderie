@@ -37,7 +37,9 @@ const addItem = async ({ userId, sessionId, productId, variantId, quantity }) =>
   // Vérification stock et existence produit
   const product = await productRepository.findById(productId, 'fr');
   if (!product) throw new AppError('Produit introuvable.', 404);
-  if (product.stock < qty) {
+  // Produit sur commande : aucune limite de stock (fabriqué à la demande, délai 3 à 4 semaines)
+  const isMadeToOrder = !!product.is_made_to_order;
+  if (!isMadeToOrder && product.stock < qty) {
     throw new AppError(`Stock insuffisant. Disponible : ${product.stock}`, 400);
   }
 
@@ -47,7 +49,7 @@ const addItem = async ({ userId, sessionId, productId, variantId, quantity }) =>
   const existingItem = await cartRepository.findCartItem(cart.id, productId, variantId);
   if (existingItem) {
     const newQty = existingItem.quantity + qty;
-    if (product.stock < newQty) {
+    if (!isMadeToOrder && product.stock < newQty) {
       throw new AppError(`Stock insuffisant. Disponible : ${product.stock}`, 400);
     }
     await cartRepository.updateItemQuantity(existingItem.id, newQty);
@@ -83,10 +85,11 @@ const updateItem = async ({ userId, sessionId, itemId, quantity }) => {
   const item = await cartRepository.findCartItemById(itemId, cart.id);
   if (!item) throw new AppError('Article introuvable dans le panier.', 404);
 
-  // Vérification stock
+  // Vérification stock — ignorée pour les produits sur commande
   const product = await productRepository.findById(item.product_id, 'fr');
-  if (!product || product.stock < qty) {
-    throw new AppError(`Stock insuffisant. Disponible : ${product?.stock ?? 0}`, 400);
+  if (!product) throw new AppError('Produit introuvable.', 404);
+  if (!product.is_made_to_order && product.stock < qty) {
+    throw new AppError(`Stock insuffisant. Disponible : ${product.stock}`, 400);
   }
 
   await cartRepository.updateItemQuantity(itemId, qty);

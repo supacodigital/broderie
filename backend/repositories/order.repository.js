@@ -1,7 +1,7 @@
 const { pool } = require('../config/db');
 
 // Création d'une commande — transaction atomique (stock + commande + items + coupon + paiement)
-const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint' }) => {
+const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -9,10 +9,15 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
     // Vérification et décrémentation du stock pour chaque article (atomique)
     for (const item of items) {
       const [rows] = await connection.execute(
-        `SELECT stock FROM products WHERE id = ? AND is_active = 1 AND deleted_at IS NULL FOR UPDATE`,
+        `SELECT stock, is_made_to_order FROM products WHERE id = ? AND is_active = 1 AND deleted_at IS NULL FOR UPDATE`,
         [item.product_id]
       );
-      if (!rows[0] || rows[0].stock < item.quantity) {
+      if (!rows[0]) {
+        throw new Error(`Produit introuvable #${item.product_id}`);
+      }
+      // Produit sur commande : pas de contrôle ni de décrémentation de stock (fabriqué à la demande)
+      if (rows[0].is_made_to_order) continue;
+      if (rows[0].stock < item.quantity) {
         throw new Error(`Stock insuffisant pour le produit #${item.product_id}`);
       }
       await connection.execute(
@@ -24,11 +29,11 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
     // Création de la commande avec adresse de livraison figée
     const [orderResult] = await connection.execute(
       `INSERT INTO orders
-         (user_id, status, subtotal, discount, coupon_code, shipping_cost, tax_amount, total,
+         (user_id, status, subtotal, discount, coupon_code, shipping_cost, tax_amount, total, qr_reference,
           shipping_street, shipping_city, shipping_zip, shipping_country, shipping_canton)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        userId, status, subtotal, discount, couponCode, shippingCost, taxAmount, total,
+        userId, status, subtotal, discount, couponCode, shippingCost, taxAmount, total, qrReference,
         address?.street  ?? null,
         address?.city    ?? null,
         address?.zip     ?? null,
@@ -41,7 +46,7 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
     // Insertion des articles avec snapshot produit figé
     for (const item of items) {
       const [productRows] = await connection.execute(
-        `SELECT p.price_chf, p.sku, p.weight_kg, pt.name, pt.description
+        `SELECT p.price_chf, p.sku, p.weight_kg, p.is_made_to_order, pt.name, pt.description
          FROM products p
          INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = 'fr'
          WHERE p.id = ?`,
@@ -60,7 +65,8 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
           item.quantity,
           item.price_snapshot,
           item.tax_rate_snapshot,
-          JSON.stringify({ name: product.name, sku: product.sku, description: product.description }),
+          // Snapshot figé du produit — inclut le flag « sur commande » pour l'affichage email/commande
+          JSON.stringify({ name: product.name, sku: product.sku, description: product.description, is_made_to_order: !!product.is_made_to_order }),
         ]
       );
     }
@@ -136,6 +142,7 @@ const findById = async (orderId, userId = null) => {
 
   const [orders] = await pool.execute(
     `SELECT o.id, o.status, o.subtotal, o.discount, o.coupon_code, o.shipping_cost, o.tax_amount, o.total,
+            o.qr_reference,
             o.created_at, o.updated_at, o.user_id,
             o.shipping_street AS street, o.shipping_city AS city,
             o.shipping_zip    AS zip,    o.shipping_country AS country,
@@ -186,7 +193,7 @@ const findById = async (orderId, userId = null) => {
   };
 };
 
-const VALID_STATUSES = ['pending', 'awaiting_payment', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
+const VALID_STATUSES = ['pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
 const ALLOWED_SORT   = { created_at: 'o.created_at', total: 'o.total' };
 
 const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order = 'desc', status = null, q = null } = {}) => {

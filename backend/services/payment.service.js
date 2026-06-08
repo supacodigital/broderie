@@ -49,7 +49,8 @@ const createCardIntent = async (orderId) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// Twint QR — crée un PaymentIntent Stripe et retourne le QR
+// Twint (sans QR) — crée un PaymentIntent Stripe et retourne le client_secret
+// Le front confirme via Stripe.js : redirection vers l'app Twint, pas de QR affiché
 // ─────────────────────────────────────────────────────────────
 const createTwintIntent = async (orderId) => {
   if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
@@ -61,38 +62,16 @@ const createTwintIntent = async (orderId) => {
     throw new AppError('Cette commande ne peut pas être payée.', 400);
   }
 
-  // Annuler un éventuel PaymentIntent précédent pour cette commande
-  const existing = await paymentRepository.findByOrderId(orderId);
-  if (existing?.provider_payment_id && existing.status === 'pending') {
-    try {
-      await stripe.paymentIntents.cancel(existing.provider_payment_id);
-    } catch {
-      // Peut échouer si déjà annulé — on continue
-    }
-  }
-
-  // Montant en centimes (CHF) — Stripe travaille en centimes
   const amountCents = Math.round(roundCHF(parseFloat(order.total)) * 100);
-
-  // Twint requiert confirm:true + return_url pour que next_action soit renseigné
-  const returnUrl = `${env.clientUrl || 'http://localhost:5173'}/commande/${orderId}/confirmation`;
-
-  // Stripe impose la création d'un PaymentMethod avant de confirmer
-  const paymentMethod = await stripe.paymentMethods.create({ type: 'twint' });
 
   const intent = await stripe.paymentIntents.create({
     amount:               amountCents,
     currency:             'chf',
     payment_method_types: ['twint'],
-    payment_method:       paymentMethod.id,
-    confirm:              true,
-    return_url:           returnUrl,
-    metadata: {
-      order_id: String(orderId),
-    },
+    metadata: { order_id: String(orderId) },
   });
 
-  // Sauvegarde ou mise à jour du paiement en DB
+  const existing = await paymentRepository.findByOrderId(orderId);
   if (existing) {
     await paymentRepository.updateStatusByOrder(orderId, 'twint', 'pending', intent.id);
   } else {
@@ -106,57 +85,7 @@ const createTwintIntent = async (orderId) => {
     });
   }
 
-  // Production : QR PNG Twint — Test Stripe : redirect_to_url (pas de QR réel)
-  const qrUrl       = intent.next_action?.twint_display_qr_code?.image_url_png ?? null;
-  const redirectUrl = intent.next_action?.redirect_to_url?.url ?? null;
-
-  return {
-    paymentIntentId: intent.id,
-    clientSecret:    intent.client_secret,
-    qrUrl,
-    redirectUrl,
-    isTestMode:      !qrUrl && !!redirectUrl,
-    amount:          order.total,
-    expiresAt:       new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-  };
-};
-
-// ─────────────────────────────────────────────────────────────
-// Envoi QR Twint par email (depuis l'admin)
-// ─────────────────────────────────────────────────────────────
-const sendTwintQrByEmail = async (orderId, adminUserId) => {
-  if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
-
-  const twint = await createTwintIntent(orderId);
-
-  const order = await orderRepository.findById(orderId);
-  const user  = await userRepository.findById(order.user_id);
-  if (!user) throw new AppError('Client introuvable.', 404);
-
-  // Mode test Stripe : pas de QR PNG — on envoie l'URL de paiement à la place
-  if (twint.isTestMode) {
-    await emailService.sendTwintQr({
-      user,
-      order,
-      qrBuffer:    null,
-      redirectUrl: twint.redirectUrl,
-      expiresAt:   twint.expiresAt,
-      isTestMode:  true,
-    });
-    return { paymentIntentId: twint.paymentIntentId, expiresAt: twint.expiresAt, isTestMode: true };
-  }
-
-  if (!twint.qrUrl) throw new AppError('Impossible de générer le QR Twint.', 500);
-
-  // Production : téléchargement du PNG Twint depuis Stripe
-  const response = await fetch(twint.qrUrl);
-  if (!response.ok) throw new AppError('Impossible de récupérer l\'image QR.', 500);
-  const arrayBuffer = await response.arrayBuffer();
-  const qrBuffer    = Buffer.from(arrayBuffer);
-
-  await emailService.sendTwintQr({ user, order, qrBuffer, expiresAt: twint.expiresAt, isTestMode: false });
-
-  return { paymentIntentId: twint.paymentIntentId, expiresAt: twint.expiresAt };
+  return { clientSecret: intent.client_secret, amount: order.total };
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -238,4 +167,4 @@ const handleWebhook = async (rawBody, signature) => {
   }
 };
 
-module.exports = { createCardIntent, createTwintIntent, sendTwintQrByEmail, handleWebhook };
+module.exports = { createCardIntent, createTwintIntent, handleWebhook };

@@ -140,6 +140,10 @@ export default function CartDrawer() {
                       <span className={s.itemVariant}>{item.variant_value}</span>
                     )}
 
+                    {item.is_made_to_order ? (
+                      <span className={s.madeToOrder}>{t('products.madeToOrder')}</span>
+                    ) : null}
+
                     <div className={s.itemBottom}>
                       <div className={s.qtyRow} role="group" aria-label="Quantité">
                         <button

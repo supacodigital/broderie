@@ -52,6 +52,10 @@ export default function ProductCard({ product, index = 0, wishlisted = false, on
   const primaryImage = product.images?.[0] ?? (product.image_url ? { url: product.image_url, alt: product.image_alt ?? product.name } : null)
   const bg = BG_FALLBACKS[index % BG_FALLBACKS.length]
 
+  /* Produit sur commande : commande possible sans stock — on ignore l'état « épuisé » */
+  const isMadeToOrder = !!product.is_made_to_order
+  const isOutOfStock = !isMadeToOrder && product.stock === 0
+
   if (mode === 'list') {
     return (
       <article className={s.cardList} aria-label={product.name}>
@@ -91,11 +95,17 @@ export default function ProductCard({ product, index = 0, wishlisted = false, on
                   <span className={s.priceOld}>CHF {roundCHF(product.compare_price_chf).toFixed(2)}</span>
                 )}
               </p>
-              {product.stock !== undefined && product.stock <= 5 && product.stock > 0 && (
-                <p className={s.listStock}>Plus que {product.stock} en stock</p>
-              )}
-              {product.stock === 0 && (
-                <p className={s.listStockOut}>Épuisé</p>
+              {isMadeToOrder ? (
+                <p className={s.listMadeToOrder}>{t('products.madeToOrder')}</p>
+              ) : (
+                <>
+                  {product.stock !== undefined && product.stock <= 5 && product.stock > 0 && (
+                    <p className={s.listStock}>Plus que {product.stock} en stock</p>
+                  )}
+                  {product.stock === 0 && (
+                    <p className={s.listStockOut}>Épuisé</p>
+                  )}
+                </>
               )}
             </div>
             <div className={s.listBtns}>
@@ -109,9 +119,9 @@ export default function ProductCard({ product, index = 0, wishlisted = false, on
               <button
                 className={s.addBtnList}
                 onClick={handleAdd}
-                disabled={product.stock === 0}
+                disabled={isOutOfStock}
               >
-                {product.stock === 0 ? 'Épuisé' : added ? '✓ Ajouté !' : t('products.addToCart')}
+                {isOutOfStock ? 'Épuisé' : added ? '✓ Ajouté !' : t('products.addToCart')}
               </button>
             </div>
           </div>
@@ -158,8 +168,12 @@ export default function ProductCard({ product, index = 0, wishlisted = false, on
           )
         })()}
 
-        {product.stock !== undefined && product.stock <= 5 && product.stock > 0 && (
-          <span className={s.stockWarning}>Plus que {product.stock} en stock</span>
+        {isMadeToOrder ? (
+          <span className={s.madeToOrderTag}>{t('products.madeToOrder')}</span>
+        ) : (
+          product.stock !== undefined && product.stock <= 5 && product.stock > 0 && (
+            <span className={s.stockWarning}>Plus que {product.stock} en stock</span>
+          )
         )}
 
         <button
@@ -175,10 +189,10 @@ export default function ProductCard({ product, index = 0, wishlisted = false, on
         <button
           className={s.addBtn}
           onClick={handleAdd}
-          disabled={product.stock === 0}
+          disabled={isOutOfStock}
           aria-label={t('products.addToCart')}
         >
-          {product.stock === 0 ? 'Épuisé' : added ? '✓ Ajouté !' : t('products.addToCart')}
+          {isOutOfStock ? 'Épuisé' : added ? '✓ Ajouté !' : t('products.addToCart')}
         </button>
       </div>
 

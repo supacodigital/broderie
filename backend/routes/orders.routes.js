@@ -10,5 +10,6 @@ router.post('/', orderController.createOrder);
 router.get('/', orderController.getOrders);
 router.get('/:id', orderController.getOrderById);
 router.get('/:id/tracking', orderController.getTracking);
+router.get('/:id/invoice', orderController.downloadInvoice);
 
 module.exports = router;

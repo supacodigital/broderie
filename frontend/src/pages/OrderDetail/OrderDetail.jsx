@@ -1,20 +1,20 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useParams, Link } from 'react-router-dom'
 import {
-  ArrowLeft, Clock, FileText, RefreshCw, Loader2,
+  ArrowLeft, Clock, FileText, Loader2, Download,
   Truck, MapPin, ChevronRight,
 } from 'lucide-react'
-import { getOrderById } from '../../services/orders.service.js'
-import { createTwintIntent } from '../../services/payments.service.js'
+import { getOrderById, downloadInvoice } from '../../services/orders.service.js'
 import { roundCHF } from '../../utils/chf.js'
 import { formatDate, formatDateTime } from '../../utils/date.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
 import s from './OrderDetail.module.css'
 
 const PAYMENT_LABELS = {
-  invoice: 'Facture',
-  twint:   'Twint QR',
-  card:    'Carte bancaire',
+  card:       'Carte bancaire',
+  twint:      'Twint',
+  invoice_qr: 'Facture QR',
+  pickup:     'Retrait en boutique',
 }
 
 function StatusBadge({ status }) {
@@ -58,103 +58,37 @@ function StatusTimeline({ currentStatus }) {
   )
 }
 
-/* ── Bloc Twint QR (si paiement attendu via Twint) ── */
-function TwintBlock({ orderId, onPaid }) {
-  const [qrUrl, setQrUrl]     = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState(null)
-  const [expiry, setExpiry]   = useState(null)
-  const pollRef = useRef(null)
-
-  const fetchQr = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await createTwintIntent(orderId)
-      setQrUrl(res.qrUrl)
-      setExpiry(res.expiresAt)
-    } catch {
-      setError('Impossible de générer le QR Twint. Veuillez réessayer.')
-    } finally {
-      setLoading(false)
-    }
-  }, [orderId])
-
-  /* Polling pour détecter le paiement */
-  useEffect(() => {
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await getOrderById(orderId)
-        if (res.data?.status === 'paid') {
-          clearInterval(pollRef.current)
-          onPaid()
-        }
-      } catch { /* silencieux */ }
-    }, 5000)
-    return () => clearInterval(pollRef.current)
-  }, [orderId, onPaid])
-
-  useEffect(() => { fetchQr() }, [fetchQr])
-
-  return (
-    <div className={s.twintBlock}>
-      <h3 className={s.payBlockTitle}>Payer par Twint</h3>
-      <p className={s.payBlockDesc}>
-        Scannez le QR code avec votre application Twint pour finaliser votre paiement.
-      </p>
-      {loading && (
-        <div className={s.twintLoading}>
-          <Loader2 size={28} className={s.spin} />
-          <span>Génération du QR en cours…</span>
-        </div>
-      )}
-      {error && (
-        <div className={s.payError}>
-          <p>{error}</p>
-          <button className={s.retryBtn} onClick={fetchQr}>Réessayer</button>
-        </div>
-      )}
-      {qrUrl && !loading && (
-        <>
-          <div className={s.twintQrWrap}>
-            <img src={qrUrl} alt="QR Twint" className={s.twintQrImg} width={200} height={200} />
-          </div>
-          {expiry && (
-            <p className={s.twintExpiry}>
-              QR valide jusqu'au {formatDateTime(expiry)}
-            </p>
-          )}
-          <p className={s.twintPolling}>
-            <Loader2 size={13} className={s.spin} />
-            Vérification du paiement en cours…
-          </p>
-          <button className={s.retryBtn} onClick={fetchQr}>
-            <RefreshCw size={14} />
-            Générer un nouveau QR
-          </button>
-        </>
-      )}
-    </div>
-  )
-}
-
-/* ── Bloc Facture (si paiement attendu par facture) ── */
+/* ── Bloc Facture QR (téléchargement du PDF) ── */
 function InvoiceBlock({ order }) {
-  const ref = String(order.id).padStart(6, '0')
+  const ref = order.qr_reference ?? String(order.id).padStart(6, '0')
+  const [downloading, setDownloading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const handleDownload = async () => {
+    setError(null)
+    setDownloading(true)
+    try {
+      await downloadInvoice(order.id)
+    } catch {
+      setError('Impossible de télécharger la facture. Veuillez réessayer.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <div className={s.invoiceBlock}>
       <h3 className={s.payBlockTitle}>
         <FileText size={16} />
-        Paiement par facture
+        Facture QR à régler
       </h3>
       <p className={s.payBlockDesc}>
-        Vous avez choisi le paiement par facture. Vous recevrez votre facture par email
-        avec toutes les informations de virement.
+        Réglez votre facture QR suisse depuis votre application bancaire, sous 30 jours.
       </p>
       <div className={s.invoiceDetails}>
         <div className={s.invoiceRow}>
           <span className={s.invoiceLabel}>Référence</span>
-          <span className={s.invoiceValue}>FAC-{ref}</span>
+          <span className={s.invoiceValue}>{ref}</span>
         </div>
         <div className={s.invoiceRow}>
           <span className={s.invoiceLabel}>Montant</span>
@@ -165,10 +99,49 @@ function InvoiceBlock({ order }) {
           <span className={s.invoiceValue}>30 jours</span>
         </div>
       </div>
+
+      <button className={s.invoiceDownloadBtn} onClick={handleDownload} disabled={downloading}>
+        {downloading ? <Loader2 size={15} className={s.spin} /> : <Download size={15} />}
+        {downloading ? 'Préparation…' : 'Télécharger ma facture (PDF)'}
+      </button>
+      {error && <p className={s.payError}>{error}</p>}
+
       <p className={s.invoiceNote}>
-        Une facture PDF a été envoyée à votre adresse email. Si vous ne l'avez pas reçue,
+        Une facture PDF a aussi été envoyée à votre adresse email. Si vous ne l'avez pas reçue,
         vérifiez vos courriers indésirables.
       </p>
+    </div>
+  )
+}
+
+/* ── Bloc Click & Collect (retrait + paiement en boutique) ── */
+function PickupBlock({ status, total }) {
+  const isReady = status === 'ready_for_pickup'
+  return (
+    <div className={s.invoiceBlock} data-ready={isReady ? 'true' : 'false'}>
+      <h3 className={s.payBlockTitle}>
+        <MapPin size={16} />
+        {isReady ? 'Commande prête pour le retrait' : 'Retrait en boutique'}
+      </h3>
+      {isReady ? (
+        <>
+          <p className={s.payBlockDesc}>
+            Votre commande est prête ! Vous pouvez venir la retirer en boutique.
+            L'adresse et les horaires d'ouverture figurent dans l'email que nous venons de vous envoyer.
+          </p>
+          <div className={s.invoiceDetails}>
+            <div className={s.invoiceRow}>
+              <span className={s.invoiceLabel}>À régler en boutique</span>
+              <span className={s.invoiceValueBold}>CHF {roundCHF(total).toFixed(2)}</span>
+            </div>
+          </div>
+        </>
+      ) : (
+        <p className={s.payBlockDesc}>
+          Votre commande sera préparée. Vous la réglerez directement en boutique au moment du retrait.
+          Vous serez prévenu(e) par email dès qu'elle est prête.
+        </p>
+      )}
     </div>
   )
 }
@@ -190,7 +163,6 @@ function Skeleton() {
 /* ── Page principale ── */
 export default function OrderDetail() {
   const { id }    = useParams()
-  const navigate  = useNavigate()
   const [order,   setOrder]   = useState(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
@@ -211,12 +183,10 @@ export default function OrderDetail() {
     return () => { cancelled = true }
   }, [id, reload])
 
-  const handlePaid = useCallback(() => setReload(r => r + 1), [])
-
-  /* ── Déterminer la méthode de paiement depuis le dernier historique ── */
+  /* ── Méthode de paiement et blocs contextuels ── */
   const paymentMethod = order?.payment_method ?? null
-  const showTwint  = order && order.status === 'awaiting_payment' && paymentMethod === 'twint'
-  const showInvoice = order && order.status === 'awaiting_payment' && paymentMethod === 'invoice'
+  const showInvoice = order && order.status === 'pending_invoice' && paymentMethod === 'invoice_qr'
+  const showPickup  = order && ['pending_pickup', 'ready_for_pickup'].includes(order.status) && paymentMethod === 'pickup'
 
   return (
     <div className={s.page}>
@@ -348,14 +318,14 @@ export default function OrderDetail() {
                   </section>
                 )}
 
-                {/* Paiement Twint en attente */}
-                {showTwint && (
-                  <TwintBlock orderId={order.id} onPaid={handlePaid} />
-                )}
-
-                {/* Facture en attente */}
+                {/* Facture QR à régler */}
                 {showInvoice && (
                   <InvoiceBlock order={order} />
+                )}
+
+                {/* Retrait en boutique (Click & Collect) */}
+                {showPickup && (
+                  <PickupBlock status={order.status} total={order.total} />
                 )}
 
                 {/* Historique des statuts */}

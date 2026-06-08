@@ -3,9 +3,9 @@ import { useDebounceSearch } from '../../hooks/useDebounceSearch.js'
 import { useSearchParams } from 'react-router-dom'
 import {
   Eye, Search,
-  Send, FileText, RefreshCw, Package, Download, Truck,
+  Check, FileText, RefreshCw, Package, Download, Truck, Store,
 } from 'lucide-react'
-import { getOrders, getOrderById, updateOrderStatus, sendTwintQr, downloadInvoice, generateLabel, downloadLabel, updateTracking } from '../../services/orders.service.js'
+import { getOrders, getOrderById, updateOrderStatus, downloadInvoice, generateLabel, downloadLabel, updateTracking } from '../../services/orders.service.js'
 import { formatCHF } from '../../utils/chf.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
 import SortIcon from '../../components/ui/SortIcon/SortIcon.jsx'
@@ -17,21 +17,25 @@ import s from './Orders.module.css'
 const LIMIT = 20
 
 const STATUS_OPTIONS = [
-  { value: '',                label: 'Tous les statuts' },
-  { value: 'pending',         label: 'En attente' },
-  { value: 'awaiting_payment',label: 'Att. paiement' },
-  { value: 'paid',            label: 'Payée' },
-  { value: 'processing',      label: 'En préparation' },
-  { value: 'shipped',         label: 'Expédiée' },
-  { value: 'delivered',       label: 'Livrée' },
-  { value: 'cancelled',       label: 'Annulée' },
-  { value: 'refunded',        label: 'Remboursée' },
+  { value: '',                 label: 'Tous les statuts' },
+  { value: 'pending',          label: 'En attente' },
+  { value: 'awaiting_payment', label: 'Att. paiement' },
+  { value: 'pending_invoice',  label: 'Facture à payer' },
+  { value: 'pending_pickup',   label: 'Retrait en attente' },
+  { value: 'ready_for_pickup', label: 'Prête pour le retrait' },
+  { value: 'paid',             label: 'Payée' },
+  { value: 'processing',       label: 'En préparation' },
+  { value: 'shipped',          label: 'Expédiée' },
+  { value: 'delivered',        label: 'Livrée' },
+  { value: 'cancelled',        label: 'Annulée' },
+  { value: 'refunded',         label: 'Remboursée' },
 ]
 
 const PAYMENT_LABELS = {
-  invoice: '📄 Facture',
-  twint:   '📱 Twint',
-  card:    '💳 Carte',
+  card:       '💳 Carte',
+  twint:      '📱 Twint',
+  invoice_qr: '🧾 Facture QR',
+  pickup:     '🏬 Retrait boutique',
 }
 
 
@@ -67,7 +71,8 @@ function OrderModal({ orderId, onClose, onUpdated }) {
   const [newStatus,       setNewStatus]       = useState('')
   const [note,            setNote]            = useState('')
   const [saving,          setSaving]          = useState(false)
-  const [sendingQr,       setSendingQr]       = useState(false)
+  const [markingPaid,     setMarkingPaid]     = useState(false)
+  const [markingReady,    setMarkingReady]    = useState(false)
   const [generatingLabel, setGeneratingLabel] = useState(false)
   const [trackingInput,   setTrackingInput]   = useState('')
   const [savingTracking,  setSavingTracking]  = useState(false)
@@ -106,17 +111,41 @@ function OrderModal({ orderId, onClose, onUpdated }) {
     }
   }
 
-  const handleSendTwintQr = async () => {
-    setSendingQr(true)
+  // Facture QR / Click & Collect : l'admin confirme manuellement la réception du paiement
+  const handleMarkAsPaid = async () => {
+    setMarkingPaid(true)
     setFeedback('')
     setError('')
     try {
-      await sendTwintQr(orderId)
-      setFeedback('QR Twint envoyé par email au client.')
+      await updateOrderStatus(orderId, 'paid', note || 'Paiement confirmé manuellement')
+      setOrder(prev => ({ ...prev, status: 'paid' }))
+      setNewStatus('paid')
+      setNote('')
+      setFeedback('Commande marquée comme payée.')
+      onUpdated?.()
     } catch {
-      setError('Impossible d\'envoyer le QR Twint.')
+      setError('Impossible de marquer la commande comme payée.')
     } finally {
-      setSendingQr(false)
+      setMarkingPaid(false)
+    }
+  }
+
+  // Click & Collect : la commande est prête → email automatique au client
+  const handleMarkReady = async () => {
+    setMarkingReady(true)
+    setFeedback('')
+    setError('')
+    try {
+      await updateOrderStatus(orderId, 'ready_for_pickup', note || undefined)
+      setOrder(prev => ({ ...prev, status: 'ready_for_pickup' }))
+      setNewStatus('ready_for_pickup')
+      setNote('')
+      setFeedback('Commande marquée comme prête. Le client a été prévenu par email.')
+      onUpdated?.()
+    } catch {
+      setError('Impossible de marquer la commande comme prête.')
+    } finally {
+      setMarkingReady(false)
     }
   }
 
@@ -304,21 +333,47 @@ function OrderModal({ orderId, onClose, onUpdated }) {
               </p>
             </div>
 
-            {/* Envoi QR Twint */}
-            {['pending', 'awaiting_payment'].includes(order.status) && (
+            {/* Click & Collect : marquer la commande prête pour le retrait (email auto au client) */}
+            {order.status === 'pending_pickup' && (
               <div className={s.actionBlock}>
-                <label className={s.infoLabel}>Paiement Twint</label>
+                <label className={s.infoLabel}>Préparation du retrait</label>
                 <button
                   className={s.btnTwint}
-                  onClick={handleSendTwintQr}
-                  disabled={sendingQr}
+                  onClick={handleMarkReady}
+                  disabled={markingReady}
                 >
-                  {sendingQr
-                    ? <><RefreshCw size={13} className={s.spin} /> Envoi en cours…</>
-                    : <><Send size={13} /> Envoyer QR Twint par email</>
+                  {markingReady
+                    ? <><RefreshCw size={13} className={s.spin} /> Mise à jour…</>
+                    : <><Store size={13} /> Marquer prête pour le retrait</>
                   }
                 </button>
-                <p className={s.noteHint}>Génère un nouveau QR Twint et l'envoie au client par email (valable 1h).</p>
+                <p className={s.noteHint}>
+                  Passe la commande au statut « Prête pour le retrait » et envoie automatiquement un email au client (adresse + horaires de la boutique).
+                </p>
+              </div>
+            )}
+
+            {/* Confirmation manuelle du paiement — facture QR / Click & Collect */}
+            {['pending_invoice', 'pending_pickup', 'ready_for_pickup'].includes(order.status) && (
+              <div className={s.actionBlock}>
+                <label className={s.infoLabel}>
+                  {order.status === 'pending_invoice' ? 'Paiement de la facture' : 'Paiement en boutique'}
+                </label>
+                <button
+                  className={s.btnTwint}
+                  onClick={handleMarkAsPaid}
+                  disabled={markingPaid}
+                >
+                  {markingPaid
+                    ? <><RefreshCw size={13} className={s.spin} /> Mise à jour…</>
+                    : <><Check size={13} /> Marquer comme payée</>
+                  }
+                </button>
+                <p className={s.noteHint}>
+                  {order.status === 'pending_invoice'
+                    ? 'Confirme la réception du paiement de la facture QR et passe la commande au statut « Payée ».'
+                    : 'Confirme l\'encaissement au comptoir et passe la commande au statut « Payée ».'}
+                </p>
               </div>
             )}
 

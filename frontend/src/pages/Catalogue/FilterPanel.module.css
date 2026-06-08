@@ -323,6 +323,11 @@
   color: var(--text);
 }
 
+/* Espace entre deux cases à cocher consécutives (ex: « En stock » / « Sur commande ») */
+.checkRow + .checkRow {
+  margin-top: 12px;
+}
+
 .checkbox {
   width: 16px;
   height: 16px;

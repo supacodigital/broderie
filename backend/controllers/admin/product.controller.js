@@ -24,6 +24,7 @@ const productBodySchema = z.object({
   stock:           z.number().int().min(0).optional().default(0),
   weightKg:        z.number().positive().max(999).optional().nullable(),
   isFeatured:      z.boolean().optional().default(false),
+  isMadeToOrder:   z.boolean().optional().default(false),
   badge:           z.string().max(50).optional().nullable(),
   translations: z.object({
     fr: translationSchema,
@@ -89,9 +90,9 @@ const create = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors });
     }
 
-    const { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, badge, translations } = parsed.data;
+    const { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, isMadeToOrder, badge, translations } = parsed.data;
     const productId = await productAdminRepository.create({
-      categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, badge, translations,
+      categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, isMadeToOrder, badge, translations,
     });
 
     invalidateProducts();
@@ -113,9 +114,9 @@ const update = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors });
     }
 
-    const { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, isActive, badge, translations } = parsed.data;
+    const { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, isMadeToOrder, isActive, badge, translations } = parsed.data;
     await productAdminRepository.update(id, {
-      categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, isActive, badge, translations,
+      categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, isFeatured, isMadeToOrder, isActive, badge, translations,
     });
 
     invalidateProducts();

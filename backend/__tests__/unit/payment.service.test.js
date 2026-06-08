@@ -138,133 +138,49 @@ describe('payment.service — createTwintIntent()', () => {
     await expect(paymentService.createTwintIntent(1)).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  test('annule le PaymentIntent précédent si en attente', async () => {
+  test('retourne le client_secret (Twint sans QR — redirection Stripe.js)', async () => {
     orderRepository.findById.mockResolvedValue(makeOrder());
-    paymentRepository.findByOrderId.mockResolvedValue({
-      id: 3, provider_payment_id: 'pi_old', status: 'pending',
-    });
+    paymentRepository.findByOrderId.mockResolvedValue(null);
     stripe.paymentIntents = {
-      cancel: jest.fn().mockResolvedValue({}),
-      create: jest.fn().mockResolvedValue({
-        id: 'pi_new', client_secret: 'cs_new',
-        next_action: { twint_display_qr_code: { image_url_png: 'https://stripe.com/qr.png' } },
-      }),
+      create: jest.fn().mockResolvedValue({ id: 'pi_twint', client_secret: 'cs_twint' }),
     };
-    stripe.paymentMethods = {
-      create: jest.fn().mockResolvedValue({ id: 'pm_test' }),
+    paymentRepository.create.mockResolvedValue();
+
+    const result = await paymentService.createTwintIntent(1);
+
+    expect(result.clientSecret).toBe('cs_twint');
+    expect(result.amount).toBeDefined();
+    // Plus de QR généré côté serveur
+    expect(result.qrUrl).toBeUndefined();
+  });
+
+  test('crée le PaymentIntent avec le type twint et l\'order_id en metadata', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder());
+    paymentRepository.findByOrderId.mockResolvedValue(null);
+    const create = jest.fn().mockResolvedValue({ id: 'pi_twint', client_secret: 'cs_twint' });
+    stripe.paymentIntents = { create };
+    paymentRepository.create.mockResolvedValue();
+
+    await paymentService.createTwintIntent(1);
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      currency: 'chf',
+      payment_method_types: ['twint'],
+      metadata: { order_id: '1' },
+    }));
+  });
+
+  test('met à jour le paiement existant au lieu d\'en créer un nouveau', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder());
+    paymentRepository.findByOrderId.mockResolvedValue({ id: 3, provider_payment_id: 'pi_old', status: 'pending' });
+    stripe.paymentIntents = {
+      create: jest.fn().mockResolvedValue({ id: 'pi_new', client_secret: 'cs_new' }),
     };
     paymentRepository.updateStatusByOrder.mockResolvedValue();
 
     await paymentService.createTwintIntent(1);
 
-    expect(stripe.paymentIntents.cancel).toHaveBeenCalledWith('pi_old');
-  });
-
-  test('retourne qrUrl en mode production', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder());
-    paymentRepository.findByOrderId.mockResolvedValue(null);
-    stripe.paymentMethods = {
-      create: jest.fn().mockResolvedValue({ id: 'pm_twint' }),
-    };
-    stripe.paymentIntents = {
-      create: jest.fn().mockResolvedValue({
-        id: 'pi_twint', client_secret: 'cs_twint',
-        next_action: { twint_display_qr_code: { image_url_png: 'https://stripe.com/qr.png' } },
-      }),
-    };
-    paymentRepository.create.mockResolvedValue();
-
-    const result = await paymentService.createTwintIntent(1);
-
-    expect(result.qrUrl).toBe('https://stripe.com/qr.png');
-    expect(result.isTestMode).toBe(false);
-    expect(result.paymentIntentId).toBe('pi_twint');
-  });
-
-  test('détecte le mode test Stripe (redirect_to_url au lieu de QR)', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder());
-    paymentRepository.findByOrderId.mockResolvedValue(null);
-    stripe.paymentMethods = {
-      create: jest.fn().mockResolvedValue({ id: 'pm_twint' }),
-    };
-    stripe.paymentIntents = {
-      create: jest.fn().mockResolvedValue({
-        id: 'pi_test_twint', client_secret: 'cs_test_twint',
-        next_action: { redirect_to_url: { url: 'https://stripe.test/redirect' } },
-      }),
-    };
-    paymentRepository.create.mockResolvedValue();
-
-    const result = await paymentService.createTwintIntent(1);
-
-    expect(result.isTestMode).toBe(true);
-    expect(result.redirectUrl).toBe('https://stripe.test/redirect');
-    expect(result.qrUrl).toBeNull();
-  });
-
-  test('continue même si l\'annulation du PI précédent échoue', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder());
-    paymentRepository.findByOrderId.mockResolvedValue({
-      id: 3, provider_payment_id: 'pi_old', status: 'pending',
-    });
-    stripe.paymentIntents = {
-      cancel: jest.fn().mockRejectedValue(new Error('déjà annulé')),
-      create: jest.fn().mockResolvedValue({
-        id: 'pi_new2', client_secret: 'cs_new2',
-        next_action: { redirect_to_url: { url: 'https://stripe.test/r' } },
-      }),
-    };
-    stripe.paymentMethods = {
-      create: jest.fn().mockResolvedValue({ id: 'pm_t2' }),
-    };
-    paymentRepository.updateStatusByOrder.mockResolvedValue();
-
-    // Ne doit pas rejeter même si cancel échoue
-    await expect(paymentService.createTwintIntent(1)).resolves.toBeDefined();
-  });
-});
-
-// ── sendTwintQrByEmail() ──────────────────────────────────────────────────────
-
-describe('payment.service — sendTwintQrByEmail()', () => {
-  test('envoie en mode test (redirect_to_url) sans télécharger le PNG', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder());
-    userRepository.findById.mockResolvedValue(makeUser());
-    paymentRepository.findByOrderId.mockResolvedValue(null);
-    stripe.paymentMethods = { create: jest.fn().mockResolvedValue({ id: 'pm_t' }) };
-    stripe.paymentIntents = {
-      create: jest.fn().mockResolvedValue({
-        id: 'pi_t', client_secret: 'cs_t',
-        next_action: { redirect_to_url: { url: 'https://stripe.test/redirect' } },
-      }),
-    };
-    paymentRepository.create.mockResolvedValue();
-    emailService.sendTwintQr.mockResolvedValue();
-
-    const result = await paymentService.sendTwintQrByEmail(1, 99);
-
-    expect(emailService.sendTwintQr).toHaveBeenCalledWith(expect.objectContaining({
-      isTestMode: true,
-      redirectUrl: 'https://stripe.test/redirect',
-      qrBuffer: null,
-    }));
-    expect(result.isTestMode).toBe(true);
-  });
-
-  test('lève 404 si client introuvable', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder());
-    userRepository.findById.mockResolvedValue(null);
-    paymentRepository.findByOrderId.mockResolvedValue(null);
-    stripe.paymentMethods = { create: jest.fn().mockResolvedValue({ id: 'pm_t' }) };
-    stripe.paymentIntents = {
-      create: jest.fn().mockResolvedValue({
-        id: 'pi_t', client_secret: 'cs_t',
-        next_action: { redirect_to_url: { url: 'https://stripe.test/r' } },
-      }),
-    };
-    paymentRepository.create.mockResolvedValue();
-
-    await expect(paymentService.sendTwintQrByEmail(1, 99)).rejects.toMatchObject({ statusCode: 404 });
+    expect(paymentRepository.updateStatusByOrder).toHaveBeenCalledWith(1, 'twint', 'pending', 'pi_new');
   });
 });
 

@@ -109,7 +109,7 @@ describe('Paiement — Stripe', () => {
     expect(res.body.success).toBe(false);
   });
 
-  test('POST /payments/twint/:id — crée un PaymentIntent Twint', async () => {
+  test('POST /payments/twint/:id — crée un PaymentIntent Twint (sans QR)', async () => {
     if (!stripeConfigured || !orderId) return;
 
     const res = await request(app)
@@ -118,13 +118,10 @@ describe('Paiement — Stripe', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data).toHaveProperty('qrUrl');
-    expect(res.body.data).toHaveProperty('expiresAt');
-    expect(res.body.data).toHaveProperty('paymentIntentId');
-    // qrUrl peut être null en mode test Stripe (non disponible sans vrai compte Twint)
-    if (res.body.data.qrUrl !== null) {
-      expect(res.body.data.qrUrl).toMatch(/^https?:\/\//);
-    }
+    // Twint sans QR : on retourne un client_secret pour Stripe.js (redirection vers l'app Twint)
+    expect(res.body.data).toHaveProperty('clientSecret');
+    expect(res.body.data).toHaveProperty('amount');
+    expect(res.body.data).not.toHaveProperty('qrUrl');
   });
 
   test('POST /payments/card/:id — crée un PaymentIntent carte', async () => {

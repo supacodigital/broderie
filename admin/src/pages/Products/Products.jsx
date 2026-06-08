@@ -232,6 +232,7 @@ const schema = z.object({
   supplierId:       z.coerce.number().int().min(0).optional(),
   taxRateId:        z.coerce.number().int().positive('Taxe requise'),
   isFeatured:       z.boolean().optional(),
+  isMadeToOrder:    z.boolean().optional(),
   isActive:         z.boolean().optional(),
   badge:            z.string().optional(),
   description:      z.string().optional(),
@@ -415,6 +416,7 @@ function ProductModal({ product, categories, suppliers, taxRates, onClose, onSav
       supplierId:      product.supplier_id ?? '',
       taxRateId:       product.tax_rate_id ?? '',
       isFeatured:      !!product.is_featured,
+      isMadeToOrder:   !!product.is_made_to_order,
       isActive:        !!product.is_active,
       badge:           product.badge ?? '',
       description:     product.description_fr ?? '',
@@ -422,7 +424,7 @@ function ProductModal({ product, categories, suppliers, taxRates, onClose, onSav
       descriptionDe:   product.translations?.de?.description ?? '',
       nameEn:          product.translations?.en?.name ?? '',
       descriptionEn:   product.translations?.en?.description ?? '',
-    } : { isActive: true, isFeatured: false, badge: '', stock: 0 },
+    } : { isActive: true, isFeatured: false, isMadeToOrder: false, badge: '', stock: 0 },
   })
 
   useEffect(() => {
@@ -463,6 +465,7 @@ function ProductModal({ product, categories, suppliers, taxRates, onClose, onSav
         stock:           Number(data.stock),
         weightKg:        data.weightKg ? Number(data.weightKg) : null,
         isFeatured:      !!data.isFeatured,
+        isMadeToOrder:   !!data.isMadeToOrder,
         isActive:        !!data.isActive,
         badge:           data.badge || null,
         translations: {
@@ -628,6 +631,10 @@ function ProductModal({ product, categories, suppliers, taxRates, onClose, onSav
               <label className={s.checkRow}>
                 <input type="checkbox" {...register('isFeatured')} />
                 <span>Mis en avant (page d'accueil)</span>
+              </label>
+              <label className={s.checkRow}>
+                <input type="checkbox" {...register('isMadeToOrder')} />
+                <span>Sur commande — commandable sans stock (délai 3 à 4 semaines)</span>
               </label>
             </div>
           </form>

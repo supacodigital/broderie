@@ -73,6 +73,9 @@ function OrderSummary({ items, subtotal, discount, couponCode, shipping, shippin
             {item.variant_value && (
               <span className={s.summaryItemQty}> — {item.variant_value}</span>
             )}
+            {item.is_made_to_order ? (
+              <span className={s.summaryMadeToOrder}>{t('products.madeToOrder')}</span>
+            ) : null}
           </span>
           <span className={s.summaryItemQty}>×{item.quantity}</span>
           <span className={s.summaryItemPrice}>
@@ -103,7 +106,9 @@ function OrderSummary({ items, subtotal, discount, couponCode, shipping, shippin
         <span>
           {shippingLoading
             ? <span className={s.shippingLoading}>…</span>
-            : shipping ? `CHF ${shipping.price_chf.toFixed(2)}` : '…'
+            : shipping
+              ? (shipping.price_chf === 0 ? t('checkout.shippingFree') : `CHF ${shipping.price_chf.toFixed(2)}`)
+              : '…'
           }
         </span>
       </div>
@@ -278,7 +283,7 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
 }
 
 /* ── Étape 2 : Mode de paiement + CGV ── */
-function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, subtotal, onCouponApplied, discount, couponCode, t }) {
+function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, subtotal, onCouponApplied, discount, couponCode, onPaymentChange, t }) {
   const [payment,     setPayment]     = useState('card')
   const [cgv,         setCgv]         = useState(false)
   const [cgvError,    setCgvError]    = useState('')
@@ -287,8 +292,10 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
   const [couponLoading, setCouponLoading] = useState(false)
 
   const PAYMENT_OPTIONS = [
-    { value: 'card',  label: t('checkout.paymentCard'),  badge: '💳' },
-    { value: 'twint', label: t('checkout.paymentTwint'), badge: '📱' },
+    { value: 'card',       label: t('checkout.paymentCard'),    badge: '💳' },
+    { value: 'twint',      label: t('checkout.paymentTwint'),   badge: '📱' },
+    { value: 'invoice_qr', label: t('checkout.paymentInvoice'), badge: '🧾' },
+    { value: 'pickup',     label: t('checkout.paymentPickup'),  badge: '🏬' },
   ]
 
   const handleApplyCoupon = async () => {
@@ -351,7 +358,7 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
               name="payment"
               value={opt.value}
               checked={payment === opt.value}
-              onChange={() => setPayment(opt.value)}
+              onChange={() => { setPayment(opt.value); onPaymentChange?.(opt.value) }}
               className={s.paymentRadio}
             />
             <div className={s.paymentOptionInner}>
@@ -368,6 +375,12 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
       )}
       {payment === 'card' && (
         <div className={s.paymentInfo}>{t('checkout.infoCard')}</div>
+      )}
+      {payment === 'invoice_qr' && (
+        <div className={s.paymentInfo}>{t('checkout.infoInvoice')}</div>
+      )}
+      {payment === 'pickup' && (
+        <div className={s.paymentInfo}>{t('checkout.infoPickup')}</div>
       )}
 
       {/* Code promo */}
@@ -500,7 +513,7 @@ function TwintForm({ orderId, onPaid }) {
   )
 }
 
-/* ── Étape Twint : affichage du QR code via Stripe.js ── */
+/* ── Étape Twint : paiement via Stripe.js (redirection vers l'app Twint, sans QR) ── */
 function StepTwint({ orderId, total, onPaid, t }) {
   const [clientSecret, setClientSecret] = useState(null)
   const [loading,      setLoading]      = useState(true)
@@ -535,14 +548,14 @@ function StepTwint({ orderId, total, onPaid, t }) {
     <div className={s.twintWrap}>
       <h2 className={s.twintTitle}>Payer par Twint</h2>
       <p className={s.twintDesc}>
-        Scannez le QR code avec votre application <strong>Twint</strong> pour régler
-        <strong> CHF {roundCHF(total).toFixed(2)}</strong>.
+        Réglez <strong>CHF {roundCHF(total).toFixed(2)}</strong> avec votre application{' '}
+        <strong>Twint</strong>. Vous serez redirigé(e) pour confirmer le paiement.
       </p>
 
       {loading && (
         <div className={s.twintLoading}>
           <div className={s.twintSpinner} />
-          <p>Génération du paiement…</p>
+          <p>Initialisation du paiement…</p>
         </div>
       )}
 
@@ -562,17 +575,6 @@ function StepTwint({ orderId, total, onPaid, t }) {
         >
           <TwintForm orderId={orderId} onPaid={onPaid} />
         </Elements>
-      )}
-
-      {!loading && (
-        <button
-          type="button"
-          className={s.twintRefreshBtn}
-          onClick={fetchIntent}
-          disabled={loading}
-        >
-          <RefreshCw size={14} /> Recharger le QR
-        </button>
       )}
     </div>
   )
@@ -698,7 +700,11 @@ function StepCard({ orderId, total, onPaid, t }) {
 }
 
 /* ── Étape 3 : Confirmation ── */
-function StepConfirm({ orderId, t }) {
+function StepConfirm({ orderId, paymentMethod, t }) {
+  /* Message de bas de page adapté à la méthode de paiement */
+  const isInvoice = paymentMethod === 'invoice_qr'
+  const isPickup  = paymentMethod === 'pickup'
+
   return (
     <div className={s.confirmWrap}>
       <div className={s.confirmIcon}><Check size={36} /></div>
@@ -712,10 +718,23 @@ function StepConfirm({ orderId, t }) {
           </Link>
         </p>
       )}
-      <p className={s.confirmDesc}>{t('checkout.confirmDesc')}</p>
-      <div className={s.confirmDelivery}>
-        <Truck size={16} /><span>{t('checkout.deliveryInfo')}</span>
-      </div>
+
+      {/* Instructions spécifiques facture QR / Click & Collect */}
+      {isInvoice ? (
+        <p className={s.confirmDesc}>{t('checkout.confirmInvoice')}</p>
+      ) : isPickup ? (
+        <p className={s.confirmDesc}>{t('checkout.confirmPickup')}</p>
+      ) : (
+        <p className={s.confirmDesc}>{t('checkout.confirmDesc')}</p>
+      )}
+
+      {/* Bandeau livraison — masqué pour le Click & Collect (retrait en boutique) */}
+      {!isPickup && (
+        <div className={s.confirmDelivery}>
+          <Truck size={16} /><span>{t('checkout.deliveryInfo')}</span>
+        </div>
+      )}
+
       <Link
         to="/catalogue"
         className={`${s.btnPrimary} ${s.confirmCtaLink}`}
@@ -743,6 +762,8 @@ export default function Checkout() {
     return sessionStorage.getItem('checkout_order_id') || null
   })
   const [paymentMethod,  setPaymentMethod]  = useState('twint')
+  /* Méthode en cours de sélection à l'étape 2 (défaut 'card' = défaut du radio) — sert au récap (frais à 0 si Click & Collect) */
+  const [selectedMethod, setSelectedMethod] = useState('card')
   const [orderTotal,     setOrderTotal]     = useState(() => {
     return parseFloat(sessionStorage.getItem('checkout_order_total') || '0')
   })
@@ -887,7 +908,7 @@ export default function Checkout() {
       )}
 
       {step === 3 && (
-        <StepConfirm orderId={orderId} t={t} />
+        <StepConfirm orderId={orderId} paymentMethod={paymentMethod} t={t} />
       )}
 
       {(step === 'twint' || step === 'card') && (
@@ -944,11 +965,21 @@ export default function Checkout() {
               discount={discount}
               couponCode={couponCode}
               onCouponApplied={({ discount: d, code: c }) => { setDiscount(d); setCouponCode(c) }}
+              onPaymentChange={setSelectedMethod}
               t={t}
             />
           )}
 
-          <OrderSummary items={items} subtotal={subtotal} discount={discount} couponCode={couponCode} shipping={shipping} shippingLoading={shippingLoading} t={t} />
+          {/* Click & Collect : retrait en boutique → frais de port à 0 dans le récap */}
+          <OrderSummary
+            items={items}
+            subtotal={subtotal}
+            discount={discount}
+            couponCode={couponCode}
+            shipping={selectedMethod === 'pickup' && step === 2 ? { ...(shipping ?? {}), price_chf: 0, carrier: null, estimated_days: null } : shipping}
+            shippingLoading={shippingLoading}
+            t={t}
+          />
         </div>
       )}
     </div>

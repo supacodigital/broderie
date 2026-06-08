@@ -80,6 +80,21 @@
   z-index: 1;
 }
 
+/* Badge « sur commande » flottant (mode grille) — violet, distinct du stock faible */
+.madeToOrderTag {
+  position: absolute;
+  bottom: 44px;
+  left: 10px;
+  background: rgba(109, 40, 217, 0.92);
+  color: white;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 2px;
+  z-index: 1;
+}
+
 /* ── Bouton wishlist ── */
 .wishlistBtn {
   position: absolute;
@@ -225,6 +240,7 @@
   .imageWrap { margin-bottom: 10px; }
 
   .stockWarning { bottom: 38px; font-size: 9px; }
+  .madeToOrderTag { bottom: 38px; font-size: 9px; }
 }
 
 /* ── Mode featured (grande carte bento) ── */
@@ -347,6 +363,16 @@
   font-family: 'Montserrat', sans-serif;
   font-size: 10px;
   color: #9ca3af;
+  font-weight: 600;
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* Badge « sur commande » (mode liste) — violet */
+.listMadeToOrder {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 10px;
+  color: #6d28d9;
   font-weight: 600;
   margin-top: 4px;
   text-align: right;

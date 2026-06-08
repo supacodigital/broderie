@@ -168,6 +168,7 @@ CREATE TABLE products (
   weight_kg         DECIMAL(8, 3)  NULL DEFAULT NULL,
   is_active         TINYINT(1)     NOT NULL DEFAULT 1,
   is_featured       TINYINT(1)     NOT NULL DEFAULT 0,
+  is_made_to_order  TINYINT(1)     NOT NULL DEFAULT 0,  -- Produit sur commande : commande possible sans stock (délai 3 à 4 semaines)
   badge             ENUM('nouveaute','promo','coup_de_coeur','exclusif') NULL DEFAULT NULL,
   deleted_at        DATETIME       NULL DEFAULT NULL,
   created_at        DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -271,13 +272,15 @@ CREATE TABLE cart_items (
 CREATE TABLE orders (
   id              INT UNSIGNED   NOT NULL AUTO_INCREMENT,
   user_id         INT UNSIGNED   NOT NULL,
-  status          ENUM('pending', 'awaiting_payment', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded') NOT NULL DEFAULT 'pending',
+  status          ENUM('pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded') NOT NULL DEFAULT 'pending',
   subtotal        DECIMAL(10, 2) NOT NULL,
   discount        DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
   coupon_code     VARCHAR(50)    NULL DEFAULT NULL,
   shipping_cost   DECIMAL(10, 2) NOT NULL,
   tax_amount      DECIMAL(10, 2) NOT NULL,
   total           DECIMAL(10, 2) NOT NULL,
+  -- Référence de paiement QR figée (facture QR suisse) — sert à régénérer le PDF et rapprocher le paiement
+  qr_reference    VARCHAR(27)    NULL DEFAULT NULL,
   -- Adresse de livraison figée au moment de la commande
   shipping_street  VARCHAR(255)   NULL DEFAULT NULL,
   shipping_city    VARCHAR(100)   NULL DEFAULT NULL,
@@ -316,7 +319,7 @@ CREATE TABLE order_items (
 CREATE TABLE order_status_history (
   id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
   order_id   INT UNSIGNED NOT NULL,
-  status     ENUM('pending', 'awaiting_payment', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded') NOT NULL,
+  status     ENUM('pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded') NOT NULL,
   note       TEXT         NULL DEFAULT NULL,
   created_by INT UNSIGNED NULL DEFAULT NULL,
   created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -336,7 +339,7 @@ CREATE TABLE payments (
   provider_payment_id VARCHAR(255)   NULL DEFAULT NULL,
   amount              DECIMAL(10, 2) NOT NULL,
   currency            CHAR(3)        NOT NULL DEFAULT 'CHF',
-  method              ENUM('card', 'twint', 'invoice', 'postfinance') NOT NULL,
+  method              ENUM('card', 'twint', 'invoice_qr', 'pickup') NOT NULL,
   status              ENUM('pending', 'processing', 'succeeded', 'failed', 'cancelled', 'refunded') NOT NULL DEFAULT 'pending',
   created_at          DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),

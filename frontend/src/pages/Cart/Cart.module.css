@@ -111,6 +111,16 @@
   color: var(--text-muted);
 }
 
+/* Badge « sur commande » dans le panier — violet */
+.madeToOrder {
+  display: block;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6d28d9;
+  margin-top: 2px;
+}
+
 .itemPrice {
   font-family: 'Montserrat', sans-serif;
   font-size: 14px;

@@ -8,7 +8,7 @@ const loyaltyService    = require('../../services/loyalty.service');
 const { generateInvoicePDF } = require('../../services/invoice.service');
 
 // Statuts valides — alignés avec l'ENUM du schema
-const VALID_STATUSES = ['pending', 'awaiting_payment', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
+const VALID_STATUSES = ['pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
 
 const getAll = async (req, res, next) => {
   try {
@@ -102,6 +102,12 @@ const updateStatus = async (req, res, next) => {
 
         emailService.sendOrderShipped({ user, order, trackingNumber }).catch((err) => {
           console.error('[Email] Expédition non envoyée :', err.message);
+        });
+
+      } else if (status === 'ready_for_pickup') {
+        /* Click & Collect : email automatique « votre commande est prête » avec adresse + horaires boutique */
+        emailService.sendPickupReady({ user, order }).catch((err) => {
+          console.error('[Email] Commande prête non envoyée :', err.message);
         });
 
       } else if (['paid', 'delivered', 'cancelled', 'refunded'].includes(status)) {

@@ -1,5 +1,7 @@
 const orderService    = require('../services/order.service');
 const orderRepository = require('../repositories/order.repository');
+const userRepository  = require('../repositories/user.repository');
+const invoiceService  = require('../services/invoice.service');
 const { AppError }    = require('../middlewares/errorHandler');
 
 const createOrder = async (req, res, next) => {
@@ -66,4 +68,35 @@ const getTracking = async (req, res, next) => {
   }
 };
 
-module.exports = { createOrder, getOrders, getOrderById, getTracking };
+/**
+ * Télécharge la facture QR PDF d'une commande.
+ * Un client ne peut télécharger que la facture de SES propres commandes facture QR.
+ */
+const downloadInvoice = async (req, res, next) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const userId  = req.user.id;
+
+    const order = await orderRepository.findById(orderId, userId);
+    if (!order) return next(new AppError('Commande introuvable.', 404));
+
+    // Seules les commandes payées par facture QR disposent d'une facture téléchargeable
+    if (order.payment_method !== 'invoice_qr') {
+      return next(new AppError('Aucune facture disponible pour cette commande.', 404));
+    }
+
+    const user = await userRepository.findById(order.user_id);
+    if (!user) return next(new AppError('Client introuvable.', 404));
+
+    const pdfBuffer = await invoiceService.getInvoicePdf({ order, user });
+
+    const filename = `facture-${String(order.id).padStart(6, '0')}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { createOrder, getOrders, getOrderById, getTracking, downloadInvoice };

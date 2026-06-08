@@ -21,7 +21,7 @@ const findCartItems = async (cartId) => {
             pt.name AS product_name,
             pt.slug AS product_slug,
             pi.url AS image_url,
-            p.stock, p.weight_kg, p.is_active, p.deleted_at,
+            p.stock, p.weight_kg, p.is_active, p.is_made_to_order, p.deleted_at,
             p.category_id,
             c.slug AS category_slug
      FROM cart_items ci

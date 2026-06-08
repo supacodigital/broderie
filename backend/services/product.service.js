@@ -20,6 +20,7 @@ const getAll = async (query) => {
     ...(query.min_price !== undefined && { minPrice: parseFloat(query.min_price) }),
     ...(query.max_price !== undefined && { maxPrice: parseFloat(query.max_price) }),
     ...(query.in_stock === 'true' && { inStock: true }),
+    ...(query.made_to_order === 'true' && { madeToOrder: true }),
     ...(query.featured === 'true' && { featured: true }),
     ...(query.badge && { badge: query.badge }),
     ...(query.min_rating && { minRating: parseFloat(query.min_rating) }),

@@ -27,19 +27,6 @@ const createTwintIntent = async (req, res, next) => {
   }
 };
 
-// Envoi du QR Twint par email — action admin
-const sendTwintQrByEmail = async (req, res, next) => {
-  try {
-    const orderId = parseInt(req.params.orderId);
-    if (!orderId) return next(new AppError('orderId invalide.', 400));
-
-    const result = await paymentService.sendTwintQrByEmail(orderId, req.user.id);
-    res.json({ success: true, data: result, message: 'QR Twint envoyé par email.' });
-  } catch (error) {
-    next(error);
-  }
-};
-
 // Webhook Stripe — corps brut obligatoire pour la vérification de signature
 const stripeWebhook = async (req, res, next) => {
   try {
@@ -57,4 +44,4 @@ const stripeWebhook = async (req, res, next) => {
   }
 };
 
-module.exports = { createCardIntent, createTwintIntent, sendTwintQrByEmail, stripeWebhook };
+module.exports = { createCardIntent, createTwintIntent, stripeWebhook };

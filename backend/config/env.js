@@ -14,6 +14,23 @@ module.exports = {
   /* Stripe */
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
 
+  /* Facture QR suisse — IBAN de test par défaut, à remplacer par le vrai IBAN de la cliente en production.
+     IBAN normal (pas QR-IBAN) : permet une facture sans référence structurée obligatoire. */
+  qrInvoiceIban:    process.env.QR_INVOICE_IBAN    ?? 'CH9300762011623852957',
+  qrInvoiceName:    process.env.QR_INVOICE_NAME    ?? process.env.SHOP_NAME    ?? 'Au Point-Compté',
+  qrInvoiceAddress: process.env.QR_INVOICE_ADDRESS ?? process.env.SHOP_ADDRESS ?? 'Rue de la Boutique 1',
+  qrInvoiceZip:     process.env.QR_INVOICE_ZIP     ?? process.env.SHOP_ZIP     ?? '1200',
+  qrInvoiceCity:    process.env.QR_INVOICE_CITY    ?? process.env.SHOP_CITY    ?? 'Genève',
+  /* Délai de paiement de la facture (jours) */
+  invoiceDueDays:   parseInt(process.env.INVOICE_DUE_DAYS || '30', 10),
+
+  /* Click & Collect — adresse et horaires de l'unique boutique (retrait + paiement sur place) */
+  pickupName:    process.env.PICKUP_NAME    ?? process.env.SHOP_NAME    ?? 'Au Point-Compté',
+  pickupAddress: process.env.PICKUP_ADDRESS ?? process.env.SHOP_ADDRESS ?? 'Rue de la Boutique 1',
+  pickupZip:     process.env.PICKUP_ZIP     ?? process.env.SHOP_ZIP     ?? '1200',
+  pickupCity:    process.env.PICKUP_CITY    ?? process.env.SHOP_CITY    ?? 'Genève',
+  pickupHours:   process.env.PICKUP_HOURS   ?? 'Lun–Ven 9h–18h, Sam 9h–16h',
+
   /* Google OAuth */
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? null,
 

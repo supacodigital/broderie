@@ -265,69 +265,38 @@ describe('email.service — sendMigrationWelcome()', () => {
   });
 });
 
-// ── sendTwintQr() ─────────────────────────────────────────────────────────────
+// ── sendInvoice() ─────────────────────────────────────────────────────────────
 
-describe('email.service — sendTwintQr()', () => {
-  const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString();
+describe('email.service — sendInvoice()', () => {
+  const dueDate = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
 
-  test('envoie en mode test avec un lien redirect (pas de pièce jointe)', async () => {
-    await service.sendTwintQr({
-      user:        fakeUser,
-      order:       { id: 42, total: 65.90 },
-      qrBuffer:    null,
-      expiresAt,
-      redirectUrl: 'https://stripe.com/pay/test',
-      isTestMode:  true,
+  test('joint la facture PDF en pièce jointe', async () => {
+    const pdfBuffer = Buffer.from('%PDF-fake');
+
+    await service.sendInvoice({
+      user:  fakeUser,
+      order: { id: 42, total: 65.90 },
+      pdfBuffer,
+      dueDate,
     });
 
     const mail = transporter.sendMail.mock.calls[0][0];
     expect(mail.subject).toContain('#42');
-    expect(mail.html).toContain('Simuler le paiement Twint');
-    expect(mail.html).toContain('stripe.com');
-    expect(mail.attachments).toBeUndefined();
-  });
-
-  test('envoie en mode prod avec le QR en pièce jointe inline', async () => {
-    const qrBuffer = Buffer.from('fake-png-data');
-
-    await service.sendTwintQr({
-      user:       fakeUser,
-      order:      { id: 42, total: 65.90 },
-      qrBuffer,
-      expiresAt,
-      isTestMode: false,
-    });
-
-    const mail = transporter.sendMail.mock.calls[0][0];
-    expect(mail.html).toContain('cid:twint-qr');
     expect(mail.attachments).toHaveLength(1);
-    expect(mail.attachments[0].cid).toBe('twint-qr');
-    expect(mail.attachments[0].content).toBe(qrBuffer);
+    expect(mail.attachments[0].filename).toBe('facture-42.pdf');
+    expect(mail.attachments[0].contentType).toBe('application/pdf');
+    expect(mail.attachments[0].content).toBe(pdfBuffer);
   });
 
   test('affiche le montant CHF total dans le corps', async () => {
-    await service.sendTwintQr({
-      user:       fakeUser,
-      order:      { id: 1, total: 29.95 },
-      qrBuffer:   null,
-      expiresAt,
-      isTestMode: true,
+    await service.sendInvoice({
+      user:  fakeUser,
+      order: { id: 1, total: 29.95 },
+      pdfBuffer: Buffer.from('%PDF-'),
+      dueDate,
     });
 
     const mail = transporter.sendMail.mock.calls[0][0];
     expect(mail.html).toContain('29.95');
-  });
-
-  test('contient la date d\'expiration du QR', async () => {
-    await service.sendTwintQr({
-      user:       fakeUser,
-      order:      { id: 1, total: 10 },
-      qrBuffer:   null,
-      expiresAt,
-      isTestMode: true,
-    });
-
-    const mail = transporter.sendMail.mock.calls[0][0];
-    expect(mail.html).toContain('expire');
   });
 });

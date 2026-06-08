@@ -61,7 +61,7 @@ export default function FilterPanel({ filters, onChange, categories = [], onClos
   }
 
   const hasActive = filters.category || filters.min_price || filters.max_price
-    || filters.in_stock || filters.badge || filters.min_rating
+    || filters.in_stock || filters.made_to_order || filters.badge || filters.min_rating
 
   return (
     <>
@@ -237,6 +237,15 @@ export default function FilterPanel({ filters, onChange, categories = [], onClos
               onChange={e => set('in_stock', e.target.checked ? true : undefined)}
             />
             <span>{t('catalogue.inStockOnly')}</span>
+          </label>
+          <label className={s.checkRow}>
+            <input
+              type="checkbox"
+              className={s.checkbox}
+              checked={!!filters.made_to_order}
+              onChange={e => set('made_to_order', e.target.checked ? true : undefined)}
+            />
+            <span>{t('catalogue.madeToOrderOnly')}</span>
           </label>
         </div>
       </aside>

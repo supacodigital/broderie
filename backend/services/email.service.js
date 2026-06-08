@@ -91,16 +91,27 @@ function btn(url, label, color = '#DB2777') {
   </a>`;
 }
 
+// Libellé « sur commande » par locale — affiché sous les produits fabriqués à la demande
+const MADE_TO_ORDER_LABEL = {
+  fr: 'Sur commande — 3 à 4 semaines',
+  de: 'Auf Bestellung — 3 bis 4 Wochen',
+  en: 'Made to order — 3 to 4 weeks',
+};
+
 // Ligne de récapitulatif commande
-function orderItemRow(item) {
+function orderItemRow(item, locale = 'fr') {
   const snap   = typeof item.product_snapshot_json === 'string'
     ? JSON.parse(item.product_snapshot_json)
     : (item.product_snapshot_json ?? {});
   const name   = escapeHtml(snap.name ?? `Produit #${item.product_id}`);
   const price  = roundCHF(parseFloat(item.unit_price) * item.quantity);
+  // Mention « sur commande » figée dans le snapshot produit au moment de l'achat
+  const madeToOrderNote = snap.is_made_to_order
+    ? `<br><span style="font-size:12px;font-weight:600;color:#6d28d9;">${MADE_TO_ORDER_LABEL[locale] ?? MADE_TO_ORDER_LABEL.fr}</span>`
+    : '';
   return `<tr>
     <td style="padding:8px 0;border-bottom:1px solid #fbcfe8;font-size:13px;color:#1E1020;">
-      ${name}${item.quantity > 1 ? ` × ${item.quantity}` : ''}
+      ${name}${item.quantity > 1 ? ` × ${item.quantity}` : ''}${madeToOrderNote}
     </td>
     <td style="padding:8px 0;border-bottom:1px solid #fbcfe8;font-size:13px;font-weight:600;color:#1E1020;text-align:right;white-space:nowrap;">
       CHF ${price.toFixed(2)}
@@ -174,7 +185,7 @@ async function sendOrderConfirmation({ user, order }) {
     en: `Order confirmation #${orderId} — Au Point-Compté`,
   };
 
-  const itemsHtml = (order.items ?? []).map(orderItemRow).join('');
+  const itemsHtml = (order.items ?? []).map((item) => orderItemRow(item, locale)).join('');
 
   const summaryRows = {
     fr: `Sous-total|CHF ${roundCHF(order.subtotal).toFixed(2)}
@@ -487,81 +498,150 @@ async function sendMigrationWelcome({ user, resetToken }) {
 }
 
 // ─────────────────────────────────────────────
-// 8. QR Twint envoyé par email (depuis l'admin)
+// 8. Facture QR suisse — email avec QR-facture PDF en pièce jointe
 // ─────────────────────────────────────────────
-async function sendTwintQr({ user, order, qrBuffer, expiresAt, redirectUrl = null, isTestMode = false }) {
-  const locale  = user.locale ?? 'fr';
-  const expires = new Date(expiresAt).toLocaleString('fr-CH', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+async function sendInvoice({ user, order, pdfBuffer, dueDate }) {
+  const locale = user.locale ?? 'fr';
+  const firstName = escapeHtml(user.first_name);
+  const due = new Date(dueDate).toLocaleDateString(
+    locale === 'de' ? 'de-CH' : locale === 'en' ? 'en-GB' : 'fr-CH',
+    { day: '2-digit', month: '2-digit', year: 'numeric' }
+  );
 
   const subjects = {
-    fr: `Payez votre commande #${order.id} par Twint — Au Point-Compté`,
-    de: `Bezahlen Sie Ihre Bestellung #${order.id} mit Twint — Au Point-Compté`,
-    en: `Pay your order #${order.id} with Twint — Au Point-Compté`,
+    fr: `Votre facture QR — commande #${order.id} — Au Point-Compté`,
+    de: `Ihre QR-Rechnung — Bestellung #${order.id} — Au Point-Compté`,
+    en: `Your QR invoice — order #${order.id} — Au Point-Compté`,
   };
 
-  // En mode test Stripe, pas de QR PNG — on envoie un lien de paiement à la place
-  const qrBlock = isTestMode
-    ? `<div style="text-align:center;margin:24px 0;">
-        <p style="margin:0 0 12px;font-size:13px;color:#9D6480;">[Mode test — pas de QR réel]</p>
-        <a href="${redirectUrl}" target="_blank"
-           style="display:inline-block;background:#DB2777;color:#fff;font-weight:700;font-size:14px;
-                  padding:12px 28px;border-radius:8px;text-decoration:none;">
-          Simuler le paiement Twint
-        </a>
-       </div>`
-    : `<div style="text-align:center;margin:24px 0;">
-        <img src="cid:twint-qr" alt="QR Code Twint" width="240" height="240"
-             style="border:1px solid #fbcfe8;border-radius:12px;padding:12px;" />
-       </div>`;
+  const bodies = {
+    fr: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+           Votre facture, ${firstName}
+         </h1>
+         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+           Veuillez trouver en pièce jointe la facture QR de votre commande
+           <strong>#${order.id}</strong> d'un montant de
+           <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
+         </p>
+         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+           Réglez-la depuis votre application bancaire en scannant le QR code suisse,
+           au plus tard le <strong>${due}</strong>.
+         </p>`,
+    de: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+           Ihre Rechnung, ${firstName}
+         </h1>
+         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+           Im Anhang finden Sie die QR-Rechnung für Ihre Bestellung
+           <strong>#${order.id}</strong> über
+           <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
+         </p>
+         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+           Bezahlen Sie sie über Ihre Banking-App durch Scannen des Schweizer QR-Codes,
+           spätestens bis zum <strong>${due}</strong>.
+         </p>`,
+    en: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+           Your invoice, ${firstName}
+         </h1>
+         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+           Please find attached the QR invoice for your order
+           <strong>#${order.id}</strong> for
+           <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
+         </p>
+         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+           Pay it from your banking app by scanning the Swiss QR code,
+           no later than <strong>${due}</strong>.
+         </p>`,
+  };
 
-  const body = `
-    <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-      Payez par Twint
-    </h1>
-    <p style="margin:0 0 20px;font-size:14px;color:#374151;line-height:1.7;">
-      ${isTestMode
-        ? `Cliquez sur le bouton ci-dessous pour simuler le paiement <strong>Twint</strong> de votre commande`
-        : `Scannez le QR code ci-dessous avec votre application <strong>Twint</strong> pour régler votre commande`}
-      <strong>#${order.id}</strong> d'un montant de
-      <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
-    </p>
-
-    ${qrBlock}
-
-    <div style="background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:14px 20px;text-align:center;margin-bottom:20px;">
-      <p style="margin:0;font-size:12px;color:#9D6480;">Ce lien de paiement expire le</p>
-      <p style="margin:4px 0 0;font-size:14px;font-weight:700;color:#DB2777;">${expires}</p>
-    </div>
-
-    ${!isTestMode ? `<p style="margin:0;font-size:13px;color:#9D6480;line-height:1.7;">
-      Ouvrez l'application Twint sur votre téléphone, appuyez sur "Scanner" et pointez
-      la caméra vers ce QR code. Le paiement sera confirmé instantanément.
-    </p>` : ''}
-  `;
-
-  const mailOptions = {
+  await transporter.sendMail({
     from:    FROM,
     to:      user.email,
     subject: subjects[locale] ?? subjects.fr,
-    html:    layout(body, locale),
+    html:    layout(bodies[locale] ?? bodies.fr, locale),
+    attachments: [
+      {
+        filename:    `facture-${order.id}.pdf`,
+        content:     pdfBuffer,
+        contentType: 'application/pdf',
+      },
+    ],
+  });
+}
+
+// ─────────────────────────────────────────────
+// 9. Click & Collect — commande prête pour le retrait en boutique
+// ─────────────────────────────────────────────
+async function sendPickupReady({ user, order }) {
+  const locale    = user.locale ?? 'fr';
+  const firstName = escapeHtml(user.first_name);
+  const orderId   = parseInt(order.id, 10);
+
+  // Adresse et horaires de la boutique (config)
+  const shop = {
+    name:    escapeHtml(env.pickupName),
+    address: escapeHtml(env.pickupAddress),
+    zipCity: escapeHtml(`${env.pickupZip} ${env.pickupCity}`),
+    hours:   escapeHtml(env.pickupHours),
   };
 
-  // Pièce jointe QR uniquement en production (qrBuffer disponible)
-  if (!isTestMode && qrBuffer) {
-    mailOptions.attachments = [
-      {
-        filename:    'twint-qr.png',
-        content:     qrBuffer,
-        contentType: 'image/png',
-        cid:         'twint-qr',
-      },
-    ];
-  }
+  const subjects = {
+    fr: `Votre commande #${orderId} est prête — Au Point-Compté`,
+    de: `Ihre Bestellung #${orderId} ist abholbereit — Au Point-Compté`,
+    en: `Your order #${orderId} is ready — Au Point-Compté`,
+  };
 
-  await transporter.sendMail(mailOptions);
+  // Encart adresse + horaires, commun aux 3 langues
+  const shopBlock = (labelAddress, labelHours) => `
+    <div style="background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:16px 20px;margin:8px 0 20px;">
+      <p style="margin:0 0 4px;font-size:12px;color:#9D6480;text-transform:uppercase;letter-spacing:0.04em;">${labelAddress}</p>
+      <p style="margin:0;font-size:14px;font-weight:700;color:#1E1020;">${shop.name}</p>
+      <p style="margin:2px 0 0;font-size:14px;color:#374151;">${shop.address}<br>${shop.zipCity}</p>
+      <p style="margin:12px 0 0;font-size:12px;color:#9D6480;text-transform:uppercase;letter-spacing:0.04em;">${labelHours}</p>
+      <p style="margin:2px 0 0;font-size:14px;color:#374151;">${shop.hours}</p>
+    </div>`;
+
+  const bodies = {
+    fr: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+           Votre commande est prête, ${firstName} !
+         </h1>
+         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+           Bonne nouvelle : votre commande <strong>#${orderId}</strong> est prête à être retirée en boutique.
+           Le règlement se fera directement sur place lors du retrait.
+         </p>
+         ${shopBlock('Adresse de retrait', 'Horaires d\'ouverture')}
+         <p style="margin:0;font-size:13px;color:#9D6480;line-height:1.7;">
+           Montant à régler en boutique : <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
+         </p>`,
+    de: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+           Ihre Bestellung ist bereit, ${firstName}!
+         </h1>
+         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+           Gute Nachrichten: Ihre Bestellung <strong>#${orderId}</strong> ist im Geschäft abholbereit.
+           Die Bezahlung erfolgt direkt vor Ort bei der Abholung.
+         </p>
+         ${shopBlock('Abholadresse', 'Öffnungszeiten')}
+         <p style="margin:0;font-size:13px;color:#9D6480;line-height:1.7;">
+           Im Geschäft zu zahlender Betrag: <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
+         </p>`,
+    en: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+           Your order is ready, ${firstName}!
+         </h1>
+         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+           Good news: your order <strong>#${orderId}</strong> is ready for collection in store.
+           Payment is made directly on site at pickup.
+         </p>
+         ${shopBlock('Pickup address', 'Opening hours')}
+         <p style="margin:0;font-size:13px;color:#9D6480;line-height:1.7;">
+           Amount to pay in store: <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
+         </p>`,
+  };
+
+  await transporter.sendMail({
+    from:    FROM,
+    to:      user.email,
+    subject: subjects[locale] ?? subjects.fr,
+    html:    layout(bodies[locale] ?? bodies.fr, locale),
+  });
 }
 
 module.exports = {
@@ -571,5 +651,6 @@ module.exports = {
   sendPasswordReset,
   sendOrderStatusUpdate,
   sendMigrationWelcome,
-  sendTwintQr,
+  sendInvoice,
+  sendPickupReady,
 };

@@ -52,8 +52,12 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
     ? roundCHF(product.price_chf + (selectedVariant.price_modifier ?? 0))
     : roundCHF(product.price_chf)
 
-  const stockQty = selectedVariant ? selectedVariant.stock : (product.stock ?? 99)
-  const outOfStock = stockQty === 0
+  /* Produit sur commande : fabriqué à la demande, commande possible sans stock (délai 3 à 4 semaines) */
+  const isMadeToOrder = !!product.is_made_to_order
+  const rawStockQty = selectedVariant ? selectedVariant.stock : (product.stock ?? 99)
+  /* Pour un produit sur commande, on ne limite pas la quantité par le stock */
+  const stockQty = isMadeToOrder ? 999 : rawStockQty
+  const outOfStock = !isMadeToOrder && rawStockQty === 0
 
   const tva = formatTVA(effectivePrice, product.tax_rate ?? 8.1)
 
@@ -137,11 +141,18 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
       ))}
 
       {/* ── Stock ── */}
-      {stockQty <= 5 && stockQty > 0 && (
-        <p className={s.stockWarning}>⚠ Plus que {stockQty} en stock</p>
-      )}
-      {outOfStock && (
-        <p className={s.outOfStock}>Épuisé — revenez bientôt</p>
+      {/* Produit sur commande : on masque le stock et on affiche le badge de délai à la place */}
+      {isMadeToOrder ? (
+        <p className={s.madeToOrder}>{t('products.madeToOrder')}</p>
+      ) : (
+        <>
+          {stockQty <= 5 && stockQty > 0 && (
+            <p className={s.stockWarning}>⚠ Plus que {stockQty} en stock</p>
+          )}
+          {outOfStock && (
+            <p className={s.outOfStock}>Épuisé — revenez bientôt</p>
+          )}
+        </>
       )}
 
       {/* ── Quantité + Panier ── */}

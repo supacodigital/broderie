@@ -106,6 +106,9 @@ export default function Cart() {
                   {item.variant_value && (
                     <span className={s.itemVariant}>{item.variant_value}</span>
                   )}
+                  {item.is_made_to_order ? (
+                    <span className={s.madeToOrder}>{t('products.madeToOrder')}</span>
+                  ) : null}
                   <span className={s.itemPrice}>
                     CHF {item.unit_price?.toFixed(2)}
                   </span>

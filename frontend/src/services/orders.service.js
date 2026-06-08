@@ -17,3 +17,16 @@ export async function getOrderById(id) {
   const res = await api.get(`/orders/${id}`)
   return res.data
 }
+
+/* Télécharge la facture QR PDF d'une commande (déclenche le téléchargement navigateur) */
+export async function downloadInvoice(id) {
+  const res = await api.get(`/orders/${id}/invoice`, { responseType: 'blob' })
+  const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `facture-${String(id).padStart(6, '0')}.pdf`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
