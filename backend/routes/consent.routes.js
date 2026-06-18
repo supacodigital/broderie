@@ -1,7 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const crypto  = require('crypto');
-const db      = require('../config/db');
+const { pool } = require('../config/db');
 
 /* POST /api/v1/consent — log du consentement cookies (LPD art. 6) */
 router.post('/', async (req, res) => {
@@ -17,7 +17,7 @@ router.post('/', async (req, res) => {
     const userId    = req.user?.id ?? null;
     const sessionId = req.cookies?.session_id ?? null;
 
-    await db.query(
+    await pool.execute(
       `INSERT INTO consent_logs (user_id, session_id, type, version, ip_hash, accepted_at)
        VALUES (?, ?, ?, ?, ?, NOW())`,
       [userId, sessionId, type, version, ipHash]
