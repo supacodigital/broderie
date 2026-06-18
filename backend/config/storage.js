@@ -1,51 +1,26 @@
 const path = require('path');
 const fs   = require('fs');
 
-// En production : Infomaniak Cloud Storage (compatible S3)
-// En développement : dossier local /uploads/products/
-const IS_PROD = process.env.NODE_ENV === 'production';
+/* Stockage des images produit sur le disque du VPS (dossier uploads/products/),
+   servi en statique par Express sous /uploads (voir app.js).
+   Choix retenu pour le démarrage (pas d'Object Storage S3) — sauvegarde assurée
+   par Swiss Backup côté Infomaniak. Le dossier uploads/ doit être persistant et
+   inclus dans la stratégie de backup. */
 
-let s3Client = null;
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'products');
 
-if (IS_PROD) {
-  const { S3Client } = require('@aws-sdk/client-s3');
-  s3Client = new S3Client({
-    endpoint: process.env.STORAGE_ENDPOINT,
-    region:   'us-east-1', // valeur factice requise par le SDK S3
-    credentials: {
-      accessKeyId:     process.env.STORAGE_ACCESS_KEY,
-      secretAccessKey: process.env.STORAGE_SECRET_KEY,
-    },
-    forcePathStyle: true, // obligatoire pour les endpoints S3-compatibles
-  });
-}
-
-// Enregistre un buffer WebP — retourne l'URL publique
+// Enregistre un buffer WebP sur le disque — retourne l'URL publique relative
 const saveBuffer = async (buffer, filename) => {
-  if (IS_PROD) {
-    const { PutObjectCommand } = require('@aws-sdk/client-s3');
-    await s3Client.send(new PutObjectCommand({
-      Bucket:      process.env.STORAGE_BUCKET,
-      Key:         `products/${filename}`,
-      Body:        buffer,
-      ContentType: 'image/webp',
-      ACL:         'public-read',
-    }));
-    return `${process.env.STORAGE_ENDPOINT}/${process.env.STORAGE_BUCKET}/products/${filename}`;
-  }
-
-  // Développement — écriture locale
-  const dir = path.join(__dirname, '..', 'uploads', 'products');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, filename), buffer);
+  if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  await fs.promises.writeFile(path.join(UPLOAD_DIR, filename), buffer);
   return `/uploads/products/${filename}`;
 };
 
-// Supprime un fichier (local uniquement — en prod la suppression S3 est gérée séparément)
+// Supprime un fichier image du disque
 const deleteLocal = (url) => {
-  if (IS_PROD) return;
+  if (!url) return;
   const filename = path.basename(url);
-  const filepath = path.join(__dirname, '..', 'uploads', 'products', filename);
+  const filepath = path.join(UPLOAD_DIR, filename);
   if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
 };
 

@@ -1,4 +1,10 @@
-require('dotenv').config();
+/* En production, charge .env.production s'il existe (sinon .env par défaut).
+   En dev/test, comportement inchangé : charge .env. */
+const path = require('path');
+if (process.env.NODE_ENV === 'production') {
+  require('dotenv').config({ path: path.join(__dirname, '.env.production') });
+}
+require('dotenv').config(); // complète les variables non déjà définies (ne les écrase pas)
 
 /* Validation des variables obligatoires au démarrage — fail-fast avant d'accepter du trafic */
 const REQUIRED_ENV = [
@@ -21,12 +27,18 @@ const cors = require('cors');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
-const path = require('path');
+// 'path' est déjà requis en haut du fichier (chargement .env.production)
 
 const { testConnection } = require('./config/db');
 const { errorHandler } = require('./middlewares/errorHandler');
 
 const app = express();
+
+// Derrière le reverse-proxy Nginx en production : faire confiance au 1er proxy pour que
+// req.secure/req.protocol reflètent HTTPS → indispensable pour poser les cookies « Secure ».
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
 
 // Sécurité des headers HTTP — CSP assouplie pour les SPA (scripts/styles hachés par Vite)
 app.use(helmet({
