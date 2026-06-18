@@ -23,7 +23,7 @@ Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 | E2E Playwright | ✅ 7 specs présentes | [e2e/tests/](e2e/tests/) |
 | Déploiement Infomaniak | ❌ Non démarré | — |
 | Migration 1800 clients | ❌ En attente fichier client | — |
-| Config prod (IBAN, retrait, clés live) | ❌ Placeholders de test | `backend/.env.example` |
+| Config prod facture QR / retrait | ✅ IBAN réel + adresse + horaires dans `.env` | reste clés Stripe live |
 
 ---
 
@@ -62,11 +62,9 @@ du `.env` (pas une base de test dédiée). Prérequis pour les relancer :
 
 ### 3. Config paiements & retrait — remplacer les placeholders de test
 > ⚠️ Oublier ces valeurs = factures avec mauvais IBAN + mauvais lieu de retrait.
-- [ ] 🔴 **`QR_INVOICE_IBAN`** — **BLOQUANT** : encore l'IBAN de test `CH9300762011623852957`.
-      Demander à Julie l'IBAN du compte où elle veut **RECEVOIR les paiements clients** (compte
-      d'encaissement, IBAN normal — pas QR-IBAN). ⚠️ Ne PAS prendre les IBAN de ses factures
-      La Poste (ce sont des comptes La Poste / de prélèvement). Elle a probablement un compte
-      PostFinance (`CH..09000..`) — à confirmer par elle, ne pas supposer.
+- [x] ✅ **`QR_INVOICE_IBAN`** — **FAIT** : IBAN PostFinance réel de Julie renseigné dans `.env`
+      (depuis sa carte bancaire). Validé (clé mod-97 OK, institut 09000, IBAN normal) et
+      facture QR générée avec succès par `swissqrbill`. À reporter dans `.env.production`.
 - [x] **`QR_INVOICE_*`** (nom, adresse, NPA, ville) — ✅ adresse réelle renseignée dans `.env`
       (Au Point-Compté, Rue de Vuarrengel 10, 1418 Vuarrens) — 18 juin.
 - [x] **`PICKUP_*`** (adresse, NPA, ville, horaires) — ✅ renseigné dans `.env` :
