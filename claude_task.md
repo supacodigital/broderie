@@ -134,13 +134,31 @@ du `.env` (pas une base de test dédiée). Prérequis pour les relancer :
 
 ---
 
-## 🟡 Souhaitable — non bloquant
+## 🟢 Audit complet du 18 juin 2026 — corrections appliquées
 
-### i18n DE-CH (qualité)
-> Les 3 locales ont le même nombre de clés (292) → plus de clés manquantes. Reste la **qualité**.
-- [ ] Relire les traductions DE des nouveaux écrans (4 paiements, badge « sur commande », retrait, facture QR)
-- [ ] Vérifier le dialecte **DE-CH** : pas de `ß`, toujours `ss`
-- [ ] Tester l'interface en allemand sur checkout + compte
+Audit multi-agents (sécurité, perf, conformité CH, frontend) + vérifications manuelles.
+**700 tests verts.** Corrections committées :
+
+- [x] **🔴 Bug LPD** : `consent.routes.js` utilisait `db.query()` (inexistant) → le consentement
+      cookies n'était jamais enregistré (erreur avalée). Corrigé → `pool.execute`.
+- [x] **🟠 Vuln Multer (DoS, high)** : 2.1.1 → 2.2.0.
+- [x] **🟡 Locale figée en `'fr'`** dans panier + commande → propagée (compte > ?locale >
+      Accept-Language). Les clients DE/EN voient enfin les noms produits dans leur langue ;
+      le snapshot de commande fige le nom dans la langue d'achat. Helper `localeFromRequest` + 8 tests.
+- [x] **`SELECT` sans LIMIT** (commandes client en admin) → `LIMIT 100`.
+- [x] **i18n textes FR durs** : Product, Checkout, Account entièrement traduits FR/DE/EN
+      (366 clés à parité). Schémas Zod d'Account → factories `(t)` mémoïsées.
+- [x] **srcset images** : le détail renvoie `url_medium/url_large` (srcset enfin alimenté) ;
+      vignettes catalogue servies en medium (600px) au lieu de large (1200px).
+
+**Décisions assumées (non bloquantes) :**
+- **Admin FR-only** : back-office utilisé par Julie/le dev (francophones) → pas de traduction
+  prévue. Acceptable, documenté comme choix.
+- **i18n boutique** : front client 100% FR/DE/EN, dialecte DE-CH vérifié (0 `ß`, « ss »).
+
+**Reste (mineur, non bloquant) :**
+- [ ] 1 vuln npm modérée (uuid) — nécessite un breaking change `uuid@14`, à planifier hors veille de déploiement.
+- [ ] Validation Zod incomplète sur quelques routes admin (données déjà protégées en SQL — robustesse, pas sécurité).
 
 ### SEO — ✅ FAIT (18 juin)
 - [x] Composant `<Seo>` (react-helmet-async) — `<title>` + `<meta description>` **dynamiques par page**
