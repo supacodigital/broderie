@@ -95,6 +95,10 @@ nano backend/.env.production      # compléter tous les __A_DEFINIR__ / __GENERE
 # Frontend
 cp frontend/.env.production.example frontend/.env.production
 nano frontend/.env.production     # VITE_STRIPE_PUBLIC_KEY (pk_live), VITE_GOOGLE_CLIENT_ID
+
+# Admin
+cp admin/.env.production.example admin/.env.production
+nano admin/.env.production        # VITE_SHOP_URL=https://broderie.ch (lien « Voir la boutique »)
 ```
 Générer les secrets JWT : `openssl rand -base64 64` (deux fois).
 
