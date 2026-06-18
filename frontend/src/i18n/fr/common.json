@@ -156,7 +156,12 @@
     "reviews": "avis",
     "noReviews": "Aucun avis pour l'instant — soyez la première !",
     "relatedEyebrow": "Dans la même collection",
-    "relatedTitle": "Vous aimerez aussi"
+    "relatedTitle": "Vous aimerez aussi",
+    "notFoundTitle": "Produit introuvable",
+    "notFoundDesc": "Ce produit n'existe pas ou a été retiré du catalogue.",
+    "loadErrorTitle": "Erreur de chargement",
+    "loadErrorDesc": "Une erreur est survenue. Veuillez réessayer.",
+    "backToCatalogue": "Retour au catalogue"
   },
   "checkout": {
     "title": "Passer la commande",

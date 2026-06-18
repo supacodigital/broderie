@@ -19,7 +19,7 @@ const INITIAL_STATUS_BY_METHOD = {
   pickup:     'pending_pickup',   // retrait + paiement en boutique
 };
 
-const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponCode = null, address = null }) => {
+const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponCode = null, address = null, locale = 'fr' }) => {
   if (!VALID_METHODS.includes(paymentMethod)) {
     throw new AppError('Méthode de paiement invalide.', 400);
   }
@@ -28,7 +28,7 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
   const cart = await cartRepository.findCart({ userId, sessionId });
   if (!cart) throw new AppError('Le panier est vide.', 400);
 
-  const items = await cartRepository.findCartItems(cart.id);
+  const items = await cartRepository.findCartItems(cart.id, locale);
   const activeItems = items.filter((item) => item.is_active && !item.deleted_at);
 
   if (activeItems.length === 0) throw new AppError('Le panier est vide.', 400);
@@ -88,6 +88,7 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
     couponId,
     paymentMethod,
     qrReference,
+    locale,
   });
 
   // Vider le panier après confirmation de la commande

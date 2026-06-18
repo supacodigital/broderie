@@ -156,7 +156,12 @@
     "reviews": "reviews",
     "noReviews": "No reviews yet — be the first!",
     "relatedEyebrow": "From the same collection",
-    "relatedTitle": "You may also like"
+    "relatedTitle": "You may also like",
+    "notFoundTitle": "Product not found",
+    "notFoundDesc": "This product does not exist or has been removed from the catalogue.",
+    "loadErrorTitle": "Loading error",
+    "loadErrorDesc": "An error occurred. Please try again.",
+    "backToCatalogue": "Back to the catalogue"
   },
   "checkout": {
     "title": "Checkout",

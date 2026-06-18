@@ -1,7 +1,7 @@
 const { pool } = require('../config/db');
 
 // Création d'une commande — transaction atomique (stock + commande + items + coupon + paiement)
-const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null }) => {
+const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null, locale = 'fr' }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -48,9 +48,9 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
       const [productRows] = await connection.execute(
         `SELECT p.price_chf, p.sku, p.weight_kg, p.is_made_to_order, pt.name, pt.description
          FROM products p
-         INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = 'fr'
+         INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
          WHERE p.id = ?`,
-        [item.product_id]
+        [locale, item.product_id]
       );
       const product = productRows[0];
 

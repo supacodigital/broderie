@@ -3,6 +3,7 @@ const cartService    = require('../services/cart.service');
 const cartRepository = require('../repositories/cart.repository');
 const { v4: uuidv4 } = require('uuid');
 const env            = require('../config/env');
+const { localeFromRequest } = require('../utils/locale.utils');
 
 const addItemSchema = z.object({
   product_id: z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number)]).optional(),
@@ -52,7 +53,7 @@ const resolveIdentifiers = async (req, res) => {
 const getCart = async (req, res, next) => {
   try {
     const { userId, sessionId } = await resolveIdentifiers(req, res);
-    const cart = await cartService.getCart({ userId, sessionId });
+    const cart = await cartService.getCart({ userId, sessionId, locale: localeFromRequest(req) });
     res.json({ success: true, data: cart });
   } catch (error) {
     next(error);
@@ -70,7 +71,7 @@ const addItem = async (req, res, next) => {
     const productId = parsed.data.product_id ?? parsed.data.productId;
     const variantId = parsed.data.variant_id ?? parsed.data.variantId ?? null;
     const { quantity } = parsed.data;
-    const cart = await cartService.addItem({ userId, sessionId, productId, variantId, quantity });
+    const cart = await cartService.addItem({ userId, sessionId, productId, variantId, quantity, locale: localeFromRequest(req) });
     res.json({ success: true, data: cart });
   } catch (error) {
     next(error);
@@ -88,7 +89,7 @@ const updateItem = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'ID article invalide.' });
     }
     const { userId, sessionId } = await resolveIdentifiers(req, res);
-    const cart = await cartService.updateItem({ userId, sessionId, itemId, quantity: parsed.data.quantity });
+    const cart = await cartService.updateItem({ userId, sessionId, itemId, quantity: parsed.data.quantity, locale: localeFromRequest(req) });
     res.json({ success: true, data: cart });
   } catch (error) {
     next(error);
@@ -99,7 +100,7 @@ const removeItem = async (req, res, next) => {
   try {
     const { userId, sessionId } = await resolveIdentifiers(req, res);
     const itemId = parseInt(req.params.id);
-    const cart = await cartService.removeItem({ userId, sessionId, itemId });
+    const cart = await cartService.removeItem({ userId, sessionId, itemId, locale: localeFromRequest(req) });
     res.json({ success: true, data: cart });
   } catch (error) {
     next(error);

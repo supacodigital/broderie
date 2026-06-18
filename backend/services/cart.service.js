@@ -13,11 +13,11 @@ const resolveCart = async ({ userId, sessionId }) => {
   return cart;
 };
 
-const getCart = async ({ userId, sessionId }) => {
+const getCart = async ({ userId, sessionId, locale = 'fr' }) => {
   const cart = await cartRepository.findCart({ userId, sessionId });
   if (!cart) return { items: [], total: 0 };
 
-  const items = await cartRepository.findCartItems(cart.id);
+  const items = await cartRepository.findCartItems(cart.id, locale);
 
   // Filtrer les articles dont le produit a été supprimé ou désactivé
   const activeItems = items.filter((item) => item.is_active && !item.deleted_at);
@@ -29,7 +29,7 @@ const getCart = async ({ userId, sessionId }) => {
   return { cartId: cart.id, items: activeItems, total };
 };
 
-const addItem = async ({ userId, sessionId, productId, variantId, quantity }) => {
+const addItem = async ({ userId, sessionId, productId, variantId, quantity, locale = 'fr' }) => {
   // Validation de la quantité
   const qty = parseInt(quantity);
   if (!qty || qty < 1 || qty > 999) throw new AppError('Quantité invalide (entre 1 et 999).', 400);
@@ -53,7 +53,7 @@ const addItem = async ({ userId, sessionId, productId, variantId, quantity }) =>
       throw new AppError(`Stock insuffisant. Disponible : ${product.stock}`, 400);
     }
     await cartRepository.updateItemQuantity(existingItem.id, newQty);
-    return getCart({ userId, sessionId });
+    return getCart({ userId, sessionId, locale });
   }
 
   // Prix figé au moment de l'ajout au panier
@@ -72,10 +72,10 @@ const addItem = async ({ userId, sessionId, productId, variantId, quantity }) =>
     taxRateSnapshot: product.tax_rate,
   });
 
-  return getCart({ userId, sessionId });
+  return getCart({ userId, sessionId, locale });
 };
 
-const updateItem = async ({ userId, sessionId, itemId, quantity }) => {
+const updateItem = async ({ userId, sessionId, itemId, quantity, locale = 'fr' }) => {
   const qty = parseInt(quantity);
   if (!qty || qty < 1 || qty > 999) throw new AppError('Quantité invalide (entre 1 et 999).', 400);
 
@@ -93,10 +93,10 @@ const updateItem = async ({ userId, sessionId, itemId, quantity }) => {
   }
 
   await cartRepository.updateItemQuantity(itemId, qty);
-  return getCart({ userId, sessionId });
+  return getCart({ userId, sessionId, locale });
 };
 
-const removeItem = async ({ userId, sessionId, itemId }) => {
+const removeItem = async ({ userId, sessionId, itemId, locale = 'fr' }) => {
   const cart = await cartRepository.findCart({ userId, sessionId });
   if (!cart) throw new AppError('Panier introuvable.', 404);
 
@@ -104,7 +104,7 @@ const removeItem = async ({ userId, sessionId, itemId }) => {
   if (!item) throw new AppError('Article introuvable dans le panier.', 404);
 
   await cartRepository.removeItem(itemId);
-  return getCart({ userId, sessionId });
+  return getCart({ userId, sessionId, locale });
 };
 
 module.exports = { getCart, addItem, updateItem, removeItem };

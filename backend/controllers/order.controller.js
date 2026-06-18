@@ -3,6 +3,7 @@ const orderRepository = require('../repositories/order.repository');
 const userRepository  = require('../repositories/user.repository');
 const invoiceService  = require('../services/invoice.service');
 const { AppError }    = require('../middlewares/errorHandler');
+const { localeFromRequest } = require('../utils/locale.utils');
 
 const createOrder = async (req, res, next) => {
   try {
@@ -11,7 +12,7 @@ const createOrder = async (req, res, next) => {
     const paymentMethod = req.body?.payment_method || 'twint';
     const couponCode    = req.body?.coupon_code?.trim() || null;
     const address       = req.body?.address ?? null;
-    const order = await orderService.createOrder({ userId, sessionId, paymentMethod, couponCode, address });
+    const order = await orderService.createOrder({ userId, sessionId, paymentMethod, couponCode, address, locale: localeFromRequest(req) });
     res.status(201).json({ success: true, data: order });
   } catch (error) {
     next(error);

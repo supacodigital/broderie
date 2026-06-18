@@ -156,7 +156,12 @@
     "reviews": "Bewertungen",
     "noReviews": "Noch keine Bewertungen — seien Sie die Erste!",
     "relatedEyebrow": "Aus der gleichen Kollektion",
-    "relatedTitle": "Das könnte Ihnen gefallen"
+    "relatedTitle": "Das könnte Ihnen gefallen",
+    "notFoundTitle": "Produkt nicht gefunden",
+    "notFoundDesc": "Dieses Produkt existiert nicht oder wurde aus dem Katalog entfernt.",
+    "loadErrorTitle": "Ladefehler",
+    "loadErrorDesc": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
+    "backToCatalogue": "Zurück zum Katalog"
   },
   "checkout": {
     "title": "Zur Kasse",

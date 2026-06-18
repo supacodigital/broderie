@@ -13,7 +13,7 @@ const findCart = async ({ userId, sessionId }) => {
 };
 
 // Récupère les articles d'un panier avec les infos produit
-const findCartItems = async (cartId) => {
+const findCartItems = async (cartId, locale = 'fr') => {
   const [items] = await pool.execute(
     `SELECT ci.id, ci.product_id, ci.variant_id, ci.quantity,
             ci.price_snapshot, ci.price_snapshot AS unit_price,
@@ -26,11 +26,11 @@ const findCartItems = async (cartId) => {
             c.slug AS category_slug
      FROM cart_items ci
      INNER JOIN products p ON p.id = ci.product_id
-     INNER JOIN product_translations pt ON pt.product_id = ci.product_id AND pt.locale = 'fr'
+     INNER JOIN product_translations pt ON pt.product_id = ci.product_id AND pt.locale = ?
      LEFT JOIN product_images pi ON pi.product_id = ci.product_id AND pi.is_primary = 1
      LEFT JOIN categories c ON c.id = p.category_id
      WHERE ci.cart_id = ?`,
-    [cartId]
+    [locale, cartId]
   );
   return items;
 };

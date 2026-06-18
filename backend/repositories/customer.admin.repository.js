@@ -52,7 +52,7 @@ const findById = async (id) => {
   );
 
   const [orders] = await pool.execute(
-    `SELECT id, status, total, created_at FROM orders WHERE user_id = ? ORDER BY created_at DESC`,
+    `SELECT id, status, total, created_at FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 100`,
     [id]
   );
 

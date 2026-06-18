@@ -76,9 +76,9 @@ export default function Product() {
       <div className={s.page}>
         <EmptyState
           icon="🔍"
-          title="Produit introuvable"
-          desc="Ce produit n'existe pas ou a été retiré du catalogue."
-          ctaLabel="Retour au catalogue"
+          title={t('product.notFoundTitle')}
+          desc={t('product.notFoundDesc')}
+          ctaLabel={t('product.backToCatalogue')}
           ctaTo="/catalogue"
         />
       </div>
@@ -90,9 +90,9 @@ export default function Product() {
       <div className={s.page}>
         <EmptyState
           icon="⚠️"
-          title="Erreur de chargement"
-          desc="Une erreur est survenue. Veuillez réessayer."
-          ctaLabel="Retour au catalogue"
+          title={t('product.loadErrorTitle')}
+          desc={t('product.loadErrorDesc')}
+          ctaLabel={t('product.backToCatalogue')}
           ctaTo="/catalogue"
         />
       </div>
