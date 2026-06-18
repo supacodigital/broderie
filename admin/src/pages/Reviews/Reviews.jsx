@@ -83,6 +83,7 @@ export default function Reviews() {
         setReviews(prev => prev.map(r => r.id === id ? { ...r, is_approved: 1 } : r))
       }
       setActionCount(c => c + 1)
+      window.dispatchEvent(new Event('admin:data-changed')) // rafraîchit le badge nav « avis à modérer »
       toast.success('Avis approuvé.')
     } catch {
       toast.error('Erreur lors de l\'approbation.')
@@ -98,6 +99,7 @@ export default function Reviews() {
           setReviews(prev => prev.filter(r => r.id !== id))
           setTotal(t => t - 1)
           setActionCount(c => c + 1)
+          window.dispatchEvent(new Event('admin:data-changed')) // rafraîchit le badge nav « avis à modérer »
           toast.success('Avis supprimé.')
         } catch {
           toast.error('Erreur lors de la suppression.')
