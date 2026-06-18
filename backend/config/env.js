@@ -50,9 +50,14 @@ module.exports = {
   shopCanton:  process.env.SHOP_CANTON  ?? 'GE',
   shopZip:     process.env.SHOP_ZIP     ?? '1200',
 
-  /* Swiss Post API (La Poste CH) — renseignés quand le client fournit les accès */
+  /* Swiss Post API (La Poste CH) — Digital Commerce API — renseignés quand le client fournit les accès.
+     Tant que swissPostClientId est vide, le shipping tourne en mode mock (étiquettes simulées). */
   swissPostClientId:       process.env.SWISS_POST_CLIENT_ID       ?? null,
   swissPostClientSecret:   process.env.SWISS_POST_CLIENT_SECRET   ?? null,
-  swissPostKundennummer:   process.env.SWISS_POST_KUNDENNUMMER    ?? null,
-  swissPostFrankiernummer: process.env.SWISS_POST_FRANKIERNUMMER  ?? null,
+  swissPostKundennummer:   process.env.SWISS_POST_KUNDENNUMMER    ?? null,  // numéro client du contrat envois
+  swissPostFrankiernummer: process.env.SWISS_POST_FRANKIERNUMMER  ?? null,  // numéro d'affranchissement (frankingLicense)
+  /* Endpoints officiels Digital Commerce API — surchargeables pour les tests/sandbox */
+  swissPostTokenUrl:  process.env.SWISS_POST_TOKEN_URL  ?? 'https://api.post.ch/OAuth/token',
+  swissPostLabelUrl:  process.env.SWISS_POST_LABEL_URL  ?? 'https://dcapi.apis.post.ch/barcode/v1/generateAddressLabel',
+  swissPostScope:     process.env.SWISS_POST_SCOPE      ?? 'DCAPI_BARCODE_READ',
 }

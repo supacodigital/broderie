@@ -376,8 +376,9 @@ describe('Admin — Fournisseurs', () => {
 
 // ── Expédition admin (La Poste CH) ───────────────────────────────────────────
 
-const shipengineConfigured = !!process.env.SHIPENGINE_API_KEY &&
-  !process.env.SHIPENGINE_API_KEY.includes('...');
+// — Accès API La Poste CH configurés ? (sinon le shipping tourne en mock, on saute ces tests)
+const swissPostConfigured = !!process.env.SWISS_POST_CLIENT_ID &&
+  !process.env.SWISS_POST_CLIENT_ID.includes('change_me');
 
 describe('Admin — Expédition La Poste CH', () => {
   let orderId = null;
@@ -405,7 +406,7 @@ describe('Admin — Expédition La Poste CH', () => {
   });
 
   test('POST /admin/orders/:id/label génère une étiquette et retourne un numéro de suivi', async () => {
-    if (!orderId || !shipengineConfigured) return;
+    if (!orderId || !swissPostConfigured) return;
     const adminToken = await getAdminToken();
 
     const res = await request(app)
@@ -421,7 +422,7 @@ describe('Admin — Expédition La Poste CH', () => {
   });
 
   test('GET /admin/orders/:id/label retourne un PDF (Content-Type application/pdf)', async () => {
-    if (!orderId || !shipengineConfigured) return;
+    if (!orderId || !swissPostConfigured) return;
     const adminToken = await getAdminToken();
 
     const res = await request(app)

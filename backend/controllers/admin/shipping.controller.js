@@ -79,7 +79,16 @@ const downloadLabel = async (req, res, next) => {
       return;
     }
 
-    /* TODO (mode réel) : proxy vers l'URL PDF La Poste CH stockée en base */
+    /* Mode réel — l'étiquette PDF est stockée en data URI base64 dans label_url */
+    if (order.label_url?.startsWith('data:application/pdf;base64,')) {
+      const base64 = order.label_url.split(',')[1] ?? '';
+      const pdfBuffer = Buffer.from(base64, 'base64');
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="etiquette-${String(orderId).padStart(6, '0')}.pdf"`);
+      return res.send(pdfBuffer);
+    }
+
+    /* Repli — URL externe (ancien format ou lien de suivi) */
     res.redirect(order.label_url);
   } catch (error) {
     next(error);

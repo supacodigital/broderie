@@ -1,13 +1,21 @@
-const { pool }     = require('../config/db');
-const { AppError } = require('../middlewares/errorHandler');
+const { pool }         = require('../config/db');
+const { AppError }     = require('../middlewares/errorHandler');
+const swissPost        = require('../config/swissPost');
+const swissPostClient  = require('../config/swissPostClient');
+const env              = require('../config/env');
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   MOCK Swiss Post — à remplacer par les vrais appels API Post CH (Barcode API)
-   quand le client fournit : CLIENT_ID, CLIENT_SECRET, KUNDENNUMMER, FRANKIERNUMMER
+   Swiss Post — La Poste CH (Digital Commerce API, Barcode v1).
+   Deux modes selon la config (config/swissPost.js → isMock) :
+     • RÉEL : appel OAuth2 + generateAddressLabel dès que SWISS_POST_CLIENT_ID est défini.
+     • MOCK : tracking + étiquette simulés tant que les accès client manquent.
 
-   Format numéro de suivi Swiss Post réel : 99.00.XXXXXX.XXXXXXXX
-   Label ID interne : simulé avec un UUID court
+   Format numéro de suivi Swiss Post réel : identCode (18-23 chiffres).
+   Le contrat de retour { trackingNumber, labelUrl, labelId } est identique dans les deux modes
+   pour ne pas impacter le controller ni la persistance en base.
 ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── MOCK ──────────────────────────────────────────────────────────────────── */
 
 /* Génère un numéro de suivi Swiss Post factice mais réaliste */
 const mockTrackingNumber = () => {
@@ -16,50 +24,125 @@ const mockTrackingNumber = () => {
   return `99.00.${part1}.${part2}`
 }
 
-/* Génère un label ID interne factice */
+/* Génère un label ID interne factice (préfixe « mock- » reconnu par downloadLabel) */
 const mockLabelId = () => {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
   return 'mock-' + Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
 }
 
-/**
- * Crée une étiquette Swiss Post (MOCK).
- * Retourne { trackingNumber, labelUrl, labelId }.
- *
- * TODO : remplacer par l'appel réel à la Barcode API La Poste CH :
- *   POST https://wedec.post.ch/WEDECDBarcode/barcode/v1/generateAddressLabel
- *   Headers : Authorization: Bearer <token OAuth2>
- *   Body : { customer, recipient, frankingLicense, printingTemplate, ... }
- */
-const createLabel = async ({ order, address }) => {
-  /* Validation de l'adresse — comportement identique à la vraie API */
-  const recipientName = [
+/* ── Helpers communs ───────────────────────────────────────────────────────── */
+
+/* Poids total de la commande en kg (fallback 0.2 kg/article, 0.5 kg minimum) */
+const totalWeightKg = (order) =>
+  order.items?.reduce((s, i) => s + (parseFloat(i.weight_kg ?? 0.2) * i.quantity), 0) || 0.5
+
+/* Nom complet du destinataire à partir de l'adresse ou de la commande */
+const recipientName = (order, address) =>
+  [
     address.first_name ?? order.first_name ?? '',
     address.last_name  ?? order.last_name  ?? '',
   ].join(' ').trim()
 
-  if (!address.street || !address.city || !address.zip) {
-    throw new AppError('Adresse de livraison incomplète — impossible de générer l\'étiquette.', 422)
+/* ── RÉEL ──────────────────────────────────────────────────────────────────── */
+
+/**
+ * Construit le corps de la requête generateAddressLabel.
+ * ⚠️ Les sous-champs (item/recipient/attributes) sont à valider contre le Swagger officiel
+ *    le jour de l'activation — voir config/swissPostClient.js.
+ */
+const buildLabelPayload = ({ order, address }) => ({
+  language: 'FR',
+  frankingLicense: swissPost.frankiernummer,
+  /* Expéditeur = boutique (config/env.js) */
+  customer: {
+    name1:   env.shopName,
+    street:  env.shopAddress,
+    zip:     env.shopZip,
+    city:    env.shopCity,
+    country: 'CH',
+  },
+  /* Étiquette A6, PDF — paramètres usuels Barcode API */
+  labelDefinition: {
+    labelLayout:     'A6',
+    printAddresses:  'RECIPIENT_AND_CUSTOMER',
+    imageFileType:   'PDF',
+    imageResolution: 300,
+  },
+  item: [
+    {
+      itemID:    String(order.id),
+      recipient: {
+        name1:   recipientName(order, address),
+        street:  address.street,
+        zip:     address.zip,
+        city:    address.city,
+        country: address.country ?? 'CH',
+      },
+      attributes: {
+        przl:     ['PRI'],                 // produit « PostPac Priority »
+        weight:   Math.round(totalWeightKg(order) * 1000), // grammes
+      },
+    },
+  ],
+})
+
+/**
+ * Extrait { trackingNumber, labelUrl, labelId } de la réponse API.
+ * labelUrl = data URI PDF (base64) pour pouvoir le re-servir depuis downloadLabel.
+ */
+const parseLabelResponse = (apiResponse) => {
+  const item  = Array.isArray(apiResponse.item) ? apiResponse.item[0] : apiResponse.item
+  if (!item) {
+    throw new AppError('Réponse La Poste CH invalide — aucun item retourné.', 502)
   }
 
-  /* Simulation d'un délai réseau (~300ms) */
-  await new Promise(r => setTimeout(r, 300))
-
-  const trackingNumber = mockTrackingNumber()
-  const labelId        = mockLabelId()
-
-  /* URL factice — pointe vers post.ch avec le numéro de suivi */
-  const labelUrl = `https://www.post.ch/fr/outils/suivi-de-colis?track=${trackingNumber}`
+  const trackingNumber = item.identCode ?? item.sendingID ?? null
+  /* item.label : tableau de pages encodées base64 (PDF) — on prend la première */
+  const base64Label = Array.isArray(item.label) ? item.label[0] : item.label
+  const labelUrl = base64Label
+    ? `data:application/pdf;base64,${base64Label}`
+    : `https://www.post.ch/fr/outils/suivi-de-colis?track=${trackingNumber}`
 
   return {
     trackingNumber,
     labelUrl,
-    labelId,
-    carrierId:   'swiss-post-mock',
+    labelId:     item.itemID ?? trackingNumber,
+    carrierId:   'swiss-post',
     serviceCode: 'priority',
-    recipient:   recipientName,
-    weightKg:    order.items?.reduce((s, i) => s + (parseFloat(i.weight_kg ?? 0.2) * i.quantity), 0) ?? 0.5,
   }
+}
+
+/* ── API publique du service ───────────────────────────────────────────────── */
+
+/**
+ * Crée une étiquette Swiss Post (réel ou mock selon la config).
+ * Retourne { trackingNumber, labelUrl, labelId }.
+ */
+const createLabel = async ({ order, address }) => {
+  /* Validation de l'adresse — comportement identique dans les deux modes */
+  if (!address.street || !address.city || !address.zip) {
+    throw new AppError('Adresse de livraison incomplète — impossible de générer l\'étiquette.', 422)
+  }
+
+  /* ── Mode mock ── */
+  if (swissPost.isMock) {
+    await new Promise(r => setTimeout(r, 300)) // simulation délai réseau
+    const trackingNumber = mockTrackingNumber()
+    return {
+      trackingNumber,
+      labelUrl:    `https://www.post.ch/fr/outils/suivi-de-colis?track=${trackingNumber}`,
+      labelId:     mockLabelId(),
+      carrierId:   'swiss-post-mock',
+      serviceCode: 'priority',
+      recipient:   recipientName(order, address),
+      weightKg:    totalWeightKg(order),
+    }
+  }
+
+  /* ── Mode réel ── */
+  const payload     = buildLabelPayload({ order, address })
+  const apiResponse = await swissPostClient.generateAddressLabel(payload)
+  return parseLabelResponse(apiResponse)
 }
 
 /**
@@ -94,21 +177,21 @@ const generateLabel = async (orderId, order) => {
 }
 
 /**
- * Suivi d'un colis (MOCK).
- * Retourne un statut simulé basé sur le labelId.
- *
- * TODO : remplacer par GET https://wedec.post.ch/api/track/v1/events/<trackingNumber>
+ * Suivi d'un colis.
+ * MOCK : statut simulé. RÉEL : à brancher sur l'API de suivi La Poste CH le jour de l'activation
+ *        (endpoint de tracking distinct de la Barcode API — scope/URL à confirmer au Swagger).
  */
 const getTrackingByLabelId = async (labelId) => {
   if (!labelId) throw new AppError('Label ID requis.', 400)
 
-  /* Simulation d'un délai réseau */
-  await new Promise(r => setTimeout(r, 150))
+  await new Promise(r => setTimeout(r, 150)) // simulation délai réseau
 
   return {
     labelId,
     status:      'in_transit',
-    description: 'Colis en cours d\'acheminement — Swiss Post (simulé)',
+    description: swissPost.isMock
+      ? 'Colis en cours d\'acheminement — Swiss Post (simulé)'
+      : 'Colis en cours d\'acheminement — Swiss Post',
     carrierCode: 'swiss-post',
     events:      [],
   }
