@@ -82,8 +82,16 @@ du `.env` (pas une base de test dédiée). Prérequis pour les relancer :
 - [ ] Test paiement carte réel (petit montant) + test redirect Twint réel
 
 ### 5. Emails production
-- [ ] Remplacer les credentials Mailtrap par le SMTP **Infomaniak Mail** (`noreply@broderie.ch`)
+> ⚠️ **Diagnostic DNS (18 juin)** : l'email `julie@broderie.ch` n'est PAS chez Infomaniak.
+> MX = `mailer.company` → **Hetzner** (serveur d'un prestataire tiers), SPF déjà compatible Brevo + Infomaniak.
+> Julie ne connaît pas son hébergeur email → accès à récupérer. Voir mémoire `email-hebergement`.
+> Le code envoie via SMTP standard (Nodemailer) → tout fournisseur marche.
+- [ ] **Décider la voie SMTP prod** : Brevo (recommandé, zéro modif DNS, SPF déjà OK) OU
+      créer `noreply@broderie.ch` sur Infomaniak Mail (+ migration MX, plus risqué).
+- [ ] Récupérer les accès email/DNS auprès de l'ancien prestataire de Julie (vrai blocage)
+- [ ] Renseigner `MAIL_HOST/PORT/USER/PASSWORD` dans `.env.production` selon la voie choisie
 - [ ] Vérifier réception réelle : confirmation commande, reset password, facture QR, « prête pour le retrait »
+- [x] **Recette du soir** : tourne sur Mailtrap (emails capturés) — rien à configurer
 
 ### 6. La Poste CH — étiquettes (API directe, accès réels)
 > Voie retenue : **API directe La Poste CH** — **Digital Commerce API** (OAuth2, `dcapi.apis.post.ch`) — pas ShipEngine.
