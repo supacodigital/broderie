@@ -48,8 +48,13 @@ export default function ProductCard({ product, index = 0, wishlisted = false, on
     setTimeout(() => setAdded(false), 2000)
   }, [product, onAddToCart, addItem])
 
-  /* Supporte les deux formats : liste (image_url flat) et détail (images[]) */
-  const primaryImage = product.images?.[0] ?? (product.image_url ? { url: product.image_url, alt: product.image_alt ?? product.name } : null)
+  /* Supporte les deux formats : liste (image_url flat) et détail (images[]).
+     En catalogue, on privilégie la taille « medium » (600px) — bien plus légère que la
+     « large » (1200px) pour des vignettes. */
+  const primaryImage = product.images?.[0]
+    ?? (product.image_url
+      ? { url: product.image_url_medium ?? product.image_url, alt: product.image_alt ?? product.name }
+      : null)
   const bg = BG_FALLBACKS[index % BG_FALLBACKS.length]
 
   /* Produit sur commande : commande possible sans stock — on ignore l'état « épuisé » */

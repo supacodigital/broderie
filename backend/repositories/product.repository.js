@@ -7,7 +7,7 @@ const PRODUCT_COLUMNS = `
   pt.name, pt.description,
   ct.name AS category_name,
   c.slug AS category_slug,
-  pi.url AS image_url, pi.alt AS image_alt,
+  pi.url AS image_url, pi.url_medium AS image_url_medium, pi.alt AS image_alt,
   tr.rate AS tax_rate, tr.name AS tax_name,
   COALESCE(ROUND(AVG(r.rating), 1), 0) AS avg_rating,
   COUNT(r.id) AS review_count
@@ -98,7 +98,7 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      LEFT JOIN reviews r ON r.product_id = p.id AND r.is_approved = 1
      WHERE ${conditions.join(' AND ')}
-     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.alt, tr.rate, tr.name
+     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.url_medium, pi.alt, tr.rate, tr.name
      ORDER BY ${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
     [locale, locale, ...params, limit, offset]
@@ -130,9 +130,9 @@ const findById = async (id, locale = 'fr') => {
 
   if (!rows[0]) return null;
 
-  // Images du produit — toutes les tailles
+  // Images du produit — toutes les tailles (url_medium/url_large pour le srcset front)
   const [images] = await pool.execute(
-    `SELECT id, url, alt, sort_order, is_primary
+    `SELECT id, url, url_medium, url_large, alt, sort_order, is_primary
      FROM product_images
      WHERE product_id = ?
      ORDER BY is_primary DESC, sort_order ASC`,
@@ -177,7 +177,7 @@ const search = async ({ q, locale = 'fr', page = 1, limit = 20 }) => {
      LEFT JOIN reviews r ON r.product_id = p.id AND r.is_approved = 1
      WHERE p.is_active = 1 AND p.deleted_at IS NULL
        AND MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE)
-     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.alt, tr.rate, tr.name
+     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.url_medium, pi.alt, tr.rate, tr.name
      ORDER BY relevance DESC
      LIMIT ? OFFSET ?`,
     [qBoolean, locale, locale, qBoolean, limit, offset]
@@ -211,7 +211,7 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      LEFT JOIN reviews r ON r.product_id = p.id AND r.is_approved = 1
      WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.category_id = ?
-     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.alt, tr.rate, tr.name
+     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.url_medium, pi.alt, tr.rate, tr.name
      ORDER BY ${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
     [locale, locale, categoryId, limit, offset]
