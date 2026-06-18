@@ -188,7 +188,11 @@ export default function AdminLayout() {
 
   const pageTitle = useBreadcrumb();
 
-  /* Charge les compteurs de badges + stock critique toutes les 60s */
+  /* Charge les compteurs de badges + stock critique :
+     - au montage,
+     - toutes les 60s (filet de sécurité),
+     - immédiatement quand une page admin signale une mutation (event « admin:data-changed »),
+       ce qui rafraîchit le badge dès qu'on change le statut d'une commande, modère un avis, etc. */
   useEffect(() => {
     let cancelled = false;
     async function fetchBadges() {
@@ -208,7 +212,12 @@ export default function AdminLayout() {
     }
     fetchBadges();
     const interval = setInterval(fetchBadges, 60_000);
-    return () => { cancelled = true; clearInterval(interval); };
+    window.addEventListener("admin:data-changed", fetchBadges);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener("admin:data-changed", fetchBadges);
+    };
   }, []);
 
   const NAV_MAIN = buildNavMain(pendingOrders, pendingReviews);

@@ -470,9 +470,15 @@ export default function Orders() {
     setPage(1)
   }
 
-  /* Compteur de refresh manuel — incrémenter force le useEffect à se ré-exécuter */
+  /* Compteur de refresh manuel — incrémenter force le useEffect à se ré-exécuter.
+     load() est appelé après chaque mutation d'une commande (via onUpdated de la modale) :
+     on en profite pour signaler le changement au layout afin qu'il rafraîchisse le badge
+     « commandes en attente » de la nav sans attendre le tick de 60s. */
   const [refreshTick, setRefreshTick] = useState(0)
-  const load = () => setRefreshTick(t => t + 1)
+  const load = () => {
+    setRefreshTick(t => t + 1)
+    window.dispatchEvent(new Event('admin:data-changed'))
+  }
 
   useEffect(() => {
     let cancelled = false
