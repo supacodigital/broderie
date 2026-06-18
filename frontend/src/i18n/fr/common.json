@@ -138,7 +138,42 @@
     "tabAddresses": "Adresses",
     "tabWishlist": "Favoris",
     "tabLoyalty": "Fidélité",
-    "myAccount": "Mon compte"
+    "myAccount": "Mon compte",
+    "breadcrumb": "Mon compte",
+    "changePassword": "Modifier le mot de passe",
+    "changingPassword": "Modification…",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "saved": "Enregistré",
+    "saveChanges": "Enregistrer les modifications",
+    "genericError": "Une erreur est survenue.",
+    "genericErrorRetry": "Une erreur est survenue. Veuillez réessayer.",
+    "loyaltyTitle": "Programme de fidélité",
+    "noRewards": "Aucun bon pour le moment.",
+    "noRewardsCta": "Continuez vos achats pour débloquer des récompenses !",
+    "copyCode": "Copier le code",
+    "copy": "Copier",
+    "copied": "Copié !",
+    "expiresOn": "Expire le {{date}}",
+    "rewardStatus": {
+      "available": "Disponible",
+      "used": "Utilisé",
+      "expired": "Expiré",
+      "pending": "En attente"
+    },
+    "val": {
+      "firstNameRequired": "Prénom requis",
+      "lastNameRequired": "Nom requis",
+      "emailInvalid": "Email invalide",
+      "currentPasswordRequired": "Mot de passe actuel requis",
+      "passwordMin": "Minimum 8 caractères",
+      "confirmRequired": "Confirmation requise",
+      "passwordsMismatch": "Les mots de passe ne correspondent pas",
+      "labelRequired": "Libellé requis",
+      "streetRequired": "Rue requise",
+      "zipInvalid": "NPA suisse sur 4 chiffres",
+      "cityRequired": "Ville requise"
+    }
   },
   "errors": {
     "network": "Une erreur réseau est survenue. Veuillez réessayer.",

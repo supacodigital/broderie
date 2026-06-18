@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
@@ -31,28 +31,28 @@ function useTabs(t) {
   ]
 }
 
-/* ── Schéma profil ── */
-const profileSchema = z.object({
-  first_name: z.string().min(1, 'Prénom requis'),
-  last_name:  z.string().min(1, 'Nom requis'),
-  email:      z.string().email('Email invalide'),
+/* ── Schémas Zod construits avec les messages traduits (t).
+      Factory functions instanciées via useMemo dans chaque composant pour suivre la langue. ── */
+const makeProfileSchema = (t) => z.object({
+  first_name: z.string().min(1, t('account.val.firstNameRequired')),
+  last_name:  z.string().min(1, t('account.val.lastNameRequired')),
+  email:      z.string().email(t('account.val.emailInvalid')),
 })
 
-const passwordSchema = z.object({
-  current_password: z.string().min(1, 'Mot de passe actuel requis'),
-  new_password:     z.string().min(8, 'Minimum 8 caractères'),
-  confirm_password: z.string().min(1, 'Confirmation requise'),
+const makePasswordSchema = (t) => z.object({
+  current_password: z.string().min(1, t('account.val.currentPasswordRequired')),
+  new_password:     z.string().min(8, t('account.val.passwordMin')),
+  confirm_password: z.string().min(1, t('account.val.confirmRequired')),
 }).refine(d => d.new_password === d.confirm_password, {
-  message: 'Les mots de passe ne correspondent pas',
+  message: t('account.val.passwordsMismatch'),
   path: ['confirm_password'],
 })
 
-/* ── Schéma adresse ── */
-const addressSchema = z.object({
-  label:  z.string().min(1, 'Libellé requis'),
-  street: z.string().min(1, 'Rue requise'),
-  zip:    z.string().regex(/^\d{4}$/, 'NPA suisse sur 4 chiffres'),
-  city:   z.string().min(1, 'Ville requise'),
+const makeAddressSchema = (t) => z.object({
+  label:  z.string().min(1, t('account.val.labelRequired')),
+  street: z.string().min(1, t('account.val.streetRequired')),
+  zip:    z.string().regex(/^\d{4}$/, t('account.val.zipInvalid')),
+  city:   z.string().min(1, t('account.val.cityRequired')),
   canton: z.string().max(2).optional(),
 })
 
@@ -67,6 +67,8 @@ function StatusBadge({ status }) {
 
 /* ── Formulaire changement de mot de passe ── */
 function PasswordForm() {
+  const { t } = useTranslation()
+  const passwordSchema = useMemo(() => makePasswordSchema(t), [t])
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(passwordSchema),
   })
@@ -81,13 +83,13 @@ function PasswordForm() {
       reset()
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
-      setApiErr(err.response?.data?.message ?? 'Une erreur est survenue.')
+      setApiErr(err.response?.data?.message ?? t('account.genericError'))
     }
   }
 
   return (
     <>
-      <h2 className={s.panelTitle}>Modifier le mot de passe</h2>
+      <h2 className={s.panelTitle}>{t('account.changePassword')}</h2>
 
       {apiErr && (
         <div className={s.alertError} role="alert">
@@ -128,7 +130,7 @@ function PasswordForm() {
 
         <div className={s.formActions}>
           <button type="submit" className={s.btnPrimary} disabled={isSubmitting}>
-            {isSubmitting ? 'Modification…' : 'Modifier le mot de passe'}
+            {isSubmitting ? t('account.changingPassword') : t('account.changePassword')}
           </button>
         </div>
       </form>
@@ -138,6 +140,7 @@ function PasswordForm() {
 
 /* ── Bloc programme de fidélité (dans l'onglet Profil) ── */
 function LoyaltyBlock() {
+  const { t } = useTranslation()
   const [data,    setData]    = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -153,7 +156,7 @@ function LoyaltyBlock() {
   if (loading) {
     return (
       <>
-        <h2 className={s.panelTitle}>Programme de fidélité</h2>
+        <h2 className={s.panelTitle}>{t('account.loyaltyTitle')}</h2>
         <div className={`${s.loyaltyCard} ${s.skeletonRow}`} style={{ height: 64 }} />
       </>
     )
@@ -174,7 +177,7 @@ function LoyaltyBlock() {
 
   return (
     <>
-      <h2 className={s.panelTitle}>Programme de fidélité</h2>
+      <h2 className={s.panelTitle}>{t('account.loyaltyTitle')}</h2>
       <div className={s.loyaltyCard}>
         <div className={s.loyaltyLeft}>
           <Star size={20} fill="currentColor" className={s.loyaltyStar} />
@@ -203,6 +206,8 @@ function LoyaltyBlock() {
 
 /* ── Onglet Profil ── */
 function TabProfile({ user, onSaved }) {
+  const { t } = useTranslation()
+  const profileSchema = useMemo(() => makeProfileSchema(t), [t])
   const { register, handleSubmit, formState: { errors, isSubmitting, isDirty } } = useForm({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -222,7 +227,7 @@ function TabProfile({ user, onSaved }) {
       onSaved?.(data)
       setTimeout(() => setSaved(false), 3000)
     } catch {
-      setApiErr('Une erreur est survenue. Veuillez réessayer.')
+      setApiErr(t('account.genericErrorRetry'))
     }
   }
 
@@ -265,8 +270,8 @@ function TabProfile({ user, onSaved }) {
         <div className={s.formActions}>
           <button type="submit" className={s.btnPrimary} disabled={isSubmitting || !isDirty}>
             {saved
-              ? <><Check size={15} /> Enregistré</>
-              : isSubmitting ? 'Enregistrement…' : 'Enregistrer les modifications'}
+              ? <><Check size={15} /> {t('account.saved')}</>
+              : isSubmitting ? t('account.saving') : t('account.saveChanges')}
           </button>
         </div>
       </form>
@@ -348,6 +353,8 @@ function TabOrders() {
 
 /* ── Modal adresse ── */
 function AddressModal({ initial, onSave, onClose }) {
+  const { t } = useTranslation()
+  const addressSchema = useMemo(() => makeAddressSchema(t), [t])
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(addressSchema),
     defaultValues: initial ?? { label: '', street: '', zip: '', city: '', canton: '' },
@@ -402,7 +409,7 @@ function AddressModal({ initial, onSave, onClose }) {
           <div className={s.formActions} style={{ marginTop: 8 }}>
             <button type="button" className={s.btnSecondary} onClick={onClose}>Annuler</button>
             <button type="submit" className={s.btnPrimary} disabled={isSubmitting}>
-              {isSubmitting ? 'Enregistrement…' : 'Enregistrer'}
+              {isSubmitting ? t('account.saving') : t('account.save')}
             </button>
           </div>
         </form>
@@ -599,7 +606,7 @@ function TabWishlist() {
 
 /* ── Onglet Fidélité ── */
 function TabLoyalty() {
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const locale = normalizeLocale(i18n.language)
   const [data,    setData]    = useState(null)
   const [rewards, setRewards] = useState([])
@@ -628,7 +635,7 @@ function TabLoyalty() {
 
   if (loading) return (
     <section className={s.panel}>
-      <h2 className={s.panelTitle}>Programme de fidélité</h2>
+      <h2 className={s.panelTitle}>{t('account.loyaltyTitle')}</h2>
       <div className={`${s.skeletonRow}`} style={{ height: 80, borderRadius: 10, marginBottom: 12 }} />
       <div className={`${s.skeletonRow}`} style={{ height: 80, borderRadius: 10 }} />
     </section>
@@ -646,15 +653,15 @@ function TabLoyalty() {
     : 100
 
   const STATUS_REWARD = {
-    available: { label: 'Disponible', color: '#059669', bg: '#ecfdf5' },
-    used:      { label: 'Utilisé',    color: '#6b7280', bg: '#f3f4f6' },
-    expired:   { label: 'Expiré',     color: '#dc2626', bg: '#fef2f2' },
-    pending:   { label: 'En attente', color: '#d97706', bg: '#fffbeb' },
+    available: { label: t('account.rewardStatus.available'), color: '#059669', bg: '#ecfdf5' },
+    used:      { label: t('account.rewardStatus.used'),      color: '#6b7280', bg: '#f3f4f6' },
+    expired:   { label: t('account.rewardStatus.expired'),   color: '#dc2626', bg: '#fef2f2' },
+    pending:   { label: t('account.rewardStatus.pending'),   color: '#d97706', bg: '#fffbeb' },
   }
 
   return (
     <section className={s.panel}>
-      <h2 className={s.panelTitle}>Programme de fidélité</h2>
+      <h2 className={s.panelTitle}>{t('account.loyaltyTitle')}</h2>
 
       {/* Carte palier actuel */}
       <div className={s.loyaltyCard}>
@@ -715,7 +722,7 @@ function TabLoyalty() {
       {rewards.length === 0 ? (
         <div className={s.emptyState}>
           <Gift size={28} />
-          <p>Aucun bon pour le moment.<br />Continuez vos achats pour débloquer des récompenses !</p>
+          <p>{t('account.noRewards')}<br />{t('account.noRewardsCta')}</p>
         </div>
       ) : (
         <div className={s.rewardList}>
@@ -730,11 +737,11 @@ function TabLoyalty() {
                     <button
                       className={`${s.copyBtn} ${copiedId === reward.id ? s.copyBtnDone : ''}`}
                       onClick={() => copyCode(reward.id, reward.code)}
-                      aria-label="Copier le code"
-                      title="Copier le code"
+                      aria-label={t('account.copyCode')}
+                      title={t('account.copyCode')}
                     >
                       {copiedId === reward.id ? <Check size={14} /> : <Copy size={14} />}
-                      <span>{copiedId === reward.id ? 'Copié !' : 'Copier'}</span>
+                      <span>{copiedId === reward.id ? t('account.copied') : t('account.copy')}</span>
                     </button>
                   )}
                 </div>
@@ -746,7 +753,7 @@ function TabLoyalty() {
                     }
                   </div>
                   <div className={s.rewardMeta}>
-                    {expires && <span>Expire le {expires}</span>}
+                    {expires && <span>{t('account.expiresOn', { date: expires })}</span>}
                   </div>
                   <span
                     className={s.rewardStatus}
@@ -793,7 +800,7 @@ export default function Account() {
         <nav className={s.breadcrumb} aria-label="Fil d'Ariane">
           <Link to="/">{t('nav.home')}</Link>
           <ChevronRight size={13} />
-          <span aria-current="page">Mon compte</span>
+          <span aria-current="page">{t('account.breadcrumb')}</span>
         </nav>
       </div>
 

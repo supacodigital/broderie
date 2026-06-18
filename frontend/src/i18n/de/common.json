@@ -138,7 +138,42 @@
     "tabAddresses": "Adressen",
     "tabWishlist": "Favoriten",
     "tabLoyalty": "Treue",
-    "myAccount": "Mein Konto"
+    "myAccount": "Mein Konto",
+    "breadcrumb": "Mein Konto",
+    "changePassword": "Passwort ändern",
+    "changingPassword": "Wird geändert…",
+    "save": "Speichern",
+    "saving": "Wird gespeichert…",
+    "saved": "Gespeichert",
+    "saveChanges": "Änderungen speichern",
+    "genericError": "Ein Fehler ist aufgetreten.",
+    "genericErrorRetry": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
+    "loyaltyTitle": "Treueprogramm",
+    "noRewards": "Noch kein Bon vorhanden.",
+    "noRewardsCta": "Setzen Sie Ihre Einkäufe fort, um Prämien freizuschalten!",
+    "copyCode": "Code kopieren",
+    "copy": "Kopieren",
+    "copied": "Kopiert!",
+    "expiresOn": "Gültig bis {{date}}",
+    "rewardStatus": {
+      "available": "Verfügbar",
+      "used": "Eingelöst",
+      "expired": "Abgelaufen",
+      "pending": "Ausstehend"
+    },
+    "val": {
+      "firstNameRequired": "Vorname erforderlich",
+      "lastNameRequired": "Name erforderlich",
+      "emailInvalid": "Ungültige E-Mail",
+      "currentPasswordRequired": "Aktuelles Passwort erforderlich",
+      "passwordMin": "Mindestens 8 Zeichen",
+      "confirmRequired": "Bestätigung erforderlich",
+      "passwordsMismatch": "Die Passwörter stimmen nicht überein",
+      "labelRequired": "Bezeichnung erforderlich",
+      "streetRequired": "Strasse erforderlich",
+      "zipInvalid": "Schweizer PLZ mit 4 Ziffern",
+      "cityRequired": "Ort erforderlich"
+    }
   },
   "errors": {
     "network": "Ein Netzwerkfehler ist aufgetreten. Bitte versuchen Sie es erneut.",

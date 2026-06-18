@@ -138,7 +138,42 @@
     "tabAddresses": "Addresses",
     "tabWishlist": "Favourites",
     "tabLoyalty": "Loyalty",
-    "myAccount": "My account"
+    "myAccount": "My account",
+    "breadcrumb": "My account",
+    "changePassword": "Change password",
+    "changingPassword": "Changing…",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saveChanges": "Save changes",
+    "genericError": "An error occurred.",
+    "genericErrorRetry": "An error occurred. Please try again.",
+    "loyaltyTitle": "Loyalty programme",
+    "noRewards": "No voucher yet.",
+    "noRewardsCta": "Keep shopping to unlock rewards!",
+    "copyCode": "Copy code",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "expiresOn": "Expires on {{date}}",
+    "rewardStatus": {
+      "available": "Available",
+      "used": "Used",
+      "expired": "Expired",
+      "pending": "Pending"
+    },
+    "val": {
+      "firstNameRequired": "First name required",
+      "lastNameRequired": "Last name required",
+      "emailInvalid": "Invalid email",
+      "currentPasswordRequired": "Current password required",
+      "passwordMin": "Minimum 8 characters",
+      "confirmRequired": "Confirmation required",
+      "passwordsMismatch": "Passwords do not match",
+      "labelRequired": "Label required",
+      "streetRequired": "Street required",
+      "zipInvalid": "Swiss postcode (4 digits)",
+      "cityRequired": "City required"
+    }
   },
   "errors": {
     "network": "A network error occurred. Please try again.",
