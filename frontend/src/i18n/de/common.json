@@ -340,5 +340,28 @@
     "chipPromo": "Aktion",
     "chipCoupDeCoeur": "Herzensempfehlung",
     "chipExclusif": "Exklusiv"
+  },
+  "seo": {
+    "homeTitle": "Stickerei & Handarbeit",
+    "homeDesc": "Ihr Schweizer Spezialist für Stickerei seit 1987. Sets, DMC-Garne, Stoffe und Zubehör. Lieferung in 1–2 Tagen in der Schweiz.",
+    "catalogueTitle": "Katalog",
+    "catalogueDesc": "Entdecken Sie unseren Katalog mit Sticksets, Garnen, Stoffen und Zubehör. Preise in CHF, schnelle Lieferung in der Schweiz.",
+    "aboutTitle": "Unsere Geschichte",
+    "aboutDesc": "Die Geschichte von Au Point-Compté und Julie — Leidenschaft für Stickerei seit 1987 in der Westschweiz.",
+    "contactTitle": "Kontakt",
+    "contactDesc": "Eine Frage? Kontaktieren Sie das Team von Au Point-Compté. Beratung und Service in der Schweiz.",
+    "cartTitle": "Mein Warenkorb",
+    "cartDesc": "Übersicht Ihres Warenkorbs vor der Bestellung.",
+    "cgvTitle": "Allgemeine Geschäftsbedingungen",
+    "cgvDesc": "Allgemeine Geschäftsbedingungen von Au Point-Compté — Schweizer Stickerei-Shop.",
+    "legalTitle": "Impressum",
+    "legalDesc": "Impressum und Angaben zum Betreiber der Website Au Point-Compté.",
+    "returnTitle": "Rückgaberecht",
+    "returnDesc": "14 Tage Rückgaberecht — Bedingungen für Rückgabe und Rückerstattung.",
+    "loginTitle": "Anmeldung",
+    "registerTitle": "Registrierung",
+    "accountTitle": "Mein Konto",
+    "checkoutTitle": "Bestellung",
+    "notFoundTitle": "Seite nicht gefunden"
   }
 }

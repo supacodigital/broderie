@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import Seo from '../../components/seo/Seo.jsx'
 import s from './NotreHistoire.module.css'
 
 export default function NotreHistoire() {
@@ -6,6 +7,7 @@ export default function NotreHistoire() {
 
   return (
     <main className={s.page}>
+      <Seo title={t('seo.aboutTitle')} description={t('seo.aboutDesc')} />
 
       {/* En-tête */}
       <div className={s.hero}>

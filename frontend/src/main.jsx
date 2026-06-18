@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { GoogleOAuthProvider } from '@react-oauth/google'
+import { HelmetProvider } from 'react-helmet-async'
 
 /* Initialisation i18n — doit être importé avant les composants */
 import './i18n/index.js'
@@ -33,6 +34,7 @@ if (import.meta.env.DEV) {
 }
 
 createRoot(document.getElementById('root')).render(
+  <HelmetProvider>
   <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <AuthProvider>
       {/* ToastProvider au sommet — tout contexte/composant en dessous peut afficher des toasts */}
@@ -46,5 +48,6 @@ createRoot(document.getElementById('root')).render(
         </CartProvider>
       </ToastProvider>
     </AuthProvider>
-  </GoogleOAuthProvider>,
+  </GoogleOAuthProvider>
+  </HelmetProvider>,
 )

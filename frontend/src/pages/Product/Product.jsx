@@ -12,6 +12,7 @@ import ReviewsSection from './ReviewsSection.jsx'
 import RelatedProducts from './RelatedProducts.jsx'
 import { ProductCardSkeleton } from '../../components/ui/Skeleton/Skeleton.jsx'
 import EmptyState from '../../components/ui/EmptyState/EmptyState.jsx'
+import Seo from '../../components/seo/Seo.jsx'
 import s from './Product.module.css'
 
 export default function Product() {
@@ -98,8 +99,15 @@ export default function Product() {
     )
   }
 
+  /* Meta description : description produit nettoyée/tronquée, sinon repli sur le nom */
+  const metaDesc = (product.description?.replace(/\s+/g, ' ').trim().slice(0, 155))
+    || `${product.name} — disponible chez Au Point-Compté, votre boutique de broderie en Suisse.`
+  const primaryImage = product.images?.find(img => img.is_primary)?.url
+    ?? product.images?.[0]?.url
+
   return (
     <div className={s.page}>
+      <Seo title={product.name} description={metaDesc} image={primaryImage} />
       {/* ── Fil d'Ariane ── */}
       <nav className={s.breadcrumb} aria-label="Fil d'Ariane">
         <Link to="/">{t('nav.home')}</Link>

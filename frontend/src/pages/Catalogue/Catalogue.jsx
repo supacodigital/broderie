@@ -11,6 +11,7 @@ import Pagination             from '../../components/ui/Pagination/Pagination.js
 import EmptyState             from '../../components/ui/EmptyState/EmptyState.jsx'
 import FilterPanel            from './FilterPanel.jsx'
 import SearchBar              from './SearchBar.jsx'
+import Seo                    from '../../components/seo/Seo.jsx'
 import s from './Catalogue.module.css'
 
 /* ── Chips filtres actifs ── */
@@ -231,6 +232,7 @@ export default function Catalogue() {
 
   return (
     <div className={s.page}>
+      <Seo title={t('seo.catalogueTitle')} description={t('seo.catalogueDesc')} />
       {/* ── En-tête ── */}
       <div className={s.hero}>
         {/* Breadcrumb */}

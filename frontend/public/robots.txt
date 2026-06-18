@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Pages privées — ne pas indexer
+Disallow: /mon-compte
+Disallow: /commande
+Disallow: /commandes/
+Disallow: /panier
+Disallow: /reinitialiser-mot-de-passe
+
+Sitemap: https://broderie.ch/sitemap.xml

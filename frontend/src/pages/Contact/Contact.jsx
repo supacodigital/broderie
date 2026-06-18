@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { MapPin, Phone, Mail, Clock, Send } from 'lucide-react'
 import axios from 'axios'
+import Seo from '../../components/seo/Seo.jsx'
 import s from './Contact.module.css'
 
 export default function Contact() {
@@ -45,6 +46,7 @@ export default function Contact() {
 
   return (
     <main className={s.page}>
+      <Seo title={t('seo.contactTitle')} description={t('seo.contactDesc')} />
       <div className={s.hero}>
         <p className={s.eyebrow}>Nous écrire</p>
         <h1 className={s.title}>Contactez-nous</h1>

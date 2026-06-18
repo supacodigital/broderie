@@ -340,5 +340,28 @@
     "chipPromo": "Promotion",
     "chipCoupDeCoeur": "Coup de cœur",
     "chipExclusif": "Exclusif"
+  },
+  "seo": {
+    "homeTitle": "Broderie & Arts de l'aiguille",
+    "homeDesc": "Votre spécialiste suisse en broderie depuis 1987. Kits, fils DMC, toiles et accessoires. Livraison 1–2 jours en Suisse.",
+    "catalogueTitle": "Catalogue",
+    "catalogueDesc": "Découvrez notre catalogue de kits de broderie, fils, toiles et accessoires. Prix en CHF, livraison rapide en Suisse.",
+    "aboutTitle": "Notre histoire",
+    "aboutDesc": "L'histoire d'Au Point-Compté et de Julie — passion de la broderie depuis 1987 en Suisse romande.",
+    "contactTitle": "Contact",
+    "contactDesc": "Une question ? Contactez l'équipe d'Au Point-Compté. Conseil et service en Suisse.",
+    "cartTitle": "Mon panier",
+    "cartDesc": "Récapitulatif de votre panier avant commande.",
+    "cgvTitle": "Conditions générales de vente",
+    "cgvDesc": "Conditions générales de vente d'Au Point-Compté — boutique de broderie suisse.",
+    "legalTitle": "Mentions légales",
+    "legalDesc": "Mentions légales et informations sur l'éditeur du site Au Point-Compté.",
+    "returnTitle": "Politique de retour",
+    "returnDesc": "Droit de retour de 14 jours — conditions de retour et de remboursement.",
+    "loginTitle": "Connexion",
+    "registerTitle": "Inscription",
+    "accountTitle": "Mon compte",
+    "checkoutTitle": "Commande",
+    "notFoundTitle": "Page introuvable"
   }
 }

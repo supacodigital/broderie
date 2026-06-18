@@ -23,11 +23,8 @@
     <meta property="og:url" content="https://broderie.ch" />
     <meta property="og:locale" content="fr_CH" />
 
-    <!-- Hreflang multilingue (SEO CH) -->
-    <link rel="alternate" hreflang="fr" href="https://broderie.ch/fr/" />
-    <link rel="alternate" hreflang="de" href="https://broderie.ch/de/" />
-    <link rel="alternate" hreflang="en" href="https://broderie.ch/en/" />
-    <link rel="alternate" hreflang="x-default" href="https://broderie.ch/" />
+    <!-- Hreflang + canonical : gérés dynamiquement par page via le composant <Seo> (react-helmet-async).
+         Les balises statiques ont été retirées pour éviter les doublons avec les balises par page. -->
 
     <!-- Performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

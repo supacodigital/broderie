@@ -340,5 +340,28 @@
     "chipPromo": "Promotion",
     "chipCoupDeCoeur": "Favourite",
     "chipExclusif": "Exclusive"
+  },
+  "seo": {
+    "homeTitle": "Embroidery & Needlework",
+    "homeDesc": "Your Swiss embroidery specialist since 1987. Kits, DMC threads, fabrics and accessories. Delivery in 1–2 days within Switzerland.",
+    "catalogueTitle": "Catalogue",
+    "catalogueDesc": "Discover our catalogue of embroidery kits, threads, fabrics and accessories. Prices in CHF, fast delivery in Switzerland.",
+    "aboutTitle": "Our story",
+    "aboutDesc": "The story of Au Point-Compté and Julie — a passion for embroidery since 1987 in French-speaking Switzerland.",
+    "contactTitle": "Contact",
+    "contactDesc": "A question? Contact the Au Point-Compté team. Advice and service in Switzerland.",
+    "cartTitle": "My cart",
+    "cartDesc": "Summary of your cart before checkout.",
+    "cgvTitle": "Terms and conditions",
+    "cgvDesc": "Terms and conditions of Au Point-Compté — Swiss embroidery shop.",
+    "legalTitle": "Legal notice",
+    "legalDesc": "Legal notice and information about the publisher of the Au Point-Compté website.",
+    "returnTitle": "Return policy",
+    "returnDesc": "14-day return policy — return and refund conditions.",
+    "loginTitle": "Sign in",
+    "registerTitle": "Sign up",
+    "accountTitle": "My account",
+    "checkoutTitle": "Checkout",
+    "notFoundTitle": "Page not found"
   }
 }
