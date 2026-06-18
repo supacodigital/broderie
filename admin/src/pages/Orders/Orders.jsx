@@ -166,8 +166,9 @@ function OrderModal({ orderId, onClose, onUpdated }) {
       setOrder(prev => ({ ...prev, tracking_number: label.trackingNumber, label_url: label.labelUrl }))
       setFeedback(`Étiquette générée — suivi : ${label.trackingNumber}`)
       onUpdated?.()
-    } catch {
-      setError('Impossible de générer l\'étiquette. Vérifiez la connexion au serveur.')
+    } catch (err) {
+      // Afficher le message précis du serveur (ex : adresse de livraison incomplète) plutôt qu'un message générique
+      setError(err.response?.data?.message ?? 'Impossible de générer l\'étiquette. Vérifiez la connexion au serveur.')
     } finally {
       setGeneratingLabel(false)
     }
