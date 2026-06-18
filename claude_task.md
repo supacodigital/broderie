@@ -63,11 +63,14 @@ du `.env` (pas une base de test dédiée). Prérequis pour les relancer :
 ### 3. Config paiements & retrait — remplacer les placeholders de test
 > ⚠️ Oublier ces valeurs = factures avec mauvais IBAN + mauvais lieu de retrait.
 - [ ] 🔴 **`QR_INVOICE_IBAN`** — **BLOQUANT** : encore l'IBAN de test `CH9300762011623852957`.
-      Demander à Julie son **IBAN bancaire normal** (PAS un QR-IBAN, sinon adaptation code requise).
-      Sans ça, les paiements par facture QR n'arrivent pas sur son compte.
+      Demander à Julie l'IBAN du compte où elle veut **RECEVOIR les paiements clients** (compte
+      d'encaissement, IBAN normal — pas QR-IBAN). ⚠️ Ne PAS prendre les IBAN de ses factures
+      La Poste (ce sont des comptes La Poste / de prélèvement). Elle a probablement un compte
+      PostFinance (`CH..09000..`) — à confirmer par elle, ne pas supposer.
 - [x] **`QR_INVOICE_*`** (nom, adresse, NPA, ville) — ✅ adresse réelle renseignée dans `.env`
       (Au Point-Compté, Rue de Vuarrengel 10, 1418 Vuarrens) — 18 juin.
-- [ ] **`PICKUP_*`** (adresse, NPA, ville, horaires) — vraie boutique (actuellement défauts Genève), utilisé dans l'email « commande prête » du Click & Collect
+- [x] **`PICKUP_*`** (adresse, NPA, ville, horaires) — ✅ renseigné dans `.env` :
+      Vuarrens + horaires **Mardi–Samedi 9h–12h et 13h30–18h30**.
 - [x] **`INVOICE_DUE_DAYS`** — 30 j confirmé dans `.env`
 
 ### 4. Stripe production
