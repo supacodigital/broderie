@@ -29,7 +29,7 @@ Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 
 ## ✅ Tests — tout vert (vérifié 18 juin 2026)
 
-`cd backend && npm test` → **682 tests verts / 682 (54 suites)**, ~17 s.
+`cd backend && npm test` → **692 tests verts / 692 (56 suites)**, ~17 s.
 
 > Les 69 « rouges » observés au premier passage venaient **uniquement** de l'absence de
 > MySQL sur le port **8889** (MAMP éteint) — pas d'une régression. MySQL relancé →
@@ -45,12 +45,15 @@ du `.env` (pas une base de test dédiée). Prérequis pour les relancer :
 
 ## 🔴 Avant mise en production — OBLIGATOIRE
 
-### 1. Hébergement Infomaniak — commander les services
-> Détail complet et arbitrage dans [HEBERGEMENT.md](HEBERGEMENT.md) (option A retenue : MySQL sur le VPS).
-- [ ] Commander le **VPS Cloud** (API Node.js ≥ 20 LTS + MySQL dessus)
-- [ ] Commander l'**Object Storage** (images produits WebP)
+### 1. Hébergement Infomaniak — services commandés ✅
+> Guide de déploiement complet : [DEPLOIEMENT_INFOMANIAK.md](DEPLOIEMENT_INFOMANIAK.md)
+> (mono-domaine + Nginx). Config PM2 : [ecosystem.config.js](ecosystem.config.js).
+- [x] **VPS Cloud** « Au point Compté » (`ov-f7c30d`, Ubuntu 26.04 LTS) — commandé
+- [x] **Swiss Backup** (`BK-1676312-1`, 200 Go) — commandé (pour sauvegardes BDD + uploads/)
+- [x] **Stockage images** : tranché → **disque du VPS** (pas d'Object Storage), `config/storage.js` adapté
 - [ ] Ajouter l'alias email `noreply@broderie.ch` (le domaine et `julie@broderie.ch` existent déjà)
-- [ ] Activer le SSL Let's Encrypt une fois le serveur prêt
+- [ ] Suivre le guide : installer stack, MySQL + migrations, builds, PM2, Nginx + SSL Let's Encrypt
+- [x] **Fixes prod faits** : `trust proxy` (cookies Secure derrière Nginx), chargement `.env.production`
 
 ### 2. Déploiement
 - [ ] Exécuter `database/schema.sql` **puis les 8 migrations** (`001` → `008`) sur la base de prod
