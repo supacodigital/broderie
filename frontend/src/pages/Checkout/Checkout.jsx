@@ -308,7 +308,7 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
       onCouponApplied({ discount: couponData.discount, code: couponData.code })
       setCouponInput('')
     } catch (err) {
-      const msg = err.response?.data?.message ?? err.message ?? 'Code invalide.'
+      const msg = err.response?.data?.message ?? err.message ?? t('checkout.couponInvalid')
       setCouponError(msg)
     } finally {
       setCouponLoading(false)
@@ -339,7 +339,7 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
 
       {/* Récap adresse */}
       <div className={s.addressRecap}>
-        <p className={s.addressRecapLabel}>Livraison à :</p>
+        <p className={s.addressRecapLabel}>{t('checkout.deliveryTo')}</p>
         <p className={s.addressRecapValue}>
           {address.first_name} {address.last_name} — {address.street}, {address.zip} {address.city}
           {address.canton ? ` (${address.canton})` : ''}, Suisse
@@ -385,7 +385,7 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
 
       {/* Code promo */}
       <div className={s.couponSection}>
-        <h3 className={s.couponTitle}><Tag size={14} /> Code promo ou bon de fidélité</h3>
+        <h3 className={s.couponTitle}><Tag size={14} /> {t('checkout.couponLabel')}</h3>
         {couponCode ? (
           <div className={s.couponApplied}>
             <Tag size={14} />
@@ -399,7 +399,7 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
             <input
               type="text"
               className={s.couponInput}
-              placeholder="Ex : BIENVENUE10"
+              placeholder={t('checkout.couponPlaceholder')}
               value={couponInput}
               onChange={e => { setCouponInput(e.target.value.toUpperCase()); setCouponError('') }}
               onKeyDown={e => e.key === 'Enter' && handleApplyCoupon()}
@@ -410,7 +410,7 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
               onClick={handleApplyCoupon}
               disabled={couponLoading || !couponInput.trim()}
             >
-              {couponLoading ? '…' : 'Appliquer'}
+              {couponLoading ? '…' : t('checkout.couponApply')}
             </button>
           </div>
         )}
@@ -480,12 +480,12 @@ function TwintForm({ orderId, onPaid }) {
         redirect: 'if_required',
       })
       if (stripeErr) {
-        setError(stripeErr.message ?? 'Paiement Twint refusé.')
+        setError(stripeErr.message ?? t('checkout.errors.twintRefused'))
       } else {
         onPaid()
       }
     } catch {
-      setError('Erreur lors de la confirmation Twint.')
+      setError(t('checkout.errors.twintConfirm'))
     } finally {
       setProcessing(false)
     }
@@ -505,8 +505,8 @@ function TwintForm({ orderId, onPaid }) {
         disabled={!stripe || processing}
       >
         {processing
-          ? 'Traitement en cours…'
-          : <><Lock size={15} />Confirmer le paiement Twint</>
+          ? t('checkout.processing')
+          : <><Lock size={15} />{t('checkout.confirmTwintBtn')}</>
         }
       </button>
     </form>
@@ -526,7 +526,7 @@ function StepTwint({ orderId, total, onPaid, t }) {
       const res = await createTwintIntent(orderId)
       setClientSecret(res.clientSecret)
     } catch {
-      setError('Impossible de générer le paiement Twint. Veuillez réessayer.')
+      setError(t('checkout.errors.twintInit'))
     } finally {
       setLoading(false)
     }
@@ -546,16 +546,15 @@ function StepTwint({ orderId, total, onPaid, t }) {
 
   return (
     <div className={s.twintWrap}>
-      <h2 className={s.twintTitle}>Payer par Twint</h2>
+      <h2 className={s.twintTitle}>{t('checkout.twintTitle')}</h2>
       <p className={s.twintDesc}>
-        Réglez <strong>CHF {roundCHF(total).toFixed(2)}</strong> avec votre application{' '}
-        <strong>Twint</strong>. Vous serez redirigé(e) pour confirmer le paiement.
+        {t('checkout.twintPay', { amount: roundCHF(total).toFixed(2) })}
       </p>
 
       {loading && (
         <div className={s.twintLoading}>
           <div className={s.twintSpinner} />
-          <p>Initialisation du paiement…</p>
+          <p>{t('checkout.initPayment')}</p>
         </div>
       )}
 
@@ -601,7 +600,7 @@ function CardForm({ orderId, total, onPaid, t }) {
         redirect: 'if_required',
       })
       if (stripeErr) {
-        setError(stripeErr.message ?? 'Paiement refusé.')
+        setError(stripeErr.message ?? t('checkout.errors.cardRefused'))
       } else {
         onPaid()
       }
@@ -626,8 +625,8 @@ function CardForm({ orderId, total, onPaid, t }) {
         disabled={!stripe || processing}
       >
         {processing
-          ? 'Traitement en cours…'
-          : <><Lock size={15} />Payer CHF {roundCHF(total).toFixed(2)}</>
+          ? t('checkout.processing')
+          : <><Lock size={15} />{t('checkout.payAmount', { amount: roundCHF(total).toFixed(2) })}</>
         }
       </button>
     </form>
@@ -673,7 +672,7 @@ function StepCard({ orderId, total, onPaid, t }) {
       {loading && (
         <div className={s.cardLoading}>
           <div className={s.twintSpinner} />
-          <p>Initialisation du paiement…</p>
+          <p>{t('checkout.initPayment')}</p>
         </div>
       )}
 
@@ -693,7 +692,7 @@ function StepCard({ orderId, total, onPaid, t }) {
       )}
 
       <p className={s.cardSecure}>
-        <Lock size={12} /> Paiement sécurisé par Stripe · Visa, Mastercard acceptés
+        <Lock size={12} /> {t('checkout.cardSecured')}
       </p>
     </div>
   )

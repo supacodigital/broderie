@@ -225,8 +225,25 @@
       "cityRequired": "City is required",
       "cgvRequired": "You must accept the Terms & Conditions",
       "paymentRequired": "Please choose a payment method",
-      "generic": "An error occurred. Please try again."
-    }
+      "generic": "An error occurred. Please try again.",
+      "twintRefused": "Twint payment declined.",
+      "twintConfirm": "Error confirming the Twint payment.",
+      "twintInit": "Unable to create the Twint payment. Please try again.",
+      "cardRefused": "Payment declined."
+    },
+    "couponPlaceholder": "e.g. BIENVENUE10",
+    "couponApply": "Apply",
+    "couponLabel": "Promo code or loyalty voucher",
+    "processing": "Processing…",
+    "confirmTwintBtn": "Confirm Twint payment",
+    "twintRedirect": "You will be redirected to confirm the payment.",
+    "initPayment": "Initialising payment…",
+    "payAmount": "Pay CHF {{amount}}",
+    "cardSecured": "Secure payment via Stripe · Visa, Mastercard accepted",
+    "deliveryTo": "Delivery to:",
+    "twintTitle": "Pay with Twint",
+    "twintPay": "Pay CHF {{amount}} with your Twint app. You will be redirected to confirm the payment.",
+    "couponInvalid": "Invalid code."
   },
   "cart": {
     "title": "My cart",

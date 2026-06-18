@@ -225,8 +225,25 @@
       "cityRequired": "Ort ist erforderlich",
       "cgvRequired": "Sie müssen die AGB akzeptieren",
       "paymentRequired": "Bitte wählen Sie eine Zahlungsmethode",
-      "generic": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut."
-    }
+      "generic": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
+      "twintRefused": "Twint-Zahlung abgelehnt.",
+      "twintConfirm": "Fehler bei der Twint-Bestätigung.",
+      "twintInit": "Twint-Zahlung konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+      "cardRefused": "Zahlung abgelehnt."
+    },
+    "couponPlaceholder": "Z. B. BIENVENUE10",
+    "couponApply": "Anwenden",
+    "couponLabel": "Gutscheincode oder Treuebon",
+    "processing": "Wird verarbeitet…",
+    "confirmTwintBtn": "Twint-Zahlung bestätigen",
+    "twintRedirect": "Sie werden zur Bestätigung der Zahlung weitergeleitet.",
+    "initPayment": "Zahlung wird initialisiert…",
+    "payAmount": "CHF {{amount}} bezahlen",
+    "cardSecured": "Sichere Zahlung über Stripe · Visa, Mastercard akzeptiert",
+    "deliveryTo": "Lieferung an:",
+    "twintTitle": "Mit Twint bezahlen",
+    "twintPay": "Bezahlen Sie CHF {{amount}} mit Ihrer Twint-App. Sie werden zur Bestätigung der Zahlung weitergeleitet.",
+    "couponInvalid": "Ungültiger Code."
   },
   "cart": {
     "title": "Mein Warenkorb",
