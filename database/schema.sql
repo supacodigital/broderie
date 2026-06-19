@@ -212,6 +212,10 @@ CREATE TABLE product_images (
   id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
   product_id INT UNSIGNED NOT NULL,
   url        VARCHAR(500) NOT NULL,
+  -- 3 tailles générées par sharp à l'upload (WebP) — voir CLAUDE.md §10
+  url_thumbnail VARCHAR(500) NULL DEFAULT NULL,
+  url_medium    VARCHAR(500) NULL DEFAULT NULL,
+  url_large     VARCHAR(500) NULL DEFAULT NULL,
   alt        VARCHAR(255) NULL DEFAULT NULL,
   sort_order INT UNSIGNED NOT NULL DEFAULT 0,
   is_primary TINYINT(1)   NOT NULL DEFAULT 0,
