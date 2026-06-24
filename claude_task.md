@@ -5,8 +5,7 @@
 Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 
 > Ce fichier est l'inventaire **actionnable** du reste à faire, vérifié sur le code réel
-> (et non sur la mémoire). Pour le détail fonctionnel de ce qui est déjà livré, voir
-> [ETAT_PROJET.md](ETAT_PROJET.md). Pour l'hébergement, voir [HEBERGEMENT.md](HEBERGEMENT.md).
+> (et non sur la mémoire). Pour l'hébergement, voir [HEBERGEMENT.md](HEBERGEMENT.md).
 
 ---
 

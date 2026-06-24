@@ -166,7 +166,7 @@ enregistrements DNS vers le VPS une fois celui-ci provisionné.
 ### Phase E — Services tiers en production
 - [ ] **Stripe** : passer en mode live, configurer le webhook `https://broderie.ch/api/v1/payments/webhook`, activer Twint
 - [ ] **Google OAuth** : ajouter `https://broderie.ch` aux origines autorisées
-- [ ] **La Poste CH** : renseigner les accès API d'expédition réels (cf. ETAT_PROJET.md)
+- [ ] **La Poste CH** : renseigner les accès API d'expédition réels (cf. claude_task.md)
 - [ ] **Emails** : tester l'envoi réel depuis la prod
 
 ### Phase F — Staging & migration
