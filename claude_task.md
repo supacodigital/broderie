@@ -5,7 +5,7 @@
 Stack : React + Vite + CSS Modules | Node.js + Express | MySQL | Infomaniak
 
 > Ce fichier est l'inventaire **actionnable** du reste à faire, vérifié sur le code réel
-> (et non sur la mémoire). Pour l'hébergement, voir [HEBERGEMENT.md](HEBERGEMENT.md).
+> (et non sur la mémoire). Pour le déploiement et l'hébergement, voir [DEPLOIEMENT.md](DEPLOIEMENT.md).
 
 ---
 
@@ -45,8 +45,8 @@ du `.env` (pas une base de test dédiée). Prérequis pour les relancer :
 ## 🔴 Avant mise en production — OBLIGATOIRE
 
 ### 1. Hébergement Infomaniak — services commandés ✅
-> Guide de déploiement complet : [DEPLOIEMENT_INFOMANIAK.md](DEPLOIEMENT_INFOMANIAK.md)
-> (mono-domaine + Nginx). Config PM2 : [ecosystem.config.js](ecosystem.config.js).
+> Guide de déploiement complet : [DEPLOIEMENT.md](DEPLOIEMENT.md)
+> (mono-domaine + Nginx, recette par IP → bascule domaine). Config PM2 : [ecosystem.config.js](ecosystem.config.js).
 - [x] **VPS Cloud** « Au point Compté » (`ov-f7c30d`, Ubuntu 26.04 LTS) — commandé
 - [x] **Swiss Backup** (`BK-1676312-1`, 200 Go) — commandé (pour sauvegardes BDD + uploads/)
 - [x] **Stockage images** : tranché → **disque du VPS** (pas d'Object Storage), `config/storage.js` adapté

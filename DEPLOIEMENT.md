@@ -1,19 +1,20 @@
-# Déploiement Infomaniak — Au Point-Compté
+# Déploiement — Au Point-Compté
 
-Guide pas-à-pas pour déployer le site sur le **VPS Cloud Infomaniak** (Ubuntu 26.04).
-Architecture retenue : **mono-domaine + Nginx** en reverse-proxy devant Node.
+Guide unique de déploiement sur le **VPS Cloud Infomaniak** (Ubuntu 26.04).
+Architecture : **mono-domaine + Nginx** en reverse-proxy devant Node/PM2.
 
-> **Stratégie de mise en ligne — déploiement par IP, bascule différée**
-> Le site tourne **actuellement sur un autre VPS** branché sur le domaine `broderie.ch`.
-> On déploie **toute la prod** sur le VPS Infomaniak en y accédant par son **IP : `179.237.87.29`**,
-> **sans toucher au DNS du domaine**. L'ancien VPS reste en ligne et sert le public pendant ce temps.
-> Quand tout est validé sur l'IP, on bascule le domaine vers Infomaniak (voir **§10 — Bascule du domaine**).
+---
+
+## 🟢 État actuel (recette par IP)
+
+> **Le site tourne en prod sur le VPS Infomaniak, accessible par son IP : `https://179.237.87.29`.**
+> C'est une **vraie prod** (`NODE_ENV=production`) mais en **mode recette** :
+> - **Stripe en mode test** (`pk_test_`/`sk_test_`) — rien n'est encaissé.
+> - **Le client (Julie) teste** le site sur cette IP en attendant la bascule du domaine.
+> - Le DNS de `broderie.ch` **n'est pas encore touché** — l'ancien site reste en ligne pour le public.
+> - Certificat **auto-signé** → le navigateur affiche « Connexion non privée » (normal, on continue).
 >
-> ⚠️ Ce déploiement est la **vraie prod** (`NODE_ENV=production`) : les cookies de session
-> (refresh token, panier) sont posés en `Secure`. Un navigateur **refuse les cookies Secure en HTTP**.
-> → On met donc **HTTPS dès maintenant sur l'IP** via un **certificat auto-signé** (§7), puis on le
-> remplace par Let's Encrypt au moment de la bascule du domaine. Login admin et panier fonctionnent ainsi
-> immédiatement (un avertissement navigateur s'affiche sur l'IP — normal, on l'accepte le temps de la recette).
+> **➡️ Prochaine étape : bascule vers `broderie.ch`** une fois la recette validée — voir [§10](#10--bascule-du-nom-de-domaine-broderiech--vps-infomaniak).
 
 ```
                   ┌─────────────────── VPS Infomaniak (Ubuntu) ───────────────────┐
@@ -26,7 +27,12 @@ Architecture retenue : **mono-domaine + Nginx** en reverse-proxy devant Node.
                   └────────────────────────────────────────────────────────────────┘
 ```
 > L'app Express sert **déjà** le frontend, l'admin et l'API (voir `backend/app.js`).
-> Nginx ne fait donc que : TLS + reverse-proxy vers `localhost:3000` + cache des assets.
+> Nginx ne fait que : TLS + reverse-proxy vers `localhost:3000` + cache des assets.
+
+> ⚠️ **Pourquoi HTTPS dès l'IP ?** Les cookies de session (refresh token, panier) sont posés en
+> `Secure` en production. Un navigateur **refuse les cookies Secure en HTTP** → sans HTTPS, le login
+> admin et le panier ne marchent pas. On met donc un **certificat auto-signé** sur l'IP (§7), remplacé
+> par Let's Encrypt à la bascule du domaine (§10).
 
 ---
 
@@ -34,7 +40,6 @@ Architecture retenue : **mono-domaine + Nginx** en reverse-proxy devant Node.
 
 - Accès **SSH** au VPS Infomaniak (clé SSH configurée dans le panel)
 - **L'IP du VPS : `179.237.87.29`** — on déploie dessus directement, **aucun DNS à modifier maintenant**
-- Ces valeurs prêtes : voir checklist en bas
 
 ```bash
 ssh debian@179.237.87.29     # ou l'utilisateur fourni par Infomaniak
@@ -85,10 +90,12 @@ for f in migrations/0*.sql; do echo "→ $f"; sudo mysql broderie < "$f"; done
 # (optionnel) données de démo : sudo mysql broderie < seeds.sql
 ```
 
-> ℹ️ **Reprise des données de l'ancien VPS : pas maintenant.** On démarre sur une base neuve
+> ℹ️ **Reprise des données de l'ancien site : pas maintenant.** On démarre sur une base neuve
 > (schéma + migrations, éventuellement `seeds.sql` pour tester). La reprise des données réelles
-> (produits, clients, commandes) et la migration des 1800 clients se feront **plus tard**, dans un
-> second temps — à planifier avant ou pendant la bascule du domaine (§10).
+> (produits, clients, commandes) et la migration des 1800 clients se feront **plus tard**, à
+> planifier avant ou pendant la bascule du domaine (§10).
+
+> 🔒 **Port 3306 jamais exposé** : MySQL écoute sur `localhost` uniquement.
 
 ---
 
@@ -127,7 +134,7 @@ nano frontend/.env.production
 ```
 ```ini
 VITE_API_URL=https://179.237.87.29/api/v1
-VITE_STRIPE_PUBLIC_KEY=pk_live_...        # ou pk_test_ tant qu'on n'encaisse pas
+VITE_STRIPE_PUBLIC_KEY=pk_test_...        # mode test tant qu'on est en recette
 VITE_GOOGLE_CLIENT_ID=...
 ```
 
@@ -146,6 +153,8 @@ Générer les secrets JWT : `openssl rand -base64 64` (deux fois).
 > ⚠️ Ne jamais committer ces fichiers (déjà dans `.gitignore`).
 > ⚠️ **Google OAuth** : ajouter `https://179.237.87.29` aux *Authorized JavaScript origins*
 > dans la console Google Cloud, sinon le bouton « Se connecter avec Google » échoue sur l'IP.
+
+La liste complète des variables figure dans les `*.env.example` de chaque dossier.
 
 ---
 
@@ -178,7 +187,7 @@ mkdir -p backend/logs
 pm2 start ecosystem.config.js --env production
 pm2 logs broderie-api          # vérifier "API opérationnelle" + connexion MySQL OK
 pm2 save                       # sauvegarde la liste des process
-pm2 startup                    # afficher la commande à coller pour le démarrage auto au reboot
+pm2 startup                    # commande à coller pour le démarrage auto au reboot
 ```
 Test local : `curl http://localhost:3000/health` → `{"success":true,...}`
 
@@ -240,7 +249,7 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ---
 
-## 8. Stripe production
+## 8. Stripe (mode test en recette)
 
 > Tant qu'on est sur l'IP en recette, garder Stripe en **mode test** (clés `pk_test_`/`sk_test_`)
 > pour ne rien encaisser. Le passage en `live` se fait à la bascule (§10).
@@ -265,7 +274,7 @@ curl -k https://179.237.87.29/health      # -k : ignore le cert auto-signé
 - [ ] Paiement carte + Twint en **mode test** + facture QR (IBAN réel affiché)
 - [ ] Emails transactionnels reçus (SMTP)
 - [ ] Images produit chargées sous `/uploads`
-- [ ] Backup automatique configuré (brancher `mysqldump`)
+- [ ] Backup automatique configuré (§12)
 
 ---
 
@@ -275,13 +284,12 @@ curl -k https://179.237.87.29/health      # -k : ignore le cert auto-signé
 
 ### Étape A — Préparer Infomaniak à répondre sur le domaine *(avant tout changement DNS)*
 
-1. **Baisser le TTL du DNS** sur l'ancien hébergeur **24–48 h avant** la bascule
+1. **Baisser le TTL du DNS** sur l'hébergeur du domaine **24–48 h avant** la bascule
    (ex. passer le TTL de l'enregistrement A de 3600 s à **300 s**) → propagation rapide le jour J.
 2. **Mettre à jour les `.env`** pour le domaine, puis **rebuilder** front + admin :
    ```bash
    cd ~/broderie
    # backend/.env.production
-   #   NODE_ENV=production
    #   CLIENT_URL=https://broderie.ch
    #   ADMIN_URL=https://broderie.ch
    # frontend/.env.production  → VITE_API_URL=https://broderie.ch/api/v1
@@ -298,16 +306,15 @@ curl -k https://179.237.87.29/health      # -k : ignore le cert auto-signé
 > ⚠️ **Décision en attente.** La reprise des données réelles n'est pas faite au moment du déploiement IP.
 > Avant d'ouvrir le domaine au public, décider et exécuter :
 4. **Reprise BDD** : `mysqldump` de l'ancienne base → import sur Infomaniak (produits, commandes…),
-   **et/ou** migration des 1800 clients (voir claude_task.md §7). À tester sur staging d'abord.
-5. **Copier les `uploads/`** (images produit) de l'ancien VPS vers `backend/uploads/products/`.
-   *(Si on décide de repartir sur une base neuve sans reprise, sauter cette étape.)*
+   **et/ou** migration des 1800 clients (voir `claude_task.md` §7). À tester sur staging d'abord.
+5. **Copier les `uploads/`** (images produit) de l'ancien site vers `backend/uploads/products/`.
+   *(Si on repart sur une base neuve sans reprise, sauter cette étape.)*
 
 ### Étape C — Repointer le DNS
 
 6. Sur l'hébergeur du domaine, modifier l'enregistrement **A** :
-   `broderie.ch` (et `www`) → **`179.237.87.29`**.
-   Supprimer tout ancien A/AAAA pointant vers l'ancien VPS.
-7. Attendre la propagation (rapide grâce au TTL bas). Vérifier :
+   `broderie.ch` (et `www`) → **`179.237.87.29`**. Supprimer tout ancien A/AAAA.
+7. Attendre la propagation (rapide grâce au TTL bas) :
    ```bash
    dig +short broderie.ch       # doit renvoyer 179.237.87.29
    ```
@@ -326,7 +333,7 @@ curl -k https://179.237.87.29/health      # -k : ignore le cert auto-signé
 9. **Stripe** → recréer le webhook sur `https://broderie.ch/api/v1/payments/webhook`, passer en clés
    **live** (`pk_live_`/`sk_live_`), rebuilder le front si la clé publique change, mettre `whsec_` live.
 10. **Google OAuth** → ajouter `https://broderie.ch` aux *Authorized JavaScript origins*.
-11. **Swiss Post** → vérifier les clés API live le cas échéant.
+11. **Swiss Post** → vérifier les clés API live le cas échéant (voir `claude_task.md` §6).
 
 ### Étape F — Vérifs post-bascule
 
@@ -342,24 +349,59 @@ curl https://broderie.ch/health
 
 ### Étape G — Filet de sécurité
 
-12. **Ne pas éteindre l'ancien VPS tout de suite** : le garder ~1 semaine en secours (rollback DNS rapide
-    possible vers l'ancienne IP si problème).
+12. **Ne pas éteindre l'ancien site tout de suite** : le garder ~1 semaine en secours (rollback DNS
+    rapide possible vers l'ancienne IP si problème).
 13. Remonter le **TTL DNS** à une valeur normale (3600 s) une fois la bascule stable.
 
 ---
 
-## Points en suspens (à trancher / fournir)
+## 11. Points en suspens (à trancher / fournir)
 
 | Sujet | Détail |
 |---|---|
-| **Stockage médias** | ✅ Tranché : **disque du VPS** (`backend/uploads/products/`, servi sous `/uploads`). `config/storage.js` écrit sur disque (plus de dépendance S3). ⚠️ Vérifier la taille du disque pour ~14 000 produits × 3 WebP, **inclure `uploads/` dans Swiss Backup**, et ne pas l'effacer lors des `git pull`/déploiements. |
-| **Swiss Post API** | Clés `CLIENT_ID/SECRET` après approbation (étiquettes en mock d'ici là). |
-| **Migration 1800 clients** | À tester sur staging avant la prod (voir claude_task.md §7). |
-| **Backup BDD** | Cron `mysqldump` quotidien vers Swiss Backup. |
+| **Stockage médias** | ✅ Tranché : **disque du VPS** (`backend/uploads/products/`, servi sous `/uploads`). `config/storage.js` écrit sur disque (plus de dépendance S3). ⚠️ Vérifier la taille du disque pour ~14 000 produits × 3 WebP, **inclure `uploads/` dans Swiss Backup**, ne pas l'effacer lors des `git pull`/déploiements. |
+| **Swiss Post API** | Clés `CLIENT_ID/SECRET` après approbation (étiquettes en mock d'ici là) — voir `claude_task.md` §6. |
+| **Migration 1800 clients** | À tester sur staging avant la prod — voir `claude_task.md` §7. |
+| **Emails prod** | `julie@broderie.ch` est hébergé chez un prestataire tiers (Hetzner), pas Infomaniak. Décider la voie SMTP (Brevo recommandé) — voir `claude_task.md` §5. |
 
 ---
 
-## Mises à jour ultérieures (après un nouveau push sur main)
+## 12. Sauvegardes MySQL
+
+> ⚠️ MySQL installé sur le VPS **n'a pas de backup automatique** (contrairement à une base managée).
+> C'est **le point de vigilance n°1** — à mettre en place dès le déploiement.
+
+- [ ] Script `mysqldump` quotidien (cron) vers un dossier local
+- [ ] **Copier les dumps hors du VPS** (Swiss Backup) — si le serveur meurt, les backups survivent
+- [ ] Rotation : garder 7 jours quotidiens + 4 hebdomadaires
+- [ ] Tester une **restauration** au moins une fois avant le go-live
+- [ ] Sauvegarder aussi `backend/uploads/` (images produit, sur disque)
+
+```bash
+# Exemple — /etc/cron.daily/backup-mysql.sh (à adapter)
+DATE=$(date +%F)
+mysqldump -u backup_user -p"$DB_PASSWORD" broderie | gzip > /var/backups/broderie_$DATE.sql.gz
+# Copie hors du VPS (Swiss Backup via rclone configuré)
+rclone copy /var/backups/broderie_$DATE.sql.gz swissbackup:broderie/backups/
+# Nettoyage local — garder 7 jours
+find /var/backups -name "broderie_*.sql.gz" -mtime +7 -delete
+```
+
+---
+
+## 13. Coûts (rappel)
+
+| Service | Produit Infomaniak | Coût |
+|---|---|---|
+| Nom de domaine | `.ch` | ✅ déjà payé (~CHF 10/an) |
+| Emails | prestataire tiers (Hetzner) | ✅ déjà actif (`julie@broderie.ch`) |
+| SSL | Let's Encrypt | ✅ gratuit (à la bascule) |
+| **Serveur app + MySQL** | VPS Cloud | **~17 à 34 CHF/mois** selon la taille |
+| Sauvegardes | Swiss Backup (200 Go) | commandé |
+
+---
+
+## 14. Mises à jour ultérieures (après un push sur main)
 
 ```bash
 cd ~/broderie && git pull origin main
@@ -369,6 +411,16 @@ cd admin && npm ci && npm run build && cd ..
 # rejouer les nouvelles migrations si besoin (database/migrations/)
 pm2 reload broderie-api        # redémarrage zéro-downtime
 ```
+
+---
+
+## Points d'attention (rappel CLAUDE.md)
+
+- **Données en Suisse** : Infomaniak (Genève) → conformité LPD native
+- **CORS** : origin = URL exacte (IP en recette, `https://broderie.ch` en prod) — jamais de wildcard `*`
+- **Node.js ≥ 20 LTS** (on utilise 22 LTS via `.nvmrc`)
+- **Credentials distincts** recette / production — jamais partagés
+- **Port 3306 jamais exposé** : MySQL en écoute sur `localhost` uniquement
 
 ---
 
