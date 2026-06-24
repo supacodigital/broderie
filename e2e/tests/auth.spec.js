@@ -115,9 +115,10 @@ test.describe('Déconnexion', () => {
     await page.getByRole('button', { name: 'Se connecter', exact: true }).click()
     await page.waitForURL('**/mon-compte', { timeout: 10_000 })
 
-    /* Clique sur le bouton de déconnexion — desktop (aria-label) ou mobile (texte) */
-    const logoutBtn = page.locator('[aria-label="Déconnexion"]').first()
-    await expect(logoutBtn).toBeVisible({ timeout: 3_000 })
+    /* Le bouton de déconnexion vit dans la sidebar de la page /mon-compte
+       (Account.jsx) — texte « Déconnexion ». On le cible par son rôle. */
+    const logoutBtn = page.getByRole('button', { name: /déconnexion/i }).first()
+    await expect(logoutBtn).toBeVisible({ timeout: 5_000 })
     await logoutBtn.click()
 
     /* Attend que la page quitte /mon-compte (redirect vers / ou /connexion transitoire) */

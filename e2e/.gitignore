@@ -1,0 +1,9 @@
+# Artefacts générés par Playwright — jamais versionnés
+test-results/
+playwright-report/
+playwright-report-prod/
+playwright-report-prod-ro/
+
+# Fichiers d'environnement de test — contiennent des credentials
+.env.prod-test
+.env.test.local
