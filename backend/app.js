@@ -99,10 +99,13 @@ app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
-// Rate limiting global — désactivé en développement pour éviter les blocages lors des tests
+// Rate limiting global — simple garde-fou anti-abus (large), désactivé hors production.
+// La navigation client (catalogue, fiches, panier, avis) génère beaucoup d'appels légitimes :
+// la limite doit rester confortable. La vraie protection stricte est sur les routes auth
+// (voir routes/auth.routes.js, max 10/15min) — pas ici.
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 200 : 10000,
+  max: process.env.NODE_ENV === 'production' ? 1000 : 10000,
   standardHeaders: true,
   legacyHeaders: false,
   skip: () => process.env.NODE_ENV !== 'production',

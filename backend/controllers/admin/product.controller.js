@@ -149,9 +149,13 @@ const uploadImage = async (req, res, next) => {
     const alt        = req.body.alt || null;
     const sortOrder  = parseInt(req.body.sortOrder) || 0;
 
+    // On enregistre l'URL principale (large) + les 3 tailles générées par sharp
     const imageId = await productAdminRepository.addImage({
       productId,
       url: urls.large,
+      urlThumbnail: urls.thumbnail,
+      urlMedium: urls.medium,
+      urlLarge: urls.large,
       alt,
       sortOrder,
       isPrimary,
