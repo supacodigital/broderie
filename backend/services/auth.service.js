@@ -37,17 +37,26 @@ const refreshCookieOptions = () => ({
 });
 
 // Génère un token de vérification email, le stocke haché (SHA-256) et envoie l'email.
-// Non bloquant : un échec d'envoi n'interrompt pas le flux d'inscription.
-const issueEmailVerification = async (user) => {
-  const rawToken  = crypto.randomBytes(32).toString('hex');
-  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 heures
+// Le flag `blocking` distingue les deux usages :
+//   - inscription (blocking=false) : un échec ne doit jamais interrompre le flux
+//   - renvoi manuel (blocking=true) : on veut remonter l'erreur à l'appelant
+const issueEmailVerification = async (user, { blocking = false } = {}) => {
+  try {
+    const rawToken  = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 heures
 
-  await userRepository.saveVerifyToken(user.id, tokenHash, expiresAt);
+    await userRepository.saveVerifyToken(user.id, tokenHash, expiresAt);
 
-  emailService.sendEmailVerification({ user, verifyToken: rawToken }).catch((err) => {
-    console.error('[Email] Vérification email non envoyée :', err.message);
-  });
+    emailService.sendEmailVerification({ user, verifyToken: rawToken }).catch((err) => {
+      console.error('[Email] Vérification email non envoyée :', err.message);
+    });
+  } catch (err) {
+    // À l'inscription, on n'interrompt pas : le compte est créé, l'utilisateur
+    // pourra redemander un email via le bandeau « confirmez votre email ».
+    console.error('[Email] Génération du token de vérification échouée :', err.message);
+    if (blocking) throw err;
+  }
 };
 
 const register = async ({ email, password, firstName, lastName, locale }) => {
@@ -68,23 +77,22 @@ const register = async ({ email, password, firstName, lastName, locale }) => {
     console.error('[Email] Bienvenue non envoyé :', err.message);
   });
 
-  // Email de vérification d'adresse — non bloquant
-  await issueEmailVerification(user);
+  // Email de vérification d'adresse — non bloquant (n'interrompt jamais l'inscription)
+  await issueEmailVerification(user, { blocking: false });
 
   return { user, accessToken, refreshToken };
 };
 
-// Confirmation de l'adresse email via le token reçu par email
+// Confirmation de l'adresse email via le token reçu par email.
+// Le token est à usage unique (effacé après vérification). Un lien déjà consommé
+// ou expiré ne peut plus être relié à un compte → 400 (le front affiche un message adapté).
 const verifyEmail = async (rawToken) => {
   const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
   const user = await userRepository.findByVerifyToken(tokenHash);
 
   if (!user) throw new AppError('Lien de vérification invalide ou expiré.', 400);
 
-  // Déjà vérifié : idempotent, on renvoie simplement un succès
-  if (!user.email_verified_at) {
-    await userRepository.markEmailVerified(user.id);
-  }
+  await userRepository.markEmailVerified(user.id);
   return { email: user.email };
 };
 
@@ -93,7 +101,7 @@ const resendVerification = async (userId) => {
   const user = await userRepository.findById(userId);
   if (!user) throw new AppError('Utilisateur introuvable.', 404);
   if (user.email_verified_at) return; // déjà vérifié — rien à faire
-  await issueEmailVerification(user);
+  await issueEmailVerification(user, { blocking: true });
 };
 
 const login = async ({ email, password }) => {

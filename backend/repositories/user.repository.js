@@ -29,8 +29,8 @@ const findById = async (id) => {
 const create = async ({ email, passwordHash = null, firstName, lastName, locale = 'fr', googleId = null, avatarUrl = null, emailVerified = false }) => {
   const [result] = await pool.execute(
     `INSERT INTO users (email, password_hash, first_name, last_name, role, locale, google_id, avatar_url, is_active, email_verified_at)
-     VALUES (?, ?, ?, ?, 'client', ?, ?, ?, 1, ${emailVerified ? 'NOW()' : 'NULL'})`,
-    [email, passwordHash, firstName, lastName, locale, googleId, avatarUrl]
+     VALUES (?, ?, ?, ?, 'client', ?, ?, ?, 1, ?)`,
+    [email, passwordHash, firstName, lastName, locale, googleId, avatarUrl, emailVerified ? new Date() : null]
   );
   return result.insertId;
 };

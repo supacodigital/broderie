@@ -61,21 +61,21 @@ export default function Contact() {
               <div className={s.infoIcon}><MapPin size={18} /></div>
               <div>
                 <p className={s.infoLabel}>Adresse</p>
-                <p className={s.infoValue}>Rue du Simplon 12<br />1006 Lausanne, VD</p>
+                <p className={s.infoValue}>Rue de Vuarrengel 10<br />1418 Vuarrens, VD</p>
               </div>
             </div>
             <div className={s.infoItem}>
               <div className={s.infoIcon}><Phone size={18} /></div>
               <div>
                 <p className={s.infoLabel}>Téléphone</p>
-                <p className={s.infoValue}>+41 21 601 XX XX</p>
+                <p className={s.infoValue}><a href="tel:+41798470126">+41 79 847 01 26</a></p>
               </div>
             </div>
             <div className={s.infoItem}>
               <div className={s.infoIcon}><Mail size={18} /></div>
               <div>
                 <p className={s.infoLabel}>Email</p>
-                <p className={s.infoValue}>contact@aupointcompte.ch</p>
+                <p className={s.infoValue}><a href="mailto:julie@broderie.ch">julie@broderie.ch</a></p>
               </div>
             </div>
             <div className={s.infoItem}>

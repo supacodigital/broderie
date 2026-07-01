@@ -119,7 +119,7 @@ export default function Footer() {
             </div>
             <div className={s.contactItem}>
               <Phone size={14} className={s.contactIcon} aria-hidden="true" />
-              <a href="tel:+41216010000">+41 79 847 01 26</a>
+              <a href="tel:+41798470126">+41 79 847 01 26</a>
             </div>
             <div className={s.contactItem}>
               <Mail size={14} className={s.contactIcon} aria-hidden="true" />

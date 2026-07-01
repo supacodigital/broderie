@@ -29,7 +29,12 @@ export default function VerifyEmail() {
         /* Rafraîchit l'utilisateur si connecté → masque le bandeau */
         refreshUser()
       })
-      .catch(() => setState('error'))
+      .catch(async () => {
+        /* Token à usage unique : un 2e clic échoue. Si l'utilisateur connecté est
+           déjà vérifié, c'est un reclic bénin → on affiche un succès plutôt qu'une erreur. */
+        const current = await refreshUser()
+        setState(current?.emailVerified ? 'success' : 'error')
+      })
   }, [token, refreshUser])
 
   return (
