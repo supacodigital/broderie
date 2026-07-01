@@ -20,16 +20,70 @@ import s from './Checkout.module.css'
 /* Chargement différé de Stripe — singleton garanti */
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY ?? '')
 
-/* ── Schéma Zod adresse ── */
+/* ── Cantons suisses — code officiel à 2 lettres + nom (26 cantons, ordre alphabétique du code) ── */
+const SWISS_CANTONS = [
+  { code: 'AG', name: 'Argovie' },
+  { code: 'AI', name: 'Appenzell Rhodes-Intérieures' },
+  { code: 'AR', name: 'Appenzell Rhodes-Extérieures' },
+  { code: 'BE', name: 'Berne' },
+  { code: 'BL', name: 'Bâle-Campagne' },
+  { code: 'BS', name: 'Bâle-Ville' },
+  { code: 'FR', name: 'Fribourg' },
+  { code: 'GE', name: 'Genève' },
+  { code: 'GL', name: 'Glaris' },
+  { code: 'GR', name: 'Grisons' },
+  { code: 'JU', name: 'Jura' },
+  { code: 'LU', name: 'Lucerne' },
+  { code: 'NE', name: 'Neuchâtel' },
+  { code: 'NW', name: 'Nidwald' },
+  { code: 'OW', name: 'Obwald' },
+  { code: 'SG', name: 'Saint-Gall' },
+  { code: 'SH', name: 'Schaffhouse' },
+  { code: 'SO', name: 'Soleure' },
+  { code: 'SZ', name: 'Schwytz' },
+  { code: 'TG', name: 'Thurgovie' },
+  { code: 'TI', name: 'Tessin' },
+  { code: 'UR', name: 'Uri' },
+  { code: 'VD', name: 'Vaud' },
+  { code: 'VS', name: 'Valais' },
+  { code: 'ZG', name: 'Zoug' },
+  { code: 'ZH', name: 'Zurich' },
+]
+const CANTON_CODES = SWISS_CANTONS.map(c => c.code)
+
+/* ── Schéma Zod adresse ──
+   Livraison toujours requise. Facturation requise uniquement si « identique » décoché :
+   les champs billing_* sont validés conditionnellement via superRefine. */
 function buildAddressSchema(t) {
-  return z.object({
+  const required = {
     first_name: z.string().min(1, t('checkout.errors.firstNameRequired')),
     last_name:  z.string().min(1, t('checkout.errors.lastNameRequired')),
     street:     z.string().min(1, t('checkout.errors.streetRequired')),
     zip:        z.string().regex(/^\d{4}$/, t('checkout.errors.zipInvalid')),
     city:       z.string().min(1, t('checkout.errors.cityRequired')),
-    canton:     z.string().optional(),
-    phone:      z.string().optional(),
+    canton:     z.string().refine(v => CANTON_CODES.includes(v), t('checkout.errors.cantonRequired')),
+  }
+  return z.object({
+    ...required,
+    phone: z.string().optional(),
+    /* Facturation identique à la livraison — case cochée par défaut */
+    billing_same:       z.boolean().default(true),
+    billing_first_name: z.string().optional(),
+    billing_last_name:  z.string().optional(),
+    billing_street:     z.string().optional(),
+    billing_zip:        z.string().optional(),
+    billing_city:       z.string().optional(),
+    billing_canton:     z.string().optional(),
+  }).superRefine((data, ctx) => {
+    if (data.billing_same) return
+    /* Facturation distincte → mêmes règles que la livraison sur les champs billing_* */
+    const addErr = (field, message) => ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message })
+    if (!data.billing_first_name?.trim()) addErr('billing_first_name', t('checkout.errors.firstNameRequired'))
+    if (!data.billing_last_name?.trim())  addErr('billing_last_name',  t('checkout.errors.lastNameRequired'))
+    if (!data.billing_street?.trim())     addErr('billing_street',     t('checkout.errors.streetRequired'))
+    if (!/^\d{4}$/.test(data.billing_zip ?? '')) addErr('billing_zip', t('checkout.errors.zipInvalid'))
+    if (!data.billing_city?.trim())       addErr('billing_city',       t('checkout.errors.cityRequired'))
+    if (!CANTON_CODES.includes(data.billing_canton ?? '')) addErr('billing_canton', t('checkout.errors.cantonRequired'))
   })
 }
 
@@ -124,25 +178,124 @@ function OrderSummary({ items, subtotal, discount, couponCode, shipping, shippin
   )
 }
 
-/* ── Étape 1 : Adresse de livraison ── */
+/* ── Champ de formulaire accessible ──
+   Gère label + astérisque obligatoire (ou mention « optionnel »),
+   liaison aria-describedby vers le message d'erreur, aria-invalid,
+   et role=alert pour annonce lecteur d'écran. */
+function Field({
+  id, label, error, required = false, register, name,
+  t, className = '', children, ...inputProps
+}) {
+  const errorId = `${id}-error`
+  return (
+    <div className={`${s.field} ${className}`}>
+      <label htmlFor={id} className={s.label}>
+        {label}
+        {required ? (
+          <>
+            <span className={s.requiredMark} aria-hidden="true"> *</span>
+            <span className={s.srOnly}> ({t('form.requiredField')})</span>
+          </>
+        ) : (
+          <span className={s.optionalMark}> ({t('form.optional')})</span>
+        )}
+      </label>
+      {children ?? (
+        <input
+          id={id}
+          className={`${s.input} ${error ? s.error : ''}`}
+          aria-invalid={error ? 'true' : undefined}
+          aria-describedby={error ? errorId : undefined}
+          {...(register ? register(name) : {})}
+          {...inputProps}
+        />
+      )}
+      {error && (
+        <span id={errorId} className={s.fieldError} role="alert">
+          <AlertCircle size={12} aria-hidden="true" />{error.message}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/* ── Bloc de champs d'adresse réutilisable (livraison ou facturation) ──
+   `prefix` distingue les deux jeux de champs : '' pour la livraison, 'billing_' pour la facturation.
+   `idPrefix` génère des id uniques ('co-' / 'bill-'). */
+function AddressFields({ prefix = '', idPrefix, register, errors, t }) {
+  const f = (name) => `${prefix}${name}`
+  const cantonId = `${idPrefix}canton`
+  return (
+    <>
+      <div className={s.row}>
+        <Field id={`${idPrefix}first`} name={f('first_name')} required register={register} t={t}
+          label={t('checkout.firstName')} error={errors[f('first_name')]}
+          type="text" autoComplete="given-name" />
+        <Field id={`${idPrefix}last`} name={f('last_name')} required register={register} t={t}
+          label={t('checkout.lastName')} error={errors[f('last_name')]}
+          type="text" autoComplete="family-name" />
+      </div>
+
+      <Field id={`${idPrefix}street`} name={f('street')} required register={register} t={t}
+        label={t('checkout.street')} error={errors[f('street')]}
+        type="text" autoComplete="street-address"
+        placeholder={t('checkout.streetPlaceholder')} />
+
+      <div className={s.rowThree}>
+        <Field id={`${idPrefix}zip`} name={f('zip')} required register={register} t={t}
+          label={t('checkout.zip')} error={errors[f('zip')]}
+          type="text" autoComplete="postal-code" maxLength={4} inputMode="numeric"
+          placeholder={t('checkout.zipPlaceholder')} />
+        <Field id={`${idPrefix}city`} name={f('city')} required register={register} t={t}
+          label={t('checkout.city')} error={errors[f('city')]}
+          type="text" autoComplete="address-level2"
+          placeholder={t('checkout.cityPlaceholder')} />
+        <Field id={cantonId} name={f('canton')} required error={errors[f('canton')]} t={t}
+          label={t('checkout.canton')}>
+          <select
+            id={cantonId}
+            className={`${s.input} ${s.select} ${errors[f('canton')] ? s.error : ''}`}
+            aria-invalid={errors[f('canton')] ? 'true' : undefined}
+            aria-describedby={errors[f('canton')] ? `${cantonId}-error` : undefined}
+            {...register(f('canton'))}
+          >
+            <option value="" disabled>{t('checkout.cantonSelect')}</option>
+            {SWISS_CANTONS.map(c => (
+              <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
+            ))}
+          </select>
+        </Field>
+      </div>
+    </>
+  )
+}
+
+/* ── Étape 1 : Adresse de livraison + facturation ── */
 function StepAddress({ onNext, prefill, savedAddresses, t }) {
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, setFocus, watch, getValues, formState: { errors } } = useForm({
     resolver: zodResolver(buildAddressSchema(t)),
     defaultValues: {
-      first_name: '',
-      last_name:  '',
-      street:     '',
-      zip:        '',
-      city:       '',
-      canton:     '',
-      phone:      '',
+      first_name: '', last_name: '', street: '', zip: '', city: '', canton: '', phone: '',
+      billing_same: true,
+      billing_first_name: '', billing_last_name: '', billing_street: '',
+      billing_zip: '', billing_city: '', billing_canton: '',
     },
   })
 
-  /* Préremplissage dès que les données du compte sont disponibles */
+  /* Adresse de facturation identique à la livraison ? (case cochée par défaut) */
+  const billingSame = watch('billing_same')
+
+  /* Focus programmatique sur le 1er champ en erreur à la soumission (WCAG) */
+  const onInvalid = (formErrors) => {
+    const first = Object.keys(formErrors)[0]
+    if (first) setFocus(first)
+  }
+
+  /* Préremplissage dès que les données du compte sont disponibles — préserve les champs facturation */
   useEffect(() => {
     if (!prefill) return
     reset({
+      ...getValues(),
       first_name: prefill.firstName ?? '',
       last_name:  prefill.lastName  ?? '',
       street:     prefill.street    ?? '',
@@ -151,18 +304,18 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
       canton:     prefill.canton    ?? '',
       phone:      prefill.phone     ?? '',
     })
-  }, [prefill, reset])
+  }, [prefill, reset, getValues])
 
-  /* Sélection d'une adresse sauvegardée → prérempli le formulaire */
+  /* Sélection d'une adresse sauvegardée → prérempli le formulaire de livraison */
   const fillFromSaved = (addr) => {
     reset({
-      first_name: prefill?.firstName ?? '',
-      last_name:  prefill?.lastName  ?? '',
+      ...getValues(),
+      first_name: addr.first_name ?? prefill?.firstName ?? '',
+      last_name:  addr.last_name  ?? prefill?.lastName  ?? '',
       street:     addr.street ?? '',
       zip:        addr.zip    ?? '',
       city:       addr.city   ?? '',
       canton:     addr.canton ?? '',
-      phone:      addr.phone  ?? '',
     })
   }
 
@@ -190,84 +343,41 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onNext)} noValidate className={s.form}>
+      {/* Légende champs obligatoires */}
+      <p className={s.requiredLegend}>
+        {t('form.requiredLegend')} <span className={s.requiredMark} aria-hidden="true">*</span> {t('form.requiredMark')}.
+      </p>
 
-        <div className={s.row}>
-          <div className={s.field}>
-            <label htmlFor="co-first" className={s.label}>{t('checkout.firstName')}</label>
-            <input id="co-first" type="text" autoComplete="given-name"
-              className={`${s.input} ${errors.first_name ? s.error : ''}`}
-              {...register('first_name')} />
-            {errors.first_name && (
-              <span className={s.fieldError}><AlertCircle size={12} />{errors.first_name.message}</span>
-            )}
-          </div>
-          <div className={s.field}>
-            <label htmlFor="co-last" className={s.label}>{t('checkout.lastName')}</label>
-            <input id="co-last" type="text" autoComplete="family-name"
-              className={`${s.input} ${errors.last_name ? s.error : ''}`}
-              {...register('last_name')} />
-            {errors.last_name && (
-              <span className={s.fieldError}><AlertCircle size={12} />{errors.last_name.message}</span>
-            )}
-          </div>
+      <form onSubmit={handleSubmit(onNext, onInvalid)} noValidate className={s.form}>
+
+        {/* ── Adresse de livraison ── */}
+        <AddressFields prefix="" idPrefix="co-" register={register} errors={errors} t={t} />
+
+        {/* Pays non demandé — livraison Suisse uniquement (défaut 'CH' côté serveur) */}
+        <Field id="co-phone" name="phone" register={register} t={t}
+          label={t('checkout.phone')}
+          type="tel" autoComplete="tel"
+          placeholder={t('checkout.phonePlaceholder')} />
+
+        {/* ── Adresse de facturation ── */}
+        <div className={s.billingToggle}>
+          <input
+            id="co-billing-same"
+            type="checkbox"
+            className={s.checkbox}
+            {...register('billing_same')}
+          />
+          <label htmlFor="co-billing-same" className={s.billingToggleLabel}>
+            {t('checkout.billingSame')}
+          </label>
         </div>
 
-        <div className={s.field}>
-          <label htmlFor="co-street" className={s.label}>{t('checkout.street')}</label>
-          <input id="co-street" type="text" autoComplete="street-address"
-            placeholder={t('checkout.streetPlaceholder')}
-            className={`${s.input} ${errors.street ? s.error : ''}`}
-            {...register('street')} />
-          {errors.street && (
-            <span className={s.fieldError}><AlertCircle size={12} />{errors.street.message}</span>
-          )}
-        </div>
-
-        <div className={s.rowThree}>
-          <div className={s.field}>
-            <label htmlFor="co-zip" className={s.label}>{t('checkout.zip')}</label>
-            <input id="co-zip" type="text" autoComplete="postal-code" maxLength={4}
-              placeholder={t('checkout.zipPlaceholder')}
-              className={`${s.input} ${errors.zip ? s.error : ''}`}
-              {...register('zip')} />
-            {errors.zip && (
-              <span className={s.fieldError}><AlertCircle size={12} />{errors.zip.message}</span>
-            )}
-          </div>
-          <div className={s.field}>
-            <label htmlFor="co-city" className={s.label}>{t('checkout.city')}</label>
-            <input id="co-city" type="text" autoComplete="address-level2"
-              placeholder={t('checkout.cityPlaceholder')}
-              className={`${s.input} ${errors.city ? s.error : ''}`}
-              {...register('city')} />
-            {errors.city && (
-              <span className={s.fieldError}><AlertCircle size={12} />{errors.city.message}</span>
-            )}
-          </div>
-          <div className={s.field}>
-            <label htmlFor="co-canton" className={s.label}>{t('checkout.canton')}</label>
-            <input id="co-canton" type="text" maxLength={2}
-              placeholder={t('checkout.cantonPlaceholder')}
-              className={s.input}
-              {...register('canton')} />
-          </div>
-        </div>
-
-        {/* Pays — fixe Suisse, marché CH uniquement */}
-        <div className={s.field}>
-          <label className={s.label}>{t('checkout.country')}</label>
-          <input type="text" readOnly value={t('checkout.countrySwitzerland')}
-            className={`${s.input} ${s.inputReadonly}`} />
-        </div>
-
-        <div className={s.field}>
-          <label htmlFor="co-phone" className={s.label}>{t('checkout.phone')}</label>
-          <input id="co-phone" type="tel" autoComplete="tel"
-            placeholder={t('checkout.phonePlaceholder')}
-            className={s.input}
-            {...register('phone')} />
-        </div>
+        {!billingSame && (
+          <fieldset className={s.billingFieldset}>
+            <legend className={s.billingLegend}>{t('checkout.billingTitle')}</legend>
+            <AddressFields prefix="billing_" idPrefix="bill-" register={register} errors={errors} t={t} />
+          </fieldset>
+        )}
 
         <div className={s.actions}>
           <Link to="/panier" className={s.btnBack}>
@@ -283,7 +393,15 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
 }
 
 /* ── Étape 2 : Mode de paiement + CGV ── */
-function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, subtotal, onCouponApplied, discount, couponCode, onPaymentChange, t }) {
+function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, globalError, subtotal, onCouponApplied, discount, couponCode, onPaymentChange, t }) {
+  /* La facturation diffère-t-elle de la livraison ? (comparaison des champs clés) */
+  const billingDiffers = billingAddress && (
+    billingAddress.street !== address.street ||
+    billingAddress.zip    !== address.zip ||
+    billingAddress.city   !== address.city ||
+    billingAddress.first_name !== address.first_name ||
+    billingAddress.last_name  !== address.last_name
+  )
   const [payment,     setPayment]     = useState('card')
   const [cgv,         setCgv]         = useState(false)
   const [cgvError,    setCgvError]    = useState('')
@@ -333,11 +451,11 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
 
       {globalError && (
         <div className={s.globalError} role="alert">
-          <AlertCircle size={16} />{globalError}
+          <AlertCircle size={16} aria-hidden="true" />{globalError}
         </div>
       )}
 
-      {/* Récap adresse */}
+      {/* Récap adresse de livraison */}
       <div className={s.addressRecap}>
         <p className={s.addressRecapLabel}>{t('checkout.deliveryTo')}</p>
         <p className={s.addressRecapValue}>
@@ -345,6 +463,17 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
           {address.canton ? ` (${address.canton})` : ''}, Suisse
         </p>
       </div>
+
+      {/* Récap adresse de facturation — affiché uniquement si différente */}
+      {billingDiffers && (
+        <div className={s.addressRecap}>
+          <p className={s.addressRecapLabel}>{t('checkout.billingTo')}</p>
+          <p className={s.addressRecapValue}>
+            {billingAddress.first_name} {billingAddress.last_name} — {billingAddress.street}, {billingAddress.zip} {billingAddress.city}
+            {billingAddress.canton ? ` (${billingAddress.canton})` : ''}, Suisse
+          </p>
+        </div>
+      )}
 
       {/* Options de paiement */}
       <div className={s.paymentOptions} role="group" aria-label={t('checkout.paymentMethod')}>
@@ -415,7 +544,7 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
           </div>
         )}
         {couponError && (
-          <span className={s.fieldError}><AlertCircle size={12} />{couponError}</span>
+          <span className={s.fieldError} role="alert"><AlertCircle size={12} aria-hidden="true" />{couponError}</span>
         )}
       </div>
 
@@ -426,16 +555,19 @@ function StepSummary({ address, onBack, onSubmit, isSubmitting, globalError, sub
           type="checkbox"
           className={s.checkbox}
           checked={cgv}
+          aria-invalid={cgvError ? 'true' : undefined}
+          aria-describedby={cgvError ? 'checkout-cgv-error' : undefined}
           onChange={e => { setCgv(e.target.checked); if (e.target.checked) setCgvError('') }}
         />
         <label htmlFor="checkout-cgv" className={s.cgvLabel}>
           {t('checkout.cgvAccept')}{' '}
           <Link to="/cgv">{t('checkout.cgvLink')}</Link>
+          <span className={s.requiredMark} aria-hidden="true"> *</span>
         </label>
       </div>
       {cgvError && (
-        <span className={`${s.fieldError} ${s.fieldErrorSpaced}`}>
-          <AlertCircle size={12} />{cgvError}
+        <span id="checkout-cgv-error" className={`${s.fieldError} ${s.fieldErrorSpaced}`} role="alert">
+          <AlertCircle size={12} aria-hidden="true" />{cgvError}
         </span>
       )}
 
@@ -757,6 +889,7 @@ export default function Checkout() {
     return saved === 'twint' || saved === 'card' ? saved : 1
   })
   const [address,        setAddress]        = useState(null)
+  const [billingAddress, setBillingAddress] = useState(null)
   const [orderId,        setOrderId]        = useState(() => {
     return sessionStorage.getItem('checkout_order_id') || null
   })
@@ -830,7 +963,26 @@ export default function Checkout() {
   }, [step, totalWeightKg])
 
   const handleAddressNext = (data) => {
-    setAddress(data)
+    /* Sépare l'adresse de livraison et l'adresse de facturation issues du même formulaire */
+    const shipping = {
+      first_name: data.first_name,
+      last_name:  data.last_name,
+      street:     data.street,
+      zip:        data.zip,
+      city:       data.city,
+      canton:     data.canton,
+      phone:      data.phone,
+    }
+    setAddress(shipping)
+    /* Facturation identique → on réutilise la livraison ; sinon on prend les champs billing_* */
+    setBillingAddress(data.billing_same ? shipping : {
+      first_name: data.billing_first_name,
+      last_name:  data.billing_last_name,
+      street:     data.billing_street,
+      zip:        data.billing_zip,
+      city:       data.billing_city,
+      canton:     data.billing_canton,
+    })
     setStep(2)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -841,6 +993,7 @@ export default function Checkout() {
     try {
       const res = await createOrder({
         address,
+        billing_address: billingAddress ?? address,
         payment_method,
         coupon_code: couponCode || undefined,
         items: items.map(i => ({
@@ -956,6 +1109,7 @@ export default function Checkout() {
           {step === 2 && (
             <StepSummary
               address={address}
+              billingAddress={billingAddress}
               onBack={() => { setStep(1); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
               onSubmit={handlePlaceOrder}
               isSubmitting={isSubmitting}

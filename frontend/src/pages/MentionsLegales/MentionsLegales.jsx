@@ -11,9 +11,9 @@ const STATIC_SECTIONS = [
     content: `Dénomination sociale : Au Point-Compté
 Forme juridique : Raison individuelle / Sàrl (à compléter)
 Numéro IDE : CHE-XXX.XXX.XXX (à compléter)
-Adresse : Rue du Simplon 12, 1006 Lausanne, VD, Suisse
-Téléphone : +41 21 601 XX XX
-E-mail : contact@aupointcompte.ch
+Adresse : Rue de Vuarrengel 10, 1418 Vuarrens, VD, Suisse
+Téléphone : +41 79 847 01 26
+E-mail : julie@broderie.ch
 
 Responsable éditorial : (Nom du responsable à compléter)`,
   },
@@ -39,7 +39,7 @@ Toute reproduction, représentation, modification, publication ou adaptation de 
     title: '4. Données personnelles et LPD',
     content: `Le traitement des données personnelles est régi par la Loi fédérale sur la protection des données (LPD, révisée au 1er septembre 2023).
 
-Responsable du traitement : Au Point-Compté, contact@aupointcompte.ch
+Responsable du traitement : Au Point-Compté, julie@broderie.ch
 
 Données collectées : nom, prénom, adresse de livraison, adresse e-mail, téléphone, données de navigation anonymisées.
 
@@ -47,7 +47,7 @@ Finalités : traitement des commandes, relation client, amélioration du service
 
 Conservation : les données sont conservées pendant la durée légale applicable (10 ans pour les données comptables, 5 ans pour les données clients après la dernière interaction).
 
-Droits : accès, rectification, suppression, portabilité. Demandes à adresser à contact@aupointcompte.ch.`,
+Droits : accès, rectification, suppression, portabilité. Demandes à adresser à julie@broderie.ch.`,
   },
   {
     id: 'cookies',
@@ -136,8 +136,8 @@ export default function MentionsLegales() {
           <div className={s.footer}>
             <p>
               Pour toute question, contactez-nous à{' '}
-              <a href="mailto:contact@aupointcompte.ch" className={s.mailLink}>
-                contact@aupointcompte.ch
+              <a href="mailto:julie@broderie.ch" className={s.mailLink}>
+                julie@broderie.ch
               </a>
             </p>
             <Link to="/catalogue" className={s.btnBack}>

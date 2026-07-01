@@ -57,11 +57,12 @@ const downloadLabel = async (req, res, next) => {
 
       doc.fontSize(8).text('EXPÉDITEUR');
       doc.fontSize(10).text('Au Point-Compté');
-      doc.fontSize(9).text('Rue du Simplon 12, 1006 Lausanne');
+      doc.fontSize(9).text('Rue de Vuarrengel 10, 1418 Vuarrens');
       doc.moveDown(0.8);
 
       doc.fontSize(8).text('DESTINATAIRE');
-      doc.fontSize(12).font('Helvetica-Bold').text(`${order.first_name ?? ''} ${order.last_name ?? ''}`);
+      /* Destinataire figé au moment de la commande (peut différer du titulaire du compte) */
+      doc.fontSize(12).font('Helvetica-Bold').text(`${order.shipping_first_name ?? order.first_name ?? ''} ${order.shipping_last_name ?? order.last_name ?? ''}`);
       doc.font('Helvetica').fontSize(10).text(order.street ?? '');
       doc.text(`${order.zip ?? ''} ${order.city ?? ''}`);
       doc.text('Suisse');

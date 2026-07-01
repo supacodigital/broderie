@@ -14,8 +14,8 @@ const Account   = lazy(() => import('./pages/Account/Account.jsx'))
 const NotFound  = lazy(() => import('./pages/NotFound/NotFound.jsx'))
 const CGV              = lazy(() => import('./pages/CGV/CGV.jsx'))
 const MentionsLegales  = lazy(() => import('./pages/MentionsLegales/MentionsLegales.jsx'))
-const PolitiqueRetour  = lazy(() => import('./pages/PolitiqueRetour/PolitiqueRetour.jsx'))
 const ForgotPassword   = lazy(() => import('./pages/ForgotPassword/ForgotPassword.jsx'))
+const VerifyEmail      = lazy(() => import('./pages/VerifyEmail/VerifyEmail.jsx'))
 const ResetPassword  = lazy(() => import('./pages/ResetPassword/ResetPassword.jsx'))
 const OrderDetail    = lazy(() => import('./pages/OrderDetail/OrderDetail.jsx'))
 const Contact        = lazy(() => import('./pages/Contact/Contact.jsx'))
@@ -67,9 +67,9 @@ export const router = createBrowserRouter([
       },
       { path: '/cgv',                           element: <S><CGV /></S> },
       { path: '/mentions-legales',              element: <S><MentionsLegales /></S> },
-      { path: '/politique-de-retour',           element: <S><PolitiqueRetour /></S> },
       { path: '/mot-de-passe-oublie',           element: <S><ForgotPassword /></S> },
       { path: '/reinitialiser-mot-de-passe',    element: <S><ResetPassword /></S> },
+      { path: '/verifier-email',                element: <S><VerifyEmail /></S> },
       { path: '/contact',                       element: <S><Contact /></S> },
       { path: '/notre-histoire',                element: <S><NotreHistoire /></S> },
 

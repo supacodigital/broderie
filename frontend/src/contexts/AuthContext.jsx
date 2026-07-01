@@ -67,7 +67,18 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
-  const value = { user, loading, login, register, loginGoogle, logout, isAuthenticated: !!user }
+  /* Recharge l'utilisateur depuis l'API (ex. après vérification email) */
+  const refreshUser = useCallback(async () => {
+    try {
+      const data = await getMe()
+      setUser(data.data)
+      return data.data
+    } catch {
+      return null
+    }
+  }, [])
+
+  const value = { user, loading, login, register, loginGoogle, logout, refreshUser, isAuthenticated: !!user }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

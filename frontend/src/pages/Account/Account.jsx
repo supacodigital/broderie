@@ -48,12 +48,33 @@ const makePasswordSchema = (t) => z.object({
   path: ['confirm_password'],
 })
 
+/* Cantons suisses officiels — code + nom (identique au checkout) */
+const SWISS_CANTONS = [
+  { code: 'AG', name: 'Argovie' }, { code: 'AI', name: 'Appenzell Rh.-Int.' },
+  { code: 'AR', name: 'Appenzell Rh.-Ext.' }, { code: 'BE', name: 'Berne' },
+  { code: 'BL', name: 'Bâle-Campagne' }, { code: 'BS', name: 'Bâle-Ville' },
+  { code: 'FR', name: 'Fribourg' }, { code: 'GE', name: 'Genève' },
+  { code: 'GL', name: 'Glaris' }, { code: 'GR', name: 'Grisons' },
+  { code: 'JU', name: 'Jura' }, { code: 'LU', name: 'Lucerne' },
+  { code: 'NE', name: 'Neuchâtel' }, { code: 'NW', name: 'Nidwald' },
+  { code: 'OW', name: 'Obwald' }, { code: 'SG', name: 'Saint-Gall' },
+  { code: 'SH', name: 'Schaffhouse' }, { code: 'SO', name: 'Soleure' },
+  { code: 'SZ', name: 'Schwytz' }, { code: 'TG', name: 'Thurgovie' },
+  { code: 'TI', name: 'Tessin' }, { code: 'UR', name: 'Uri' },
+  { code: 'VD', name: 'Vaud' }, { code: 'VS', name: 'Valais' },
+  { code: 'ZG', name: 'Zoug' }, { code: 'ZH', name: 'Zurich' },
+]
+const CANTON_CODES = SWISS_CANTONS.map(c => c.code)
+
 const makeAddressSchema = (t) => z.object({
-  label:  z.string().min(1, t('account.val.labelRequired')),
-  street: z.string().min(1, t('account.val.streetRequired')),
-  zip:    z.string().regex(/^\d{4}$/, t('account.val.zipInvalid')),
-  city:   z.string().min(1, t('account.val.cityRequired')),
-  canton: z.string().max(2).optional(),
+  label:        z.string().min(1, t('account.val.labelRequired')),
+  address_type: z.enum(['shipping', 'billing', 'both']),
+  first_name:   z.string().max(100).optional(),
+  last_name:    z.string().max(100).optional(),
+  street:       z.string().min(1, t('account.val.streetRequired')),
+  zip:          z.string().regex(/^\d{4}$/, t('account.val.zipInvalid')),
+  city:         z.string().min(1, t('account.val.cityRequired')),
+  canton:       z.string().refine(v => CANTON_CODES.includes(v), t('account.val.cantonRequired')),
 })
 
 function StatusBadge({ status }) {
@@ -357,7 +378,7 @@ function AddressModal({ initial, onSave, onClose }) {
   const addressSchema = useMemo(() => makeAddressSchema(t), [t])
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(addressSchema),
-    defaultValues: initial ?? { label: '', street: '', zip: '', city: '', canton: '' },
+    defaultValues: initial ?? { label: '', address_type: 'both', first_name: '', last_name: '', street: '', zip: '', city: '', canton: '' },
   })
 
   const onSubmit = async (data) => {
@@ -370,12 +391,34 @@ function AddressModal({ initial, onSave, onClose }) {
       <div className={s.modal} onClick={e => e.stopPropagation()}>
         <h3 className={s.modalTitle}>{initial ? 'Modifier l\'adresse' : 'Nouvelle adresse'}</h3>
         <form onSubmit={handleSubmit(onSubmit)} noValidate className={s.form}>
-          <div className={s.field}>
-            <label htmlFor="addr-label" className={s.label}>Libellé</label>
-            <input id="addr-label" type="text" placeholder="ex : Domicile, Bureau…"
-              className={`${s.input} ${errors.label ? s.inputError : ''}`}
-              {...register('label')} />
-            {errors.label && <span className={s.fieldError}><AlertCircle size={11} />{errors.label.message}</span>}
+          <div className={s.formRow}>
+            <div className={s.field}>
+              <label htmlFor="addr-label" className={s.label}>Libellé</label>
+              <input id="addr-label" type="text" placeholder="ex : Domicile, Bureau…"
+                className={`${s.input} ${errors.label ? s.inputError : ''}`}
+                {...register('label')} />
+              {errors.label && <span className={s.fieldError}><AlertCircle size={11} />{errors.label.message}</span>}
+            </div>
+            <div className={s.field}>
+              <label htmlFor="addr-type" className={s.label}>Type d'adresse</label>
+              <select id="addr-type" className={s.input} {...register('address_type')}>
+                <option value="both">Livraison et facturation</option>
+                <option value="shipping">Livraison uniquement</option>
+                <option value="billing">Facturation uniquement</option>
+              </select>
+            </div>
+          </div>
+          <div className={s.formRow}>
+            <div className={s.field}>
+              <label htmlFor="addr-first" className={s.label}>Prénom <span className={s.optional}>(optionnel)</span></label>
+              <input id="addr-first" type="text" placeholder="Laissez vide pour utiliser votre nom de compte"
+                className={s.input} {...register('first_name')} />
+            </div>
+            <div className={s.field}>
+              <label htmlFor="addr-last" className={s.label}>Nom <span className={s.optional}>(optionnel)</span></label>
+              <input id="addr-last" type="text"
+                className={s.input} {...register('last_name')} />
+            </div>
           </div>
           <div className={s.field}>
             <label htmlFor="addr-street" className={s.label}>Rue et numéro</label>
@@ -401,9 +444,15 @@ function AddressModal({ initial, onSave, onClose }) {
             </div>
             <div className={s.field}>
               <label htmlFor="addr-canton" className={s.label}>Canton</label>
-              <input id="addr-canton" type="text" maxLength={2} placeholder="VD"
-                className={s.input}
-                {...register('canton')} />
+              <select id="addr-canton"
+                className={`${s.input} ${errors.canton ? s.inputError : ''}`}
+                {...register('canton')}>
+                <option value="" disabled>Sélectionnez…</option>
+                {SWISS_CANTONS.map(c => (
+                  <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
+                ))}
+              </select>
+              {errors.canton && <span className={s.fieldError}><AlertCircle size={11} />{errors.canton.message}</span>}
             </div>
           </div>
           <div className={s.formActions} style={{ marginTop: 8 }}>
@@ -489,8 +538,16 @@ function TabAddresses() {
           {addresses.map(addr => (
             <div key={addr.id} className={`${s.addressCard} ${addr.is_default ? s.addressDefault : ''}`}>
               {!!addr.is_default && <span className={s.defaultBadge}>Par défaut</span>}
+              {addr.address_type && addr.address_type !== 'both' && (
+                <span className={s.typeBadge}>
+                  {addr.address_type === 'billing' ? 'Facturation' : 'Livraison'}
+                </span>
+              )}
               {addr.label && addr.label !== addr.street && (
                 <p className={s.addressLabel}>{addr.label}</p>
+              )}
+              {(addr.first_name || addr.last_name) && (
+                <p className={s.addressName}>{addr.first_name} {addr.last_name}</p>
               )}
               <p className={s.addressLine}>{addr.street}</p>
               <p className={s.addressLine}>{addr.zip} {addr.city}{addr.canton ? ` (${addr.canton})` : ''}</p>

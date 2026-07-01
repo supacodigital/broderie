@@ -328,7 +328,7 @@ function ShippingTab() {
 
 /* ── Onglet Textes légaux ── */
 function LegalTab() {
-  const [values,  setValues]  = useState({ cgv: '', mentions_legales: '', politique_retour: '' })
+  const [values,  setValues]  = useState({ cgv: '', mentions_legales: '' })
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(false)
   const [status,  setStatus]  = useState(null)
@@ -375,11 +375,6 @@ function LegalTab() {
       key:   'mentions_legales',
       label: 'Mentions légales',
       desc:  'Identité de l\'entreprise, numéro IDE, responsable éditorial.',
-    },
-    {
-      key:   'politique_retour',
-      label: 'Politique de retour',
-      desc:  'Droit de retour 14 jours recommandé (7 jours légal selon CO).',
     },
   ]
 

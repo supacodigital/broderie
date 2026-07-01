@@ -151,8 +151,10 @@ const createLabel = async ({ order, address }) => {
  */
 const generateLabel = async (orderId, order) => {
   const address = {
-    first_name: order.first_name,
-    last_name:  order.last_name,
+    // Destinataire figé au moment de la commande (migration 009) — peut différer du
+    // titulaire du compte (livraison à un tiers). Fallback compte pour les commandes antérieures.
+    first_name: order.shipping_first_name ?? order.first_name,
+    last_name:  order.shipping_last_name  ?? order.last_name,
     street:     order.street,
     city:       order.city,
     zip:        order.zip,

@@ -43,3 +43,15 @@ export async function getMe() {
   const res = await api.get('/users/me')
   return res.data
 }
+
+/* Confirme l'adresse email via le token reçu par email */
+export async function verifyEmail(token) {
+  const res = await api.get('/auth/verify-email', { params: { token } })
+  return res.data
+}
+
+/* Renvoie un email de vérification (utilisateur connecté) */
+export async function resendVerification() {
+  const res = await api.post('/auth/resend-verification')
+  return res.data
+}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Heart, ShoppingBag, Star, Truck, RefreshCw, Shield, ChevronDown, ChevronUp, Gift } from 'lucide-react'
+import { Heart, ShoppingBag, Star, Truck, Shield, ChevronDown, ChevronUp, Gift } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { roundCHF } from '../../utils/chf.js'
 import s from './ProductInfo.module.css'
@@ -201,10 +201,6 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
         <div className={s.reassuranceItem}>
           <Truck size={14} aria-hidden="true" />
           <span>{t('advantages.shipping.title')} — {t('advantages.shipping.desc')}</span>
-        </div>
-        <div className={s.reassuranceItem}>
-          <RefreshCw size={14} aria-hidden="true" />
-          <span>{t('advantages.returns.title')} — {t('advantages.returns.desc')}</span>
         </div>
         <div className={s.reassuranceItem}>
           <Shield size={14} aria-hidden="true" />

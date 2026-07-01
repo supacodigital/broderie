@@ -1,15 +1,14 @@
 import { useTranslation } from 'react-i18next'
-import { Truck, RefreshCw, Shield, Package } from 'lucide-react'
+import { Truck, Shield, Package } from 'lucide-react'
 import s from './AdvantagesSection.module.css'
 
 const ICONS = [
   <Truck size={22} />,
-  <RefreshCw size={22} />,
   <Shield size={22} />,
   <Package size={22} />,
 ]
 
-const KEYS = ['shipping', 'returns', 'payment', 'packaging']
+const KEYS = ['shipping', 'payment', 'packaging']
 
 export default function AdvantagesSection() {
   const { t } = useTranslation()

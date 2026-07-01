@@ -1,4 +1,10 @@
 {
+  "form": {
+    "requiredLegend": "Mit einem Sternchen markierte Felder",
+    "requiredMark": "sind Pflichtfelder",
+    "optional": "optional",
+    "requiredField": "Pflichtfeld"
+  },
   "nav": {
     "home": "Startseite",
     "collections": "Kollektionen",
@@ -9,6 +15,9 @@
     "contact": "Kontakt",
     "search": "Suchen",
     "account": "Mein Konto",
+    "wishlist": "Meine Favoriten",
+    "wishlistItems": "Favoriten — {{count}} Artikel",
+    "wishlistItems_other": "Favoriten — {{count}} Artikel",
     "cart": "Warenkorb",
     "cartItems": "Warenkorb — {{count}} Artikel",
     "cartItems_other": "Warenkorb — {{count}} Artikel"
@@ -38,7 +47,6 @@
   },
   "advantages": {
     "shipping": { "title": "Schnelle Lieferung",   "desc": "1–2 Tage in der Schweiz via Post CH" },
-    "returns":  { "title": "14 Tage Rückgabe",      "desc": "Zufrieden oder Geld zurück, ohne Fragen" },
     "payment":  { "title": "Sichere Zahlung",        "desc": "Twint und Kreditkarte — 100% sicher" },
     "packaging":{ "title": "Sorgfältige Verpackung", "desc": "Jede Bestellung liebevoll verpackt" }
   },
@@ -124,11 +132,9 @@
     "helpLinks": {
       "account": "Mein Konto",
       "tracking": "Bestellverfolgung",
-      "delivery": "Lieferung & Rückgabe",
       "faq": "FAQ",
       "cgv": "AGB",
-      "legal": "Impressum",
-      "returns": "Rückgaberecht"
+      "legal": "Impressum"
     },
     "copyright": "© 2026 Au Point-Compté — Lausanne, Schweiz 🇨🇭 · Gehostet von Infomaniak"
   },
@@ -172,7 +178,8 @@
       "labelRequired": "Bezeichnung erforderlich",
       "streetRequired": "Strasse erforderlich",
       "zipInvalid": "Schweizer PLZ mit 4 Ziffern",
-      "cityRequired": "Ort erforderlich"
+      "cityRequired": "Ort erforderlich",
+      "cantonRequired": "Kanton erforderlich"
     }
   },
   "errors": {
@@ -215,10 +222,11 @@
     "cityPlaceholder": "Bern",
     "canton": "Kanton",
     "cantonPlaceholder": "BE",
+    "cantonSelect": "Kanton auswählen",
     "country": "Land",
     "countrySwitzerland": "Schweiz",
-    "phone": "Telefon (optional)",
-    "phonePlaceholder": "+41 31 XXX XX XX",
+    "phone": "Natel",
+    "phonePlaceholder": "+41 79 XXX XX XX",
     "continueToSummary": "Weiter",
     "summaryTitle": "Bestellübersicht",
     "product": "Produkt",
@@ -258,6 +266,7 @@
       "zipRequired": "PLZ ist erforderlich",
       "zipInvalid": "Ungültige Schweizer PLZ (4 Ziffern)",
       "cityRequired": "Ort ist erforderlich",
+      "cantonRequired": "Kanton ist erforderlich",
       "cgvRequired": "Sie müssen die AGB akzeptieren",
       "paymentRequired": "Bitte wählen Sie eine Zahlungsmethode",
       "generic": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
@@ -276,6 +285,9 @@
     "payAmount": "CHF {{amount}} bezahlen",
     "cardSecured": "Sichere Zahlung über Stripe · Visa, Mastercard akzeptiert",
     "deliveryTo": "Lieferung an:",
+    "billingTo": "Rechnung an:",
+    "billingSame": "Die Rechnungsadresse entspricht der Lieferadresse",
+    "billingTitle": "Rechnungsadresse",
     "twintTitle": "Mit Twint bezahlen",
     "twintPay": "Bezahlen Sie CHF {{amount}} mit Ihrer Twint-App. Sie werden zur Bestätigung der Zahlung weitergeleitet.",
     "couponInvalid": "Ungültiger Code."
@@ -299,7 +311,6 @@
     "total": "Gesamtsumme",
     "checkout": "Zur Kasse",
     "securePayment": "100% sichere Zahlung",
-    "freeReturn": "Rückgabe innerhalb von 14 Tagen",
     "itemAdded": "Artikel in den Warenkorb gelegt",
     "viewCart": "Warenkorb ansehen",
     "addFailed": "Artikel konnte nicht hinzugefügt werden. Bitte erneut versuchen."
@@ -313,6 +324,7 @@
     "emailPlaceholder": "ihre@email.ch",
     "password": "Passwort",
     "passwordPlaceholder": "Ihr Passwort",
+    "passwordHint": "Mindestens 8 Zeichen.",
     "passwordConfirm": "Passwort bestätigen",
     "passwordConfirmPlaceholder": "Passwort wiederholen",
     "firstName": "Vorname",
@@ -322,6 +334,8 @@
     "loginCta": "Anmelden",
     "registerCta": "Konto erstellen",
     "forgotPassword": "Passwort vergessen?",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
     "noAccount": "Noch kein Konto?",
     "alreadyAccount": "Bereits ein Konto?",
     "signUp": "Registrieren",
@@ -360,6 +374,20 @@
       "generic": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
       "googleFailed": "Die Anmeldung mit Google ist fehlgeschlagen. Bitte versuchen Sie es erneut."
     }
+  },
+  "emailVerify": {
+    "bannerText": "Bestätigen Sie Ihre E-Mail-Adresse, um Ihr Konto zu sichern.",
+    "bannerResend": "E-Mail erneut senden",
+    "bannerSending": "Wird gesendet…",
+    "bannerSent": "E-Mail gesendet",
+    "loadingTitle": "Überprüfung läuft…",
+    "loadingDesc": "Wir bestätigen Ihre E-Mail-Adresse, einen Moment bitte.",
+    "successTitle": "Adresse bestätigt!",
+    "successDesc": "Danke, Ihre E-Mail-Adresse ist jetzt verifiziert.",
+    "successCta": "Zu meinem Konto",
+    "errorTitle": "Ungültiger oder abgelaufener Link",
+    "errorDesc": "Dieser Bestätigungslink ist nicht mehr gültig. Melden Sie sich an und fordern Sie über das Banner eine neue E-Mail an.",
+    "errorCta": "Zu meinem Konto"
   },
   "notFound": {
     "title": "Der Faden hat sich verloren…",
@@ -413,8 +441,6 @@
     "cgvDesc": "Allgemeine Geschäftsbedingungen von Au Point-Compté — Schweizer Stickerei-Shop.",
     "legalTitle": "Impressum",
     "legalDesc": "Impressum und Angaben zum Betreiber der Website Au Point-Compté.",
-    "returnTitle": "Rückgaberecht",
-    "returnDesc": "14 Tage Rückgaberecht — Bedingungen für Rückgabe und Rückerstattung.",
     "loginTitle": "Anmeldung",
     "registerTitle": "Registrierung",
     "accountTitle": "Mein Konto",

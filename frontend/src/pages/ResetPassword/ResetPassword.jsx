@@ -8,11 +8,7 @@ import { resetPassword } from '../../services/auth.service.js'
 import s from './ResetPassword.module.css'
 
 const schema = z.object({
-  password: z
-    .string()
-    .min(8, 'Minimum 8 caractères')
-    .regex(/[A-Z]/, 'Au moins une majuscule')
-    .regex(/[0-9]/, 'Au moins un chiffre'),
+  password: z.string().min(8, 'Minimum 8 caractères'),
   confirm: z.string().min(1, 'Veuillez confirmer le mot de passe'),
 }).refine((d) => d.password === d.confirm, {
   message: 'Les mots de passe ne correspondent pas',
@@ -29,13 +25,9 @@ export default function ResetPassword() {
   const [success,    setSuccess]    = useState(false)
   const [apiError,   setApiError]   = useState('')
 
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
   })
-
-  /* Indicateur de force du mot de passe */
-  const pwd = watch('password', '')
-  const strength = getStrength(pwd)
 
   const onSubmit = async (values) => {
     setApiError('')
@@ -126,6 +118,8 @@ export default function ResetPassword() {
                 autoComplete="new-password"
                 placeholder="Votre nouveau mot de passe"
                 className={`${s.input} ${s.withIcon} ${s.withEye} ${errors.password ? s.error : ''}`}
+                aria-invalid={errors.password ? 'true' : undefined}
+                aria-describedby={`rp-password-hint${errors.password ? ' rp-password-error' : ''}`}
                 {...register('password')}
               />
               <button
@@ -138,28 +132,12 @@ export default function ResetPassword() {
               </button>
             </div>
 
-            {/* Indicateur de force */}
-            {pwd.length > 0 && (
-              <div className={s.strengthWrap}>
-                <div className={s.strengthBar}>
-                  {[0, 1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className={s.strengthSegment}
-                      data-active={i < strength.level ? 'true' : 'false'}
-                      data-level={strength.label}
-                    />
-                  ))}
-                </div>
-                <span className={s.strengthLabel} data-level={strength.label}>
-                  {strength.label}
-                </span>
-              </div>
-            )}
+            {/* Indication de format — toujours visible pour guider la saisie */}
+            <p id="rp-password-hint" className={s.fieldHint}>Au moins 8 caractères.</p>
 
             {errors.password && (
-              <span className={s.fieldError}>
-                <AlertCircle size={12} />{errors.password.message}
+              <span id="rp-password-error" className={s.fieldError} role="alert">
+                <AlertCircle size={12} aria-hidden="true" />{errors.password.message}
               </span>
             )}
           </div>
@@ -193,13 +171,6 @@ export default function ResetPassword() {
             )}
           </div>
 
-          {/* Règles */}
-          <ul className={s.rules}>
-            <Rule met={pwd.length >= 8}        text="Au moins 8 caractères" />
-            <Rule met={/[A-Z]/.test(pwd)}      text="Au moins une majuscule" />
-            <Rule met={/[0-9]/.test(pwd)}      text="Au moins un chiffre" />
-          </ul>
-
           <button type="submit" className={s.submitBtn} disabled={isSubmitting}>
             {isSubmitting ? 'Enregistrement…' : 'Enregistrer le mot de passe'}
           </button>
@@ -211,26 +182,3 @@ export default function ResetPassword() {
   )
 }
 
-function Rule({ met, text }) {
-  return (
-    <li className={`${s.rule} ${met ? s.ruleMet : ''}`}>
-      <CheckCircle size={12} />
-      {text}
-    </li>
-  )
-}
-
-/* Calcule la force du mot de passe sur 4 niveaux */
-function getStrength(pwd) {
-  let score = 0
-  if (pwd.length >= 8)          score++
-  if (pwd.length >= 12)         score++
-  if (/[A-Z]/.test(pwd))        score++
-  if (/[0-9]/.test(pwd))        score++
-  if (/[^A-Za-z0-9]/.test(pwd)) score = Math.min(score + 1, 4)
-
-  if (score <= 1) return { level: 1, label: 'Faible' }
-  if (score === 2) return { level: 2, label: 'Moyen' }
-  if (score === 3) return { level: 3, label: 'Fort' }
-  return { level: 4, label: 'Très fort' }
-}

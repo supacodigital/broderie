@@ -11,7 +11,13 @@ export default function Footer() {
       <div className={s.grid}>
         {/* ── Marque ── */}
         <div className={s.brand}>
-          <span className={s.logoText}>Au Point-Compté</span>
+          <img
+            src="/logo.png"
+            alt="Au Point-Compté"
+            className={s.logoImg}
+            width="220"
+            height="66"
+          />
           <p className={s.desc}>{t("footer.desc")}</p>
           <div className={s.socials} aria-label="Réseaux sociaux">
             <a
@@ -96,11 +102,6 @@ export default function Footer() {
             <li>
               <Link to="/mentions-legales">{t("footer.helpLinks.legal")}</Link>
             </li>
-            <li>
-              <Link to="/politique-de-retour">
-                {t("footer.helpLinks.returns")}
-              </Link>
-            </li>
           </ul>
         </div>
 
@@ -118,7 +119,7 @@ export default function Footer() {
             </div>
             <div className={s.contactItem}>
               <Phone size={14} className={s.contactIcon} aria-hidden="true" />
-              <a href="tel:+41216010000">+41 79 847 01 26</a>
+              <a href="tel:+41798470126">+41 79 847 01 26</a>
             </div>
             <div className={s.contactItem}>
               <Mail size={14} className={s.contactIcon} aria-hidden="true" />

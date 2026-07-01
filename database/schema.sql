@@ -68,6 +68,10 @@ CREATE TABLE users (
   google_id     VARCHAR(255)    NULL DEFAULT NULL,
   avatar_url    VARCHAR(500)    NULL DEFAULT NULL,
   is_active     TINYINT(1)      NOT NULL DEFAULT 1,
+  -- Vérification email (double opt-in non bloquant) — NULL = non vérifié
+  email_verified_at    DATETIME    NULL DEFAULT NULL,
+  verify_token_hash    VARCHAR(64) NULL DEFAULT NULL,
+  verify_token_expires DATETIME    NULL DEFAULT NULL,
   deleted_at    DATETIME        NULL DEFAULT NULL,
   created_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -84,6 +88,11 @@ CREATE TABLE addresses (
   id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id    INT UNSIGNED NOT NULL,
   label      VARCHAR(100) NOT NULL DEFAULT 'Domicile',
+  -- Type d'usage : livraison, facturation, ou les deux
+  address_type ENUM('shipping', 'billing', 'both') NOT NULL DEFAULT 'both',
+  -- Nom propre optionnel (facturation à un tiers/entreprise) — sinon celui du compte
+  first_name VARCHAR(100) NULL DEFAULT NULL,
+  last_name  VARCHAR(100) NULL DEFAULT NULL,
   street     VARCHAR(255) NOT NULL,
   city       VARCHAR(100) NOT NULL,
   zip        VARCHAR(10)  NOT NULL,
@@ -285,12 +294,22 @@ CREATE TABLE orders (
   total           DECIMAL(10, 2) NOT NULL,
   -- Référence de paiement QR figée (facture QR suisse) — sert à régénérer le PDF et rapprocher le paiement
   qr_reference    VARCHAR(27)    NULL DEFAULT NULL,
-  -- Adresse de livraison figée au moment de la commande
+  -- Adresse de livraison figée au moment de la commande (noms inclus — destinataire réel)
+  shipping_first_name VARCHAR(100) NULL DEFAULT NULL,
+  shipping_last_name  VARCHAR(100) NULL DEFAULT NULL,
   shipping_street  VARCHAR(255)   NULL DEFAULT NULL,
   shipping_city    VARCHAR(100)   NULL DEFAULT NULL,
   shipping_zip     VARCHAR(10)    NULL DEFAULT NULL,
   shipping_country CHAR(2)        NULL DEFAULT 'CH',
   shipping_canton  CHAR(2)        NULL DEFAULT NULL,
+  -- Adresse de facturation figée (peut différer de la livraison — tiers, entreprise…)
+  billing_first_name VARCHAR(100) NULL DEFAULT NULL,
+  billing_last_name  VARCHAR(100) NULL DEFAULT NULL,
+  billing_street   VARCHAR(255)   NULL DEFAULT NULL,
+  billing_city     VARCHAR(100)   NULL DEFAULT NULL,
+  billing_zip      VARCHAR(10)    NULL DEFAULT NULL,
+  billing_country  CHAR(2)        NULL DEFAULT 'CH',
+  billing_canton   CHAR(2)        NULL DEFAULT NULL,
   tracking_number  VARCHAR(100)   NULL DEFAULT NULL,
   label_url        VARCHAR(500)   NULL DEFAULT NULL,
   label_id         VARCHAR(100)   NULL DEFAULT NULL,

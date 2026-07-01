@@ -44,3 +44,10 @@ coverage/
 
 # Stripe CLI
 .stripe/
+
+# Sauvegardes locales temporaires
+*.bak
+
+# Documents commerciaux (devis) — hors dépôt de code
+DEVIS-MAINTENANCE.md
+DEVIS-MAINTENANCE.html

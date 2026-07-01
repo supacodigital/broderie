@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ShoppingBag, Search, User, LogOut, Menu, X, ChevronRight } from 'lucide-react'
+import { ShoppingBag, Search, User, Heart, LogOut, Menu, X, ChevronRight } from 'lucide-react'
 import { useAuth } from '../../../contexts/AuthContext.jsx'
 import { useCart } from '../../../contexts/CartContext.jsx'
 import { useCartDrawer } from '../../../contexts/CartDrawerContext.jsx'
+import { useWishlist } from '../../../contexts/WishlistContext.jsx'
 import NavSearch from './NavSearch.jsx'
 import LangSwitcher from './LangSwitcher.jsx'
 import CartDrawer from '../CartDrawer/CartDrawer.jsx'
@@ -15,6 +16,8 @@ export default function Navbar() {
   const { isAuthenticated, user, logout } = useAuth()
   const { itemCount } = useCart()
   const { openCartDrawer } = useCartDrawer()
+  const { ids: wishlistIds } = useWishlist()
+  const wishlistCount = wishlistIds.size
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -56,13 +59,13 @@ export default function Navbar() {
       >
         {/* Logo */}
         <Link to="/" className={s.logo} aria-label="Au Point-Compté — Accueil" onClick={closeMenu}>
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-            <circle cx="16" cy="16" r="15" stroke="#DB2777" strokeWidth="1.5" fill="#FDF2F8"/>
-            <path d="M8 22 Q16 8 24 22" stroke="#DB2777" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-            <line x1="22" y1="10" x2="26" y2="14" stroke="#DB2777" strokeWidth="1.5" strokeLinecap="round"/>
-            <circle cx="22" cy="10" r="1.5" fill="#DB2777"/>
-          </svg>
-          <span className={s.logoText}>Au Point-Compté</span>
+          <img
+            src="/logo.png"
+            alt="Au Point-Compté"
+            className={s.logoImg}
+            width="180"
+            height="54"
+          />
         </Link>
 
         {/* Liens principaux — desktop uniquement */}
@@ -110,6 +113,21 @@ export default function Navbar() {
           >
             <Search size={20} />
           </button>
+
+          {/* Favoris — desktop + mobile, pointe vers l'onglet favoris du compte */}
+          <div className={s.wishlistBtn}>
+            <Link
+              to="/mon-compte?tab=wishlist"
+              className={s.iconBtn}
+              aria-label={t('nav.wishlistItems', { count: wishlistCount })}
+              title={t('nav.wishlist')}
+            >
+              <Heart size={20} />
+              {wishlistCount > 0 && (
+                <span className={s.badge} aria-hidden="true">{wishlistCount}</span>
+              )}
+            </Link>
+          </div>
 
           {/* Compte — desktop */}
           <div className={s.accountDesktop}>
@@ -229,6 +247,17 @@ export default function Navbar() {
           {/* Compte */}
           <div className={s.mobileDivider} aria-hidden="true" />
           <p className={s.mobileSectionLabel}>Mon espace</p>
+
+          {/* Favoris */}
+          <NavLink to="/mon-compte?tab=wishlist" className={s.mobileLink} onClick={closeMenu}>
+            <span className={s.mobileLinkContent}>
+              <span className={s.mobileLinkText}>{t('nav.wishlist')}</span>
+              <span className={s.mobileLinkSub}>
+                {wishlistCount > 0 ? t('nav.wishlistItems', { count: wishlistCount }) : 'Vos produits favoris'}
+              </span>
+            </span>
+            <Heart size={18} className={s.mobileLinkArrow} />
+          </NavLink>
 
           {isAuthenticated ? (
             <>

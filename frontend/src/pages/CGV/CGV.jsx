@@ -60,24 +60,15 @@ Délai de livraison : 1 à 2 jours ouvrables après confirmation du paiement. Un
 Le Vendeur décline toute responsabilité en cas de retard imputable à La Poste Suisse ou à un cas de force majeure.`,
   },
   {
-    id: 'retour',
-    title: '7. Droit de retour et remboursement',
-    content: `Conformément au Code des Obligations suisse (CO) et aux recommandations de la Commission de la concurrence (COMCO), le Client dispose d'un délai de 14 jours à compter de la réception de la commande pour retourner tout article non utilisé, dans son emballage d'origine et en parfait état.
-
-Pour exercer ce droit, le Client doit contacter le service client à noreply@broderie-domaine.ch avant tout retour. Les frais de retour sont à la charge du Client.
-
-Le remboursement intervient dans les 14 jours suivant réception du retour, par le même moyen de paiement que celui utilisé lors de l'achat. Les articles personnalisés ou hygiéniques ouverts ne peuvent être repris.`,
-  },
-  {
     id: 'garantie',
-    title: '8. Garanties légales',
+    title: '7. Garanties légales',
     content: `Les produits bénéficient de la garantie légale contre les défauts conformément au CO (art. 197 et suivants). En cas de défaut constaté à la livraison, le Client dispose de 2 ans pour agir.
 
 En cas de produit défectueux, le Vendeur procède au remplacement ou au remboursement, au choix du Client.`,
   },
   {
     id: 'donnees',
-    title: '9. Protection des données (LPD)',
+    title: '8. Protection des données (LPD)',
     content: `Le traitement des données personnelles est régi par la Loi fédérale sur la protection des données (LPD, révisée au 1er septembre 2023). Les données collectées (nom, adresse, e-mail) sont utilisées exclusivement pour le traitement des commandes et la relation client.
 
 Les données sont hébergées en Suisse (Infomaniak, Genève) et ne sont pas transmises à des tiers sans consentement explicite. Le Client dispose d'un droit d'accès, de rectification et de suppression de ses données.
@@ -86,14 +77,14 @@ Pour exercer ces droits : noreply@broderie-domaine.ch. Toute violation de donné
   },
   {
     id: 'cookies',
-    title: '10. Cookies et consentement',
+    title: '9. Cookies et consentement',
     content: `Le site utilise des cookies fonctionnels nécessaires au fonctionnement du panier et de l'authentification. Des cookies analytiques anonymisés peuvent être utilisés avec votre consentement explicite, conformément à la LPD révisée.
 
 Un bandeau de consentement vous permet de gérer vos préférences. Le refus des cookies non essentiels n'entrave pas la navigation ni le processus d'achat.`,
   },
   {
     id: 'litiges',
-    title: '11. Droit applicable et litiges',
+    title: '10. Droit applicable et litiges',
     content: `Les présentes CGV sont soumises au droit suisse. En cas de litige, les parties s'engagent à rechercher une solution amiable. À défaut, le tribunal compétent sera celui du domicile du Vendeur en Suisse.
 
 Pour toute réclamation : noreply@broderie-domaine.ch — nous nous engageons à répondre dans les 5 jours ouvrables.`,

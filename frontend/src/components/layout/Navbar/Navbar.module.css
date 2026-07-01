@@ -50,11 +50,10 @@
   flex-shrink: 0;
 }
 
-.logoText {
-  font-family: 'Great Vibes', cursive;
-  font-size: 28px;
-  color: var(--rose);
-  line-height: 1;
+.logoImg {
+  height: 68px;
+  width: auto;
+  display: block;
 }
 
 /* ── LIENS DESKTOP ───────────────────────────────────── */
@@ -154,6 +153,12 @@
   padding: 0 4px;
   line-height: 1;
   pointer-events: none;
+}
+
+/* ── FAVORIS — desktop + mobile ──────────────────────── */
+.wishlistBtn {
+  display: flex;
+  align-items: center;
 }
 
 /* ── COMPTE — desktop seulement ──────────────────────── */
@@ -402,14 +407,18 @@
 }
 
 @media (max-width: 768px) {
-  .navbar         { padding: 0 16px; height: 64px; }
+  .navbar         { padding: 0 16px; height: 72px; }
   .links          { display: none; }
   .accountDesktop { display: none; }
   .langDesktop    { display: none; }
   .burger         { display: flex; }
 
-  /* Raccourcit le texte du logo sur petit écran */
-  .logoText { font-size: 22px; }
+  /* Resserre les icônes pour loger loupe + favoris + panier + burger */
+  .actions        { gap: 0; }
+  .iconBtn        { width: 38px; }
+
+  /* Réduit le logo sur petit écran pour loger les icônes d'actions */
+  .logoImg { height: 52px; }
 }
 
 @media (max-width: 480px) {

@@ -39,8 +39,15 @@ const splitStreet = (street = '') => {
 
 // Construit l'objet de données attendu par SwissQRBill à partir d'une commande
 const buildQrBillData = (order) => {
-  const debtorStreet = splitStreet(order.street || '');
   const dueDays = env.invoiceDueDays || 30;
+  // Le débiteur de la facture QR est l'adresse de FACTURATION.
+  // Fallback sur la livraison pour les commandes créées avant l'ajout du billing.
+  const billStreet = order.billing_street ?? order.street;
+  const billCity   = order.billing_city   ?? order.city;
+  const billZip    = order.billing_zip    ?? order.zip;
+  const billFirst  = order.billing_first_name ?? order.shipping_first_name ?? order.first_name;
+  const billLast   = order.billing_last_name  ?? order.shipping_last_name  ?? order.last_name;
+  const debtorStreet = splitStreet(billStreet || '');
   return {
     amount:   roundCHF(parseFloat(order.total)),
     currency: 'CHF',
@@ -53,11 +60,11 @@ const buildQrBillData = (order) => {
       country: 'CH',
     },
     debtor: {
-      name:           `${order.first_name ?? ''} ${order.last_name ?? ''}`.trim() || 'Client',
+      name:           `${billFirst ?? ''} ${billLast ?? ''}`.trim() || 'Client',
       address:        debtorStreet.address || 'Adresse',
       buildingNumber: debtorStreet.buildingNumber,
-      city:           order.city || '',
-      zip:            parseInt(order.zip, 10) || order.zip || 0,
+      city:           billCity || '',
+      zip:            parseInt(billZip, 10) || billZip || 0,
       country:        'CH',
     },
     // Message libre : référence interne pour le rapprochement (IBAN normal → pas de référence structurée)

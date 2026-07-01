@@ -39,7 +39,7 @@ const updateShippingRate = async (id, { priceChf, estimatedDays }) => {
 
 /* ── Paramètres boutique (clé/valeur) ── */
 const STORE_KEYS = ['store_name', 'store_email', 'store_phone', 'store_address'];
-const LEGAL_KEYS = ['cgv', 'mentions_legales', 'politique_retour'];
+const LEGAL_KEYS = ['cgv', 'mentions_legales'];
 
 const findSettings = async (keys) => {
   const placeholders = keys.map(() => '?').join(', ');
