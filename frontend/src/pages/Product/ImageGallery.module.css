@@ -11,7 +11,7 @@
   position: relative;
   overflow: hidden;
   border-radius: 6px;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 1 / 1;
   cursor: zoom-in;
   background: var(--rose-pale);
 }
@@ -131,7 +131,7 @@
 
 .thumb {
   width: 72px;
-  height: 96px;
+  height: 72px;
   border: 2px solid transparent;
   border-radius: 4px;
   overflow: hidden;

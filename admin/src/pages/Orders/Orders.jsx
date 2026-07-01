@@ -232,6 +232,9 @@ function OrderModal({ orderId, onClose, onUpdated }) {
                 <span className={s.infoLabel}>Adresse de livraison</span>
                 {order.street ? (
                   <>
+                    {(order.shipping_first_name || order.shipping_last_name) && (
+                      <span className={s.infoValue}>{order.shipping_first_name} {order.shipping_last_name}</span>
+                    )}
                     <span className={s.infoValue}>{order.street}</span>
                     <span className={s.infoSub}>{order.zip} {order.city}{order.canton ? ` (${order.canton})` : ''} — {order.country}</span>
                   </>
@@ -239,6 +242,17 @@ function OrderModal({ orderId, onClose, onUpdated }) {
                   <span className={s.infoMissing}>Aucune adresse enregistrée</span>
                 )}
               </div>
+              {/* Adresse de facturation — affichée uniquement si distincte de la livraison */}
+              {order.billing_street && order.billing_street !== order.street && (
+                <div className={s.infoBlock}>
+                  <span className={s.infoLabel}>Adresse de facturation</span>
+                  {(order.billing_first_name || order.billing_last_name) && (
+                    <span className={s.infoValue}>{order.billing_first_name} {order.billing_last_name}</span>
+                  )}
+                  <span className={s.infoValue}>{order.billing_street}</span>
+                  <span className={s.infoSub}>{order.billing_zip} {order.billing_city}{order.billing_canton ? ` (${order.billing_canton})` : ''} — {order.billing_country}</span>
+                </div>
+              )}
               <div className={s.infoBlock}>
                 <span className={s.infoLabel}>Statut actuel</span>
                 <StatusBadge status={order.status} />

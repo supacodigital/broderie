@@ -1,0 +1,58 @@
+/* Bandeau de vérification email — ton d'alerte doux (ambre), non bloquant */
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 10px 20px;
+  background: #fef3c7;
+  color: #92400e;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  border-bottom: 1px solid #fde68a;
+}
+
+.icon {
+  flex-shrink: 0;
+}
+
+.text {
+  font-weight: 500;
+}
+
+.resendBtn {
+  background: none;
+  border: 1px solid #d97706;
+  color: #92400e;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.resendBtn:hover:not(:disabled) {
+  background: #d97706;
+  color: #fff;
+}
+
+.resendBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.resendBtn:focus-visible {
+  outline: 2px solid #92400e;
+  outline-offset: 2px;
+}
+
+.sent {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: #047857;
+}

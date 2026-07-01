@@ -27,7 +27,7 @@ function Seo({ title, description, image, noindex = false }) {
   const canonical = `${SITE_URL}${pathname}`
   const ogImage   = image
     ? (image.startsWith('http') ? image : `${SITE_URL}${image}`)
-    : `${SITE_URL}/logobroderie.jpg`
+    : `${SITE_URL}/logo-og.jpg`
 
   return (
     <Helmet>

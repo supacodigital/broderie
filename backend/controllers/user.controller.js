@@ -1,12 +1,29 @@
 const bcrypt = require('bcrypt');
+const { z } = require('zod');
 const userRepository = require('../repositories/user.repository');
 const { AppError } = require('../middlewares/errorHandler');
+
+// Cantons suisses officiels (2 lettres)
+const SWISS_CANTONS = ['AG','AI','AR','BE','BL','BS','FR','GE','GL','GR','JU','LU','NE','NW','OW','SG','SH','SO','SZ','TG','TI','UR','VD','VS','ZG','ZH'];
+
+// Schéma d'adresse du compte — validé côté serveur
+const accountAddressSchema = z.object({
+  label:        z.string().trim().min(1).max(100),
+  address_type: z.enum(['shipping', 'billing', 'both']).optional(),
+  first_name:   z.string().trim().max(100).optional().nullable(),
+  last_name:    z.string().trim().max(100).optional().nullable(),
+  street:       z.string().trim().min(1).max(255),
+  city:         z.string().trim().min(1).max(100),
+  zip:          z.string().regex(/^\d{4}$/),
+  canton:       z.enum(SWISS_CANTONS).optional().nullable(),
+});
 
 const getMe = async (req, res, next) => {
   try {
     const user = await userRepository.findById(req.user.id);
     if (!user) return next(new AppError('Utilisateur introuvable.', 404));
-    res.json({ success: true, data: user });
+    /* Expose emailVerified (booléen) en plus des données brutes — cohérent avec /auth */
+    res.json({ success: true, data: { ...user, emailVerified: !!user.email_verified_at } });
   } catch (error) {
     next(error);
   }
@@ -41,10 +58,15 @@ const getAddresses = async (req, res, next) => {
 
 const createAddress = async (req, res, next) => {
   try {
+    const parsed = accountAddressSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Adresse invalide.' });
+    }
     const isDefault = req.body.isDefault ?? req.body.is_default ?? false;
-    const { label, street, city, zip, country, canton } = req.body;
+    const { label, address_type, first_name, last_name, street, city, zip, canton } = parsed.data;
     const addressId = await userRepository.createAddress(req.user.id, {
-      label, street, city, zip, country, canton, isDefault,
+      label, addressType: address_type, firstName: first_name, lastName: last_name,
+      street, city, zip, country: 'CH', canton, isDefault,
     });
     const addresses = await userRepository.findAddresses(req.user.id);
     const created = addresses.find((a) => a.id === addressId);
@@ -56,11 +78,16 @@ const createAddress = async (req, res, next) => {
 
 const updateAddress = async (req, res, next) => {
   try {
+    const parsed = accountAddressSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Adresse invalide.' });
+    }
     const addressId = parseInt(req.params.id);
     const isDefault = req.body.isDefault ?? req.body.is_default ?? false;
-    const { label, street, city, zip, country, canton } = req.body;
+    const { label, address_type, first_name, last_name, street, city, zip, canton } = parsed.data;
     await userRepository.updateAddress(addressId, req.user.id, {
-      label, street, city, zip, country, canton, isDefault,
+      label, addressType: address_type, firstName: first_name, lastName: last_name,
+      street, city, zip, country: 'CH', canton, isDefault,
     });
     const addresses = await userRepository.findAddresses(req.user.id);
     const updated = addresses.find((a) => a.id === addressId);

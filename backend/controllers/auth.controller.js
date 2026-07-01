@@ -56,6 +56,7 @@ const register = async (req, res, next) => {
           lastName: user.last_name,
           role: user.role,
           locale: user.locale,
+          emailVerified: !!user.email_verified_at,
         },
       },
     });
@@ -87,6 +88,7 @@ const login = async (req, res, next) => {
           lastName: user.last_name,
           role: user.role,
           locale: user.locale,
+          emailVerified: !!user.email_verified_at,
         },
       },
     });
@@ -184,6 +186,7 @@ const googleVerify = async (req, res, next) => {
           role:      user.role,
           locale:    user.locale,
           avatarUrl: user.avatar_url ?? null,
+          emailVerified: !!user.email_verified_at,
         },
       },
     });
@@ -192,4 +195,28 @@ const googleVerify = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, logout, refreshToken, forgotPassword, resetPassword, googleVerify };
+// Confirmation de l'email via le lien reçu (token en query)
+const verifyEmail = async (req, res, next) => {
+  try {
+    const token = typeof req.query.token === 'string' ? req.query.token : '';
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Token de vérification manquant.' });
+    }
+    await authService.verifyEmail(token);
+    res.json({ success: true, message: 'Adresse email confirmée avec succès.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Renvoi d'un email de vérification (utilisateur connecté)
+const resendVerification = async (req, res, next) => {
+  try {
+    await authService.resendVerification(req.user.id);
+    res.json({ success: true, message: 'Si votre email n\'est pas encore vérifié, un nouveau lien a été envoyé.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { register, login, logout, refreshToken, forgotPassword, resetPassword, googleVerify, verifyEmail, resendVerification };

@@ -36,6 +36,20 @@ const refreshCookieOptions = () => ({
   path: '/api/v1/auth',
 });
 
+// Génère un token de vérification email, le stocke haché (SHA-256) et envoie l'email.
+// Non bloquant : un échec d'envoi n'interrompt pas le flux d'inscription.
+const issueEmailVerification = async (user) => {
+  const rawToken  = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 heures
+
+  await userRepository.saveVerifyToken(user.id, tokenHash, expiresAt);
+
+  emailService.sendEmailVerification({ user, verifyToken: rawToken }).catch((err) => {
+    console.error('[Email] Vérification email non envoyée :', err.message);
+  });
+};
+
 const register = async ({ email, password, firstName, lastName, locale }) => {
   const exists = await userRepository.emailExists(email);
   if (exists) {
@@ -54,7 +68,32 @@ const register = async ({ email, password, firstName, lastName, locale }) => {
     console.error('[Email] Bienvenue non envoyé :', err.message);
   });
 
+  // Email de vérification d'adresse — non bloquant
+  await issueEmailVerification(user);
+
   return { user, accessToken, refreshToken };
+};
+
+// Confirmation de l'adresse email via le token reçu par email
+const verifyEmail = async (rawToken) => {
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const user = await userRepository.findByVerifyToken(tokenHash);
+
+  if (!user) throw new AppError('Lien de vérification invalide ou expiré.', 400);
+
+  // Déjà vérifié : idempotent, on renvoie simplement un succès
+  if (!user.email_verified_at) {
+    await userRepository.markEmailVerified(user.id);
+  }
+  return { email: user.email };
+};
+
+// Renvoi d'un email de vérification (utilisateur connecté non encore vérifié)
+const resendVerification = async (userId) => {
+  const user = await userRepository.findById(userId);
+  if (!user) throw new AppError('Utilisateur introuvable.', 404);
+  if (user.email_verified_at) return; // déjà vérifié — rien à faire
+  await issueEmailVerification(user);
 };
 
 const login = async ({ email, password }) => {
@@ -128,6 +167,7 @@ const loginWithGoogle = async (idToken) => {
       user = await userRepository.findById(existing.id);
     } else {
       // Cas 3 — nouvel utilisateur → création sans mot de passe
+      // Email auto-vérifié : Google garantit déjà la propriété de l'adresse
       const userId = await userRepository.create({
         email,
         passwordHash: null,
@@ -136,6 +176,7 @@ const loginWithGoogle = async (idToken) => {
         locale:       'fr',
         googleId,
         avatarUrl,
+        emailVerified: true,
       });
       user = await userRepository.findById(userId);
 
@@ -207,4 +248,4 @@ const resetPassword = async (rawToken, newPassword) => {
   await userRepository.updatePassword(user.id, passwordHash);
 };
 
-module.exports = { register, login, loginWithGoogle, refreshToken, refreshCookieOptions, forgotPassword, resetPassword };
+module.exports = { register, login, loginWithGoogle, refreshToken, refreshCookieOptions, forgotPassword, resetPassword, verifyEmail, resendVerification };

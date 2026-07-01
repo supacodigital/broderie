@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, AlertCircle, LogIn } from 'lucide-react'
 import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../../contexts/AuthContext.jsx'
+import AuthField from './AuthField.jsx'
 import s from './AuthForm.module.css'
 
 function buildSchema(t) {
@@ -30,9 +31,15 @@ export default function LoginForm() {
   /* Redirige vers la page demandée ou /mon-compte après connexion */
   const from = location.state?.from?.pathname ?? '/mon-compte'
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, setFocus, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(buildSchema(t)),
   })
+
+  /* Focus programmatique sur le 1er champ en erreur à la soumission (WCAG) */
+  const onInvalid = (formErrors) => {
+    const first = Object.keys(formErrors)[0]
+    if (first) setFocus(first)
+  }
 
   const handleGoogleLogin = async ({ credential }) => {
     if (!credential) return
@@ -75,54 +82,49 @@ export default function LoginForm() {
       {/* Erreur globale */}
       {globalError && (
         <div className={s.globalError} role="alert">
-          <AlertCircle size={16} />
+          <AlertCircle size={16} aria-hidden="true" />
           {globalError}
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className={s.form}>
+      {/* Légende champs obligatoires */}
+      <p className={s.requiredLegend}>
+        {t('form.requiredLegend')} <span className={s.requiredMark} aria-hidden="true">*</span> {t('form.requiredMark')}.
+      </p>
+
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate className={s.form}>
 
         {/* Email */}
-        <div className={s.field}>
-          <label htmlFor="login-email" className={s.label}>{t('auth.email')}</label>
-          <input
-            id="login-email"
-            type="email"
-            autoComplete="email"
-            placeholder={t('auth.emailPlaceholder')}
-            className={`${s.input} ${errors.email ? s.error : ''}`}
-            {...register('email')}
-          />
-          {errors.email && (
-            <span className={s.fieldError}><AlertCircle size={12} />{errors.email.message}</span>
-          )}
-        </div>
+        <AuthField id="login-email" name="email" required register={register} t={t}
+          label={t('auth.email')} error={errors.email}
+          type="email" autoComplete="email" placeholder={t('auth.emailPlaceholder')} />
 
         {/* Mot de passe */}
-        <div className={s.field}>
-          <label htmlFor="login-password" className={s.label}>{t('auth.password')}</label>
-          <div className={s.inputWrap}>
-            <input
-              id="login-password"
-              type={showPwd ? 'text' : 'password'}
-              autoComplete="current-password"
-              placeholder={t('auth.passwordPlaceholder')}
-              className={`${s.input} ${s.withEye} ${errors.password ? s.error : ''}`}
-              {...register('password')}
-            />
-            <button
-              type="button"
-              className={s.eyeBtn}
-              onClick={() => setShowPwd(p => !p)}
-              aria-label={showPwd ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-            >
-              {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-          {errors.password && (
-            <span className={s.fieldError}><AlertCircle size={12} />{errors.password.message}</span>
+        <AuthField id="login-password" name="password" required t={t}
+          label={t('auth.password')} error={errors.password}>
+          {({ errorId }) => (
+            <div className={s.inputWrap}>
+              <input
+                id="login-password"
+                type={showPwd ? 'text' : 'password'}
+                autoComplete="current-password"
+                placeholder={t('auth.passwordPlaceholder')}
+                className={`${s.input} ${s.withEye} ${errors.password ? s.error : ''}`}
+                aria-invalid={errors.password ? 'true' : undefined}
+                aria-describedby={errorId}
+                {...register('password')}
+              />
+              <button
+                type="button"
+                className={s.eyeBtn}
+                onClick={() => setShowPwd(p => !p)}
+                aria-label={showPwd ? t('auth.hidePassword') : t('auth.showPassword')}
+              >
+                {showPwd ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+              </button>
+            </div>
           )}
-        </div>
+        </AuthField>
 
         {/* Mot de passe oublié */}
         <div className={s.forgotRow}>

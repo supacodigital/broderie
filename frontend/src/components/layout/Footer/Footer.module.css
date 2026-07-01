@@ -14,10 +14,9 @@
 /* ── Marque ── */
 .brand {}
 
-.logoText {
-  font-family: 'Great Vibes', cursive;
-  font-size: 36px;
-  color: var(--rose-light);
+.logoImg {
+  height: 56px;
+  width: auto;
   display: block;
   margin-bottom: 16px;
 }

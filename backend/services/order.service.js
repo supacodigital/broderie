@@ -19,7 +19,7 @@ const INITIAL_STATUS_BY_METHOD = {
   pickup:     'pending_pickup',   // retrait + paiement en boutique
 };
 
-const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponCode = null, address = null, locale = 'fr' }) => {
+const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponCode = null, address = null, billingAddress = null, locale = 'fr' }) => {
   if (!VALID_METHODS.includes(paymentMethod)) {
     throw new AppError('Méthode de paiement invalide.', 400);
   }
@@ -83,6 +83,7 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
     total,
     status: initialStatus,
     address,
+    billingAddress,
     couponCode: couponApplied,
     discount,
     couponId,

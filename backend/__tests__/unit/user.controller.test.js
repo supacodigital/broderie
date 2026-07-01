@@ -44,7 +44,7 @@ describe('user.controller — getMe()', () => {
     const next = jest.fn();
 
     await getMe(req, res, next);
-    expect(res.json).toHaveBeenCalledWith({ success: true, data: user });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { ...user, emailVerified: false } });
   });
 
   test('retourne 404 si utilisateur introuvable', async () => {
@@ -152,10 +152,21 @@ describe('user.controller — createAddress()', () => {
     userRepository.createAddress.mockResolvedValue(99);
     userRepository.findAddresses.mockResolvedValue([{ id: 1 }]);
 
-    const req = { user: { id: 1 }, body: {} };
+    const req = {
+      user: { id: 1 },
+      body: { label: 'Maison', street: 'Rue test 1', city: 'Genève', zip: '1200', canton: 'GE' },
+    };
     const res = makeRes();
     await createAddress(req, res, jest.fn());
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  test('retourne 400 si le corps est invalide (validation Zod)', async () => {
+    const req = { user: { id: 1 }, body: {} };
+    const res = makeRes();
+    await createAddress(req, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
   });
 });
 
@@ -181,11 +192,21 @@ describe('user.controller — updateAddress()', () => {
     userRepository.updateAddress.mockResolvedValue();
     userRepository.findAddresses.mockResolvedValue([{ id: 1 }]);
 
-    const req = { params: { id: '99' }, user: { id: 1 }, body: {} };
+    const req = {
+      params: { id: '99' }, user: { id: 1 },
+      body: { label: 'Bureau', street: 'Rue 2', city: 'Zurich', zip: '8000', canton: 'ZH' },
+    };
     const res = makeRes();
     const next = jest.fn();
     await updateAddress(req, res, next);
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 404 }));
+  });
+
+  test('retourne 400 si le corps est invalide (validation Zod)', async () => {
+    const req = { params: { id: '3' }, user: { id: 1 }, body: {} };
+    const res = makeRes();
+    await updateAddress(req, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(400);
   });
 });
 

@@ -40,8 +40,10 @@ describe('auth.service — register()', () => {
     bcrypt.hash.mockResolvedValue('$2b$12$hashed');
     userRepository.create.mockResolvedValue(1);
     userRepository.findById.mockResolvedValue(makeUser());
+    userRepository.saveVerifyToken.mockResolvedValue();
     jwt.sign.mockReturnValueOnce('access_token_mock').mockReturnValueOnce('refresh_token_mock');
     emailService.sendWelcome.mockResolvedValue();
+    emailService.sendEmailVerification.mockResolvedValue();
 
     const result = await authService.register({
       email: 'test@broderie.ch', password: 'Test1234!',
@@ -72,8 +74,10 @@ describe('auth.service — register()', () => {
     bcrypt.hash.mockResolvedValue('$2b$12$hashed');
     userRepository.create.mockResolvedValue(1);
     userRepository.findById.mockResolvedValue(makeUser());
+    userRepository.saveVerifyToken.mockResolvedValue();
     jwt.sign.mockReturnValue('token');
     emailService.sendWelcome.mockResolvedValue();
+    emailService.sendEmailVerification.mockResolvedValue();
 
     await authService.register({ email: 'new@broderie.ch', password: 'Test1234!', firstName: 'A', lastName: 'B' });
 

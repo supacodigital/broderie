@@ -569,6 +569,35 @@
   border-radius: 0 0 6px 6px;
 }
 
+/* Badge de type d'adresse (Livraison / Facturation) — à gauche du badge « Par défaut » */
+.typeBadge {
+  position: absolute;
+  top: -1px;
+  right: 92px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--rose-muted);
+  border: 1px solid var(--rose-border);
+  border-top: none;
+  padding: 2px 8px;
+  border-radius: 0 0 6px 6px;
+}
+
+.addressName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 2px;
+}
+
+/* Mention « (optionnel) » discrète dans les labels de la modal */
+.optional {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .addressLabel {
   font-size: 13px;
   font-weight: 700;

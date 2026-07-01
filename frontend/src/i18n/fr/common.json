@@ -1,4 +1,10 @@
 {
+  "form": {
+    "requiredLegend": "Les champs marqués d'un astérisque",
+    "requiredMark": "sont obligatoires",
+    "optional": "optionnel",
+    "requiredField": "obligatoire"
+  },
   "nav": {
     "home": "Accueil",
     "collections": "Collections",
@@ -9,6 +15,9 @@
     "contact": "Contact",
     "search": "Rechercher",
     "account": "Mon compte",
+    "wishlist": "Mes favoris",
+    "wishlistItems": "Favoris — {{count}} article",
+    "wishlistItems_other": "Favoris — {{count}} articles",
     "cart": "Panier",
     "cartItems": "Panier — {{count}} article",
     "cartItems_other": "Panier — {{count}} articles"
@@ -38,7 +47,6 @@
   },
   "advantages": {
     "shipping": { "title": "Livraison rapide", "desc": "1–2 jours en Suisse via La Poste CH" },
-    "returns":  { "title": "Retour 14 jours",  "desc": "Satisfaite ou remboursée, sans questions" },
     "payment":  { "title": "Paiement sécurisé","desc": "Twint et carte bancaire — 100% sécurisé" },
     "packaging":{ "title": "Emballage soigné", "desc": "Chaque commande emballée avec amour" }
   },
@@ -124,11 +132,9 @@
     "helpLinks": {
       "account": "Mon compte",
       "tracking": "Suivi de commande",
-      "delivery": "Livraison & retours",
       "faq": "FAQ",
       "cgv": "CGV",
-      "legal": "Mentions légales",
-      "returns": "Politique de retour"
+      "legal": "Mentions légales"
     },
     "copyright": "© 2026 Au Point-Compté — Lausanne, Suisse 🇨🇭 · Hébergé par Infomaniak"
   },
@@ -172,7 +178,8 @@
       "labelRequired": "Libellé requis",
       "streetRequired": "Rue requise",
       "zipInvalid": "NPA suisse sur 4 chiffres",
-      "cityRequired": "Ville requise"
+      "cityRequired": "Ville requise",
+      "cantonRequired": "Canton requis"
     }
   },
   "errors": {
@@ -215,10 +222,11 @@
     "cityPlaceholder": "Lausanne",
     "canton": "Canton",
     "cantonPlaceholder": "VD",
+    "cantonSelect": "Sélectionnez un canton",
     "country": "Pays",
     "countrySwitzerland": "Suisse",
-    "phone": "Téléphone (optionnel)",
-    "phonePlaceholder": "+41 21 601 XX XX",
+    "phone": "Natel",
+    "phonePlaceholder": "+41 79 XXX XX XX",
     "continueToSummary": "Continuer",
     "summaryTitle": "Récapitulatif de la commande",
     "product": "Produit",
@@ -258,6 +266,7 @@
       "zipRequired": "Le NPA est obligatoire",
       "zipInvalid": "NPA suisse invalide (4 chiffres)",
       "cityRequired": "La localité est obligatoire",
+      "cantonRequired": "Le canton est obligatoire",
       "cgvRequired": "Vous devez accepter les CGV",
       "paymentRequired": "Veuillez choisir un mode de paiement",
       "generic": "Une erreur est survenue. Veuillez réessayer.",
@@ -276,6 +285,9 @@
     "payAmount": "Payer CHF {{amount}}",
     "cardSecured": "Paiement sécurisé par Stripe · Visa, Mastercard acceptés",
     "deliveryTo": "Livraison à :",
+    "billingTo": "Facturation à :",
+    "billingSame": "L'adresse de facturation est identique à l'adresse de livraison",
+    "billingTitle": "Adresse de facturation",
     "twintTitle": "Payer par Twint",
     "twintPay": "Réglez CHF {{amount}} avec votre application Twint. Vous serez redirigé(e) pour confirmer le paiement.",
     "couponInvalid": "Code invalide."
@@ -299,7 +311,6 @@
     "total": "Total",
     "checkout": "Passer la commande",
     "securePayment": "Paiement 100% sécurisé",
-    "freeReturn": "Retour sous 14 jours",
     "itemAdded": "Article ajouté au panier",
     "viewCart": "Voir le panier",
     "addFailed": "Impossible d'ajouter l'article. Veuillez réessayer."
@@ -313,6 +324,7 @@
     "emailPlaceholder": "votre@email.ch",
     "password": "Mot de passe",
     "passwordPlaceholder": "Votre mot de passe",
+    "passwordHint": "Au moins 8 caractères.",
     "passwordConfirm": "Confirmer le mot de passe",
     "passwordConfirmPlaceholder": "Répétez votre mot de passe",
     "firstName": "Prénom",
@@ -322,6 +334,8 @@
     "loginCta": "Se connecter",
     "registerCta": "Créer mon compte",
     "forgotPassword": "Mot de passe oublié ?",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe",
     "noAccount": "Pas encore de compte ?",
     "alreadyAccount": "Déjà un compte ?",
     "signUp": "S'inscrire",
@@ -360,6 +374,20 @@
       "generic": "Une erreur est survenue. Veuillez réessayer.",
       "googleFailed": "La connexion avec Google a échoué. Veuillez réessayer."
     }
+  },
+  "emailVerify": {
+    "bannerText": "Confirmez votre adresse email pour sécuriser votre compte.",
+    "bannerResend": "Renvoyer l'email",
+    "bannerSending": "Envoi…",
+    "bannerSent": "Email envoyé",
+    "loadingTitle": "Vérification en cours…",
+    "loadingDesc": "Nous confirmons votre adresse email, un instant.",
+    "successTitle": "Adresse confirmée !",
+    "successDesc": "Merci, votre adresse email est désormais vérifiée.",
+    "successCta": "Aller à mon compte",
+    "errorTitle": "Lien invalide ou expiré",
+    "errorDesc": "Ce lien de vérification n'est plus valide. Connectez-vous et demandez un nouvel email depuis le bandeau.",
+    "errorCta": "Aller à mon compte"
   },
   "notFound": {
     "title": "Le fil s'est perdu…",
@@ -413,8 +441,6 @@
     "cgvDesc": "Conditions générales de vente d'Au Point-Compté — boutique de broderie suisse.",
     "legalTitle": "Mentions légales",
     "legalDesc": "Mentions légales et informations sur l'éditeur du site Au Point-Compté.",
-    "returnTitle": "Politique de retour",
-    "returnDesc": "Droit de retour de 14 jours — conditions de retour et de remboursement.",
     "loginTitle": "Connexion",
     "registerTitle": "Inscription",
     "accountTitle": "Mon compte",

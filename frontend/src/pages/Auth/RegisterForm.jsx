@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { Eye, EyeOff, AlertCircle, UserPlus } from 'lucide-react'
 import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../../contexts/AuthContext.jsx'
+import AuthField from './AuthField.jsx'
 import s from './AuthForm.module.css'
 
 function buildSchema(t) {
@@ -35,10 +36,16 @@ export default function RegisterForm() {
   const [globalError,   setGlobalError]   = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, setFocus, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(buildSchema(t)),
     defaultValues: { cgv: false },
   })
+
+  /* Focus programmatique sur le 1er champ en erreur à la soumission (WCAG) */
+  const onInvalid = (formErrors) => {
+    const first = Object.keys(formErrors)[0]
+    if (first) setFocus(first)
+  }
 
   const handleGoogleLogin = async ({ credential }) => {
     if (!credential) return
@@ -82,113 +89,90 @@ export default function RegisterForm() {
       {/* Erreur globale */}
       {globalError && (
         <div className={s.globalError} role="alert">
-          <AlertCircle size={16} />
+          <AlertCircle size={16} aria-hidden="true" />
           {globalError}
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className={s.form}>
+      {/* Légende champs obligatoires */}
+      <p className={s.requiredLegend}>
+        {t('form.requiredLegend')} <span className={s.requiredMark} aria-hidden="true">*</span> {t('form.requiredMark')}.
+      </p>
+
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate className={s.form}>
 
         {/* Prénom + Nom */}
         <div className={s.row}>
-          <div className={s.field}>
-            <label htmlFor="reg-first-name" className={s.label}>{t('auth.firstName')}</label>
-            <input
-              id="reg-first-name"
-              type="text"
-              autoComplete="given-name"
-              placeholder={t('auth.firstNamePlaceholder')}
-              className={`${s.input} ${errors.first_name ? s.error : ''}`}
-              {...register('first_name')}
-            />
-            {errors.first_name && (
-              <span className={s.fieldError}><AlertCircle size={12} />{errors.first_name.message}</span>
-            )}
-          </div>
-
-          <div className={s.field}>
-            <label htmlFor="reg-last-name" className={s.label}>{t('auth.lastName')}</label>
-            <input
-              id="reg-last-name"
-              type="text"
-              autoComplete="family-name"
-              placeholder={t('auth.lastNamePlaceholder')}
-              className={`${s.input} ${errors.last_name ? s.error : ''}`}
-              {...register('last_name')}
-            />
-            {errors.last_name && (
-              <span className={s.fieldError}><AlertCircle size={12} />{errors.last_name.message}</span>
-            )}
-          </div>
+          <AuthField id="reg-first-name" name="first_name" required register={register} t={t}
+            label={t('auth.firstName')} error={errors.first_name}
+            type="text" autoComplete="given-name" placeholder={t('auth.firstNamePlaceholder')} />
+          <AuthField id="reg-last-name" name="last_name" required register={register} t={t}
+            label={t('auth.lastName')} error={errors.last_name}
+            type="text" autoComplete="family-name" placeholder={t('auth.lastNamePlaceholder')} />
         </div>
 
         {/* Email */}
-        <div className={s.field}>
-          <label htmlFor="reg-email" className={s.label}>{t('auth.email')}</label>
-          <input
-            id="reg-email"
-            type="email"
-            autoComplete="email"
-            placeholder={t('auth.emailPlaceholder')}
-            className={`${s.input} ${errors.email ? s.error : ''}`}
-            {...register('email')}
-          />
-          {errors.email && (
-            <span className={s.fieldError}><AlertCircle size={12} />{errors.email.message}</span>
-          )}
-        </div>
+        <AuthField id="reg-email" name="email" required register={register} t={t}
+          label={t('auth.email')} error={errors.email}
+          type="email" autoComplete="email" placeholder={t('auth.emailPlaceholder')} />
 
         {/* Mot de passe */}
-        <div className={s.field}>
-          <label htmlFor="reg-password" className={s.label}>{t('auth.password')}</label>
-          <div className={s.inputWrap}>
-            <input
-              id="reg-password"
-              type={showPwd ? 'text' : 'password'}
-              autoComplete="new-password"
-              placeholder={t('auth.passwordPlaceholder')}
-              className={`${s.input} ${s.withEye} ${errors.password ? s.error : ''}`}
-              {...register('password')}
-            />
-            <button
-              type="button"
-              className={s.eyeBtn}
-              onClick={() => setShowPwd(p => !p)}
-              aria-label={showPwd ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-            >
-              {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-          {errors.password && (
-            <span className={s.fieldError}><AlertCircle size={12} />{errors.password.message}</span>
+        <AuthField id="reg-password" name="password" required t={t}
+          label={t('auth.password')} error={errors.password}>
+          {({ errorId }) => (
+            <>
+              <div className={s.inputWrap}>
+                <input
+                  id="reg-password"
+                  type={showPwd ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  placeholder={t('auth.passwordPlaceholder')}
+                  className={`${s.input} ${s.withEye} ${errors.password ? s.error : ''}`}
+                  aria-invalid={errors.password ? 'true' : undefined}
+                  aria-describedby={`reg-password-hint${errorId ? ` ${errorId}` : ''}`}
+                  {...register('password')}
+                />
+                <button
+                  type="button"
+                  className={s.eyeBtn}
+                  onClick={() => setShowPwd(p => !p)}
+                  aria-label={showPwd ? t('auth.hidePassword') : t('auth.showPassword')}
+                >
+                  {showPwd ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+                </button>
+              </div>
+              {/* Indication de format — toujours visible pour guider la saisie */}
+              <p id="reg-password-hint" className={s.fieldHint}>{t('auth.passwordHint')}</p>
+            </>
           )}
-        </div>
+        </AuthField>
 
         {/* Confirmation mot de passe */}
-        <div className={s.field}>
-          <label htmlFor="reg-password-confirm" className={s.label}>{t('auth.passwordConfirm')}</label>
-          <div className={s.inputWrap}>
-            <input
-              id="reg-password-confirm"
-              type={showPwd2 ? 'text' : 'password'}
-              autoComplete="new-password"
-              placeholder={t('auth.passwordConfirmPlaceholder')}
-              className={`${s.input} ${s.withEye} ${errors.password_confirm ? s.error : ''}`}
-              {...register('password_confirm')}
-            />
-            <button
-              type="button"
-              className={s.eyeBtn}
-              onClick={() => setShowPwd2(p => !p)}
-              aria-label={showPwd2 ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-            >
-              {showPwd2 ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-          {errors.password_confirm && (
-            <span className={s.fieldError}><AlertCircle size={12} />{errors.password_confirm.message}</span>
+        <AuthField id="reg-password-confirm" name="password_confirm" required t={t}
+          label={t('auth.passwordConfirm')} error={errors.password_confirm}>
+          {({ errorId }) => (
+            <div className={s.inputWrap}>
+              <input
+                id="reg-password-confirm"
+                type={showPwd2 ? 'text' : 'password'}
+                autoComplete="new-password"
+                placeholder={t('auth.passwordConfirmPlaceholder')}
+                className={`${s.input} ${s.withEye} ${errors.password_confirm ? s.error : ''}`}
+                aria-invalid={errors.password_confirm ? 'true' : undefined}
+                aria-describedby={errorId}
+                {...register('password_confirm')}
+              />
+              <button
+                type="button"
+                className={s.eyeBtn}
+                onClick={() => setShowPwd2(p => !p)}
+                aria-label={showPwd2 ? t('auth.hidePassword') : t('auth.showPassword')}
+              >
+                {showPwd2 ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+              </button>
+            </div>
           )}
-        </div>
+        </AuthField>
 
         {/* Acceptation CGV */}
         <div className={s.field}>
@@ -197,15 +181,20 @@ export default function RegisterForm() {
               id="reg-cgv"
               type="checkbox"
               className={s.checkbox}
+              aria-invalid={errors.cgv ? 'true' : undefined}
+              aria-describedby={errors.cgv ? 'reg-cgv-error' : undefined}
               {...register('cgv')}
             />
             <label htmlFor="reg-cgv" className={s.cgvLabel}>
               {t('auth.cgvAccept')}{' '}
               <Link to="/cgv">{t('auth.cgvLink')}</Link>
+              <span className={s.requiredMark} aria-hidden="true"> *</span>
             </label>
           </div>
           {errors.cgv && (
-            <span className={s.fieldError}><AlertCircle size={12} />{errors.cgv.message}</span>
+            <span id="reg-cgv-error" className={s.fieldError} role="alert">
+              <AlertCircle size={12} aria-hidden="true" />{errors.cgv.message}
+            </span>
           )}
         </div>
 

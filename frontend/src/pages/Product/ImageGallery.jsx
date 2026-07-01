@@ -49,7 +49,7 @@ export default function ImageGallery({ images = [], productName = '', fallbackIc
             alt={images[active].alt ?? productName}
             className={s.mainImg}
             width="600"
-            height="800"
+            height="600"
             srcSet={[
               images[active].url_medium && `${images[active].url_medium} 600w`,
               images[active].url_large  && `${images[active].url_large} 1200w`,
@@ -116,8 +116,8 @@ export default function ImageGallery({ images = [], productName = '', fallbackIc
               <img
                 src={img.url}
                 alt={img.alt ?? `${productName} ${i + 1}`}
-                width="80"
-                height="107"
+                width="72"
+                height="72"
                 loading="lazy"
               />
             </button>

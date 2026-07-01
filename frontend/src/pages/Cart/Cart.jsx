@@ -6,9 +6,7 @@ import {
   Minus,
   Plus,
   Trash2,
-  ShoppingBag,
   Lock,
-  RotateCcw,
 } from "lucide-react";
 import { useCart } from "../../contexts/CartContext.jsx";
 import { roundCHF } from "../../utils/chf.js";
@@ -197,10 +195,6 @@ export default function Cart() {
               <div className={s.reassuranceItem}>
                 <Lock size={14} />
                 <span>{t("cart.securePayment")}</span>
-              </div>
-              <div className={s.reassuranceItem}>
-                <RotateCcw size={14} />
-                <span>{t("cart.freeReturn")}</span>
               </div>
             </div>
           </aside>

@@ -644,6 +644,65 @@ async function sendPickupReady({ user, order }) {
   });
 }
 
+// Email de vérification d'adresse (double opt-in) — envoyé à l'inscription
+async function sendEmailVerification({ user, verifyToken }) {
+  const locale = user.locale ?? 'fr';
+  const verifyUrl = `${BASE_URL}/verifier-email?token=${verifyToken}`;
+
+  const subjects = {
+    fr: 'Confirmez votre adresse email — Au Point-Compté',
+    de: 'Bestätigen Sie Ihre E-Mail-Adresse — Au Point-Compté',
+    en: 'Confirm your email address — Au Point-Compté',
+  };
+
+  const titles = {
+    fr: 'Confirmez votre adresse email',
+    de: 'Bestätigen Sie Ihre E-Mail-Adresse',
+    en: 'Confirm your email address',
+  };
+
+  const intros = {
+    fr: `Bienvenue chez Au Point-Compté ! Pour finaliser votre inscription, confirmez votre
+         adresse email en cliquant sur le bouton ci-dessous. Ce lien est valable <strong>24 heures</strong>.`,
+    de: `Willkommen bei Au Point-Compté! Um Ihre Registrierung abzuschliessen, bestätigen Sie Ihre
+         E-Mail-Adresse über die Schaltfläche unten. Dieser Link ist <strong>24 Stunden</strong> gültig.`,
+    en: `Welcome to Au Point-Compté! To complete your registration, confirm your email address
+         using the button below. This link is valid for <strong>24 hours</strong>.`,
+  };
+
+  const btnLabels = {
+    fr: 'Confirmer mon adresse email',
+    de: 'Meine E-Mail-Adresse bestätigen',
+    en: 'Confirm my email address',
+  };
+
+  const ignoreNotes = {
+    fr: `Si vous n'êtes pas à l'origine de cette inscription, ignorez simplement cet email.`,
+    de: `Wenn Sie diese Registrierung nicht veranlasst haben, ignorieren Sie diese E-Mail einfach.`,
+    en: `If you did not create this account, simply ignore this email.`,
+  };
+
+  const body = `
+    <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+      ${titles[locale] ?? titles.fr}
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
+      ${intros[locale] ?? intros.fr}
+    </p>
+    ${btn(verifyUrl, btnLabels[locale] ?? btnLabels.fr)}
+    <p style="margin:24px 0 0;font-size:12px;color:#9D6480;line-height:1.7;">
+      ${ignoreNotes[locale] ?? ignoreNotes.fr}
+    </p>
+  `;
+
+  await transporter.sendMail({
+    from:    FROM,
+    to:      user.email,
+    subject: subjects[locale] ?? subjects.fr,
+    html:    layout(body, locale),
+  });
+}
+
 module.exports = {
   sendWelcome,
   sendOrderConfirmation,
@@ -653,4 +712,5 @@ module.exports = {
   sendMigrationWelcome,
   sendInvoice,
   sendPickupReady,
+  sendEmailVerification,
 };

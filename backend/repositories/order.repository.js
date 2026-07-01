@@ -1,7 +1,9 @@
 const { pool } = require('../config/db');
 
 // Création d'une commande — transaction atomique (stock + commande + items + coupon + paiement)
-const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null, locale = 'fr' }) => {
+const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, billingAddress = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null, locale = 'fr' }) => {
+  // L'adresse de facturation par défaut est identique à la livraison
+  const billing = billingAddress ?? address;
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -26,19 +28,31 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
       );
     }
 
-    // Création de la commande avec adresse de livraison figée
+    // Création de la commande avec adresses de livraison ET de facturation figées (noms inclus)
     const [orderResult] = await connection.execute(
       `INSERT INTO orders
          (user_id, status, subtotal, discount, coupon_code, shipping_cost, tax_amount, total, qr_reference,
-          shipping_street, shipping_city, shipping_zip, shipping_country, shipping_canton)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          shipping_first_name, shipping_last_name,
+          shipping_street, shipping_city, shipping_zip, shipping_country, shipping_canton,
+          billing_first_name, billing_last_name,
+          billing_street, billing_city, billing_zip, billing_country, billing_canton)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId, status, subtotal, discount, couponCode, shippingCost, taxAmount, total, qrReference,
+        address?.first_name ?? null,
+        address?.last_name  ?? null,
         address?.street  ?? null,
         address?.city    ?? null,
         address?.zip     ?? null,
         address?.country ?? 'CH',
         address?.canton  ?? null,
+        billing?.first_name ?? null,
+        billing?.last_name  ?? null,
+        billing?.street  ?? null,
+        billing?.city    ?? null,
+        billing?.zip     ?? null,
+        billing?.country ?? 'CH',
+        billing?.canton  ?? null,
       ]
     );
     const orderId = orderResult.insertId;
@@ -144,9 +158,12 @@ const findById = async (orderId, userId = null) => {
     `SELECT o.id, o.status, o.subtotal, o.discount, o.coupon_code, o.shipping_cost, o.tax_amount, o.total,
             o.qr_reference,
             o.created_at, o.updated_at, o.user_id,
+            o.shipping_first_name, o.shipping_last_name,
             o.shipping_street AS street, o.shipping_city AS city,
             o.shipping_zip    AS zip,    o.shipping_country AS country,
             o.shipping_canton AS canton,
+            o.billing_first_name, o.billing_last_name,
+            o.billing_street, o.billing_city, o.billing_zip, o.billing_country, o.billing_canton,
             o.tracking_number, o.label_url, o.label_id,
             u.first_name, u.last_name, u.email
      FROM orders o

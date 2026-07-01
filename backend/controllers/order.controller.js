@@ -1,3 +1,4 @@
+const { z }           = require('zod');
 const orderService    = require('../services/order.service');
 const orderRepository = require('../repositories/order.repository');
 const userRepository  = require('../repositories/user.repository');
@@ -5,14 +6,43 @@ const invoiceService  = require('../services/invoice.service');
 const { AppError }    = require('../middlewares/errorHandler');
 const { localeFromRequest } = require('../utils/locale.utils');
 
+// Cantons suisses officiels (2 lettres) — validation stricte de l'adresse
+const SWISS_CANTONS = ['AG','AI','AR','BE','BL','BS','FR','GE','GL','GR','JU','LU','NE','NW','OW','SG','SH','SO','SZ','TG','TI','UR','VD','VS','ZG','ZH'];
+
+// Schéma d'adresse figée à la commande — validé côté serveur (jamais faire confiance au client)
+const addressSchema = z.object({
+  first_name: z.string().trim().min(1).max(100),
+  last_name:  z.string().trim().min(1).max(100),
+  street:     z.string().trim().min(1).max(255),
+  zip:        z.string().regex(/^\d{4}$/),
+  city:       z.string().trim().min(1).max(100),
+  canton:     z.enum(SWISS_CANTONS),
+  phone:      z.string().trim().max(30).optional(),
+});
+
+const createOrderSchema = z.object({
+  payment_method:  z.string().optional(),
+  coupon_code:     z.string().optional().nullable(),
+  address:         addressSchema,
+  // Adresse de facturation optionnelle — si absente, identique à la livraison
+  billing_address: addressSchema.optional().nullable(),
+  items:           z.any(),
+});
+
 const createOrder = async (req, res, next) => {
   try {
-    const userId        = req.user.id;
-    const sessionId     = req.cookies?.cartSession || null;
-    const paymentMethod = req.body?.payment_method || 'twint';
-    const couponCode    = req.body?.coupon_code?.trim() || null;
-    const address       = req.body?.address ?? null;
-    const order = await orderService.createOrder({ userId, sessionId, paymentMethod, couponCode, address, locale: localeFromRequest(req) });
+    const parsed = createOrderSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, message: 'Données de commande invalides.' });
+    }
+
+    const userId         = req.user.id;
+    const sessionId      = req.cookies?.cartSession || null;
+    const paymentMethod  = parsed.data.payment_method || 'twint';
+    const couponCode     = parsed.data.coupon_code?.trim() || null;
+    const address        = parsed.data.address;
+    const billingAddress = parsed.data.billing_address ?? null;
+    const order = await orderService.createOrder({ userId, sessionId, paymentMethod, couponCode, address, billingAddress, locale: localeFromRequest(req) });
     res.status(201).json({ success: true, data: order });
   } catch (error) {
     next(error);

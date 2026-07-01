@@ -1,4 +1,10 @@
 {
+  "form": {
+    "requiredLegend": "Fields marked with an asterisk",
+    "requiredMark": "are required",
+    "optional": "optional",
+    "requiredField": "required"
+  },
   "nav": {
     "home": "Home",
     "collections": "Collections",
@@ -9,6 +15,9 @@
     "contact": "Contact",
     "search": "Search",
     "account": "My Account",
+    "wishlist": "My wishlist",
+    "wishlistItems": "Wishlist — {{count}} item",
+    "wishlistItems_other": "Wishlist — {{count}} items",
     "cart": "Cart",
     "cartItems": "Cart — {{count}} item",
     "cartItems_other": "Cart — {{count}} items"
@@ -38,7 +47,6 @@
   },
   "advantages": {
     "shipping": { "title": "Fast delivery",    "desc": "1–2 days in Switzerland via Swiss Post" },
-    "returns":  { "title": "14-day returns",   "desc": "Satisfied or refunded, no questions asked" },
     "payment":  { "title": "Secure payment",   "desc": "Twint and credit card — 100% secure" },
     "packaging":{ "title": "Careful packaging","desc": "Every order packed with love" }
   },
@@ -124,11 +132,9 @@
     "helpLinks": {
       "account": "My account",
       "tracking": "Order tracking",
-      "delivery": "Delivery & returns",
       "faq": "FAQ",
       "cgv": "Terms & Conditions",
-      "legal": "Legal notice",
-      "returns": "Return policy"
+      "legal": "Legal notice"
     },
     "copyright": "© 2026 Au Point-Compté — Lausanne, Switzerland 🇨🇭 · Hosted by Infomaniak"
   },
@@ -172,7 +178,8 @@
       "labelRequired": "Label required",
       "streetRequired": "Street required",
       "zipInvalid": "Swiss postcode (4 digits)",
-      "cityRequired": "City required"
+      "cityRequired": "City required",
+      "cantonRequired": "Canton required"
     }
   },
   "errors": {
@@ -215,10 +222,11 @@
     "cityPlaceholder": "Lausanne",
     "canton": "Canton",
     "cantonPlaceholder": "VD",
+    "cantonSelect": "Select a canton",
     "country": "Country",
     "countrySwitzerland": "Switzerland",
-    "phone": "Phone (optional)",
-    "phonePlaceholder": "+41 21 601 XX XX",
+    "phone": "Phone",
+    "phonePlaceholder": "+41 79 XXX XX XX",
     "continueToSummary": "Continue",
     "summaryTitle": "Order summary",
     "product": "Product",
@@ -258,6 +266,7 @@
       "zipRequired": "Postcode is required",
       "zipInvalid": "Invalid Swiss postcode (4 digits)",
       "cityRequired": "City is required",
+      "cantonRequired": "Canton is required",
       "cgvRequired": "You must accept the Terms & Conditions",
       "paymentRequired": "Please choose a payment method",
       "generic": "An error occurred. Please try again.",
@@ -276,6 +285,9 @@
     "payAmount": "Pay CHF {{amount}}",
     "cardSecured": "Secure payment via Stripe · Visa, Mastercard accepted",
     "deliveryTo": "Delivery to:",
+    "billingTo": "Billing to:",
+    "billingSame": "Billing address is the same as the delivery address",
+    "billingTitle": "Billing address",
     "twintTitle": "Pay with Twint",
     "twintPay": "Pay CHF {{amount}} with your Twint app. You will be redirected to confirm the payment.",
     "couponInvalid": "Invalid code."
@@ -299,7 +311,6 @@
     "total": "Total",
     "checkout": "Proceed to checkout",
     "securePayment": "100% secure payment",
-    "freeReturn": "14-day return policy",
     "itemAdded": "Item added to cart",
     "viewCart": "View cart",
     "addFailed": "Could not add the item. Please try again."
@@ -313,6 +324,7 @@
     "emailPlaceholder": "your@email.ch",
     "password": "Password",
     "passwordPlaceholder": "Your password",
+    "passwordHint": "At least 8 characters.",
     "passwordConfirm": "Confirm password",
     "passwordConfirmPlaceholder": "Repeat your password",
     "firstName": "First name",
@@ -322,6 +334,8 @@
     "loginCta": "Sign in",
     "registerCta": "Create my account",
     "forgotPassword": "Forgot your password?",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "noAccount": "Don't have an account?",
     "alreadyAccount": "Already have an account?",
     "signUp": "Sign up",
@@ -360,6 +374,20 @@
       "generic": "An error occurred. Please try again.",
       "googleFailed": "Google sign-in failed. Please try again."
     }
+  },
+  "emailVerify": {
+    "bannerText": "Confirm your email address to secure your account.",
+    "bannerResend": "Resend email",
+    "bannerSending": "Sending…",
+    "bannerSent": "Email sent",
+    "loadingTitle": "Verifying…",
+    "loadingDesc": "We're confirming your email address, one moment.",
+    "successTitle": "Address confirmed!",
+    "successDesc": "Thank you, your email address is now verified.",
+    "successCta": "Go to my account",
+    "errorTitle": "Invalid or expired link",
+    "errorDesc": "This verification link is no longer valid. Sign in and request a new email from the banner.",
+    "errorCta": "Go to my account"
   },
   "notFound": {
     "title": "The thread got lost…",
@@ -413,8 +441,6 @@
     "cgvDesc": "Terms and conditions of Au Point-Compté — Swiss embroidery shop.",
     "legalTitle": "Legal notice",
     "legalDesc": "Legal notice and information about the publisher of the Au Point-Compté website.",
-    "returnTitle": "Return policy",
-    "returnDesc": "14-day return policy — return and refund conditions.",
     "loginTitle": "Sign in",
     "registerTitle": "Sign up",
     "accountTitle": "My account",
