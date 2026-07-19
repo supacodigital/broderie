@@ -69,15 +69,11 @@ Sauvegardez (`Ctrl+O`, `Entrée`, `Ctrl+X` dans nano).
 
 ---
 
-## 3. Exécuter la migration MySQL
+## 3. Vérifier les tables MySQL
 
-La MFA a besoin de deux nouvelles tables (`user_mfa`, `user_mfa_recovery_codes`). Comme toute migration
-du projet, elle s'exécute une seule fois, dans l'ordre :
-
-```bash
-cd ~/broderie/database
-sudo mysql broderie < migrations/011_add_mfa.sql
-```
+La MFA a besoin de deux tables (`user_mfa`, `user_mfa_recovery_codes`). Elles sont incluses dans
+`database/schema.sql` — l'import initial (`mysql broderie < schema.sql` sur la base neuve) les crée
+directement, rien de plus à faire.
 
 Vérification que les tables existent bien :
 
@@ -86,11 +82,6 @@ sudo mysql broderie -e "SHOW TABLES LIKE 'user_mfa%';"
 # Doit afficher : user_mfa
 #                 user_mfa_recovery_codes
 ```
-
-> Si vous déployez sur un **nouveau serveur** (base neuve, jamais migrée), inutile de lancer cette
-> migration séparément : `schema.sql` contient déjà les deux tables — l'import initial (`mysql broderie
-> < schema.sql`) les crée directement. Ne relancez `011_add_mfa.sql` que sur une base **déjà en place**
-> qui ne les a pas encore.
 
 ---
 

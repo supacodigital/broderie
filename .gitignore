@@ -49,5 +49,11 @@ coverage/
 *.bak
 
 # Documents commerciaux (devis) — hors dépôt de code
-DEVIS-MAINTENANCE.md
-DEVIS-MAINTENANCE.html
+docs/DEVIS-MAINTENANCE.md
+docs/DEVIS-MAINTENANCE.html
+
+# Documents client (CDC, rapports, suivis) — hors dépôt de code
+docs/client/
+
+# Exports volumineux — pas versionnés (source externe, régénérables)
+database/products_webdesigner.csv

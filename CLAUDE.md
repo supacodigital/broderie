@@ -81,7 +81,6 @@ server/
 
 database/
   schema.sql             # Tables complètes
-  seeds.sql              # Données de test
 ```
 
 ### Rôles & permissions
@@ -820,7 +819,6 @@ Tout doit être vert avant de mettre en production.
 
 ### Base de données
 - [ ] `schema.sql` à jour et exécutable de zéro sans erreur
-- [ ] `seeds.sql` fournit des données de test réalistes
 - [ ] Index créés et vérifiés avec `EXPLAIN` sur les requêtes fréquentes
 - [ ] Transactions testées sous charge concurrente
 - [ ] Soft delete vérifié — les produits/utilisateurs supprimés n'apparaissent pas en boutique

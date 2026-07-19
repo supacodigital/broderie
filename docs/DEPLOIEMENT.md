@@ -82,16 +82,14 @@ FLUSH PRIVILEGES;
 EXIT;
 ```
 
-Importer le schéma **puis les migrations dans l'ordre** :
+Importer le schéma (source unique, toujours à jour) :
 ```bash
 cd ~/broderie/database
 sudo mysql broderie < schema.sql
-for f in migrations/0*.sql; do echo "→ $f"; sudo mysql broderie < "$f"; done
-# (optionnel) données de démo : sudo mysql broderie < seeds.sql
 ```
 
 > ℹ️ **Reprise des données de l'ancien site : pas maintenant.** On démarre sur une base neuve
-> (schéma + migrations, éventuellement `seeds.sql` pour tester). La reprise des données réelles
+> (schéma seul, aucune donnée de démo). La reprise des données réelles
 > (produits, clients, commandes) et la migration des 1800 clients se feront **plus tard**, à
 > planifier avant ou pendant la bascule du domaine (§10).
 
@@ -409,7 +407,6 @@ cd ~/broderie && git pull origin main
 cd backend && npm ci --omit=dev && cd ..
 cd frontend && npm ci && npm run build && cd ..
 cd admin && npm ci && npm run build && cd ..
-# rejouer les nouvelles migrations si besoin (database/migrations/)
 pm2 reload broderie-api        # redémarrage zéro-downtime
 ```
 

@@ -55,11 +55,8 @@ export default function Login() {
   return (
     <div className={s.page}>
       <div className={s.card}>
-        <div className={s.logoWrap}>
-          <span className={s.logo}>✦</span>
-        </div>
+        <img src="/admin/logo.png" alt="Au Point-Compté" className={s.logo} width={180} height={90} />
         <h1 className={s.title}>Administration</h1>
-        <p className={s.subtitle}>Au Point-Compté</p>
 
         {globalError && (
           <div className={s.alert} role="alert">
@@ -70,7 +67,7 @@ export default function Login() {
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className={s.form}>
           <div className={s.field}>
-            <label htmlFor="email" className={s.label}>Adresse e-mail</label>
+            <label htmlFor="email" className={s.label}>Identifiant</label>
             <input
               id="email"
               type="email"

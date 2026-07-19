@@ -172,6 +172,25 @@ CREATE TABLE tax_rates (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
+-- PARAMÈTRES BOUTIQUE (clé/valeur)
+-- ============================================================
+CREATE TABLE settings (
+  `key`      VARCHAR(100) NOT NULL,
+  `value`    TEXT         NULL,
+  updated_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO settings (`key`, `value`) VALUES
+  ('store_name',       'Broderie & Cie'),
+  ('store_email',      ''),
+  ('store_phone',      ''),
+  ('store_address',    ''),
+  ('cgv',              ''),
+  ('mentions_legales', ''),
+  ('politique_retour', '');
+
+-- ============================================================
 -- CATÉGORIES
 -- ============================================================
 CREATE TABLE categories (
