@@ -151,7 +151,7 @@ Stack : Node.js + Express | MySQL (raw queries) | JWT | Multer + Sharp | node-ca
 
 ## Admin — /api/v1/admin
 
-> Toutes les routes admin requièrent `requireAuth` + `requireRole('admin', 'super_admin')`
+> Toutes les routes admin requièrent `requireAuth` + `requireRole('admin')`
 
 ### Produits
 

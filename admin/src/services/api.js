@@ -27,6 +27,9 @@ api.interceptors.response.use(
     /* Ne pas intercepter les appels vers refresh-token eux-mêmes (évite la boucle infinie) */
     if (original.url?.includes('/auth/refresh-token')) return Promise.reject(error)
     if (original.url?.includes('/auth/login'))          return Promise.reject(error)
+    /* MFA pending n'a pas de session à rafraîchir — aucun cookie refresh tant que le
+       second facteur n'est pas validé (voir auth.service.js côté backend) */
+    if (original.url?.includes('/mfa/'))                return Promise.reject(error)
 
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true

@@ -10,6 +10,8 @@ require('dotenv').config(); // complète les variables non déjà définies (ne 
 const REQUIRED_ENV = [
   'JWT_ACCESS_SECRET',
   'JWT_REFRESH_SECRET',
+  'JWT_MFA_PENDING_SECRET',
+  'MFA_ENCRYPTION_KEY',
   'DB_HOST',
   'DB_NAME',
   'DB_USER',
@@ -18,6 +20,13 @@ const REQUIRED_ENV = [
 const missingEnv = REQUIRED_ENV.filter(k => !process.env[k]);
 if (missingEnv.length > 0) {
   console.error(`[ERREUR DÉMARRAGE] Variables d'environnement manquantes : ${missingEnv.join(', ')}`);
+  process.exit(1);
+}
+
+/* MFA_ENCRYPTION_KEY doit faire exactement 32 bytes (64 caractères hex) pour AES-256-GCM —
+   échec explicite au démarrage plutôt qu'une erreur de chiffrement silencieuse en production. */
+if (!/^[0-9a-fA-F]{64}$/.test(process.env.MFA_ENCRYPTION_KEY)) {
+  console.error('[ERREUR DÉMARRAGE] MFA_ENCRYPTION_KEY doit être une chaîne hexadécimale de 64 caractères (32 bytes). Générer avec : node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
   process.exit(1);
 }
 
@@ -131,6 +140,7 @@ app.get('/health', (req, res) => {
 
 // Routes API
 app.use('/api/v1/auth', require('./routes/auth.routes'));
+app.use('/api/v1/mfa',  require('./routes/mfa.routes'));
 app.use('/api/v1/products', require('./routes/products.routes'));
 app.use('/api/v1/categories', require('./routes/categories.routes'));
 app.use('/api/v1/cart', require('./routes/cart.routes'));
@@ -174,6 +184,7 @@ const PORT = process.env.PORT || 3000;
 
 const ROUTES = [
   { path: '/api/v1/auth',              label: 'Auth'         },
+  { path: '/api/v1/mfa',               label: 'MFA'          },
   { path: '/api/v1/products',          label: 'Produits'     },
   { path: '/api/v1/categories',        label: 'Catégories'   },
   { path: '/api/v1/cart',              label: 'Panier'       },

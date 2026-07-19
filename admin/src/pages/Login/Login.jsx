@@ -25,8 +25,19 @@ export default function Login() {
   const onSubmit = async (data) => {
     setGlobalError('')
     try {
-      const user = await login(data)
-      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+      const result = await login(data)
+
+      if (result?.mfaRequired === 'setup') {
+        navigate('/mfa/configuration', { replace: true })
+        return
+      }
+      if (result?.mfaRequired === 'verify') {
+        navigate('/mfa/verification', { replace: true })
+        return
+      }
+
+      const user = result
+      if (!user || user.role !== 'admin') {
         setGlobalError('Accès réservé aux administrateurs.')
         return
       }

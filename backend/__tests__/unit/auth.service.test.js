@@ -1,6 +1,7 @@
 // Tests unitaires auth.service — tous les repositories et services externes mockés
 
 jest.mock('../../repositories/user.repository');
+jest.mock('../../repositories/mfa.repository');
 jest.mock('../../services/email.service');
 // Mock Google client comme objet (jamais null) pour pouvoir surcharger verifyIdToken par test
 jest.mock('../../config/google', () => ({ verifyIdToken: jest.fn() }));
@@ -8,6 +9,7 @@ jest.mock('bcrypt');
 jest.mock('jsonwebtoken');
 
 const userRepository = require('../../repositories/user.repository');
+const mfaRepository  = require('../../repositories/mfa.repository');
 const emailService   = require('../../services/email.service');
 const bcrypt         = require('bcrypt');
 const jwt            = require('jsonwebtoken');
@@ -99,6 +101,58 @@ describe('auth.service — login()', () => {
 
     expect(result.accessToken).toBe('access');
     expect(result.user.email).toBe('test@broderie.ch');
+  });
+
+  // ── Non-régression : role client jamais concerné par la MFA ──
+  test('role client : retourne tokens finaux directs, sans jamais consulter mfaRepository', async () => {
+    userRepository.findByEmail.mockResolvedValue(makeUser({ role: 'client' }));
+    bcrypt.compare.mockResolvedValue(true);
+    jwt.sign.mockReturnValueOnce('access').mockReturnValueOnce('refresh');
+
+    const result = await authService.login({ email: 'test@broderie.ch', password: 'Test1234!' });
+
+    expect(result.accessToken).toBe('access');
+    expect(result.refreshToken).toBe('refresh');
+    expect(result.mfaRequired).toBeUndefined();
+    expect(mfaRepository.findByUserId).not.toHaveBeenCalled();
+  });
+
+  // ── Bifurcation MFA : rôle admin ──
+  test('role admin sans MFA configurée : retourne mfaRequired "setup", jamais de tokens finaux', async () => {
+    userRepository.findByEmail.mockResolvedValue(makeUser({ role: 'admin' }));
+    bcrypt.compare.mockResolvedValue(true);
+    mfaRepository.findByUserId.mockResolvedValue(null);
+    jwt.sign.mockReturnValue('mfa_pending_token');
+
+    const result = await authService.login({ email: 'admin@broderie.ch', password: 'Test1234!' });
+
+    expect(result.mfaRequired).toBe('setup');
+    expect(result.mfaPendingToken).toBe('mfa_pending_token');
+    expect(result.accessToken).toBeUndefined();
+    expect(result.refreshToken).toBeUndefined();
+  });
+
+  test('role admin avec MFA déjà activée : retourne mfaRequired "verify"', async () => {
+    userRepository.findByEmail.mockResolvedValue(makeUser({ role: 'admin' }));
+    bcrypt.compare.mockResolvedValue(true);
+    mfaRepository.findByUserId.mockResolvedValue({ id: 1, user_id: 1, enabled_at: new Date() });
+    jwt.sign.mockReturnValue('mfa_pending_token');
+
+    const result = await authService.login({ email: 'admin@broderie.ch', password: 'Test1234!' });
+
+    expect(result.mfaRequired).toBe('verify');
+    expect(result.accessToken).toBeUndefined();
+  });
+
+  test('mot de passe incorrect sur un compte admin : lève 401 avant toute consultation MFA', async () => {
+    userRepository.findByEmail.mockResolvedValue(makeUser({ role: 'admin' }));
+    bcrypt.compare.mockResolvedValue(false);
+
+    await expect(
+      authService.login({ email: 'admin@broderie.ch', password: 'mauvais' })
+    ).rejects.toMatchObject({ statusCode: 401 });
+
+    expect(mfaRepository.findByUserId).not.toHaveBeenCalled();
   });
 
   test('lève 401 si utilisateur introuvable', async () => {

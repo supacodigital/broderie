@@ -89,14 +89,13 @@ database/
 | Rôle | Accès |
 | --- | --- |
 | `client` | Boutique, son compte, ses commandes, son panier |
-| `admin` | Tout le back-office sauf gestion des comptes admin |
-| `super_admin` | Tout — y compris création/suppression comptes admin et migration clients |
+| `admin` | Tout le back-office |
 
 **Règles :**
 - Rôle stocké dans `users.role` — vérifié côté serveur à chaque requête via middleware `roles.js`
 - Jamais faire confiance au rôle envoyé par le client — toujours lire depuis le token JWT
-- Routes `/api/v1/admin/*` : middleware `requireRole('admin', 'super_admin')` obligatoire
-- Route migration `/api/v1/admin/migrations/*` : middleware `requireRole('super_admin')` uniquement
+- Routes `/api/v1/admin/*` : middleware `requireRole('admin')` obligatoire
+- Un seul compte admin en usage (Julie) — toute intervention BDD directe (support, cas exceptionnel) se fait manuellement sur le VPS, hors application
 
 ### Flux backend — obligatoire
 
@@ -461,7 +460,7 @@ GET    /api/v1/admin/reviews               # liste tous les avis (approuvés + e
 PUT    /api/v1/admin/reviews/:id/approve   # approuver un avis
 DELETE /api/v1/admin/reviews/:id           # supprimer un avis
 
-# Migration clients (super_admin uniquement)
+# Migration clients (admin uniquement)
 POST   /api/v1/admin/migrations/customers
 
 # Fidélité — client
@@ -487,7 +486,7 @@ Le client possède **1800 comptes** sur l'ancien site à importer.
 - Les mots de passe anciens ne sont pas récupérables → envoyer un email de réinitialisation à chaque client importé
 - Champs à mapper : email, prénom, nom, adresse(s), locale
 - Exécuter la migration **avant** la mise en production
-- Endpoint dédié : `POST /api/v1/admin/migrations/customers` (one-shot, protégé par rôle super-admin)
+- Endpoint dédié : `POST /api/v1/admin/migrations/customers` (one-shot, protégé par rôle admin)
 
 ---
 

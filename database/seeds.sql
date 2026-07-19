@@ -240,8 +240,7 @@ INSERT INTO shipping_rates (zone_id, name, min_weight, max_weight, price_chf, es
 -- Mot de passe pour tous : Test1234!
 -- Hash bcrypt salt rounds = 12
 INSERT INTO users (email, password_hash, first_name, last_name, role, locale, is_active) VALUES
-  -- Administrateurs
-  ('superadmin@broderie.ch',    '$2b$12$wvMubT5PYwPRyI.We8ua0eisSQo9JxFI7oVaF5YuA3v20BpolYg8m', 'Sophie',    'Meylan',   'super_admin', 'fr', 1),
+  -- Administratrice
   ('admin@broderie.ch',         '$2b$12$wvMubT5PYwPRyI.We8ua0eisSQo9JxFI7oVaF5YuA3v20BpolYg8m', 'Marc',      'Favre',    'admin',       'fr', 1),
   -- Clients francophones (Romandie)
   ('marie.dupont@gmail.com',    '$2b$12$wvMubT5PYwPRyI.We8ua0eisSQo9JxFI7oVaF5YuA3v20BpolYg8m', 'Marie',     'Dupont',   'client',      'fr', 1),

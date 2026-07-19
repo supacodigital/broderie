@@ -17,9 +17,9 @@ const settingsController        = require('../controllers/admin/settings.control
 const shippingAdminController   = require('../controllers/admin/shipping.controller');
 const { upload } = require('../middlewares/upload');
 
-// Toutes les routes admin nécessitent auth + rôle admin ou super_admin
+// Toutes les routes admin nécessitent auth + rôle admin
 router.use(requireAuth);
-router.use(requireRole('admin', 'super_admin'));
+router.use(requireRole('admin'));
 
 // Dashboard
 router.get('/dashboard/stats', dashboardController.getStats);

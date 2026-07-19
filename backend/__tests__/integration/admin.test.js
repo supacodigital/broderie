@@ -1,6 +1,7 @@
 require('dotenv').config();
 const request = require('supertest');
 const app = require('../../app');
+const { computeTotp } = require('../helpers/totp.helper');
 
 // ── Helpers partagés ──────────────────────────────────────────────────────────
 
@@ -21,11 +22,27 @@ const getAdminToken = async () => {
 
   await pool.execute(`UPDATE users SET role = 'admin' WHERE email = ?`, [email]);
 
+  // MFA obligatoire pour un compte admin — le login ne retourne plus les tokens
+  // finaux directement, il faut dérouler le setup complet (voir mfa.test.js pour
+  // le détail du flux, testé de façon exhaustive).
   const loginRes = await request(app)
     .post('/api/v1/auth/login')
     .send({ email, password });
 
-  _adminToken = loginRes.body.data.accessToken;
+  const mfaPendingToken = loginRes.body.data.mfaPendingToken;
+
+  const initRes = await request(app)
+    .post('/api/v1/mfa/setup/init')
+    .set('Authorization', `Bearer ${mfaPendingToken}`);
+
+  const code = computeTotp(initRes.body.data.manualEntryKey);
+
+  const confirmRes = await request(app)
+    .post('/api/v1/mfa/setup/confirm')
+    .set('Authorization', `Bearer ${mfaPendingToken}`)
+    .send({ code });
+
+  _adminToken = confirmRes.body.data.accessToken;
   return _adminToken;
 };
 

@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const userRepository = require('../repositories/user.repository');
+const mfaRepository = require('../repositories/mfa.repository');
 const { AppError } = require('../middlewares/errorHandler');
 const emailService = require('./email.service');
 const googleClient = require('../config/google');
@@ -24,6 +25,18 @@ const generateRefreshToken = (user) => {
     { id: user.id },
     env.jwtRefreshSecret,
     { expiresIn: env.jwtRefreshExpiresIn }
+  );
+};
+
+// Token intermédiaire "MFA en attente" — secret DÉDIÉ, distinct de jwtAccessSecret/jwtRefreshSecret.
+// Un token signé avec ce secret ne peut jamais être accepté par requireAuth (échec de
+// signature), ce qui rend le bypass du second facteur impossible plutôt que dépendant
+// d'un flag applicatif à vérifier partout.
+const generateMfaPendingToken = (user) => {
+  return jwt.sign(
+    { id: user.id, purpose: 'mfa_pending' },
+    env.jwtMfaPendingSecret,
+    { expiresIn: env.jwtMfaPendingExpiresIn }
   );
 };
 
@@ -124,6 +137,21 @@ const login = async ({ email, password }) => {
   const passwordValid = await bcrypt.compare(password, user.password_hash);
   if (!passwordValid) {
     throw new AppError('Email ou mot de passe incorrect.', 401);
+  }
+
+  // MFA obligatoire pour le rôle admin — jamais pour un compte client.
+  // Aucun cookie refresh n'est posé tant que le second facteur n'est pas validé :
+  // un attaquant en possession du seul mot de passe ne peut obtenir aucun artefact
+  // de session longue durée.
+  if (user.role === 'admin') {
+    const mfaRow = await mfaRepository.findByUserId(user.id);
+    const mfaPendingToken = generateMfaPendingToken(user);
+
+    return {
+      mfaRequired: mfaRow?.enabled_at ? 'verify' : 'setup',
+      mfaPendingToken,
+      user,
+    };
   }
 
   const accessToken = generateAccessToken(user);
@@ -256,4 +284,8 @@ const resetPassword = async (rawToken, newPassword) => {
   await userRepository.updatePassword(user.id, passwordHash);
 };
 
-module.exports = { register, login, loginWithGoogle, refreshToken, refreshCookieOptions, forgotPassword, resetPassword, verifyEmail, resendVerification };
+module.exports = {
+  register, login, loginWithGoogle, refreshToken, refreshCookieOptions,
+  forgotPassword, resetPassword, verifyEmail, resendVerification,
+  generateAccessToken, generateRefreshToken,
+};

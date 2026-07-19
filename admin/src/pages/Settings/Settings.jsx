@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText } from 'lucide-react'
+import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw } from 'lucide-react'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
+import RecoveryCodesModal from '../Mfa/RecoveryCodesModal.jsx'
+import { mfaGetStatus, mfaRegenerateRecoveryCodes } from '../../services/auth.service.js'
 import {
   getStoreSettings,
   updateStoreSettings,
@@ -416,12 +418,102 @@ function LegalTab() {
   )
 }
 
+/* ── Onglet Sécurité (MFA) ── */
+function SecurityTab() {
+  const [status,        setStatus]        = useState(null)
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState(false)
+  const [regenerating,  setRegenerating]  = useState(false)
+  const [regenError,    setRegenError]    = useState(false)
+  const [newCodes,      setNewCodes]      = useState(null)
+
+  const load = useCallback(async () => {
+    setError(false)
+    setLoading(true)
+    try {
+      const res = await mfaGetStatus()
+      setStatus(res.data)
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const handleRegenerate = async () => {
+    setRegenerating(true)
+    setRegenError(false)
+    try {
+      const res = await mfaRegenerateRecoveryCodes()
+      setNewCodes(res.data.recoveryCodes)
+    } catch {
+      setRegenError(true)
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  return (
+    <SettingsSection
+      title="Double authentification"
+      desc="La double authentification (MFA) est obligatoire pour tous les comptes administrateur."
+    >
+      {error && <ErrorBanner onRetry={load} />}
+      {loading ? (
+        <div className={s.skeletonRow}>
+          {[1, 2].map(i => <div key={i} className={s.skeleton} />)}
+        </div>
+      ) : (
+        <>
+          <div className={s.mfaStatusRow}>
+            <ShieldCheck size={18} className={status?.enabled ? s.mfaEnabledIcon : s.mfaDisabledIcon} />
+            <div>
+              <p className={s.mfaStatusLabel}>
+                {status?.enabled ? 'Double authentification activée' : 'Non activée'}
+              </p>
+              {status?.enabled && (
+                <p className={s.hint}>
+                  {status.recoveryCodesRemaining} code{status.recoveryCodesRemaining !== 1 ? 's' : ''} de récupération restant{status.recoveryCodesRemaining !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {status?.enabled && (
+            <>
+              {regenError && (
+                <div className={s.taxNote}>
+                  <AlertCircle size={13} />
+                  Impossible de régénérer les codes. Veuillez réessayer.
+                </div>
+              )}
+              <div className={s.formActions}>
+                <button className={s.btnSave} onClick={handleRegenerate} disabled={regenerating}>
+                  <RefreshCw size={14} />
+                  {regenerating ? 'Génération…' : 'Régénérer mes codes de récupération'}
+                </button>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {newCodes && (
+        <RecoveryCodesModal codes={newCodes} onContinue={() => { setNewCodes(null); load() }} />
+      )}
+    </SettingsSection>
+  )
+}
+
 /* ── Page principale ── */
 const TABS = [
-  { key: 'store',    label: 'Boutique',      icon: Store,    desc: 'Nom, email, téléphone'    },
-  { key: 'shipping', label: 'Livraison',     icon: Truck,    desc: 'Tarifs Swiss Post'         },
-  { key: 'tax',      label: 'TVA',           icon: Receipt,  desc: 'Taux AFC suisses'          },
-  { key: 'legal',    label: 'Textes légaux', icon: FileText, desc: 'CGV, mentions, retours'    },
+  { key: 'store',    label: 'Boutique',      icon: Store,       desc: 'Nom, email, téléphone'    },
+  { key: 'shipping', label: 'Livraison',     icon: Truck,       desc: 'Tarifs Swiss Post'         },
+  { key: 'tax',      label: 'TVA',           icon: Receipt,     desc: 'Taux AFC suisses'          },
+  { key: 'legal',    label: 'Textes légaux', icon: FileText,    desc: 'CGV, mentions, retours'    },
+  { key: 'security', label: 'Sécurité',      icon: ShieldCheck, desc: 'Double authentification'   },
 ]
 
 export default function Settings() {
@@ -457,6 +549,7 @@ export default function Settings() {
           {tab === 'shipping' && <ShippingTab />}
           {tab === 'tax'      && <TaxTab />}
           {tab === 'legal'    && <LegalTab />}
+          {tab === 'security' && <SecurityTab />}
         </div>
       </div>
     </div>

@@ -73,7 +73,29 @@ const login = async (req, res, next) => {
     }
 
     const { email, password } = parsed.data;
-    const { user, accessToken, refreshToken } = await authService.login({ email, password });
+    const result = await authService.login({ email, password });
+
+    // MFA requise (admin) — aucun cookie refresh tant que le second
+    // facteur n'est pas validé (voir POST /api/v1/mfa/verify ou /setup/confirm).
+    if (result.mfaRequired) {
+      return res.json({
+        success: true,
+        data: {
+          mfaRequired: result.mfaRequired,
+          mfaPendingToken: result.mfaPendingToken,
+          user: {
+            id: result.user.id,
+            email: result.user.email,
+            firstName: result.user.first_name,
+            lastName: result.user.last_name,
+            role: result.user.role,
+            locale: result.user.locale,
+          },
+        },
+      });
+    }
+
+    const { user, accessToken, refreshToken } = result;
 
     res.cookie('refreshToken', refreshToken, authService.refreshCookieOptions());
 

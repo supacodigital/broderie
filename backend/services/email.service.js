@@ -703,6 +703,56 @@ async function sendEmailVerification({ user, verifyToken }) {
   });
 }
 
+// ─────────────────────────────────────────────
+// MFA (admin) — FR uniquement, contrairement au reste de ce fichier :
+// le back-office admin n'est pas traduit (voir CLAUDE.md), donc ces emails,
+// adressés uniquement à des comptes admin, restent en français.
+// ─────────────────────────────────────────────
+
+// Alerte : le dernier code de récupération MFA vient d'être utilisé
+async function sendMfaRecoveryCodesLow(user) {
+  const body = `
+    <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+      Codes de récupération épuisés
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
+      Vous venez d'utiliser votre <strong>dernier code de récupération</strong> pour la double
+      authentification de votre compte admin. Régénérez un nouveau jeu de codes dès que possible
+      depuis les paramètres de sécurité de votre compte, pour ne pas rester bloqué en cas de
+      perte de votre application d'authentification.
+    </p>
+    ${btn(`${env.adminUrl || BASE_URL}/parametres`, 'Régénérer mes codes')}
+  `;
+
+  await transporter.sendMail({
+    from:    FROM,
+    to:      user.email,
+    subject: 'Codes de récupération MFA épuisés — Au Point-Compté',
+    html:    layout(body, 'fr'),
+  });
+}
+
+// Confirmation : de nouveaux codes de récupération viennent d'être générés
+async function sendMfaRecoveryCodesRegenerated(user) {
+  const body = `
+    <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+      Codes de récupération régénérés
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
+      De nouveaux codes de récupération MFA ont été générés pour votre compte admin. Les anciens
+      codes ne sont plus valides. Si vous n'êtes pas à l'origine de cette action,
+      contactez immédiatement le support.
+    </p>
+  `;
+
+  await transporter.sendMail({
+    from:    FROM,
+    to:      user.email,
+    subject: 'Codes de récupération MFA régénérés — Au Point-Compté',
+    html:    layout(body, 'fr'),
+  });
+}
+
 module.exports = {
   sendWelcome,
   sendOrderConfirmation,
@@ -713,4 +763,6 @@ module.exports = {
   sendInvoice,
   sendPickupReady,
   sendEmailVerification,
+  sendMfaRecoveryCodesLow,
+  sendMfaRecoveryCodesRegenerated,
 };

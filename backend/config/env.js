@@ -7,6 +7,14 @@ module.exports = {
   jwtAccessExpiresIn:  process.env.JWT_ACCESS_EXPIRES_IN  || '15m',
   jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
 
+  /* MFA (TOTP) — admin
+     jwtMfaPendingSecret : secret DÉDIÉ, distinct des secrets access/refresh — un token
+     signé avec ce secret ne doit jamais pouvoir être accepté par le middleware requireAuth. */
+  mfaEncryptionKey:       process.env.MFA_ENCRYPTION_KEY,
+  jwtMfaPendingSecret:    process.env.JWT_MFA_PENDING_SECRET,
+  jwtMfaPendingExpiresIn: process.env.JWT_MFA_PENDING_EXPIRES_IN || '5m',
+  mfaRecoveryCodesCount:  parseInt(process.env.MFA_RECOVERY_CODES_COUNT || '10', 10),
+
   /* URLs */
   clientUrl: process.env.CLIENT_URL,
   adminUrl:  process.env.ADMIN_URL,

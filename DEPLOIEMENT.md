@@ -363,6 +363,7 @@ curl https://broderie.ch/health
 | **Swiss Post API** | Clés `CLIENT_ID/SECRET` après approbation (étiquettes en mock d'ici là) — voir `claude_task.md` §6. |
 | **Migration 1800 clients** | À tester sur staging avant la prod — voir `claude_task.md` §7. |
 | **Emails prod** | `julie@broderie.ch` est hébergé chez un prestataire tiers (Hetzner), pas Infomaniak. Décider la voie SMTP (Brevo recommandé) — voir `claude_task.md` §5. |
+| **MFA admin** | Deux nouvelles variables obligatoires (`JWT_MFA_PENDING_SECRET`, `MFA_ENCRYPTION_KEY`) — le serveur refuse de démarrer sans elles. Procédure complète : [MFA-PRODUCTION.md](MFA-PRODUCTION.md). |
 
 ---
 

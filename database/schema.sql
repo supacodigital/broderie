@@ -63,7 +63,7 @@ CREATE TABLE users (
   password_hash VARCHAR(255)    NULL DEFAULT NULL,
   first_name    VARCHAR(100)    NOT NULL,
   last_name     VARCHAR(100)    NOT NULL,
-  role          ENUM('client', 'admin', 'super_admin') NOT NULL DEFAULT 'client',
+  role          ENUM('client', 'admin') NOT NULL DEFAULT 'client',
   locale        ENUM('fr', 'de', 'en') NOT NULL DEFAULT 'fr',
   google_id     VARCHAR(255)    NULL DEFAULT NULL,
   avatar_url    VARCHAR(500)    NULL DEFAULT NULL,
@@ -102,6 +102,43 @@ CREATE TABLE addresses (
   PRIMARY KEY (id),
   INDEX idx_addresses_user (user_id),
   CONSTRAINT fk_addresses_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- MFA (AUTHENTIFICATION À DEUX FACTEURS) — ADMIN
+-- ============================================================
+-- Obligatoire pour le rôle admin, non concerné pour client.
+-- Secret TOTP chiffré (AES-256-GCM) — jamais en clair, jamais haché : contrairement
+-- à un mot de passe, il doit rester déchiffrable pour recalculer le code attendu.
+CREATE TABLE user_mfa (
+  id                  INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id             INT UNSIGNED NOT NULL,
+  secret_encrypted    VARBINARY(255) NOT NULL,
+  secret_iv           VARBINARY(16)  NOT NULL,
+  secret_auth_tag     VARBINARY(16)  NOT NULL,
+  -- NULL tant que le premier code TOTP n'a pas été confirmé (setup en cours)
+  enabled_at          DATETIME NULL DEFAULT NULL,
+  last_used_at        DATETIME NULL DEFAULT NULL,
+  failed_attempts     INT UNSIGNED NOT NULL DEFAULT 0,
+  locked_until        DATETIME NULL DEFAULT NULL,
+  created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_user_mfa_user (user_id),
+  CONSTRAINT fk_user_mfa_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Codes de récupération à usage unique — hachés bcrypt (comme un mot de passe),
+-- une ligne par code pour permettre l'invalidation individuelle.
+CREATE TABLE user_mfa_recovery_codes (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id     INT UNSIGNED NOT NULL,
+  code_hash   VARCHAR(255) NOT NULL,
+  used_at     DATETIME NULL DEFAULT NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  INDEX idx_recovery_user_unused (user_id, used_at),
+  CONSTRAINT fk_recovery_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
