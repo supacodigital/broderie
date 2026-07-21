@@ -21,13 +21,11 @@ import { formatDate } from '../../utils/date.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
 import s from './Account.module.css'
 
-function useTabs(t) {
+function useTabs(t, counts = {}) {
   return [
-    { key: 'profile',   icon: User,    label: t('account.tabProfile') },
-    { key: 'orders',    icon: Package, label: t('account.tabOrders') },
-    { key: 'addresses', icon: MapPin,  label: t('account.tabAddresses') },
-    { key: 'wishlist',  icon: Heart,   label: t('account.tabWishlist') },
-    { key: 'loyalty',   icon: Gift,    label: t('account.tabLoyalty') },
+    { key: 'profile',  icon: User,    label: t('account.tabProfile') },
+    { key: 'orders',   icon: Package, label: t('account.tabOrders'),   count: counts.orders },
+    { key: 'wishlist', icon: Heart,   label: t('account.tabWishlist'), count: counts.wishlist },
   ]
 }
 
@@ -69,8 +67,6 @@ const CANTON_CODES = SWISS_CANTONS.map(c => c.code)
 const makeAddressSchema = (t) => z.object({
   label:        z.string().min(1, t('account.val.labelRequired')),
   address_type: z.enum(['shipping', 'billing', 'both']),
-  first_name:   z.string().max(100).optional(),
-  last_name:    z.string().max(100).optional(),
   street:        z.string().min(1, t('account.val.streetRequired')),
   street_number: z.string().min(1, t('account.val.streetNumberRequired')),
   zip:          z.string().regex(/^\d{4}$/, t('account.val.zipInvalid')),
@@ -111,7 +107,7 @@ function PasswordForm() {
 
   return (
     <>
-      <h2 className={s.panelTitle}>{t('account.changePassword')}</h2>
+      <h3 className={s.subTitle}>{t('account.changePassword')}</h3>
 
       {apiErr && (
         <div className={s.alertError} role="alert">
@@ -160,72 +156,6 @@ function PasswordForm() {
   )
 }
 
-/* ── Bloc programme de fidélité (dans l'onglet Profil) ── */
-function LoyaltyBlock() {
-  const { t } = useTranslation()
-  const [data,    setData]    = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let cancelled = false
-    getLoyaltyAccount()
-      .then(res => { if (!cancelled) setData(res ?? null) })
-      .catch(() => { if (!cancelled) setData(null) })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [])
-
-  if (loading) {
-    return (
-      <>
-        <h2 className={s.panelTitle}>{t('account.loyaltyTitle')}</h2>
-        <div className={`${s.loyaltyCard} ${s.skeletonRow}`} style={{ height: 64 }} />
-      </>
-    )
-  }
-
-  if (!data) return null
-
-  const account   = data.account
-  const tiers     = data.tiers ?? []
-  const spendChf  = parseFloat(account?.total_spend_chf ?? 0)
-  const currentTier = tiers.find(t => t.id === account?.current_tier_id) ?? null
-  const nextTier    = tiers
-    .filter(t => parseFloat(t.min_spend_chf) > spendChf)
-    .sort((a, b) => parseFloat(a.min_spend_chf) - parseFloat(b.min_spend_chf))[0] ?? null
-  const progressPct = nextTier
-    ? Math.min(100, Math.round((spendChf / parseFloat(nextTier.min_spend_chf)) * 100))
-    : 100
-
-  return (
-    <>
-      <h2 className={s.panelTitle}>{t('account.loyaltyTitle')}</h2>
-      <div className={s.loyaltyCard}>
-        <div className={s.loyaltyLeft}>
-          <Star size={20} fill="currentColor" className={s.loyaltyStar} />
-          <div>
-            <p className={s.loyaltyTier}>{currentTier ? `Palier ${currentTier.name}` : 'Sans palier'}</p>
-            <p className={s.loyaltySpend}>CHF {spendChf.toFixed(2)} d'achats cumulés</p>
-          </div>
-        </div>
-        <Link to="/mon-compte" className={s.loyaltyLink}>
-          Mes bons <ChevronRight size={14} />
-        </Link>
-      </div>
-      {nextTier && (
-        <div className={s.loyaltyProgress}>
-          <div className={s.loyaltyProgressBar}>
-            <div className={s.loyaltyProgressFill} style={{ width: `${progressPct}%` }} />
-          </div>
-          <p className={s.loyaltyProgressLabel}>
-            Plus que CHF {(parseFloat(nextTier.min_spend_chf) - spendChf).toFixed(2)} pour atteindre le palier <strong>{nextTier.name}</strong>
-          </p>
-        </div>
-      )}
-    </>
-  )
-}
-
 /* ── Onglet Profil ── */
 function TabProfile({ user, onSaved }) {
   const { t } = useTranslation()
@@ -255,7 +185,15 @@ function TabProfile({ user, onSaved }) {
 
   return (
     <section className={s.panel}>
-      <h2 className={s.panelTitle}>Mes informations</h2>
+      <TabLoyalty />
+
+      <hr className={s.sectionDivider} />
+
+      <TabAddresses />
+
+      <hr className={s.sectionDivider} />
+
+      <h3 className={s.subTitle}>Mes informations</h3>
 
       {apiErr && (
         <div className={s.alertError} role="alert">
@@ -283,13 +221,13 @@ function TabProfile({ user, onSaved }) {
 
         <div className={s.field}>
           <label htmlFor="acc-email" className={s.label}>Adresse e-mail</label>
-          <input id="acc-email" type="email" autoComplete="email"
-            className={`${s.input} ${errors.email ? s.inputError : ''}`}
+          <input id="acc-email" type="email" autoComplete="email" disabled
+            className={s.input}
             {...register('email')} />
-          {errors.email && <span className={s.fieldError}><AlertCircle size={11} />{errors.email.message}</span>}
+          <span className={s.fieldHint}>L'adresse e-mail ne peut pas être modifiée. Contactez-nous si besoin.</span>
         </div>
 
-        <div className={s.formActions}>
+        <div className={s.formActions} style={{ marginBottom: 0 }}>
           <button type="submit" className={s.btnPrimary} disabled={isSubmitting || !isDirty}>
             {saved
               ? <><Check size={15} /> {t('account.saved')}</>
@@ -298,17 +236,16 @@ function TabProfile({ user, onSaved }) {
         </div>
       </form>
 
-      <PasswordForm />
+      <hr className={s.sectionDivider} />
 
-      <LoyaltyBlock />
+      <PasswordForm />
     </section>
   )
 }
 
-/* ── Onglet Commandes ── */
+/* ── Section Commandes — tableau ── */
 function TabOrders() {
-  const { i18n } = useTranslation()
-  const locale = normalizeLocale(i18n.language)
+  const navigate = useNavigate()
   const [orders,  setOrders]  = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -349,26 +286,34 @@ function TabOrders() {
   return (
     <section className={s.panel}>
       <h2 className={s.panelTitle}>Mes commandes <span className={s.countBadge}>{orders.length}</span></h2>
-      <div className={s.orderList}>
-        {orders.map(o => (
-          <div key={o.id} className={s.orderCard}>
-            <div className={s.orderTop}>
-              <div>
-                <span className={s.orderId}>Commande #{o.id}</span>
-                <span className={s.orderDate}>{formatDate(o.created_at)}</span>
-              </div>
-              <StatusBadge status={o.status} />
-            </div>
-            <div className={s.orderBottom}>
-              <span className={s.orderItems}>{o.items_count} article{o.items_count > 1 ? 's' : ''}</span>
-              <span className={s.orderTotal}>CHF {roundCHF(o.total).toFixed(2)}</span>
-              <Link to={`/commandes/${o.id}`} className={s.orderDetailBtn}>
-                Détail <ChevronRight size={13} />
-              </Link>
-            </div>
-          </div>
-        ))}
-      </div>
+      <table className={s.dataTable}>
+        <thead>
+          <tr>
+            <th>Commande</th>
+            <th>Date</th>
+            <th>Articles</th>
+            <th>Total</th>
+            <th>Statut</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map(o => (
+            <tr key={o.id} className={s.dataRow} onClick={() => navigate(`/commandes/${o.id}`)}>
+              <td className={s.dataRowStrong}>#{o.id}</td>
+              <td className={s.dataRowMuted}>{formatDate(o.created_at)}</td>
+              <td className={s.dataRowMuted}>{o.items_count} article{o.items_count > 1 ? 's' : ''}</td>
+              <td className={s.dataRowStrong}>CHF {roundCHF(o.total).toFixed(2)}</td>
+              <td><StatusBadge status={o.status} /></td>
+              <td>
+                <Link to={`/commandes/${o.id}`} className={s.orderDetailBtn} onClick={e => e.stopPropagation()}>
+                  Détail <ChevronRight size={13} />
+                </Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </section>
   )
 }
@@ -379,7 +324,7 @@ function AddressModal({ initial, onSave, onClose }) {
   const addressSchema = useMemo(() => makeAddressSchema(t), [t])
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(addressSchema),
-    defaultValues: initial ?? { label: '', address_type: 'both', first_name: '', last_name: '', street: '', street_number: '', zip: '', city: '', canton: '' },
+    defaultValues: initial ?? { label: '', address_type: 'both', street: '', street_number: '', zip: '', city: '', canton: '' },
   })
 
   const onSubmit = async (data) => {
@@ -394,8 +339,8 @@ function AddressModal({ initial, onSave, onClose }) {
         <form onSubmit={handleSubmit(onSubmit)} noValidate className={s.form}>
           <div className={s.formRow}>
             <div className={s.field}>
-              <label htmlFor="addr-label" className={s.label}>Libellé</label>
-              <input id="addr-label" type="text" placeholder="ex : Domicile, Bureau…"
+              <label htmlFor="addr-label" className={s.label}>Libellé <span className={s.requiredMark} aria-hidden="true">*</span></label>
+              <input id="addr-label" type="text" placeholder="ex : Domicile, Bureau…" aria-required="true"
                 className={`${s.input} ${errors.label ? s.inputError : ''}`}
                 {...register('label')} />
               {errors.label && <span className={s.fieldError}><AlertCircle size={11} />{errors.label.message}</span>}
@@ -409,29 +354,17 @@ function AddressModal({ initial, onSave, onClose }) {
               </select>
             </div>
           </div>
-          <div className={s.formRow}>
-            <div className={s.field}>
-              <label htmlFor="addr-first" className={s.label}>Prénom <span className={s.optional}>(optionnel)</span></label>
-              <input id="addr-first" type="text" placeholder="Laissez vide pour utiliser votre nom de compte"
-                className={s.input} {...register('first_name')} />
-            </div>
-            <div className={s.field}>
-              <label htmlFor="addr-last" className={s.label}>Nom <span className={s.optional}>(optionnel)</span></label>
-              <input id="addr-last" type="text"
-                className={s.input} {...register('last_name')} />
-            </div>
-          </div>
           <div className={s.formRowStreet}>
             <div className={s.field}>
-              <label htmlFor="addr-street" className={s.label}>Rue</label>
-              <input id="addr-street" type="text" placeholder="Rue de la Paix"
+              <label htmlFor="addr-street" className={s.label}>Rue <span className={s.requiredMark} aria-hidden="true">*</span></label>
+              <input id="addr-street" type="text" placeholder="Rue de la Paix" aria-required="true"
                 className={`${s.input} ${errors.street ? s.inputError : ''}`}
                 {...register('street')} />
               {errors.street && <span className={s.fieldError}><AlertCircle size={11} />{errors.street.message}</span>}
             </div>
             <div className={s.field}>
-              <label htmlFor="addr-street-number" className={s.label}>Numéro</label>
-              <input id="addr-street-number" type="text" placeholder="12"
+              <label htmlFor="addr-street-number" className={s.label}>Numéro <span className={s.requiredMark} aria-hidden="true">*</span></label>
+              <input id="addr-street-number" type="text" placeholder="12" aria-required="true"
                 className={`${s.input} ${errors.street_number ? s.inputError : ''}`}
                 {...register('street_number')} />
               {errors.street_number && <span className={s.fieldError}><AlertCircle size={11} />{errors.street_number.message}</span>}
@@ -439,22 +372,22 @@ function AddressModal({ initial, onSave, onClose }) {
           </div>
           <div className={s.formRow}>
             <div className={s.field}>
-              <label htmlFor="addr-zip" className={s.label}>NPA</label>
-              <input id="addr-zip" type="text" maxLength={4} placeholder="1000"
+              <label htmlFor="addr-zip" className={s.label}>NPA <span className={s.requiredMark} aria-hidden="true">*</span></label>
+              <input id="addr-zip" type="text" maxLength={4} placeholder="1000" aria-required="true"
                 className={`${s.input} ${errors.zip ? s.inputError : ''}`}
                 {...register('zip')} />
               {errors.zip && <span className={s.fieldError}><AlertCircle size={11} />{errors.zip.message}</span>}
             </div>
             <div className={s.field}>
-              <label htmlFor="addr-city" className={s.label}>Localité</label>
-              <input id="addr-city" type="text" placeholder="Lausanne"
+              <label htmlFor="addr-city" className={s.label}>Localité <span className={s.requiredMark} aria-hidden="true">*</span></label>
+              <input id="addr-city" type="text" placeholder="Lausanne" aria-required="true"
                 className={`${s.input} ${errors.city ? s.inputError : ''}`}
                 {...register('city')} />
               {errors.city && <span className={s.fieldError}><AlertCircle size={11} />{errors.city.message}</span>}
             </div>
             <div className={s.field}>
-              <label htmlFor="addr-canton" className={s.label}>Canton</label>
-              <select id="addr-canton"
+              <label htmlFor="addr-canton" className={s.label}>Canton <span className={s.requiredMark} aria-hidden="true">*</span></label>
+              <select id="addr-canton" aria-required="true"
                 className={`${s.input} ${errors.canton ? s.inputError : ''}`}
                 {...register('canton')}>
                 <option value="" disabled>Sélectionnez…</option>
@@ -516,19 +449,16 @@ function TabAddresses() {
 
   if (loading) {
     return (
-      <section className={s.panel}>
-        <h2 className={s.panelTitle}>Mes adresses</h2>
-        <div className={s.skeletonList}>
-          {[1,2].map(i => <div key={i} className={s.skeletonRow} />)}
-        </div>
-      </section>
+      <div className={s.skeletonList}>
+        {[1,2].map(i => <div key={i} className={s.skeletonRow} />)}
+      </div>
     )
   }
 
   return (
-    <section className={s.panel}>
+    <>
       <div className={s.panelHead}>
-        <h2 className={s.panelTitle}>Mes adresses</h2>
+        <h3 className={s.subTitle}>Mes adresses</h3>
         <button className={s.btnOutline} onClick={() => setModal('new')}>
           <Plus size={14} /> Ajouter
         </button>
@@ -544,38 +474,54 @@ function TabAddresses() {
           </button>
         </div>
       ) : (
-        <div className={s.addressGrid}>
-          {addresses.map(addr => (
-            <div key={addr.id} className={`${s.addressCard} ${addr.is_default ? s.addressDefault : ''}`}>
-              {!!addr.is_default && <span className={s.defaultBadge}>Par défaut</span>}
-              {addr.address_type && addr.address_type !== 'both' && (
-                <span className={s.typeBadge}>
-                  {addr.address_type === 'billing' ? 'Facturation' : 'Livraison'}
-                </span>
-              )}
-              {addr.label && addr.label !== addr.street && (
-                <p className={s.addressLabel}>{addr.label}</p>
-              )}
-              {(addr.first_name || addr.last_name) && (
-                <p className={s.addressName}>{addr.first_name} {addr.last_name}</p>
-              )}
-              <p className={s.addressLine}>{addr.street} {addr.street_number}</p>
-              <p className={s.addressLine}>{addr.zip} {addr.city}{addr.canton ? ` (${addr.canton})` : ''}</p>
-              <p className={s.addressLine}>Suisse</p>
-              <div className={s.addressActions}>
-                <button className={s.iconActionBtn} onClick={() => setModal(addr)} aria-label="Modifier">
-                  <Pencil size={13} /> Modifier
-                </button>
-                {!addr.is_default && (
-                  <button className={`${s.iconActionBtn} ${s.iconActionBtnDanger}`}
-                    onClick={() => handleDelete(addr.id)} aria-label="Supprimer">
-                    <Trash2 size={13} /> Supprimer
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+        <table className={s.dataTable}>
+          <thead>
+            <tr>
+              <th>Libellé</th>
+              <th>Adresse</th>
+              <th>Type</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {addresses.map(addr => (
+              <tr
+                key={addr.id}
+                className={s.dataRow}
+                onClick={() => setModal(addr)}
+                tabIndex={0}
+                onKeyDown={e => e.key === 'Enter' && setModal(addr)}
+                aria-label={`Modifier l'adresse ${addr.label || addr.street}`}
+              >
+                <td className={s.dataRowStrong}>
+                  {addr.label || addr.street}
+                  {!!addr.is_default && <span className={s.defaultBadgeInline}>Par défaut</span>}
+                </td>
+                <td className={s.dataRowMuted}>
+                  {addr.street} {addr.street_number}, {addr.zip} {addr.city}{addr.canton ? ` (${addr.canton})` : ''}
+                </td>
+                <td className={s.dataRowMuted}>
+                  {!addr.address_type || addr.address_type === 'both'
+                    ? 'Livraison et facturation'
+                    : addr.address_type === 'billing' ? 'Facturation' : 'Livraison'}
+                </td>
+                <td>
+                  <div className={s.addressActions} onClick={e => e.stopPropagation()}>
+                    <button className={s.iconActionBtn} onClick={() => setModal(addr)} aria-label="Modifier">
+                      <Pencil size={13} /> Modifier
+                    </button>
+                    {!addr.is_default && (
+                      <button className={`${s.iconActionBtn} ${s.iconActionBtnDanger}`}
+                        onClick={() => handleDelete(addr.id)} aria-label="Supprimer">
+                        <Trash2 size={13} /> Supprimer
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
 
       {modal && (
@@ -585,7 +531,7 @@ function TabAddresses() {
           onClose={() => setModal(null)}
         />
       )}
-    </section>
+    </>
   )
 }
 
@@ -701,11 +647,11 @@ function TabLoyalty() {
   }, [])
 
   if (loading) return (
-    <section className={s.panel}>
-      <h2 className={s.panelTitle}>{t('account.loyaltyTitle')}</h2>
+    <>
+      <h3 className={s.subTitle}>{t('account.loyaltyTitle')}</h3>
       <div className={`${s.skeletonRow}`} style={{ height: 80, borderRadius: 10, marginBottom: 12 }} />
       <div className={`${s.skeletonRow}`} style={{ height: 80, borderRadius: 10 }} />
-    </section>
+    </>
   )
 
   const account    = data?.account ?? null
@@ -727,8 +673,8 @@ function TabLoyalty() {
   }
 
   return (
-    <section className={s.panel}>
-      <h2 className={s.panelTitle}>{t('account.loyaltyTitle')}</h2>
+    <>
+      <h3 className={s.subTitle}>{t('account.loyaltyTitle')}</h3>
 
       {/* Carte palier actuel */}
       <div className={s.loyaltyCard}>
@@ -834,22 +780,53 @@ function TabLoyalty() {
           })}
         </div>
       )}
-    </section>
+    </>
   )
 }
 
-/* ── Page principale ── */
-const VALID_TABS = ['profile', 'orders', 'addresses', 'wishlist', 'loyalty']
+/* ── Page principale — navigation par onglets classiques ──
+   3 onglets seulement : Profil (regroupe infos perso, mot de passe, adresses, fidélité),
+   Commandes, Favoris. Les anciennes clés (addresses, loyalty) restent acceptées dans l'URL
+   pour ne pas casser les liens externes déjà en place ailleurs dans le site — elles
+   redirigent simplement vers l'onglet Profil, où ce contenu vit désormais. */
+const VALID_TABS = ['profile', 'orders', 'wishlist']
+const TAB_ALIASES = { addresses: 'profile', loyalty: 'profile' }
 
 export default function Account() {
   const { user, logout } = useAuth()
   const { t } = useTranslation()
-  const tabs = useTabs(t)
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const initialTab = VALID_TABS.includes(searchParams.get('tab') ?? '') ? searchParams.get('tab') : 'profile'
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedTab = TAB_ALIASES[searchParams.get('tab')] ?? searchParams.get('tab')
+  const initialTab = VALID_TABS.includes(requestedTab ?? '') ? requestedTab : 'profile'
   const [tab, setTab] = useState(initialTab)
   const [userData, setUserData] = useState(user ?? {})
+  const { ids: wishlistIds } = useWishlist()
+  const [counts, setCounts] = useState({ orders: null })
+  const tabs = useTabs(t, { ...counts, wishlist: wishlistIds.size || undefined })
+
+  /* Badge de compteur commandes — appel léger (limit=1), lu depuis pagination.total */
+  useEffect(() => {
+    let cancelled = false
+    getMyOrders({ limit: 1 }).then(res => {
+      if (cancelled) return
+      setCounts({ orders: res.pagination?.total ?? undefined })
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  /* Liens externes (?tab=orders, ?tab=wishlist, ?tab=loyalty…) — ouvre directement le bon onglet */
+  useEffect(() => {
+    const raw = searchParams.get('tab')
+    const target = TAB_ALIASES[raw] ?? raw
+    if (target && VALID_TABS.includes(target)) setTab(target)
+  }, [searchParams])
+
+  const selectTab = (key) => {
+    setTab(key)
+    setSearchParams(key === 'profile' ? {} : { tab: key }, { replace: true })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const handleLogout = async () => {
     await logout()
@@ -871,55 +848,76 @@ export default function Account() {
         </nav>
       </div>
 
-      <div className={s.layout}>
-        {/* ── Sidebar ── */}
-        <aside className={s.sidebar}>
-          {/* Avatar */}
-          <div className={s.avatarWrap}>
-            <div className={s.avatar}>{initials}</div>
-            <div>
-              <p className={s.avatarName}>{firstName} {lastName}</p>
-              <p className={s.avatarEmail}>{userData?.email}</p>
-            </div>
+      {/* ── Barre supérieure — avatar + navigation par onglets horizontale (desktop/tablette) ── */}
+      <div className={s.topBar}>
+        <div className={s.topBarAvatar}>
+          <div className={s.avatar}>{initials}</div>
+          <div>
+            <p className={s.avatarName}>{firstName} {lastName}</p>
+            <p className={s.avatarEmail}>{userData?.email}</p>
           </div>
+        </div>
 
-          {/* Onglets */}
-          <nav className={s.tabNav} aria-label="Sections du compte">
-            {tabs.map(({ key, icon: Icon, label }) => (
-              <button
-                key={key}
-                className={`${s.tabBtn} ${tab === key ? s.tabActive : ''}`}
-                onClick={() => setTab(key)}
-                aria-current={tab === key ? 'page' : undefined}
-              >
-                <Icon size={16} />
-                <span>{label}</span>
-                <ChevronRight size={13} className={s.tabArrow} />
-              </button>
-            ))}
-          </nav>
+        <nav className={s.topTabNav} aria-label="Sections du compte">
+          {tabs.map(({ key, icon: Icon, label, count }) => (
+            <button
+              key={key}
+              className={`${s.topTabBtn} ${tab === key ? s.topTabActive : ''}`}
+              onClick={() => selectTab(key)}
+              aria-current={tab === key ? 'page' : undefined}
+            >
+              <Icon size={16} />
+              <span>{label}</span>
+              {!!count && <span className={s.tabBadge}>{count}</span>}
+            </button>
+          ))}
+        </nav>
 
-          <hr className={s.divider} />
+        <button className={s.topLogoutBtn} onClick={handleLogout}>
+          <LogOut size={15} />
+          <span>Déconnexion</span>
+        </button>
+      </div>
 
-          <button className={s.logoutBtn} onClick={handleLogout}>
-            <LogOut size={15} />
-            Déconnexion
-          </button>
-        </aside>
-
-        {/* ── Contenu ── */}
-        <div className={s.content}>
-          {tab === 'profile'   && <TabProfile user={userData} onSaved={d => setUserData(u => ({
+      {/* ── Contenu — un seul onglet affiché à la fois ── */}
+      <div className={s.content}>
+        {tab === 'profile' && (
+          <TabProfile user={userData} onSaved={d => setUserData(u => ({
             ...u, ...d,
             firstName: d.first_name ?? d.firstName ?? u.firstName,
             lastName:  d.last_name  ?? d.lastName  ?? u.lastName,
-          }))} />}
-          {tab === 'orders'    && <TabOrders />}
-          {tab === 'addresses' && <TabAddresses />}
-          {tab === 'wishlist'  && <TabWishlist />}
-          {tab === 'loyalty'   && <TabLoyalty />}
-        </div>
+          }))} />
+        )}
+        {tab === 'orders'   && <TabOrders />}
+        {tab === 'wishlist' && <TabWishlist />}
       </div>
+
+      {/* ── Barre de navigation mobile — style app, fixée en bas de l'écran ── */}
+      <nav className={s.mobileTabBar} aria-label="Sections du compte">
+        {tabs.map(({ key, icon: Icon, label, count }) => (
+          <button
+            key={key}
+            className={`${s.mobileTabBtn} ${tab === key ? s.mobileTabActive : ''}`}
+            onClick={() => selectTab(key)}
+            aria-current={tab === key ? 'page' : undefined}
+          >
+            <span className={s.mobileTabIconWrap}>
+              <Icon size={20} />
+              {!!count && <span className={s.mobileTabDot}>{count > 9 ? '9+' : count}</span>}
+            </span>
+            <span>{label}</span>
+          </button>
+        ))}
+        <button
+          className={`${s.mobileTabBtn} ${s.mobileTabBtnLogout}`}
+          onClick={handleLogout}
+        >
+          <span className={s.mobileTabIconWrap}>
+            <LogOut size={20} />
+          </span>
+          <span>Déconnexion</span>
+        </button>
+      </nav>
     </div>
   )
 }

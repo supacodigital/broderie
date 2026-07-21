@@ -3,6 +3,20 @@
   max-width: 1100px;
   margin: 0 auto;
   padding: 32px 24px 80px;
+  position: relative;
+}
+
+/* Fond rose clair étendu sur toute la largeur du viewport, pas juste la colonne centrale */
+.page::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 100vw;
+  height: 100%;
+  transform: translateX(-50%);
+  background: var(--rose-pale);
+  z-index: -1;
 }
 
 .pageHead {
@@ -28,32 +42,89 @@
   flex-shrink: 0;
 }
 
-/* ── Layout 2 colonnes ── */
-.layout {
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 28px;
-  align-items: start;
-}
-
-/* ── Sidebar ── */
-.sidebar {
+/* ── Barre supérieure — avatar + navigation par onglets horizontale (desktop) ── */
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
   background: #fff;
   border: 1px solid var(--rose-border);
   border-radius: 16px;
-  overflow: hidden;
   box-shadow: var(--shadow-sm);
-  position: sticky;
-  top: 90px;
+  padding: 14px 20px;
+  margin-bottom: 24px;
 }
 
-.avatarWrap {
+.topBarAvatar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 20px 18px;
-  border-bottom: 1px solid var(--rose-border);
+  gap: 10px;
+  flex-shrink: 0;
+  padding-right: 18px;
+  border-right: 1px solid var(--rose-border);
+}
+
+.topTabNav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.topTabBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.topTabBtn:hover {
   background: var(--rose-pale);
+  color: var(--text-dark);
+}
+
+.topTabActive {
+  background: var(--rose-pale) !important;
+  color: var(--rose) !important;
+  font-weight: 600;
+}
+
+.topTabActive svg {
+  color: var(--rose);
+}
+
+.topLogoutBtn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.topLogoutBtn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
 }
 
 .avatar {
@@ -84,91 +155,46 @@
   word-break: break-all;
 }
 
-/* ── Navigation onglets ── */
-.tabNav {
-  display: flex;
-  flex-direction: column;
-  padding: 8px;
-  gap: 2px;
-}
-
-.tabBtn {
+/* Badge numérique (nombre de commandes/adresses/favoris) — réutilisé par .topTabBtn et .mobileTabBtn */
+.tabBadge {
+  flex: 0 0 auto;
+  background: var(--rose-pale);
+  color: var(--rose);
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 12px;
-  border: none;
-  border-radius: 10px;
-  background: none;
-  cursor: pointer;
-  font-family: "Montserrat", sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  transition: background 0.15s, color 0.15s;
-  text-align: left;
-  width: 100%;
+  justify-content: center;
+  padding: 0 5px;
 }
 
-.tabBtn span {
-  flex: 1;
+.topTabActive .tabBadge {
+  background: var(--rose);
+  color: #fff;
 }
 
-.tabBtn:hover {
-  background: var(--rose-pale);
-  color: var(--text-dark);
-}
-
-.tabActive {
-  background: var(--rose-pale) !important;
-  color: var(--rose) !important;
-  font-weight: 600;
-}
-
-.tabActive svg:first-child {
-  color: var(--rose);
-}
-
-.tabArrow {
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.tabBtn:hover .tabArrow,
-.tabActive .tabArrow {
-  opacity: 1;
-}
-
-.divider {
+/* Divider utilisé entre les blocs fusionnés de l'onglet Profil (une seule carte) */
+.sectionDivider {
   border: none;
   border-top: 1px solid var(--rose-border);
-  margin: 0;
-}
-
-.logoutBtn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 20px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-family: "Montserrat", sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  width: 100%;
-  transition: color 0.15s, background 0.15s;
-}
-
-.logoutBtn:hover {
-  background: #fef2f2;
-  color: #dc2626;
+  margin: 28px 0;
 }
 
 /* ── Contenu principal ── */
 .content {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Empile plusieurs panels avec un espacement régulier (ex: onglet Profil) */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 /* ── Panel générique ── */
@@ -210,6 +236,65 @@
   border: 1px solid var(--rose-border);
   border-radius: 10px;
   padding: 1px 8px;
+}
+
+/* ── Tableau de données (Commandes, Adresses) ── */
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.dataTable thead th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-muted);
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--rose-border);
+}
+
+.dataRow {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dataRow:hover {
+  background: var(--rose-pale);
+}
+
+.dataRow td {
+  padding: 14px 12px;
+  border-bottom: 1px solid #f4e9ee;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.dataRow:last-child td {
+  border-bottom: none;
+}
+
+.dataRowStrong {
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.dataRowMuted {
+  color: var(--text-muted);
+}
+
+.defaultBadgeInline {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--rose);
+  background: var(--rose-pale);
+  border: 1px solid var(--rose-border);
+  padding: 2px 8px;
+  border-radius: 10px;
+  vertical-align: middle;
 }
 
 /* ── Formulaire ── */
@@ -261,6 +346,13 @@
   box-shadow: 0 0 0 3px rgba(219, 39, 119, 0.1);
 }
 
+.input:disabled {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
 .inputError {
   border-color: #dc2626 !important;
 }
@@ -271,6 +363,11 @@
   gap: 4px;
   font-size: 11px;
   color: #dc2626;
+}
+
+.fieldHint {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .alertError {
@@ -451,46 +548,7 @@
   color: var(--text-muted);
 }
 
-/* ── Commandes ── */
-.orderList {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.orderCard {
-  border: 1px solid var(--rose-border);
-  border-radius: 12px;
-  padding: 16px 20px;
-  transition: box-shadow 0.15s;
-}
-
-.orderCard:hover {
-  box-shadow: var(--shadow-sm);
-}
-
-.orderTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  gap: 8px;
-}
-
-.orderId {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--rose);
-  display: block;
-}
-
-.orderDate {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 2px;
-  display: block;
-}
-
+/* ── Statuts & actions (Commandes, Adresses) ── */
 .statusBadge {
   padding: 3px 10px;
   border-radius: 6px;
@@ -498,26 +556,6 @@
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
-}
-
-.orderBottom {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--rose-border);
-}
-
-.orderItems {
-  font-size: 12px;
-  color: var(--text-muted);
-  flex: 1;
-}
-
-.orderTotal {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-dark);
 }
 
 .orderDetailBtn {
@@ -538,83 +576,10 @@
   border-color: var(--rose);
 }
 
-/* ── Adresses ── */
-.addressGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
-}
-
-.addressCard {
-  border: 1.5px solid var(--rose-border);
-  border-radius: 12px;
-  padding: 18px;
-  position: relative;
-  transition: box-shadow 0.15s;
-}
-
-.addressCard:hover {
-  box-shadow: var(--shadow-sm);
-}
-
-.addressDefault {
-  border-color: var(--rose);
-}
-
-.defaultBadge {
-  position: absolute;
-  top: -1px;
-  right: 12px;
-  font-size: 10px;
-  font-weight: 700;
+/* Astérisque des champs obligatoires — visible mais discret, lu par aria-required plutôt que par le symbole */
+.requiredMark {
   color: var(--rose);
-  background: var(--rose-pale);
-  border: 1px solid var(--rose-border);
-  border-top: none;
-  padding: 2px 8px;
-  border-radius: 0 0 6px 6px;
-}
-
-/* Badge de type d'adresse (Livraison / Facturation) — à gauche du badge « Par défaut » */
-.typeBadge {
-  position: absolute;
-  top: -1px;
-  right: 92px;
-  font-size: 10px;
   font-weight: 700;
-  color: var(--text-muted);
-  background: var(--rose-muted);
-  border: 1px solid var(--rose-border);
-  border-top: none;
-  padding: 2px 8px;
-  border-radius: 0 0 6px 6px;
-}
-
-.addressName {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-dark);
-  margin-bottom: 2px;
-}
-
-/* Mention « (optionnel) » discrète dans les labels de la modal */
-.optional {
-  font-weight: 400;
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.addressLabel {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-dark);
-  margin-bottom: 8px;
-}
-
-.addressLine {
-  font-size: 12px;
-  color: var(--text-muted);
-  line-height: 1.6;
 }
 
 .addressActions {
@@ -661,6 +626,7 @@
   justify-content: center;
   z-index: 500;
   padding: 20px;
+  overflow-y: auto;
 }
 
 .modal {
@@ -669,7 +635,10 @@
   padding: 28px;
   width: 100%;
   max-width: 480px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   box-shadow: var(--shadow-lg);
+  margin: auto;
 }
 
 .modalTitle {
@@ -977,42 +946,108 @@
   text-decoration: line-through;
 }
 
+/* ── Barre de navigation mobile — style application native ── */
+.mobileTabBar {
+  display: none; /* visible uniquement sous 900px, voir media query */
+}
+
 /* ── Responsive ── */
 @media (max-width: 900px) {
-  .layout {
-    grid-template-columns: 1fr;
+  /* La barre supérieure (avatar + onglets + déconnexion) est remplacée sur */
+  /* mobile par .mobileTabBar, fixée en bas de l'écran — style application. */
+  .topBar {
+    display: none;
   }
-  .sidebar {
-    position: static;
-    overflow: hidden;
+  .page {
+    padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px));
   }
-  /* Onglets — scroll horizontal, style tab bar */
-  .tabNav {
-    flex-direction: row;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    padding: 10px 12px;
-    gap: 6px;
+
+  .mobileTabBar {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-around;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid var(--rose-border);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.05);
   }
-  .tabNav::-webkit-scrollbar { display: none; }
-  .tabBtn {
-    flex: 0 0 auto;        /* annule le flex:1 du desktop */
+
+  .mobileTabBtn {
+    flex: 1;
+    display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 5px;
-    padding: 10px 16px;
-    border-radius: 12px;
-    font-size: 11px;
-    white-space: nowrap;
-    width: auto;
-    min-width: 0;
+    justify-content: center;
+    gap: 3px;
+    padding: 6px 4px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-family: "Montserrat", sans-serif;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: color 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobileTabBtn:active {
+    transform: scale(0.94);
+  }
+
+  .mobileTabActive {
+    color: var(--rose);
+    font-weight: 700;
+  }
+
+  /* Bouton déconnexion — séparé visuellement des onglets de navigation */
+  .mobileTabBtnLogout {
+    flex: 0 0 auto;
+    position: relative;
+    padding-left: 14px;
+    padding-right: 10px;
+    color: #dc2626;
+  }
+
+  .mobileTabBtnLogout::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 8px;
+    bottom: 8px;
+    width: 1px;
+    background: var(--rose-border);
+  }
+
+  .mobileTabIconWrap {
+    position: relative;
+    display: flex;
+    align-items: center;
     justify-content: center;
   }
-  /* Cache la flèche chevron sur mobile */
-  .tabArrow { display: none; }
-  /* Supprime le flex:1 du label en mode colonne */
-  .tabBtn span { flex: unset; }
+
+  .mobileTabDot {
+    position: absolute;
+    top: -4px;
+    right: -9px;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    border-radius: 8px;
+    background: var(--rose);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 15px;
+    text-align: center;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1023,21 +1058,49 @@
     padding: 16px 14px;
     border-radius: 12px;
   }
-  .formRow {
+  .formRow,
+  .formRowStreet {
     grid-template-columns: 1fr;
   }
-  .addressGrid {
-    grid-template-columns: 1fr;
+
+  /* ── Modal adresse — feuille plein écran ancrée en bas, style application ── */
+  .modalOverlay {
+    align-items: flex-end;
+    padding: 0;
   }
-  .orderBottom {
-    flex-wrap: wrap;
+  .modal {
+    max-width: none;
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+    margin: 0;
+    animation: modalSlideUp 0.25s ease-out;
+  }
+  .modalTitle {
+    font-size: 15px;
+  }
+  /* Poignée visuelle en haut de la feuille */
+  .modal::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--rose-border);
+    margin: 0 auto 16px;
+  }
+
+  .dataTable {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
   }
   .wishlistGrid {
     grid-template-columns: repeat(2, 1fr);
   }
-  /* Onglets encore plus compacts sur petit écran */
-  .tabBtn {
-    padding: 9px 14px;
+  /* Barre de navigation mobile — encore plus compacte sur petit écran */
+  .mobileTabBtn {
     font-size: 10px;
   }
   /* Boutons pleine largeur sur mobile */
@@ -1081,4 +1144,9 @@
   .copyBtn { padding: 6px 8px; }
   .rewardValue { font-size: 13px; }
   .rewardMeta  { font-size: 11px; }
+}
+
+@keyframes modalSlideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
 }

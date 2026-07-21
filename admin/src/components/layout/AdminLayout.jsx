@@ -55,15 +55,15 @@ function buildNavMain(pendingOrders, pendingReviews) {
 
 const NAV_CATALOG = [
   { to: "/produits", icon: Package, label: "Produits" },
-  { to: "/fournisseurs", icon: Truck, label: "Fournisseurs" },
   { to: "/categories", icon: Tag, label: "Catégories" },
+  { to: "/fournisseurs", icon: Truck, label: "Fournisseurs" },
 ];
 
 const NAV_TOOLS = [
   { to: "/fidelite", icon: Heart, label: "Fidélité" },
-  { to: "/coupons",     icon: Ticket,   label: "Promotions"  },
-  { to: "/newsletter",  icon: Mail,     label: "Newsletter"  },
-  { to: "/parametres",  icon: Settings, label: "Paramètres"  },
+  { to: "/coupons", icon: Ticket, label: "Promotions" },
+  { to: "/newsletter", icon: Mail, label: "Newsletter" },
+  { to: "/parametres", icon: Settings, label: "Paramètres" },
 ];
 
 function greetingText() {
@@ -177,7 +177,7 @@ function NavItem({ to, icon: Icon, label, badge }) {
 }
 
 function initials(first, last) {
-  return `${first?.[0] ?? ''}${last?.[0] ?? ''}`.toUpperCase();
+  return `${first?.[0] ?? ""}${last?.[0] ?? ""}`.toUpperCase();
 }
 
 export default function AdminLayout() {
@@ -229,7 +229,9 @@ export default function AdminLayout() {
   const notifications = [
     pendingOrders > 0 && {
       icon: ShoppingCart,
-      title: `${pendingOrders} commande${pendingOrders > 1 ? "s" : ""} en attente`,
+      title: `${pendingOrders} commande${
+        pendingOrders > 1 ? "s" : ""
+      } en attente`,
       to: "/commandes",
     },
     pendingReviews > 0 && {
@@ -260,7 +262,13 @@ export default function AdminLayout() {
       <aside className={`${s.sidebar} ${open ? s.sidebarOpen : ""}`}>
         {/* Logo */}
         <div className={s.brand}>
-          <img src="/admin/logo.png" alt="Au Point-Compté" className={s.brandLogo} width={165} height={83} />
+          <img
+            src="/admin/logo.png"
+            alt="Au Point-Compté"
+            className={s.brandLogo}
+            width={165}
+            height={83}
+          />
           <p className={s.brandSub}>Administration</p>
           <button
             className={s.closeBtn}
@@ -341,7 +349,7 @@ export default function AdminLayout() {
 
           <div className={s.headerRight}>
             <a
-              href={import.meta.env.VITE_SHOP_URL ?? '/'}
+              href={import.meta.env.VITE_SHOP_URL ?? "/"}
               target="_blank"
               rel="noopener noreferrer"
               className={s.boutiquBtn}

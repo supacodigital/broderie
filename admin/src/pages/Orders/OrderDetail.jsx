@@ -23,11 +23,10 @@ const STATUS_OPTIONS = [
 ]
 
 function StatusBadge({ status }) {
-  const c   = STATUS_CFG[status] ?? { label: status, color: '#6b7280', bg: '#f3f4f6' }
-  const Icon = c.icon
+  const c = STATUS_CFG[status] ?? { label: status, color: '#6b7280', bg: '#f3f4f6', dot: '#9ca3af' }
   return (
-    <span className={s.badge} style={{ color: c.color, background: c.bg }}>
-      {Icon && <Icon size={10} />}
+    <span className={s.statusBadge} style={{ color: c.color, background: c.bg }}>
+      <span className={s.statusDot} style={{ background: c.dot ?? c.color }} />
       {c.label}
     </span>
   )
@@ -100,7 +99,6 @@ export default function OrderDetail() {
     }
   }
 
-  // Facture QR / Click & Collect : l'admin confirme manuellement la réception du paiement
   const handleMarkAsPaid = async () => {
     setMarkingPaid(true)
     setFeedback('')
@@ -119,7 +117,6 @@ export default function OrderDetail() {
     }
   }
 
-  // Click & Collect : la commande est prête → email automatique au client
   const handleMarkReady = async () => {
     setMarkingReady(true)
     setFeedback('')
@@ -212,313 +209,265 @@ export default function OrderDetail() {
 
   return (
     <div className={s.page}>
-      <div className={s.body}>
+      {/* ── En-tête ── */}
+      <div className={s.pageHead}>
+        <div className={s.pageHeadLeft}>
+          <button className={s.backBtn} onClick={goBack} aria-label="Retour à la liste">
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <h1 className={s.pageTitle}>Commande #{order.id}</h1>
+            <p className={s.pageSubtitle}>{formatDateLong(order.created_at)}</p>
+          </div>
+        </div>
+        <StatusBadge status={order.status} />
+      </div>
 
-        {feedback && <p className={s.feedbackOk}>{feedback}</p>}
-        {error    && <p className={s.feedbackErr}>{error}</p>}
+      {feedback && <div className={s.feedbackOk}>{feedback}</div>}
+      {error    && <div className={s.feedbackErr}>{error}</div>}
 
-        {/* 1 — Résumé : client, adresse, articles, totaux — tout en tableau */}
-        <section className={s.section}>
-          <h2 className={s.sectionTitle}>Résumé de la commande</h2>
-          <table className={s.summaryTable}>
-            <tbody>
-              <tr>
-                <th className={s.summaryLabel}>Client</th>
-                <td className={s.summaryValue}>
-                  {order.first_name} {order.last_name}
-                  <span className={s.summarySub}>{order.email}</span>
-                </td>
-              </tr>
-              <tr>
-                <th className={s.summaryLabel}>Adresse de livraison</th>
-                <td className={s.summaryValue}>
-                  {order.shipping_street ? (
-                    <>
-                      {(order.shipping_first_name || order.shipping_last_name) && (
-                        <>{order.shipping_first_name} {order.shipping_last_name}<br /></>
-                      )}
-                      {order.shipping_street} {order.shipping_street_number}
-                      <span className={s.summarySub}>
-                        {order.shipping_zip} {order.shipping_city}{order.shipping_canton ? ` (${order.shipping_canton})` : ''} — {order.shipping_country}
-                      </span>
-                    </>
-                  ) : (
-                    <span className={s.infoMissing}>Aucune adresse enregistrée</span>
-                  )}
-                </td>
-              </tr>
-              {/* Adresse de facturation — affichée uniquement si distincte de la livraison */}
-              {order.billing_street && order.billing_street !== order.shipping_street && (
-                <tr>
-                  <th className={s.summaryLabel}>Adresse de facturation</th>
-                  <td className={s.summaryValue}>
-                    {(order.billing_first_name || order.billing_last_name) && (
-                      <>{order.billing_first_name} {order.billing_last_name}<br /></>
+      {/* ── Grille principale ── */}
+      <div className={s.mainGrid}>
+        {/* Colonne gauche — informations */}
+        <div className={s.leftCol}>
+
+          {/* Résumé */}
+          <section className={s.card}>
+            <div className={s.cardHead}>
+              <div>
+                <h2 className={s.cardTitle}>Résumé de la commande</h2>
+                <p className={s.cardSub}>Client, adresse et totaux</p>
+              </div>
+            </div>
+            <div className={s.infoGrid}>
+              <div className={s.infoBlock}>
+                <span className={s.infoLabel}>Client</span>
+                <span className={s.infoValue}>{order.first_name} {order.last_name}</span>
+                <span className={s.infoSub}>{order.email}</span>
+              </div>
+              <div className={s.infoBlock}>
+                <span className={s.infoLabel}>Adresse de livraison</span>
+                {order.shipping_street ? (
+                  <>
+                    {(order.shipping_first_name || order.shipping_last_name) && (
+                      <span className={s.infoValue}>{order.shipping_first_name} {order.shipping_last_name}</span>
                     )}
-                    {order.billing_street} {order.billing_street_number}
-                    <span className={s.summarySub}>
-                      {order.billing_zip} {order.billing_city}{order.billing_canton ? ` (${order.billing_canton})` : ''} — {order.billing_country}
+                    <span className={s.infoValue}>{order.shipping_street} {order.shipping_street_number}</span>
+                    <span className={s.infoSub}>
+                      {order.shipping_zip} {order.shipping_city}{order.shipping_canton ? ` (${order.shipping_canton})` : ''} — {order.shipping_country}
                     </span>
-                  </td>
-                </tr>
+                  </>
+                ) : (
+                  <span className={s.infoMissing}>Aucune adresse enregistrée</span>
+                )}
+              </div>
+              {order.billing_street && order.billing_street !== order.shipping_street && (
+                <div className={s.infoBlock}>
+                  <span className={s.infoLabel}>Adresse de facturation</span>
+                  {(order.billing_first_name || order.billing_last_name) && (
+                    <span className={s.infoValue}>{order.billing_first_name} {order.billing_last_name}</span>
+                  )}
+                  <span className={s.infoValue}>{order.billing_street} {order.billing_street_number}</span>
+                  <span className={s.infoSub}>
+                    {order.billing_zip} {order.billing_city}{order.billing_canton ? ` (${order.billing_canton})` : ''} — {order.billing_country}
+                  </span>
+                </div>
               )}
-              <tr>
-                <th className={s.summaryLabel}>Statut actuel</th>
-                <td className={s.summaryValue}><StatusBadge status={order.status} /></td>
-              </tr>
+              <div className={s.infoBlock}>
+                <span className={s.infoLabel}>Sous-total</span>
+                <span className={s.infoValue}>{formatCHF(order.subtotal)}</span>
+              </div>
+              <div className={s.infoBlock}>
+                <span className={s.infoLabel}>Livraison</span>
+                <span className={s.infoValue}>{formatCHF(order.shipping_cost)}</span>
+              </div>
+              <div className={s.infoBlock}>
+                <span className={s.infoLabel}>TVA incluse</span>
+                <span className={s.infoValue}>{formatCHF(order.tax_amount)}</span>
+              </div>
+              <div className={s.infoBlock}>
+                <span className={s.infoLabel}>Total TTC</span>
+                <span className={s.infoTotal}>{formatCHF(order.total)}</span>
+              </div>
+            </div>
+          </section>
 
-              {/* Articles commandés — lignes intégrées au tableau résumé */}
-              <tr className={s.summarySectionRow}>
-                <th colSpan={2} className={s.summarySectionLabel}>Articles commandés</th>
-              </tr>
+          {/* Articles */}
+          <section className={s.card}>
+            <div className={s.cardHead}>
+              <div>
+                <h2 className={s.cardTitle}>Articles commandés</h2>
+                <p className={s.cardSub}>{(order.items ?? []).length} article{(order.items ?? []).length > 1 ? 's' : ''}</p>
+              </div>
+            </div>
+            <div className={s.itemList}>
               {(order.items ?? []).map(item => {
                 const p = snap(item)
-                const unitPrice   = parseFloat(item.unit_price)
+                const unitPrice    = parseFloat(item.unit_price)
                 const comparePrice = p.compare_price_chf ? parseFloat(p.compare_price_chf) : null
                 const isDiscounted = comparePrice != null && comparePrice > unitPrice
                 return (
-                  <tr key={item.id}>
-                    <th className={s.summaryLabel}>
-                      {p.name ?? `Produit #${item.product_id}`}
-                      {p.sku && <span className={s.summarySub}>Réf. {p.sku}</span>}
-                    </th>
-                    <td className={s.summaryValue}>
-                      × {item.quantity} — {formatCHF(unitPrice * item.quantity)}
-                      {isDiscounted && (
-                        <span className={s.summarySub}>
-                          Prix promo : {formatCHF(unitPrice)}/pièce au lieu de {formatCHF(comparePrice)}/pièce
-                        </span>
-                      )}
-                    </td>
-                  </tr>
+                  <div key={item.id} className={s.itemRow}>
+                    <div className={s.itemThumb}><Package size={14} /></div>
+                    <div className={s.itemInfo}>
+                      <span className={s.itemName}>{p.name ?? `Produit #${item.product_id}`}</span>
+                      <span className={s.itemSub}>
+                        {p.sku && `Réf. ${p.sku} · `}× {item.quantity}
+                        {isDiscounted && ` · Promo ${formatCHF(unitPrice)} au lieu de ${formatCHF(comparePrice)}`}
+                      </span>
+                    </div>
+                    <span className={s.itemPrice}>{formatCHF(unitPrice * item.quantity)}</span>
+                  </div>
                 )
               })}
+            </div>
+          </section>
 
-              <tr className={s.summarySectionRow}>
-                <th colSpan={2} className={s.summarySectionLabel}>Totaux</th>
-              </tr>
-              <tr>
-                <th className={s.summaryLabel}>Sous-total</th>
-                <td className={s.summaryValue}>{formatCHF(order.subtotal)}</td>
-              </tr>
-              <tr>
-                <th className={s.summaryLabel}>Livraison</th>
-                <td className={s.summaryValue}>{formatCHF(order.shipping_cost)}</td>
-              </tr>
-              <tr>
-                <th className={s.summaryLabel}>TVA incluse</th>
-                <td className={s.summaryValue}>{formatCHF(order.tax_amount)}</td>
-              </tr>
-              <tr>
-                <th className={s.summaryLabel}>Total TTC</th>
-                <td className={s.summaryTotal}>{formatCHF(order.total)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
+          {/* Historique */}
+          {(order.history ?? []).length > 0 && (
+            <section className={s.card}>
+              <div className={s.cardHead}>
+                <div>
+                  <h2 className={s.cardTitle}>Historique</h2>
+                  <p className={s.cardSub}>Statuts précédents</p>
+                </div>
+              </div>
+              <div className={s.historyList}>
+                {order.history.map((h, i) => (
+                  <div key={i} className={s.historyRow}>
+                    <StatusBadge status={h.status} />
+                    <span className={s.historyNote}>{h.note}</span>
+                    <span className={s.historyDate}>{formatDate(h.created_at)}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
 
-        {/* 3 — Gestion de la commande : paiement, expédition, facture, statut, historique — un seul tableau */}
-        <section className={s.section}>
-          <h2 className={s.sectionTitle}>Gestion de la commande</h2>
-          <table className={s.summaryTable}>
-            <tbody>
+        {/* Colonne droite — actions */}
+        <div className={s.rightCol}>
 
-              {/* Paiement — uniquement si une action de paiement est possible sur ce statut */}
-              {needsPaymentAction && (
-                <>
-                  <tr className={s.summarySectionRow}>
-                    <th colSpan={2} className={s.summarySectionLabel}>Paiement</th>
-                  </tr>
-                  {needsPickupPrep && (
-                    <tr>
-                      <th className={s.summaryLabel}>Préparation du retrait</th>
-                      <td className={s.summaryValue}>
-                        <button
-                          className={s.btnTwint}
-                          onClick={handleMarkReady}
-                          disabled={markingReady}
-                        >
-                          {markingReady
-                            ? <><RefreshCw size={13} className={s.spin} /> Mise à jour…</>
-                            : <><Store size={13} /> Marquer prête pour le retrait</>
-                          }
-                        </button>
-                        <p className={s.noteHint}>
-                          Passe la commande au statut « Prête pour le retrait » et envoie automatiquement un email au client (adresse + horaires de la boutique).
-                        </p>
-                      </td>
-                    </tr>
-                  )}
-                  <tr>
-                    <th className={s.summaryLabel}>
-                      {order.status === 'pending_invoice' ? 'Paiement de la facture' : 'Paiement en boutique'}
-                    </th>
-                    <td className={s.summaryValue}>
-                      <button
-                        className={s.btnTwint}
-                        onClick={handleMarkAsPaid}
-                        disabled={markingPaid}
-                      >
-                        {markingPaid
-                          ? <><RefreshCw size={13} className={s.spin} /> Mise à jour…</>
-                          : <><Check size={13} /> Marquer comme payée</>
-                        }
-                      </button>
-                      <p className={s.noteHint}>
-                        {order.status === 'pending_invoice'
-                          ? 'Confirme la réception du paiement de la facture QR et passe la commande au statut « Payée ».'
-                          : 'Confirme l\'encaissement au comptoir et passe la commande au statut « Payée ».'}
-                      </p>
-                    </td>
-                  </tr>
-                </>
-              )}
-
-              {/* Expédition */}
-              <tr className={s.summarySectionRow}>
-                <th colSpan={2} className={s.summarySectionLabel}>Expédition</th>
-              </tr>
-              <tr>
-                <th className={s.summaryLabel}>Étiquette La Poste CH</th>
-                <td className={s.summaryValue}>
-                  <div className={s.labelRow}>
-                    <button
-                      className={s.btnLabel}
-                      onClick={handleGenerateLabel}
-                      disabled={generatingLabel}
-                    >
-                      {generatingLabel
-                        ? <><RefreshCw size={13} className={s.spin} /> Génération…</>
-                        : <><Package size={13} /> Générer l'étiquette</>
+          {/* Paiement */}
+          {needsPaymentAction && (
+            <section className={s.card}>
+              <div className={s.cardHead}>
+                <h2 className={s.cardTitle}>Paiement</h2>
+              </div>
+              <div className={s.actionList}>
+                {needsPickupPrep && (
+                  <div className={s.actionItem}>
+                    <button className={s.btnDark} onClick={handleMarkReady} disabled={markingReady}>
+                      {markingReady
+                        ? <><RefreshCw size={13} className={s.spin} /> Mise à jour…</>
+                        : <><Store size={13} /> Marquer prête pour le retrait</>
                       }
                     </button>
-                    {order.label_url && (
-                      <button className={s.btnSecondary} onClick={handleDownloadLabel}>
-                        <Download size={13} /> Télécharger PDF
-                      </button>
-                    )}
+                    <p className={s.actionHint}>Envoie un email au client (adresse + horaires).</p>
                   </div>
-                  {order.tracking_number && (
-                    <p className={s.trackingCurrent}>
-                      <Truck size={12} /> Suivi actuel : <strong>{order.tracking_number}</strong>
-                    </p>
-                  )}
-                  <p className={s.noteHint}>Génère l'étiquette via La Poste CH et sauvegarde le numéro de suivi automatiquement.</p>
-                </td>
-              </tr>
-              <tr>
-                <th className={s.summaryLabel}>Suivi manuel</th>
-                <td className={s.summaryValue}>
-                  <div className={s.trackingRow}>
-                    <input
-                      type="text"
-                      className={s.trackingInput}
-                      placeholder="Ex : 99.00.123456.78901234"
-                      value={trackingInput}
-                      onChange={e => setTrackingInput(e.target.value.trim())}
-                      onKeyDown={e => e.key === 'Enter' && handleSaveTracking()}
-                    />
-                    <button
-                      className={s.btnSave}
-                      onClick={handleSaveTracking}
-                      disabled={savingTracking || !trackingInput.trim()}
-                    >
-                      {savingTracking ? <RefreshCw size={13} className={s.spin} /> : 'Enregistrer'}
-                    </button>
-                  </div>
-                  <p className={s.noteHint}>À utiliser uniquement si la génération automatique a échoué.</p>
-                </td>
-              </tr>
-
-              {/* Facture */}
-              <tr className={s.summarySectionRow}>
-                <th colSpan={2} className={s.summarySectionLabel}>Facture</th>
-              </tr>
-              <tr>
-                <th className={s.summaryLabel}>Facture PDF</th>
-                <td className={s.summaryValue}>
-                  <button className={s.btnSecondary} onClick={handleDownloadInvoice}>
-                    <FileText size={13} /> Télécharger la facture PDF
+                )}
+                <div className={s.actionItem}>
+                  <button className={s.btnDark} onClick={handleMarkAsPaid} disabled={markingPaid}>
+                    {markingPaid
+                      ? <><RefreshCw size={13} className={s.spin} /> Mise à jour…</>
+                      : <><Check size={13} /> Marquer comme payée</>
+                    }
                   </button>
-                </td>
-              </tr>
-
-              {/* Changement de statut manuel — cas avancé */}
-              <tr className={s.summarySectionRow}>
-                <th colSpan={2} className={s.summarySectionLabel}>Changer le statut manuellement</th>
-              </tr>
-              <tr>
-                <th className={s.summaryLabel}>Nouveau statut</th>
-                <td className={s.summaryValue}>
-                  <div className={s.statusRow}>
-                    <select
-                      className={s.select}
-                      value={newStatus}
-                      onChange={e => setNewStatus(e.target.value)}
-                    >
-                      {STATUS_OPTIONS.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                    <button
-                      className={s.btnSave}
-                      onClick={handleStatusUpdate}
-                      disabled={saving || newStatus === order.status}
-                    >
-                      {saving ? <RefreshCw size={13} className={s.spin} /> : 'Enregistrer'}
-                    </button>
-                  </div>
-                  <textarea
-                    className={s.noteInput}
-                    placeholder="Note interne (optionnel) — ex : numéro de suivi Swiss Post"
-                    value={note}
-                    onChange={e => setNote(e.target.value)}
-                    rows={2}
-                  />
-                  <p className={s.noteHint}>
-                    À utiliser uniquement pour les cas particuliers non couverts par les actions ci-dessus.
+                  <p className={s.actionHint}>
+                    {order.status === 'pending_invoice'
+                      ? 'Confirme la réception du paiement de la facture QR.'
+                      : 'Confirme l\'encaissement au comptoir.'}
                   </p>
-                </td>
-              </tr>
+                </div>
+              </div>
+            </section>
+          )}
 
-              {/* Historique — lecture seule */}
-              {(order.history ?? []).length > 0 && (
-                <>
-                  <tr className={s.summarySectionRow}>
-                    <th colSpan={2} className={s.summarySectionLabel}>Historique</th>
-                  </tr>
-                  <tr>
-                    <th className={s.summaryLabel}>Statuts précédents</th>
-                    <td className={s.summaryValue}>
-                      <div className={s.history}>
-                        {order.history.map((h, i) => (
-                          <div key={i} className={s.historyRow}>
-                            <StatusBadge status={h.status} />
-                            <span className={s.historyNote}>{h.note}</span>
-                            <span className={s.historyDate}>{formatDate(h.created_at)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                </>
-              )}
-            </tbody>
-          </table>
-        </section>
-      </div>
-
-      <div className={s.actionBar}>
-        <div className={s.actionBarInner}>
-          <div className={s.actionBarLeft}>
-            <button className={s.backBtn} onClick={goBack} aria-label="Retour à la liste">
-              <ArrowLeft size={18} />
-            </button>
-            <div>
-              <h1 className={s.headerTitle}>Commande #{order.id}</h1>
-              <p className={s.headerSub}>{formatDateLong(order.created_at)}</p>
+          {/* Expédition */}
+          <section className={s.card}>
+            <div className={s.cardHead}>
+              <h2 className={s.cardTitle}>Expédition</h2>
             </div>
-          </div>
+            <div className={s.actionList}>
+              <div className={s.actionItem}>
+                <span className={s.actionLabel}>Étiquette La Poste CH</span>
+                <div className={s.actionRow}>
+                  <button className={s.btnPrimary} onClick={handleGenerateLabel} disabled={generatingLabel}>
+                    {generatingLabel
+                      ? <><RefreshCw size={13} className={s.spin} /> Génération…</>
+                      : <><Package size={13} /> Générer</>
+                    }
+                  </button>
+                  {order.label_url && (
+                    <button className={s.btnGhost} onClick={handleDownloadLabel}>
+                      <Download size={13} />
+                    </button>
+                  )}
+                </div>
+                {order.tracking_number && (
+                  <p className={s.trackingCurrent}>
+                    <Truck size={12} /> <strong>{order.tracking_number}</strong>
+                  </p>
+                )}
+              </div>
+              <div className={s.actionItem}>
+                <span className={s.actionLabel}>Suivi manuel</span>
+                <div className={s.actionRow}>
+                  <input
+                    type="text"
+                    className={s.input}
+                    placeholder="99.00.123456.78901234"
+                    value={trackingInput}
+                    onChange={e => setTrackingInput(e.target.value.trim())}
+                    onKeyDown={e => e.key === 'Enter' && handleSaveTracking()}
+                  />
+                  <button className={s.btnGhost} onClick={handleSaveTracking} disabled={savingTracking || !trackingInput.trim()}>
+                    {savingTracking ? <RefreshCw size={13} className={s.spin} /> : <Check size={13} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Facture */}
+          <section className={s.card}>
+            <div className={s.cardHead}>
+              <h2 className={s.cardTitle}>Facture</h2>
+            </div>
+            <div className={s.actionList}>
+              <div className={s.actionItem}>
+                <button className={`${s.btnGhost} ${s.btnFull}`} onClick={handleDownloadInvoice}>
+                  <FileText size={13} /> Télécharger la facture PDF
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Changer le statut */}
+          <section className={s.card}>
+            <div className={s.cardHead}>
+              <h2 className={s.cardTitle}>Changer le statut</h2>
+            </div>
+            <div className={s.actionList}>
+              <div className={s.actionItem}>
+                <select className={s.select} value={newStatus} onChange={e => setNewStatus(e.target.value)}>
+                  {STATUS_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <textarea
+                  className={s.textarea}
+                  placeholder="Note interne (optionnel)"
+                  value={note}
+                  onChange={e => setNote(e.target.value)}
+                  rows={2}
+                />
+                <button className={`${s.btnPrimary} ${s.btnFull}`} onClick={handleStatusUpdate} disabled={saving || newStatus === order.status}>
+                  {saving ? <RefreshCw size={13} className={s.spin} /> : 'Enregistrer'}
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>
