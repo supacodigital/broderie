@@ -73,7 +73,7 @@ const buildLabelPayload = ({ order, address }) => ({
       itemID:    String(order.id),
       recipient: {
         name1:   recipientName(order, address),
-        street:  address.street,
+        street:  [address.street, address.street_number].filter(Boolean).join(' '),
         zip:     address.zip,
         city:    address.city,
         country: address.country ?? 'CH',
@@ -155,11 +155,12 @@ const generateLabel = async (orderId, order) => {
     // titulaire du compte (livraison à un tiers). Fallback compte pour les commandes antérieures.
     first_name: order.shipping_first_name ?? order.first_name,
     last_name:  order.shipping_last_name  ?? order.last_name,
-    street:     order.street,
-    city:       order.city,
-    zip:        order.zip,
-    canton:     order.canton ?? '',
-    country:    order.country ?? 'CH',
+    street:     order.shipping_street,
+    street_number: order.shipping_street_number,
+    city:       order.shipping_city,
+    zip:        order.shipping_zip,
+    canton:     order.shipping_canton ?? '',
+    country:    order.shipping_country ?? 'CH',
     phone:      order.phone   ?? '',
   }
 

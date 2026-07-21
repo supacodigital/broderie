@@ -131,7 +131,7 @@ function CustomerModal({ customerId, onClose }) {
                       )}
                       <div className={s.addressField}>
                         <span className={s.addressFieldLabel}>Rue</span>
-                        <span className={s.addressFieldValue}>{addr.street}</span>
+                        <span className={s.addressFieldValue}>{addr.street} {addr.street_number}</span>
                       </div>
                       <div className={s.addressField}>
                         <span className={s.addressFieldLabel}>Localité</span>

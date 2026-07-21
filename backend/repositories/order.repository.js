@@ -33,15 +33,16 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
       `INSERT INTO orders
          (user_id, status, subtotal, discount, coupon_code, shipping_cost, tax_amount, total, qr_reference,
           shipping_first_name, shipping_last_name,
-          shipping_street, shipping_city, shipping_zip, shipping_country, shipping_canton,
+          shipping_street, shipping_street_number, shipping_city, shipping_zip, shipping_country, shipping_canton,
           billing_first_name, billing_last_name,
-          billing_street, billing_city, billing_zip, billing_country, billing_canton)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          billing_street, billing_street_number, billing_city, billing_zip, billing_country, billing_canton)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId, status, subtotal, discount, couponCode, shippingCost, taxAmount, total, qrReference,
         address?.first_name ?? null,
         address?.last_name  ?? null,
         address?.street  ?? null,
+        address?.street_number ?? null,
         address?.city    ?? null,
         address?.zip     ?? null,
         address?.country ?? 'CH',
@@ -49,6 +50,7 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
         billing?.first_name ?? null,
         billing?.last_name  ?? null,
         billing?.street  ?? null,
+        billing?.street_number ?? null,
         billing?.city    ?? null,
         billing?.zip     ?? null,
         billing?.country ?? 'CH',
@@ -165,11 +167,10 @@ const findById = async (orderId, userId = null) => {
             o.qr_reference,
             o.created_at, o.updated_at, o.user_id,
             o.shipping_first_name, o.shipping_last_name,
-            o.shipping_street AS street, o.shipping_city AS city,
-            o.shipping_zip    AS zip,    o.shipping_country AS country,
-            o.shipping_canton AS canton,
+            o.shipping_street, o.shipping_street_number, o.shipping_city,
+            o.shipping_zip, o.shipping_country, o.shipping_canton,
             o.billing_first_name, o.billing_last_name,
-            o.billing_street, o.billing_city, o.billing_zip, o.billing_country, o.billing_canton,
+            o.billing_street, o.billing_street_number, o.billing_city, o.billing_zip, o.billing_country, o.billing_canton,
             o.tracking_number, o.label_url, o.label_id,
             u.first_name, u.last_name, u.email
      FROM orders o

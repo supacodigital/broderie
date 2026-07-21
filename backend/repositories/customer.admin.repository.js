@@ -46,7 +46,7 @@ const findById = async (id) => {
   if (!users[0]) return null;
 
   const [addresses] = await pool.execute(
-    `SELECT id, label, street, city, zip, country, canton, is_default
+    `SELECT id, label, street, street_number, city, zip, country, canton, is_default
      FROM addresses WHERE user_id = ?`,
     [id]
   );

@@ -12,7 +12,8 @@ const accountAddressSchema = z.object({
   address_type: z.enum(['shipping', 'billing', 'both']).optional(),
   first_name:   z.string().trim().max(100).optional().nullable(),
   last_name:    z.string().trim().max(100).optional().nullable(),
-  street:       z.string().trim().min(1).max(255),
+  street:        z.string().trim().min(1).max(255),
+  street_number: z.string().trim().max(20).optional().nullable(),
   city:         z.string().trim().min(1).max(100),
   zip:          z.string().regex(/^\d{4}$/),
   canton:       z.enum(SWISS_CANTONS).optional().nullable(),
@@ -63,10 +64,10 @@ const createAddress = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Adresse invalide.' });
     }
     const isDefault = req.body.isDefault ?? req.body.is_default ?? false;
-    const { label, address_type, first_name, last_name, street, city, zip, canton } = parsed.data;
+    const { label, address_type, first_name, last_name, street, street_number, city, zip, canton } = parsed.data;
     const addressId = await userRepository.createAddress(req.user.id, {
       label, addressType: address_type, firstName: first_name, lastName: last_name,
-      street, city, zip, country: 'CH', canton, isDefault,
+      street, streetNumber: street_number, city, zip, country: 'CH', canton, isDefault,
     });
     const addresses = await userRepository.findAddresses(req.user.id);
     const created = addresses.find((a) => a.id === addressId);
@@ -84,10 +85,10 @@ const updateAddress = async (req, res, next) => {
     }
     const addressId = parseInt(req.params.id);
     const isDefault = req.body.isDefault ?? req.body.is_default ?? false;
-    const { label, address_type, first_name, last_name, street, city, zip, canton } = parsed.data;
+    const { label, address_type, first_name, last_name, street, street_number, city, zip, canton } = parsed.data;
     await userRepository.updateAddress(addressId, req.user.id, {
       label, addressType: address_type, firstName: first_name, lastName: last_name,
-      street, city, zip, country: 'CH', canton, isDefault,
+      street, streetNumber: street_number, city, zip, country: 'CH', canton, isDefault,
     });
     const addresses = await userRepository.findAddresses(req.user.id);
     const updated = addresses.find((a) => a.id === addressId);

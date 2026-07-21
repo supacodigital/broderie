@@ -71,7 +71,8 @@ const makeAddressSchema = (t) => z.object({
   address_type: z.enum(['shipping', 'billing', 'both']),
   first_name:   z.string().max(100).optional(),
   last_name:    z.string().max(100).optional(),
-  street:       z.string().min(1, t('account.val.streetRequired')),
+  street:        z.string().min(1, t('account.val.streetRequired')),
+  street_number: z.string().min(1, t('account.val.streetNumberRequired')),
   zip:          z.string().regex(/^\d{4}$/, t('account.val.zipInvalid')),
   city:         z.string().min(1, t('account.val.cityRequired')),
   canton:       z.string().refine(v => CANTON_CODES.includes(v), t('account.val.cantonRequired')),
@@ -378,7 +379,7 @@ function AddressModal({ initial, onSave, onClose }) {
   const addressSchema = useMemo(() => makeAddressSchema(t), [t])
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(addressSchema),
-    defaultValues: initial ?? { label: '', address_type: 'both', first_name: '', last_name: '', street: '', zip: '', city: '', canton: '' },
+    defaultValues: initial ?? { label: '', address_type: 'both', first_name: '', last_name: '', street: '', street_number: '', zip: '', city: '', canton: '' },
   })
 
   const onSubmit = async (data) => {
@@ -420,12 +421,21 @@ function AddressModal({ initial, onSave, onClose }) {
                 className={s.input} {...register('last_name')} />
             </div>
           </div>
-          <div className={s.field}>
-            <label htmlFor="addr-street" className={s.label}>Rue et numéro</label>
-            <input id="addr-street" type="text" placeholder="Rue de la Paix 12"
-              className={`${s.input} ${errors.street ? s.inputError : ''}`}
-              {...register('street')} />
-            {errors.street && <span className={s.fieldError}><AlertCircle size={11} />{errors.street.message}</span>}
+          <div className={s.formRowStreet}>
+            <div className={s.field}>
+              <label htmlFor="addr-street" className={s.label}>Rue</label>
+              <input id="addr-street" type="text" placeholder="Rue de la Paix"
+                className={`${s.input} ${errors.street ? s.inputError : ''}`}
+                {...register('street')} />
+              {errors.street && <span className={s.fieldError}><AlertCircle size={11} />{errors.street.message}</span>}
+            </div>
+            <div className={s.field}>
+              <label htmlFor="addr-street-number" className={s.label}>Numéro</label>
+              <input id="addr-street-number" type="text" placeholder="12"
+                className={`${s.input} ${errors.street_number ? s.inputError : ''}`}
+                {...register('street_number')} />
+              {errors.street_number && <span className={s.fieldError}><AlertCircle size={11} />{errors.street_number.message}</span>}
+            </div>
           </div>
           <div className={s.formRow}>
             <div className={s.field}>
@@ -549,7 +559,7 @@ function TabAddresses() {
               {(addr.first_name || addr.last_name) && (
                 <p className={s.addressName}>{addr.first_name} {addr.last_name}</p>
               )}
-              <p className={s.addressLine}>{addr.street}</p>
+              <p className={s.addressLine}>{addr.street} {addr.street_number}</p>
               <p className={s.addressLine}>{addr.zip} {addr.city}{addr.canton ? ` (${addr.canton})` : ''}</p>
               <p className={s.addressLine}>Suisse</p>
               <div className={s.addressActions}>

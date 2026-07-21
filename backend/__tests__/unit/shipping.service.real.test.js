@@ -30,11 +30,12 @@ const fakeOrder = {
   id: 42,
   first_name: 'Marie',
   last_name:  'Dupont',
-  street:     'Rue du Lac 12',
-  city:       'Lausanne',
-  zip:        '1000',
-  canton:     'VD',
-  country:    'CH',
+  shipping_street:        'Rue du Lac',
+  shipping_street_number: '12',
+  shipping_city:          'Lausanne',
+  shipping_zip:           '1000',
+  shipping_canton:        'VD',
+  shipping_country:       'CH',
   items: [{ product_id: 1, quantity: 2, weight_kg: 0.3 }],
 };
 
@@ -53,7 +54,7 @@ describe('shipping.service — createLabel() mode réel', () => {
 
     await service.createLabel({
       order:   fakeOrder,
-      address: { street: fakeOrder.street, city: fakeOrder.city, zip: fakeOrder.zip },
+      address: { street: fakeOrder.shipping_street, city: fakeOrder.shipping_city, zip: fakeOrder.shipping_zip },
     });
 
     expect(swissPostClient.generateAddressLabel).toHaveBeenCalledTimes(1);
@@ -70,7 +71,7 @@ describe('shipping.service — createLabel() mode réel', () => {
 
     const result = await service.createLabel({
       order:   fakeOrder,
-      address: { street: fakeOrder.street, city: fakeOrder.city, zip: fakeOrder.zip },
+      address: { street: fakeOrder.shipping_street, city: fakeOrder.shipping_city, zip: fakeOrder.shipping_zip },
     });
 
     expect(result.trackingNumber).toBe('993456789012345678');
@@ -85,7 +86,7 @@ describe('shipping.service — createLabel() mode réel', () => {
     await expect(
       service.createLabel({
         order:   fakeOrder,
-        address: { street: fakeOrder.street, city: fakeOrder.city, zip: fakeOrder.zip },
+        address: { street: fakeOrder.shipping_street, city: fakeOrder.shipping_city, zip: fakeOrder.shipping_zip },
       })
     ).rejects.toMatchObject({ statusCode: 502 });
   });

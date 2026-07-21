@@ -11,9 +11,10 @@ const SWISS_CANTONS = ['AG','AI','AR','BE','BL','BS','FR','GE','GL','GR','JU','L
 
 // Schéma d'adresse figée à la commande — validé côté serveur (jamais faire confiance au client)
 const addressSchema = z.object({
-  first_name: z.string().trim().min(1).max(100),
-  last_name:  z.string().trim().min(1).max(100),
-  street:     z.string().trim().min(1).max(255),
+  first_name:    z.string().trim().min(1).max(100),
+  last_name:     z.string().trim().min(1).max(100),
+  street:        z.string().trim().min(1).max(255),
+  street_number: z.string().trim().max(20).optional().nullable(),
   zip:        z.string().regex(/^\d{4}$/),
   city:       z.string().trim().min(1).max(100),
   canton:     z.enum(SWISS_CANTONS),

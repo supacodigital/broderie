@@ -28,26 +28,17 @@ const formatDate = (date) => {
   return d.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-// Découpe « rue + numéro » : isole le dernier groupe de chiffres comme numéro de bâtiment
-const splitStreet = (street = '') => {
-  const match = street.match(/^(.*?)\s*(\d+\w*)\s*$/);
-  return {
-    address:        match ? match[1].trim() : street,
-    buildingNumber: match ? match[2] : undefined,
-  };
-};
-
 // Construit l'objet de données attendu par SwissQRBill à partir d'une commande
 const buildQrBillData = (order) => {
   const dueDays = env.invoiceDueDays || 30;
   // Le débiteur de la facture QR est l'adresse de FACTURATION.
   // Fallback sur la livraison pour les commandes créées avant l'ajout du billing.
-  const billStreet = order.billing_street ?? order.street;
-  const billCity   = order.billing_city   ?? order.city;
-  const billZip    = order.billing_zip    ?? order.zip;
-  const billFirst  = order.billing_first_name ?? order.shipping_first_name ?? order.first_name;
-  const billLast   = order.billing_last_name  ?? order.shipping_last_name  ?? order.last_name;
-  const debtorStreet = splitStreet(billStreet || '');
+  const billStreet       = order.billing_street        ?? order.shipping_street;
+  const billStreetNumber = order.billing_street_number  ?? order.shipping_street_number;
+  const billCity         = order.billing_city           ?? order.shipping_city;
+  const billZip          = order.billing_zip            ?? order.shipping_zip;
+  const billFirst        = order.billing_first_name ?? order.shipping_first_name ?? order.first_name;
+  const billLast         = order.billing_last_name  ?? order.shipping_last_name  ?? order.last_name;
   return {
     amount:   roundCHF(parseFloat(order.total)),
     currency: 'CHF',
@@ -61,8 +52,8 @@ const buildQrBillData = (order) => {
     },
     debtor: {
       name:           `${billFirst ?? ''} ${billLast ?? ''}`.trim() || 'Client',
-      address:        debtorStreet.address || 'Adresse',
-      buildingNumber: debtorStreet.buildingNumber,
+      address:        billStreet || 'Adresse',
+      buildingNumber: billStreetNumber || undefined,
       city:           billCity || '',
       zip:            parseInt(billZip, 10) || billZip || 0,
       country:        'CH',

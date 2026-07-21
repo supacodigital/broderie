@@ -232,14 +232,14 @@ export default function OrderDetail() {
               <tr>
                 <th className={s.summaryLabel}>Adresse de livraison</th>
                 <td className={s.summaryValue}>
-                  {order.street ? (
+                  {order.shipping_street ? (
                     <>
                       {(order.shipping_first_name || order.shipping_last_name) && (
                         <>{order.shipping_first_name} {order.shipping_last_name}<br /></>
                       )}
-                      {order.street}
+                      {order.shipping_street} {order.shipping_street_number}
                       <span className={s.summarySub}>
-                        {order.zip} {order.city}{order.canton ? ` (${order.canton})` : ''} — {order.country}
+                        {order.shipping_zip} {order.shipping_city}{order.shipping_canton ? ` (${order.shipping_canton})` : ''} — {order.shipping_country}
                       </span>
                     </>
                   ) : (
@@ -248,14 +248,14 @@ export default function OrderDetail() {
                 </td>
               </tr>
               {/* Adresse de facturation — affichée uniquement si distincte de la livraison */}
-              {order.billing_street && order.billing_street !== order.street && (
+              {order.billing_street && order.billing_street !== order.shipping_street && (
                 <tr>
                   <th className={s.summaryLabel}>Adresse de facturation</th>
                   <td className={s.summaryValue}>
                     {(order.billing_first_name || order.billing_last_name) && (
                       <>{order.billing_first_name} {order.billing_last_name}<br /></>
                     )}
-                    {order.billing_street}
+                    {order.billing_street} {order.billing_street_number}
                     <span className={s.summarySub}>
                       {order.billing_zip} {order.billing_city}{order.billing_canton ? ` (${order.billing_canton})` : ''} — {order.billing_country}
                     </span>

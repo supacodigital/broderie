@@ -13,11 +13,12 @@ const fakeOrder = {
   id: 1,
   first_name: 'Marie',
   last_name:  'Dupont',
-  street:     'Rue du Lac 12',
-  city:       'Lausanne',
-  zip:        '1000',
-  canton:     'VD',
-  country:    'CH',
+  shipping_street:        'Rue du Lac',
+  shipping_street_number: '12',
+  shipping_city:          'Lausanne',
+  shipping_zip:           '1000',
+  shipping_canton:        'VD',
+  shipping_country:       'CH',
   items: [
     { product_id: 1, quantity: 2, weight_kg: 0.3 },
     { product_id: 2, quantity: 1, weight_kg: 0.1 },
@@ -30,7 +31,7 @@ describe('shipping.service — createLabel()', () => {
   test('génère un numéro de suivi au format Swiss Post (99.00.XXXXXX.XXXXXXXX)', async () => {
     const result = await service.createLabel({
       order:   fakeOrder,
-      address: { street: fakeOrder.street, city: fakeOrder.city, zip: fakeOrder.zip },
+      address: { street: fakeOrder.shipping_street, city: fakeOrder.shipping_city, zip: fakeOrder.shipping_zip },
     });
 
     expect(result.trackingNumber).toMatch(/^99\.00\.\d{6}\.\d{8}$/);
@@ -142,7 +143,7 @@ describe('shipping.service — generateLabel()', () => {
   });
 
   test('lève AppError 422 si l\'adresse de l\'order est incomplète', async () => {
-    const orderBad = { ...fakeOrder, street: null };
+    const orderBad = { ...fakeOrder, shipping_street: null };
 
     await expect(service.generateLabel(1, orderBad))
       .rejects.toMatchObject({ statusCode: 422 });

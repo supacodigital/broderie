@@ -56,9 +56,10 @@ const CANTON_CODES = SWISS_CANTONS.map(c => c.code)
    les champs billing_* sont validés conditionnellement via superRefine. */
 function buildAddressSchema(t) {
   const required = {
-    first_name: z.string().min(1, t('checkout.errors.firstNameRequired')),
-    last_name:  z.string().min(1, t('checkout.errors.lastNameRequired')),
-    street:     z.string().min(1, t('checkout.errors.streetRequired')),
+    first_name:    z.string().min(1, t('checkout.errors.firstNameRequired')),
+    last_name:     z.string().min(1, t('checkout.errors.lastNameRequired')),
+    street:        z.string().min(1, t('checkout.errors.streetRequired')),
+    street_number: z.string().min(1, t('checkout.errors.streetNumberRequired')),
     zip:        z.string().regex(/^\d{4}$/, t('checkout.errors.zipInvalid')),
     city:       z.string().min(1, t('checkout.errors.cityRequired')),
     canton:     z.string().refine(v => CANTON_CODES.includes(v), t('checkout.errors.cantonRequired')),
@@ -71,6 +72,7 @@ function buildAddressSchema(t) {
     billing_first_name: z.string().optional(),
     billing_last_name:  z.string().optional(),
     billing_street:     z.string().optional(),
+    billing_street_number: z.string().optional(),
     billing_zip:        z.string().optional(),
     billing_city:       z.string().optional(),
     billing_canton:     z.string().optional(),
@@ -81,6 +83,7 @@ function buildAddressSchema(t) {
     if (!data.billing_first_name?.trim()) addErr('billing_first_name', t('checkout.errors.firstNameRequired'))
     if (!data.billing_last_name?.trim())  addErr('billing_last_name',  t('checkout.errors.lastNameRequired'))
     if (!data.billing_street?.trim())     addErr('billing_street',     t('checkout.errors.streetRequired'))
+    if (!data.billing_street_number?.trim()) addErr('billing_street_number', t('checkout.errors.streetNumberRequired'))
     if (!/^\d{4}$/.test(data.billing_zip ?? '')) addErr('billing_zip', t('checkout.errors.zipInvalid'))
     if (!data.billing_city?.trim())       addErr('billing_city',       t('checkout.errors.cityRequired'))
     if (!CANTON_CODES.includes(data.billing_canton ?? '')) addErr('billing_canton', t('checkout.errors.cantonRequired'))
@@ -236,10 +239,16 @@ function AddressFields({ prefix = '', idPrefix, register, errors, t }) {
           type="text" autoComplete="family-name" />
       </div>
 
-      <Field id={`${idPrefix}street`} name={f('street')} required register={register} t={t}
-        label={t('checkout.street')} error={errors[f('street')]}
-        type="text" autoComplete="street-address"
-        placeholder={t('checkout.streetPlaceholder')} />
+      <div className={s.rowStreet}>
+        <Field id={`${idPrefix}street`} name={f('street')} required register={register} t={t}
+          label={t('checkout.street')} error={errors[f('street')]}
+          type="text" autoComplete="address-line1"
+          placeholder={t('checkout.streetPlaceholder')} />
+        <Field id={`${idPrefix}streetNumber`} name={f('street_number')} required register={register} t={t}
+          label={t('checkout.streetNumber')} error={errors[f('street_number')]}
+          type="text" autoComplete="address-line2"
+          placeholder={t('checkout.streetNumberPlaceholder')} />
+      </div>
 
       <div className={s.rowThree}>
         <Field id={`${idPrefix}zip`} name={f('zip')} required register={register} t={t}
@@ -275,9 +284,9 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
   const { register, handleSubmit, reset, setFocus, watch, getValues, formState: { errors } } = useForm({
     resolver: zodResolver(buildAddressSchema(t)),
     defaultValues: {
-      first_name: '', last_name: '', street: '', zip: '', city: '', canton: '', phone: '',
+      first_name: '', last_name: '', street: '', street_number: '', zip: '', city: '', canton: '', phone: '',
       billing_same: true,
-      billing_first_name: '', billing_last_name: '', billing_street: '',
+      billing_first_name: '', billing_last_name: '', billing_street: '', billing_street_number: '',
       billing_zip: '', billing_city: '', billing_canton: '',
     },
   })
@@ -299,6 +308,7 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
       first_name: prefill.firstName ?? '',
       last_name:  prefill.lastName  ?? '',
       street:     prefill.street    ?? '',
+      street_number: prefill.streetNumber ?? '',
       zip:        prefill.zip       ?? '',
       city:       prefill.city      ?? '',
       canton:     prefill.canton    ?? '',
@@ -313,6 +323,7 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
       first_name: addr.first_name ?? prefill?.firstName ?? '',
       last_name:  addr.last_name  ?? prefill?.lastName  ?? '',
       street:     addr.street ?? '',
+      street_number: addr.street_number ?? '',
       zip:        addr.zip    ?? '',
       city:       addr.city   ?? '',
       canton:     addr.canton ?? '',
@@ -336,7 +347,7 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
                 onClick={() => fillFromSaved(addr)}
               >
                 <span className={s.savedAddrLabel}>{addr.label || addr.city}</span>
-                <span className={s.savedAddrLine}>{addr.street}, {addr.zip} {addr.city}</span>
+                <span className={s.savedAddrLine}>{addr.street} {addr.street_number}, {addr.zip} {addr.city}</span>
               </button>
             ))}
           </div>
@@ -397,6 +408,7 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
   /* La facturation diffère-t-elle de la livraison ? (comparaison des champs clés) */
   const billingDiffers = billingAddress && (
     billingAddress.street !== address.street ||
+    billingAddress.street_number !== address.street_number ||
     billingAddress.zip    !== address.zip ||
     billingAddress.city   !== address.city ||
     billingAddress.first_name !== address.first_name ||
@@ -459,7 +471,7 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
       <div className={s.addressRecap}>
         <p className={s.addressRecapLabel}>{t('checkout.deliveryTo')}</p>
         <p className={s.addressRecapValue}>
-          {address.first_name} {address.last_name} — {address.street}, {address.zip} {address.city}
+          {address.first_name} {address.last_name} — {address.street} {address.street_number}, {address.zip} {address.city}
           {address.canton ? ` (${address.canton})` : ''}, Suisse
         </p>
       </div>
@@ -469,7 +481,7 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
         <div className={s.addressRecap}>
           <p className={s.addressRecapLabel}>{t('checkout.billingTo')}</p>
           <p className={s.addressRecapValue}>
-            {billingAddress.first_name} {billingAddress.last_name} — {billingAddress.street}, {billingAddress.zip} {billingAddress.city}
+            {billingAddress.first_name} {billingAddress.last_name} — {billingAddress.street} {billingAddress.street_number}, {billingAddress.zip} {billingAddress.city}
             {billingAddress.canton ? ` (${billingAddress.canton})` : ''}, Suisse
           </p>
         </div>
@@ -927,6 +939,7 @@ export default function Checkout() {
           firstName: user.firstName ?? user.first_name ?? '',
           lastName:  user.lastName  ?? user.last_name  ?? '',
           street:    def?.street ?? '',
+          streetNumber: def?.street_number ?? '',
           zip:       def?.zip    ?? '',
           city:      def?.city   ?? '',
           canton:    def?.canton ?? '',
@@ -968,6 +981,7 @@ export default function Checkout() {
       first_name: data.first_name,
       last_name:  data.last_name,
       street:     data.street,
+      street_number: data.street_number,
       zip:        data.zip,
       city:       data.city,
       canton:     data.canton,
@@ -979,6 +993,7 @@ export default function Checkout() {
       first_name: data.billing_first_name,
       last_name:  data.billing_last_name,
       street:     data.billing_street,
+      street_number: data.billing_street_number,
       zip:        data.billing_zip,
       city:       data.billing_city,
       canton:     data.billing_canton,

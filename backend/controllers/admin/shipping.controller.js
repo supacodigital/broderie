@@ -63,8 +63,8 @@ const downloadLabel = async (req, res, next) => {
       doc.fontSize(8).text('DESTINATAIRE');
       /* Destinataire figé au moment de la commande (peut différer du titulaire du compte) */
       doc.fontSize(12).font('Helvetica-Bold').text(`${order.shipping_first_name ?? order.first_name ?? ''} ${order.shipping_last_name ?? order.last_name ?? ''}`);
-      doc.font('Helvetica').fontSize(10).text(order.street ?? '');
-      doc.text(`${order.zip ?? ''} ${order.city ?? ''}`);
+      doc.font('Helvetica').fontSize(10).text([order.shipping_street, order.shipping_street_number].filter(Boolean).join(' '));
+      doc.text(`${order.shipping_zip ?? ''} ${order.shipping_city ?? ''}`);
       doc.text('Suisse');
       doc.moveDown(0.8);
 

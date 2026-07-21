@@ -91,7 +91,7 @@ const updateStatus = async (req, res, next) => {
         /* Génération automatique de l'étiquette si aucun tracking existant */
         let trackingNumber = order.tracking_number ?? null;
 
-        if (!trackingNumber && order.street) {
+        if (!trackingNumber && order.shipping_street) {
           try {
             const label = await shippingService.generateLabel(orderId, order);
             trackingNumber = label.trackingNumber;
