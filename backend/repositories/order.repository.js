@@ -60,7 +60,7 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
     // Insertion des articles avec snapshot produit figé
     for (const item of items) {
       const [productRows] = await connection.execute(
-        `SELECT p.price_chf, p.sku, p.weight_kg, p.is_made_to_order, pt.name, pt.description
+        `SELECT p.price_chf, p.compare_price_chf, p.sku, p.weight_kg, p.is_made_to_order, pt.name, pt.description
          FROM products p
          INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
          WHERE p.id = ?`,
@@ -79,8 +79,14 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
           item.quantity,
           item.price_snapshot,
           item.tax_rate_snapshot,
-          // Snapshot figé du produit — inclut le flag « sur commande » pour l'affichage email/commande
-          JSON.stringify({ name: product.name, sku: product.sku, description: product.description, is_made_to_order: !!product.is_made_to_order }),
+          // Snapshot figé du produit — inclut le flag « sur commande » et le prix barré au moment de l'achat
+          JSON.stringify({
+            name: product.name,
+            sku: product.sku,
+            description: product.description,
+            is_made_to_order: !!product.is_made_to_order,
+            compare_price_chf: product.compare_price_chf,
+          }),
         ]
       );
     }

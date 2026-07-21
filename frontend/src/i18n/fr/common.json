@@ -66,7 +66,8 @@
     "removeWishlist": "Retirer {{name}} de la liste de souhaits",
     "viewAll": "Voir tous les produits",
     "reviews": "({{count}} avis)",
-    "madeToOrder": "Sur commande — 3 à 4 semaines"
+    "madeToOrder": "Sur commande — 3 à 4 semaines",
+    "madeToOrderRange": "Sur commande — {{min}} à {{max}} semaines"
   },
   "wishlist": {
     "loginRequired": "Connectez-vous pour ajouter ce produit à vos favoris.",
@@ -407,7 +408,7 @@
     "price": "Prix",
     "availability": "Disponibilité",
     "inStockOnly": "En stock uniquement",
-    "madeToOrderOnly": "Sur commande (3 à 4 semaines)",
+    "madeToOrderOnly": "Sur commande",
     "searchPlaceholder": "Rechercher un produit…",
     "sortBy": "Trier par",
     "sortNewest": "Les plus récents",

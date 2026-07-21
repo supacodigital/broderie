@@ -43,7 +43,6 @@ function buildNavMain(pendingOrders, pendingReviews) {
       label: "Commandes",
       badge: pendingOrders || null,
     },
-    { to: "/produits", icon: Package, label: "Produits" },
     { to: "/clients", icon: Users, label: "Clients" },
     {
       to: "/avis",
@@ -54,10 +53,14 @@ function buildNavMain(pendingOrders, pendingReviews) {
   ];
 }
 
-const NAV_TOOLS = [
+const NAV_CATALOG = [
+  { to: "/produits", icon: Package, label: "Produits" },
   { to: "/fournisseurs", icon: Truck, label: "Fournisseurs" },
-  { to: "/fidelite", icon: Heart, label: "Fidélité" },
   { to: "/categories", icon: Tag, label: "Catégories" },
+];
+
+const NAV_TOOLS = [
+  { to: "/fidelite", icon: Heart, label: "Fidélité" },
   { to: "/coupons",     icon: Ticket,   label: "Promotions"  },
   { to: "/newsletter",  icon: Mail,     label: "Newsletter"  },
   { to: "/parametres",  icon: Settings, label: "Paramètres"  },
@@ -257,7 +260,7 @@ export default function AdminLayout() {
       <aside className={`${s.sidebar} ${open ? s.sidebarOpen : ""}`}>
         {/* Logo */}
         <div className={s.brand}>
-          <p className={s.brandName}>Au Point-Compté</p>
+          <img src="/admin/logo.png" alt="Au Point-Compté" className={s.brandLogo} width={165} height={83} />
           <p className={s.brandSub}>Administration</p>
           <button
             className={s.closeBtn}
@@ -273,6 +276,12 @@ export default function AdminLayout() {
           <div className={s.navSection}>
             <span className={s.navSectionLabel}>Menu</span>
             {NAV_MAIN.map((item) => (
+              <NavItem key={item.to} {...item} />
+            ))}
+          </div>
+          <div className={s.navSection}>
+            <span className={s.navSectionLabel}>Catalogue</span>
+            {NAV_CATALOG.map((item) => (
               <NavItem key={item.to} {...item} />
             ))}
           </div>

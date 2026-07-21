@@ -12,7 +12,9 @@ const pool = mysql.createPool({
   queueLimit: 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
-  timezone: '+01:00',
+  // 'local' — suit le fuseau système (Europe/Zurich), qui gère automatiquement l'heure d'été/hiver.
+  // Une valeur fixe comme '+01:00' casserait l'affichage dès le passage à l'heure d'été (+02:00).
+  timezone: 'local',
   charset: 'utf8mb4',
 });
 

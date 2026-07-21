@@ -8,6 +8,7 @@ import { useCart } from '../../contexts/CartContext.jsx'
 import { useWishlist } from '../../contexts/WishlistContext.jsx'
 import ImageGallery   from './ImageGallery.jsx'
 import ProductInfo    from './ProductInfo.jsx'
+import CategoryInfoSection from './CategoryInfoSection.jsx'
 import ReviewsSection from './ReviewsSection.jsx'
 import RelatedProducts from './RelatedProducts.jsx'
 import { ProductCardSkeleton } from '../../components/ui/Skeleton/Skeleton.jsx'
@@ -148,6 +149,10 @@ export default function Product() {
 
       {/* ── Avis + Produits similaires ── */}
       <div className={s.bottom}>
+        <CategoryInfoSection
+          categoryName={product.category_name}
+          categoryDescription={product.category_description}
+        />
         <ReviewsSection
           productId={product.id}
           avgRating={product.avg_rating ?? 0}

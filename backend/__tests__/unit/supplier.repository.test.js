@@ -79,7 +79,7 @@ describe('supplier.repository — create()', () => {
     await repo.create({ name: 'Mini' });
     expect(pool.execute).toHaveBeenCalledWith(
       expect.anything(),
-      ['Mini', null, null, null, null, null]
+      ['Mini', null, null, null, null, null, null, null]
     );
   });
 });

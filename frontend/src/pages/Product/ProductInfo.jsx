@@ -78,6 +78,28 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
       {/* ── Nom ── */}
       <h1 className={s.title}>{product.name}</h1>
 
+      {/* ── Description ── */}
+      {product.description && (
+        <div className={s.descBlock}>
+          <p className={s.desc}>{product.description}</p>
+        </div>
+      )}
+
+      {/* ── Dimensions ── */}
+      {(product.length_cm || product.width_cm) && (
+        <p className={s.dimensions}>
+          Dimensions : {[
+            product.length_cm ? `${parseFloat(product.length_cm)} cm (L)` : null,
+            product.width_cm ? `${parseFloat(product.width_cm)} cm (l)` : null,
+          ].filter(Boolean).join(' × ')}
+        </p>
+      )}
+
+      {/* ── SKU ── */}
+      {product.sku && (
+        <p className={s.sku}>Réf. {product.sku}</p>
+      )}
+
       {/* ── Notes ── */}
       {product.avg_rating != null && (
         <Stars rating={product.avg_rating} count={product.review_count ?? 0} />
@@ -102,16 +124,6 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
           Prix TTC · TVA {tva.rate}% incluse (CHF {tva.tva.toFixed(2)})
         </p>
       )}
-
-      {/* ── Programme de fidélité ── */}
-      <Link to="/mon-compte?tab=loyalty" className={s.loyaltyHint}>
-        <Gift size={14} className={s.loyaltyIcon} aria-hidden="true" />
-        <span>
-          Cet achat vous rapporte{' '}
-          <strong>CHF {effectivePrice.toFixed(2)}</strong>{' '}
-          dans votre programme de fidélité
-        </span>
-      </Link>
 
       {/* ── Variantes ── */}
       {hasVariants && Object.entries(variantGroups).map(([groupName, opts]) => (
@@ -139,21 +151,6 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
           </div>
         </div>
       ))}
-
-      {/* ── Stock ── */}
-      {/* Produit sur commande : on masque le stock et on affiche le badge de délai à la place */}
-      {isMadeToOrder ? (
-        <p className={s.madeToOrder}>{t('products.madeToOrder')}</p>
-      ) : (
-        <>
-          {stockQty <= 5 && stockQty > 0 && (
-            <p className={s.stockWarning}>⚠ Plus que {stockQty} en stock</p>
-          )}
-          {outOfStock && (
-            <p className={s.outOfStock}>Épuisé — revenez bientôt</p>
-          )}
-        </>
-      )}
 
       {/* ── Quantité + Panier ── */}
       <div className={s.addRow}>
@@ -196,6 +193,41 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
         </button>
       </div>
 
+      {/* ── Programme de fidélité ── */}
+      <Link to="/mon-compte?tab=loyalty" className={s.loyaltyHint}>
+        <Gift size={14} className={s.loyaltyIcon} aria-hidden="true" />
+        <span>
+          Cet achat vous rapporte{' '}
+          <strong>CHF {effectivePrice.toFixed(2)}</strong>{' '}
+          dans votre programme de fidélité
+        </span>
+      </Link>
+
+      {/* ── Stock ── */}
+      {/* Produit sur commande : on masque le stock et on affiche le badge de délai à la place */}
+      {isMadeToOrder ? (
+        <p className={s.madeToOrder}>
+          {product.made_to_order_delay_min_weeks && product.made_to_order_delay_max_weeks
+            ? t('products.madeToOrderRange', {
+                min: product.made_to_order_delay_min_weeks,
+                max: product.made_to_order_delay_max_weeks,
+              })
+            : t('products.madeToOrder')}
+        </p>
+      ) : (
+        <>
+          {stockQty > 5 && (
+            <p className={s.inStock}>✓ En stock ({stockQty})</p>
+          )}
+          {stockQty <= 5 && stockQty > 0 && (
+            <p className={s.stockWarning}>⚠ Plus que {stockQty} en stock</p>
+          )}
+          {outOfStock && (
+            <p className={s.outOfStock}>Épuisé — revenez bientôt</p>
+          )}
+        </>
+      )}
+
       {/* ── Réassurance ── */}
       <div className={s.reassurance}>
         <div className={s.reassuranceItem}>
@@ -208,13 +240,7 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
         </div>
       </div>
 
-      {/* ── Description + détails accordéon ── */}
-      {product.description && (
-        <div className={s.descBlock}>
-          <p className={s.desc}>{product.description}</p>
-        </div>
-      )}
-
+      {/* ── Détails accordéon ── */}
       {product.details && (
         <div className={s.accordion}>
           <button
@@ -233,10 +259,6 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
         </div>
       )}
 
-      {/* ── SKU ── */}
-      {product.sku && (
-        <p className={s.sku}>Réf. {product.sku}</p>
-      )}
     </div>
   )
 }

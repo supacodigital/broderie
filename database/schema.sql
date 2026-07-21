@@ -152,6 +152,9 @@ CREATE TABLE suppliers (
   phone        VARCHAR(50)  NULL DEFAULT NULL,
   address      TEXT         NULL DEFAULT NULL,
   notes        TEXT         NULL DEFAULT NULL,
+  -- Délai "sur commande" (produits is_made_to_order) propre à ce fournisseur, en semaines
+  made_to_order_delay_min_weeks TINYINT UNSIGNED NULL DEFAULT NULL,
+  made_to_order_delay_max_weeks TINYINT UNSIGNED NULL DEFAULT NULL,
   is_active    TINYINT(1)   NOT NULL DEFAULT 1,
   created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -235,6 +238,8 @@ CREATE TABLE products (
   is_featured       TINYINT(1)     NOT NULL DEFAULT 0,
   is_made_to_order  TINYINT(1)     NOT NULL DEFAULT 0,  -- Produit sur commande : commande possible sans stock (délai 3 à 4 semaines)
   badge             ENUM('nouveaute','promo','coup_de_coeur','exclusif') NULL DEFAULT NULL,
+  length_cm         DECIMAL(8, 2)  NULL DEFAULT NULL,
+  width_cm          DECIMAL(8, 2)  NULL DEFAULT NULL,
   deleted_at        DATETIME       NULL DEFAULT NULL,
   created_at        DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

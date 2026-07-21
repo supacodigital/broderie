@@ -235,7 +235,7 @@ export default function Dashboard() {
                         <StatusBadge status={o.status} />
                         <span className={s.orderTotal}>{formatCHF(o.total)}</span>
                         <span className={s.orderDate}>{formatRelDate(o.created_at)}</span>
-                        <Link to={`/commandes?open=${o.id}`} className={s.detailBtn}>Détail</Link>
+                        <Link to={`/commandes/${o.id}`} className={s.detailBtn}>Détail</Link>
                       </div>
                     ))
               }

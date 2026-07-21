@@ -164,27 +164,36 @@
 }
 
 /* ── Stock ── */
+.inStock {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #166534;
+  margin-bottom: 20px;
+}
+
 .stockWarning {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
   font-family: 'Montserrat', sans-serif;
   font-size: 12px;
   font-weight: 600;
   color: #92400e;
-  background: #fef3c7;
-  border: 1px solid #fde68a;
-  border-radius: 4px;
-  padding: 8px 14px;
   margin-bottom: 20px;
 }
 
 .outOfStock {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
   font-family: 'Montserrat', sans-serif;
   font-size: 12px;
   font-weight: 600;
   color: #991b1b;
-  background: #fee2e2;
-  border: 1px solid #fecaca;
-  border-radius: 4px;
-  padding: 8px 14px;
   margin-bottom: 20px;
 }
 
@@ -356,10 +365,18 @@
   line-height: 1.7;
 }
 
+/* ── Dimensions ── */
+.dimensions {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* ── SKU ── */
 .sku {
   font-family: 'Montserrat', sans-serif;
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 4px;
+  margin-bottom: 20px;
 }

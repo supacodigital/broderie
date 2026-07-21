@@ -8,11 +8,14 @@ const Login      = lazy(() => import('./pages/Login/Login.jsx'))
 const MfaSetup    = lazy(() => import('./pages/Mfa/MfaSetup.jsx'))
 const MfaVerify   = lazy(() => import('./pages/Mfa/MfaVerify.jsx'))
 const Dashboard  = lazy(() => import('./pages/Dashboard/Dashboard.jsx'))
-const Products   = lazy(() => import('./pages/Products/Products.jsx'))
-const Orders     = lazy(() => import('./pages/Orders/Orders.jsx'))
+const Products    = lazy(() => import('./pages/Products/Products.jsx'))
+const ProductForm = lazy(() => import('./pages/Products/ProductForm.jsx'))
+const Orders      = lazy(() => import('./pages/Orders/Orders.jsx'))
+const OrderDetail = lazy(() => import('./pages/Orders/OrderDetail.jsx'))
 const Customers  = lazy(() => import('./pages/Customers/Customers.jsx'))
 const Reviews    = lazy(() => import('./pages/Reviews/Reviews.jsx'))
-const Suppliers  = lazy(() => import('./pages/Suppliers/Suppliers.jsx'))
+const Suppliers   = lazy(() => import('./pages/Suppliers/Suppliers.jsx'))
+const SupplierForm = lazy(() => import('./pages/Suppliers/SupplierForm.jsx'))
 const Loyalty    = lazy(() => import('./pages/Loyalty/Loyalty.jsx'))
 const Categories = lazy(() => import('./pages/Categories/Categories.jsx'))
 const Coupons    = lazy(() => import('./pages/Coupons/Coupons.jsx'))
@@ -67,10 +70,15 @@ export default function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard"  element={<Dashboard />} />
             <Route path="produits"   element={<Products />} />
+            <Route path="produits/nouveau" element={<ProductForm />} />
+            <Route path="produits/:id"     element={<ProductForm />} />
             <Route path="commandes"  element={<Orders />} />
+            <Route path="commandes/:id" element={<OrderDetail />} />
             <Route path="clients"    element={<Customers />} />
             <Route path="avis"       element={<Reviews />} />
             <Route path="fournisseurs" element={<Suppliers />} />
+            <Route path="fournisseurs/nouveau" element={<SupplierForm />} />
+            <Route path="fournisseurs/:id"     element={<SupplierForm />} />
             <Route path="fidelite"   element={<Loyalty />} />
             <Route path="categories" element={<Categories />} />
             <Route path="coupons"    element={<Coupons />} />

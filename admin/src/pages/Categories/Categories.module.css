@@ -34,15 +34,29 @@
 .tableRow:hover { background: var(--rose-pale); }
 .tableRow:last-child { border-bottom: none; }
 
-/* Indentation visuelle sous-catégories */
-.tableRowChild { background: #fdfcfc; }
+/* Distinction visuelle catégorie parente / sous-catégorie */
+.tableRowChild { background: #fafafa; }
 .tableRowChild:hover { background: var(--rose-pale); }
 
 .catCell { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* Indentation réelle : décale le contenu des sous-catégories vers la droite */
+.catCellChild { padding-left: 22px; }
 .catIcon { width: 28px; height: 28px; background: var(--rose-pale); color: var(--rose); border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.childArrow { color: var(--text-muted); flex-shrink: 0; margin-left: 4px; }
-.catName { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.subBadge { font-size: 10px; color: var(--text-muted); background: #f3f4f6; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+.childArrow { color: var(--rose); flex-shrink: 0; }
+
+/* Chevron accordéon — parents avec sous-catégories */
+.expandBtn {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; flex-shrink: 0;
+  background: none; border: none; border-radius: 5px;
+  color: var(--text-muted); cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.expandBtn:hover:not(:disabled) { background: var(--rose-pale); color: var(--rose); }
+.expandBtn:disabled { cursor: default; opacity: .5; }
+.expandSpacer { width: 22px; flex-shrink: 0; }
+.catName { font-weight: 600; color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.catNameChild { font-weight: 400; color: var(--text-muted); }
 .slug { font-size: 12px; color: var(--text-muted); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .transCell { font-size: 12px; color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .missing { color: #d1d5db; }
@@ -74,10 +88,12 @@
 
 .sectionLabel { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: -4px; }
 
-/* Grille traductions : 3 colonnes */
+/* Grille noms : 3 colonnes */
 .formGrid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 /* Grille paramètres : 2 colonnes */
 .formGrid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* Descriptions : empilées, une par ligne (textes longs) */
+.formGridStack { display: flex; flex-direction: column; gap: 12px; }
 
 .field { display: flex; flex-direction: column; gap: 5px; }
 .label { font-size: 12px; font-weight: 600; color: var(--text-dark); }
@@ -85,6 +101,7 @@
 .input:focus { border-color: var(--rose); }
 .inputError { border-color: #ef4444; }
 .err { font-size: 11px; color: #ef4444; }
+.textarea { resize: vertical; min-height: 90px; font-family: inherit; }
 
 .apiError { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 14px; }
 

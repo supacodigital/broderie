@@ -32,15 +32,11 @@
   border-bottom: 1px solid rgba(255,255,255,.08);
 }
 
-.brandName {
-  font-family: 'Georgia', 'Times New Roman', serif;
-  font-size: 18px;
-  font-style: italic;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: .01em;
-  line-height: 1.2;
-  white-space: nowrap;
+.brandLogo {
+  display: block;
+  width: 100%;
+  max-width: 165px;
+  height: auto;
 }
 
 .brandSub {
@@ -49,7 +45,7 @@
   letter-spacing: .18em;
   text-transform: uppercase;
   color: rgba(255,255,255,.35);
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .closeBtn {

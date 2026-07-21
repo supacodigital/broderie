@@ -81,11 +81,6 @@ export default function Navbar() {
             </NavLink>
           </li>
           <li>
-            <NavLink to="/catalogue?badge=promo" className={({ isActive }) => isActive ? s.linkActive : ''}>
-              {t('nav.promos')}
-            </NavLink>
-          </li>
-          <li>
             <NavLink to="/notre-histoire" className={({ isActive }) => isActive ? s.linkActive : ''}>
               {t('nav.about')}
             </NavLink>
@@ -216,14 +211,6 @@ export default function Navbar() {
             <span className={s.mobileLinkContent}>
               <span className={s.mobileLinkText}>{t('nav.newArrivals')}</span>
               <span className={s.mobileLinkSub}>Dernières arrivées</span>
-            </span>
-            <ChevronRight size={18} className={s.mobileLinkArrow} />
-          </NavLink>
-
-          <NavLink to="/catalogue?badge=promo" className={s.mobileLink} onClick={closeMenu}>
-            <span className={s.mobileLinkContent}>
-              <span className={s.mobileLinkText}>{t('nav.promos')}</span>
-              <span className={s.mobileLinkSub}>Offres en cours</span>
             </span>
             <ChevronRight size={18} className={s.mobileLinkArrow} />
           </NavLink>

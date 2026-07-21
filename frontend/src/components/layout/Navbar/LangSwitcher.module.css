@@ -1,15 +1,15 @@
-/* ── Variante navbar (desktop) ── */
-.wrap {
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--rose-border);
-  border-radius: 8px;
-  overflow: hidden;
+/* ── Variante navbar (desktop) — dropdown ── */
+.dropdownWrap {
+  position: relative;
 }
 
-.btn {
+.dropdownTrigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   background: none;
-  border: none;
+  border: 1px solid var(--rose-border);
+  border-radius: 8px;
   padding: 5px 8px;
   font-family: 'Montserrat', sans-serif;
   font-size: 11px;
@@ -17,35 +17,93 @@
   letter-spacing: 0.06em;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
   line-height: 1;
 }
 
-.btn + .btn {
-  border-left: 1px solid var(--rose-border);
-}
-
-.btn:hover {
+.dropdownTrigger:hover {
   color: var(--rose);
   background: var(--rose-pale);
+  border-color: var(--rose-border);
 }
 
-.btnActive {
+.chevron {
+  transition: transform 0.2s;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  background: #fff;
+  border: 1px solid var(--rose-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md, 0 4px 16px rgba(0,0,0,.1));
+  overflow: hidden;
+  z-index: 50;
+}
+
+.dropdownOption {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dropdownOption:hover {
   color: var(--rose);
   background: var(--rose-pale);
-  font-weight: 700;
 }
 
 /* ── Variante mobile (menu plein écran) ── */
 .wrapMobile {
+  display: flex;
   border-radius: 12px;
   border: 1.5px solid var(--rose-border);
   width: 100%;
+  overflow: hidden;
 }
 
 .wrapMobile .btn {
   flex: 1;
+  background: none;
+  border: none;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
   font-size: 13px;
   padding: 12px 0;
   text-align: center;
+}
+
+.wrapMobile .btn + .btn {
+  border-left: 1.5px solid var(--rose-border);
+}
+
+.wrapMobile .btn:hover {
+  color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.wrapMobile .btnActive {
+  color: var(--rose);
+  background: var(--rose-pale);
+  font-weight: 700;
 }

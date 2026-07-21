@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Plus, Edit2, Trash2, Tag, AlertTriangle, Check, X, ChevronRight, Search } from 'lucide-react'
+import { Plus, Edit2, Trash2, Tag, AlertTriangle, Check, X, ChevronRight, ChevronDown, Search } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -103,7 +103,7 @@ function CategoryModal({ category, categories, onClose, onSaved }) {
             <div className={s.apiError}><AlertTriangle size={13} /> {apiError}</div>
           )}
 
-          <p className={s.sectionLabel}>Traductions</p>
+          <p className={s.sectionLabel}>Noms</p>
           <div className={s.formGrid3}>
             <div className={s.field}>
               <label className={s.label}>Nom FR *</label>
@@ -118,17 +118,21 @@ function CategoryModal({ category, categories, onClose, onSaved }) {
               <label className={s.label}>Nom EN</label>
               <input className={s.input} {...register('nameEn')} placeholder="English" />
             </div>
+          </div>
+
+          <p className={s.sectionLabel}>Descriptions</p>
+          <div className={s.formGridStack}>
             <div className={s.field}>
               <label className={s.label}>Description FR</label>
-              <input className={s.input} {...register('descFr')} />
+              <textarea className={`${s.input} ${s.textarea}`} rows={4} {...register('descFr')} />
             </div>
             <div className={s.field}>
               <label className={s.label}>Description DE</label>
-              <input className={s.input} {...register('descDe')} />
+              <textarea className={`${s.input} ${s.textarea}`} rows={4} {...register('descDe')} />
             </div>
             <div className={s.field}>
               <label className={s.label}>Description EN</label>
-              <input className={s.input} {...register('descEn')} />
+              <textarea className={`${s.input} ${s.textarea}`} rows={4} {...register('descEn')} />
             </div>
           </div>
 
@@ -185,7 +189,17 @@ export default function Categories() {
   const [modal,      setModal]      = useState(null)
   const [confirm,    setConfirm]    = useState(null)
   const [search,     setSearch]     = useState('')
+  const [expandedIds, setExpandedIds] = useState(new Set())
   const debounceRef = useRef(null)
+
+  const toggleExpanded = (id) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   const load = useCallback(async () => {
     setError(false)
@@ -231,18 +245,37 @@ export default function Categories() {
     return result
   })()
 
-  /* Filtre local par recherche */
-  const filtered = search.trim()
+  const matchesQuery = (c, q) => (
+    c.slug?.toLowerCase().includes(q) ||
+    c.translations?.fr?.name?.toLowerCase().includes(q) ||
+    c.translations?.de?.name?.toLowerCase().includes(q) ||
+    c.translations?.en?.name?.toLowerCase().includes(q)
+  )
+
+  const query = search.trim().toLowerCase()
+
+  /* Sans recherche : accordéon — n'affiche les enfants que si leur parent est déplié.
+     Avec recherche : filtre sur tous les niveaux, en dépliant automatiquement le parent
+     d'une sous-catégorie trouvée pour qu'elle reste visible. */
+  const filtered = query
     ? sorted.filter(c => {
-        const q = search.toLowerCase()
-        return (
-          c.slug?.toLowerCase().includes(q) ||
-          c.translations?.fr?.name?.toLowerCase().includes(q) ||
-          c.translations?.de?.name?.toLowerCase().includes(q) ||
-          c.translations?.en?.name?.toLowerCase().includes(q)
-        )
+        if (matchesQuery(c, query)) return true
+        if (!c.parent_id) {
+          return sorted.some(child => child.parent_id === c.id && matchesQuery(child, query))
+        }
+        return false
       })
-    : sorted
+    : sorted.filter(c => !c.parent_id || expandedIds.has(c.parent_id))
+
+  /* Compte total d'une catégorie parente = ses propres produits + ceux de toutes ses sous-catégories */
+  const getTotalProductCount = (cat) => {
+    const own = Number(cat.product_count) || 0
+    if (cat.parent_id) return own
+    const childrenTotal = categories
+      .filter(c => c.parent_id === cat.id)
+      .reduce((sum, c) => sum + (Number(c.product_count) || 0), 0)
+    return own + childrenTotal
+  }
 
   return (
     <div className={s.page}>
@@ -304,26 +337,40 @@ export default function Categories() {
           </p>
         ) : (
           filtered.map(cat => {
-            const isChild = !!cat.parent_id
-            const nameFr  = cat.translations?.fr?.name ?? cat.slug
-            const nameDe  = cat.translations?.de?.name
-            const nameEn  = cat.translations?.en?.name
+            const isChild   = !!cat.parent_id
+            const nameFr    = cat.translations?.fr?.name ?? cat.slug
+            const nameDe    = cat.translations?.de?.name
+            const nameEn    = cat.translations?.en?.name
+            const hasChildren = !isChild && sorted.some(c => c.parent_id === cat.id)
+            const isExpanded  = query ? true : expandedIds.has(cat.id)
 
             return (
               <div key={cat.id} className={`${s.tableRow} ${isChild ? s.tableRowChild : ''}`}>
-                <div className={s.catCell}>
-                  {isChild
-                    ? <ChevronRight size={14} className={s.childArrow} />
-                    : <div className={s.catIcon}><Tag size={13} /></div>
-                  }
-                  <span className={s.catName}>{nameFr}</span>
-                  {isChild && <span className={s.subBadge}>sous-cat.</span>}
+                <div className={`${s.catCell} ${isChild ? s.catCellChild : ''}`}>
+                  {isChild ? (
+                    <ChevronRight size={14} className={s.childArrow} />
+                  ) : hasChildren ? (
+                    <button
+                      type="button"
+                      className={s.expandBtn}
+                      onClick={() => toggleExpanded(cat.id)}
+                      aria-expanded={isExpanded}
+                      aria-label={isExpanded ? 'Masquer les sous-catégories' : 'Afficher les sous-catégories'}
+                      disabled={!!query}
+                    >
+                      {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    </button>
+                  ) : (
+                    <span className={s.expandSpacer} />
+                  )}
+                  {!isChild && <div className={s.catIcon}><Tag size={13} /></div>}
+                  <span className={`${s.catName} ${isChild ? s.catNameChild : ''}`}>{nameFr}</span>
                 </div>
                 <span className={s.slug}>{cat.slug}</span>
                 <span className={s.transCell}>{nameDe || <span className={s.missing}>—</span>}</span>
                 <span className={s.transCell}>{nameEn || <span className={s.missing}>—</span>}</span>
-                <span className={s.productCount} data-zero={cat.product_count === 0 || cat.product_count === '0' ? 'true' : 'false'}>
-                  {cat.product_count ?? 0}
+                <span className={s.productCount} data-zero={getTotalProductCount(cat) === 0 ? 'true' : 'false'}>
+                  {getTotalProductCount(cat)}
                 </span>
                 <span className={s.muted}>{cat.sort_order ?? 0}</span>
                 <div className={s.actions}>

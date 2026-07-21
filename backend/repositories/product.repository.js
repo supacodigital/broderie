@@ -3,7 +3,7 @@ const { pool } = require('../config/db');
 // Colonnes produit sélectionnées explicitement — jamais SELECT *
 const PRODUCT_COLUMNS = `
   p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
-  p.weight_kg, p.is_featured, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.created_at,
+  p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.created_at,
   pt.name, pt.description,
   ct.name AS category_name,
   c.slug AS category_slug,
@@ -98,7 +98,7 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      LEFT JOIN reviews r ON r.product_id = p.id AND r.is_approved = 1
      WHERE ${conditions.join(' AND ')}
-     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.url_medium, pi.alt, tr.rate, tr.name
+     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.url_medium, pi.alt, tr.rate, tr.name
      ORDER BY ${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
     [locale, locale, ...params, limit, offset]
@@ -111,11 +111,13 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
 const findById = async (id, locale = 'fr') => {
   const [rows] = await pool.execute(
     `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
-            p.weight_kg, p.is_featured, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.created_at,
+            p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.created_at,
             pt.name, pt.description,
             ct.name AS category_name,
+            ct.description AS category_description,
             c.slug AS category_slug,
             tr.rate AS tax_rate, tr.name AS tax_name,
+            sup.made_to_order_delay_min_weeks, sup.made_to_order_delay_max_weeks,
             COALESCE(ROUND((SELECT AVG(rating) FROM reviews WHERE product_id = p.id AND is_approved = 1), 1), 0) AS avg_rating,
             (SELECT COUNT(*) FROM reviews WHERE product_id = p.id AND is_approved = 1) AS review_count
      FROM products p
@@ -123,6 +125,7 @@ const findById = async (id, locale = 'fr') => {
      LEFT JOIN category_translations ct ON ct.category_id = p.category_id AND ct.locale = ?
      LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
+     LEFT JOIN suppliers sup ON sup.id = p.supplier_id
      WHERE p.id = ? AND p.is_active = 1 AND p.deleted_at IS NULL
      LIMIT 1`,
     [locale, locale, id]
@@ -177,7 +180,7 @@ const search = async ({ q, locale = 'fr', page = 1, limit = 20 }) => {
      LEFT JOIN reviews r ON r.product_id = p.id AND r.is_approved = 1
      WHERE p.is_active = 1 AND p.deleted_at IS NULL
        AND MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE)
-     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.url_medium, pi.alt, tr.rate, tr.name
+     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.url_medium, pi.alt, tr.rate, tr.name
      ORDER BY relevance DESC
      LIMIT ? OFFSET ?`,
     [qBoolean, locale, locale, qBoolean, limit, offset]
@@ -211,7 +214,7 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      LEFT JOIN reviews r ON r.product_id = p.id AND r.is_approved = 1
      WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.category_id = ?
-     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.url_medium, pi.alt, tr.rate, tr.name
+     GROUP BY p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.category_id, p.supplier_id, p.created_at, pt.name, pt.description, ct.name, c.slug, pi.url, pi.url_medium, pi.alt, tr.rate, tr.name
      ORDER BY ${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
     [locale, locale, categoryId, limit, offset]
@@ -224,11 +227,13 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
 const findBySlug = async (slug, locale = 'fr') => {
   const [rows] = await pool.execute(
     `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
-            p.weight_kg, p.is_featured, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.created_at,
+            p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.created_at,
             pt.name, pt.description,
             ct.name AS category_name,
+            ct.description AS category_description,
             c.slug AS category_slug,
             tr.rate AS tax_rate, tr.name AS tax_name,
+            sup.made_to_order_delay_min_weeks, sup.made_to_order_delay_max_weeks,
             COALESCE(ROUND((SELECT AVG(rating) FROM reviews WHERE product_id = p.id AND is_approved = 1), 1), 0) AS avg_rating,
             (SELECT COUNT(*) FROM reviews WHERE product_id = p.id AND is_approved = 1) AS review_count
      FROM products p
@@ -236,6 +241,7 @@ const findBySlug = async (slug, locale = 'fr') => {
      LEFT JOIN category_translations ct ON ct.category_id = p.category_id AND ct.locale = ?
      LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
+     LEFT JOIN suppliers sup ON sup.id = p.supplier_id
      WHERE p.slug = ? AND p.is_active = 1 AND p.deleted_at IS NULL
      LIMIT 1`,
     [locale, locale, slug]

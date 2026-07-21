@@ -1,21 +1,16 @@
-import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useDebounceSearch } from '../../hooks/useDebounceSearch.js'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Plus, Search, Edit2, Trash2,
-  ImageOff, Upload, X, Star, AlertTriangle, Check,
-  SlidersHorizontal, RotateCcw, Layout, Eye, ChevronDown,
+  ImageOff, AlertTriangle,
+  SlidersHorizontal, RotateCcw, Layout, Eye, ChevronDown, X,
 } from 'lucide-react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import {
-  getProducts, getProductById, createProduct, updateProduct,
-  deleteProduct, uploadProductImage, deleteProductImage, setPrimaryImage,
+  getProducts, getProductById, updateProduct, deleteProduct,
 } from '../../services/products.service.js'
 import { getCategories } from '../../services/categories.service.js'
 import { getSuppliers } from '../../services/suppliers.service.js'
-import { getTaxRates } from '../../services/settings.service.js'
 import { formatCHF } from '../../utils/chf.js'
 import SortIcon from '../../components/ui/SortIcon/SortIcon.jsx'
 import Pagination from '../../components/ui/Pagination/Pagination.jsx'
@@ -221,456 +216,11 @@ function FeaturedSlots({ featuredProducts, onEdit, onRemove, onAdd }) {
   )
 }
 
-const schema = z.object({
-  name:             z.string().min(1, 'Nom requis'),
-  sku:              z.string().min(1, 'SKU requis'),
-  priceChf:         z.coerce.number().positive('Prix invalide'),
-  stock:            z.coerce.number().int().min(0, 'Stock invalide'),
-  weightKg:         z.coerce.number().min(0).optional(),
-  comparePriceChf:  z.coerce.number().min(0).optional(),
-  categoryId:       z.coerce.number().int().positive('Catégorie requise'),
-  supplierId:       z.coerce.number().int().min(0).optional(),
-  taxRateId:        z.coerce.number().int().positive('Taxe requise'),
-  isFeatured:       z.boolean().optional(),
-  isMadeToOrder:    z.boolean().optional(),
-  isActive:         z.boolean().optional(),
-  badge:            z.string().optional(),
-  description:      z.string().optional(),
-  nameDe:           z.string().optional(),
-  descriptionDe:    z.string().optional(),
-  nameEn:           z.string().optional(),
-  descriptionEn:    z.string().optional(),
-})
-
-// ── Zone de drop d'images ──────────────────────────────────────────────────
-function ImageDropZone({ productId, images, onImagesChange }) {
-  const inputRef                       = useRef(null)
-  const [dragging,    setDragging]     = useState(false)
-  const [uploading,   setUploading]    = useState(false)
-  const [settingId,   setSettingId]    = useState(null)
-  const [error,       setError]        = useState('')
-
-  const upload = async (files) => {
-    setError('')
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp']
-    const toUpload = Array.from(files).filter(f => validTypes.includes(f.type))
-    if (!toUpload.length) { setError('Formats acceptés : JPG, PNG, WebP'); return }
-    if (toUpload.some(f => f.size > 5 * 1024 * 1024)) { setError('Taille max : 5 MB par image'); return }
-
-    setUploading(true)
-    const results = []
-    for (const file of toUpload) {
-      try {
-        const fd = new FormData()
-        fd.append('image', file)
-        fd.append('isPrimary', images.length === 0 && results.length === 0 ? 'true' : 'false')
-        fd.append('alt', file.name.replace(/\.[^.]+$/, ''))
-        const res = await uploadProductImage(productId, fd)
-        const img = res
-        results.push({ ...img, isPrimary: !!img.is_primary })
-      } catch {
-        setError("Erreur lors de l'upload d'une image")
-      }
-    }
-    setUploading(false)
-    if (results.length) onImagesChange([...images, ...results])
-  }
-
-  const handleDrop = (e) => { e.preventDefault(); setDragging(false); upload(e.dataTransfer.files) }
-
-  const handleDelete = async (imgId) => {
-    try {
-      await deleteProductImage(productId, imgId)
-      const wasPrimary = images.find(i => i.id === imgId)?.isPrimary
-      const remaining  = images.filter(i => i.id !== imgId)
-      /* Si l'image supprimée était principale, promouvoir la première restante */
-      if (wasPrimary && remaining.length > 0) {
-        try {
-          await setPrimaryImage(productId, remaining[0].id)
-          remaining[0] = { ...remaining[0], isPrimary: true }
-        } catch { /* non bloquant */ }
-      }
-      onImagesChange(remaining)
-    } catch { setError('Erreur lors de la suppression') }
-  }
-
-  const handleSetPrimary = async (imgId) => {
-    if (settingId) return
-    setSettingId(imgId)
-    setError('')
-    try {
-      await setPrimaryImage(productId, imgId)
-      onImagesChange(images.map(i => ({ ...i, isPrimary: i.id === imgId })))
-    } catch {
-      setError("Erreur lors du changement d'image principale")
-    } finally {
-      setSettingId(null)
-    }
-  }
-
-  return (
-    <div className={s.imageSection}>
-      <p className={s.imageSectionTitle}>Images du produit</p>
-
-      {images.length > 0 && (
-        <div className={s.imageGrid}>
-          {images.map((img) => (
-            <div key={img.id} className={`${s.imageThumb} ${img.isPrimary ? s.imagePrimary : ''}`}>
-              <img
-                src={img.url_thumbnail ?? img.urls?.thumbnail ?? img.url}
-                alt={img.alt ?? ''}
-                className={s.imageThumbImg}
-              />
-              {img.isPrimary && (
-                <span className={s.primaryBadge}><Star size={9} fill="currentColor" /> Principale</span>
-              )}
-              <div className={s.imageThumbActions}>
-                {!img.isPrimary && (
-                  <button
-                    type="button"
-                    className={s.imageActionBtn}
-                    onClick={() => handleSetPrimary(img.id)}
-                    disabled={!!settingId}
-                    title="Définir comme principale"
-                  >
-                    {settingId === img.id
-                      ? <span className={s.spinnerSm} />
-                      : <Star size={11} />
-                    }
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className={`${s.imageActionBtn} ${s.imageActionDanger}`}
-                  onClick={() => handleDelete(img.id)}
-                  disabled={!!settingId}
-                  title="Supprimer"
-                >
-                  <Trash2 size={11} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div
-        className={`${s.dropZone} ${dragging ? s.dropZoneActive : ''} ${uploading ? s.dropZoneUploading : ''}`}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={handleDrop}
-        onClick={(e) => { if (e.target === inputRef.current) return; if (!uploading) inputRef.current?.click() }}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
-        aria-label="Zone de dépôt d'images"
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          multiple
-          className={s.fileInput}
-          onChange={(e) => { upload(e.target.files); e.target.value = '' }}
-        />
-        {uploading ? (
-          <div className={s.dropZoneContent}>
-            <div className={s.spinner} />
-            <p className={s.dropZoneText}>Conversion WebP en cours…</p>
-          </div>
-        ) : (
-          <div className={s.dropZoneContent}>
-            <Upload size={22} className={s.dropZoneIcon} />
-            <p className={s.dropZoneText}>
-              Glissez-déposez ici<br />
-              <span>ou cliquez pour parcourir</span>
-            </p>
-            <p className={s.dropZoneHint}>JPG, PNG, WebP · Max 5 MB · Converti en WebP</p>
-          </div>
-        )}
-      </div>
-
-      {error && <p className={s.imageError}><AlertTriangle size={12} /> {error}</p>}
-    </div>
-  )
-}
-
-// ── Modale création/édition produit ───────────────────────────────────────
-function ProductModal({ product, categories, suppliers, taxRates, onClose, onSaved }) {
-  const isEdit = !!product
-  const [images,     setImages]     = useState([])
-  const [imgLoading, setImgLoading] = useState(false)
-  const [saved,      setSaved]      = useState(false)
-  const [apiError,   setApiError]   = useState('')
-
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
-    resolver: zodResolver(schema),
-    defaultValues: isEdit ? {
-      name:            product.name ?? '',
-      sku:             product.sku ?? '',
-      priceChf:        product.price_chf ?? '',
-      comparePriceChf: product.compare_price_chf ?? '',
-      stock:           product.stock ?? 0,
-      weightKg:        product.weight_kg ?? '',
-      categoryId:      product.category_id ?? '',
-      supplierId:      product.supplier_id ?? '',
-      taxRateId:       product.tax_rate_id ?? '',
-      isFeatured:      !!product.is_featured,
-      isMadeToOrder:   !!product.is_made_to_order,
-      isActive:        !!product.is_active,
-      badge:           product.badge ?? '',
-      description:     product.description_fr ?? '',
-      nameDe:          product.translations?.de?.name ?? '',
-      descriptionDe:   product.translations?.de?.description ?? '',
-      nameEn:          product.translations?.en?.name ?? '',
-      descriptionEn:   product.translations?.en?.description ?? '',
-    } : { isActive: true, isFeatured: false, isMadeToOrder: false, badge: '', stock: 0 },
-  })
-
-  useEffect(() => {
-    if (!isEdit) return
-    setImgLoading(true)
-    getProductById(product.id)
-      .then(res => {
-        /* Normalise is_primary (DB snake_case) → isPrimary (camelCase) */
-        const imgs = (res?.images ?? []).map(img => ({
-          ...img,
-          isPrimary: !!img.is_primary,
-        }))
-        setImages(imgs)
-      })
-      .catch(() => {})
-      .finally(() => setImgLoading(false))
-  }, [isEdit, product?.id])
-
-  const onSubmit = async (data) => {
-    setApiError('')
-    try {
-      const slugBase = data.name
-        .toLowerCase()
-        .normalize('NFD').replace(/[̀-ͯ]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/[^a-z0-9-]/g, '')
-        .replace(/^-+|-+$/g, '')
-      const slug = slugBase || `produit-${Date.now()}`
-
-      const payload = {
-        categoryId:      Number(data.categoryId),
-        supplierId:      data.supplierId ? Number(data.supplierId) : null,
-        taxRateId:       Number(data.taxRateId),
-        slug:            isEdit ? undefined : slug,
-        priceChf:        Number(data.priceChf),
-        comparePriceChf: data.comparePriceChf ? Number(data.comparePriceChf) : null,
-        sku:             data.sku,
-        stock:           Number(data.stock),
-        weightKg:        data.weightKg ? Number(data.weightKg) : null,
-        isFeatured:      !!data.isFeatured,
-        isMadeToOrder:   !!data.isMadeToOrder,
-        isActive:        !!data.isActive,
-        badge:           data.badge || null,
-        translations: {
-          fr: { name: data.name, description: data.description ?? '' },
-          ...(data.nameDe ? { de: { name: data.nameDe, description: data.descriptionDe ?? '' } } : {}),
-          ...(data.nameEn ? { en: { name: data.nameEn, description: data.descriptionEn ?? '' } } : {}),
-        },
-      }
-
-      if (isEdit) {
-        await updateProduct(product.id, payload)
-      } else {
-        await createProduct(payload)
-      }
-      setSaved(true)
-      setTimeout(() => { onSaved(); onClose() }, 500)
-    } catch (err) {
-      setApiError(err.response?.data?.message ?? 'Une erreur est survenue.')
-    }
-  }
-
-  return (
-    <div className={s.overlay} onClick={onClose}>
-      <div className={s.modal} onClick={e => e.stopPropagation()}>
-        <div className={s.modalHead}>
-          <h2 className={s.modalTitle}>
-            {isEdit ? `Modifier — ${product.name}` : 'Nouveau produit'}
-          </h2>
-          <button className={s.closeBtn} onClick={onClose} aria-label="Fermer"><X size={16} /></button>
-        </div>
-
-        <div className={s.modalBody}>
-          {apiError && (
-            <div className={s.apiError}><AlertTriangle size={13} /> {apiError}</div>
-          )}
-
-          <form onSubmit={handleSubmit(onSubmit)} id="product-form">
-            <div className={s.formGrid}>
-              {/* Nom */}
-              <div className={`${s.field} ${s.fieldFull}`}>
-                <label className={s.label}>Nom du produit *</label>
-                <input className={`${s.input} ${errors.name ? s.inputError : ''}`} {...register('name')} />
-                {errors.name && <span className={s.err}>{errors.name.message}</span>}
-              </div>
-
-              {/* SKU */}
-              <div className={s.field}>
-                <label className={s.label}>SKU *</label>
-                <input className={`${s.input} ${errors.sku ? s.inputError : ''}`} {...register('sku')} />
-                {errors.sku && <span className={s.err}>{errors.sku.message}</span>}
-              </div>
-
-              {/* Prix CHF */}
-              <div className={s.field}>
-                <label className={s.label}>Prix CHF *</label>
-                <input type="number" step="0.05" min="0" className={`${s.input} ${errors.priceChf ? s.inputError : ''}`} {...register('priceChf')} />
-                {errors.priceChf && <span className={s.err}>{errors.priceChf.message}</span>}
-              </div>
-
-              {/* Prix barré */}
-              <div className={s.field}>
-                <label className={s.label}>Prix barré CHF</label>
-                <input type="number" step="0.05" min="0" className={s.input} placeholder="Optionnel" {...register('comparePriceChf')} />
-              </div>
-
-              {/* Stock */}
-              <div className={s.field}>
-                <label className={s.label}>Stock *</label>
-                <input type="number" min="0" className={`${s.input} ${errors.stock ? s.inputError : ''}`} {...register('stock')} />
-                {errors.stock && <span className={s.err}>{errors.stock.message}</span>}
-              </div>
-
-              {/* Poids */}
-              <div className={s.field}>
-                <label className={s.label}>Poids (kg)</label>
-                <input type="number" step="0.001" min="0" className={s.input} placeholder="ex: 0.150" {...register('weightKg')} />
-              </div>
-
-              {/* Catégorie */}
-              <div className={s.field}>
-                <label className={s.label}>Catégorie *</label>
-                <select className={`${s.input} ${errors.categoryId ? s.inputError : ''}`} {...register('categoryId')}>
-                  <option value="">— Choisir —</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-                {errors.categoryId && <span className={s.err}>{errors.categoryId.message}</span>}
-              </div>
-
-              {/* Fournisseur */}
-              <div className={s.field}>
-                <label className={s.label}>Fournisseur</label>
-                <select className={s.input} {...register('supplierId')}>
-                  <option value="">— Aucun —</option>
-                  {suppliers.map(sup => (
-                    <option key={sup.id} value={sup.id}>{sup.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* TVA */}
-              <div className={s.field}>
-                <label className={s.label}>Taux TVA *</label>
-                <select className={`${s.input} ${errors.taxRateId ? s.inputError : ''}`} {...register('taxRateId')}>
-                  <option value="">— Choisir —</option>
-                  {taxRates.map(t => (
-                    <option key={t.id} value={t.id}>{t.name} ({t.rate}%)</option>
-                  ))}
-                </select>
-                {errors.taxRateId && <span className={s.err}>{errors.taxRateId.message}</span>}
-              </div>
-
-              {/* Description FR */}
-              <div className={`${s.field} ${s.fieldFull}`}>
-                <label className={s.label}>Description (FR)</label>
-                <textarea
-                  className={`${s.input} ${s.textarea}`}
-                  rows={3}
-                  placeholder="Description du produit en français…"
-                  {...register('description')}
-                />
-              </div>
-
-              {/* Traduction DE */}
-              <div className={s.field}>
-                <label className={s.label}>Nom (DE)</label>
-                <input className={s.input} placeholder="Produktname auf Deutsch…" {...register('nameDe')} />
-              </div>
-              <div className={s.field}>
-                <label className={s.label}>Description (DE)</label>
-                <textarea className={`${s.input} ${s.textarea}`} rows={2} placeholder="Beschreibung auf Deutsch…" {...register('descriptionDe')} />
-              </div>
-
-              {/* Traduction EN */}
-              <div className={s.field}>
-                <label className={s.label}>Nom (EN)</label>
-                <input className={s.input} placeholder="Product name in English…" {...register('nameEn')} />
-              </div>
-              <div className={s.field}>
-                <label className={s.label}>Description (EN)</label>
-                <textarea className={`${s.input} ${s.textarea}`} rows={2} placeholder="Description in English…" {...register('descriptionEn')} />
-              </div>
-            </div>
-
-            {/* Badge promotionnel */}
-            <div className={s.field} style={{ marginBottom: 16 }}>
-              <label className={s.label}>Badge</label>
-              <select className={s.input} {...register('badge')}>
-                <option value="">— Aucun badge —</option>
-                <option value="nouveaute">Nouveauté</option>
-                <option value="promo">Promo</option>
-                <option value="coup_de_coeur">Coup de cœur</option>
-                <option value="exclusif">Exclusif</option>
-              </select>
-            </div>
-
-            <div className={s.checkGroup}>
-              <label className={s.checkRow}>
-                <input type="checkbox" {...register('isActive')} />
-                <span>Produit actif (visible en boutique)</span>
-              </label>
-              <label className={s.checkRow}>
-                <input type="checkbox" {...register('isFeatured')} />
-                <span>Mis en avant (page d'accueil)</span>
-              </label>
-              <label className={s.checkRow}>
-                <input type="checkbox" {...register('isMadeToOrder')} />
-                <span>Sur commande — commandable sans stock (délai 3 à 4 semaines)</span>
-              </label>
-            </div>
-          </form>
-
-          {/* Upload images — seulement en mode édition */}
-          {isEdit && <div className={s.divider} />}
-          {isEdit && (
-            imgLoading
-              ? <p className={s.imgLoadingText}>Chargement des images…</p>
-              : <ImageDropZone productId={product.id} images={images} onImagesChange={setImages} />
-          )}
-          {!isEdit && (
-            <p className={s.imgNote}>
-              Créez d'abord le produit, puis ajoutez les images depuis le bouton Modifier.
-            </p>
-          )}
-        </div>
-
-        <div className={s.modalActions}>
-          <button type="button" className={s.btnCancel} onClick={onClose}>Annuler</button>
-          <button type="submit" form="product-form" className={s.btnSave} disabled={isSubmitting || saved}>
-            {saved
-              ? <><Check size={14} /> Enregistré</>
-              : isSubmitting ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer le produit'
-            }
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Page principale ────────────────────────────────────────────────────────
 export default function Products() {
   const toast = useToast()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [products,    setProducts]    = useState([])
   const [total,       setTotal]       = useState(0)
   const [page,        setPage]        = useState(1)
@@ -679,11 +229,9 @@ export default function Products() {
   const [sortDir,     setSortDir]     = useState('desc')
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState(false)
-  const [modal,       setModal]       = useState(null)
   const [confirm,     setConfirm]     = useState(null)
   const [categories,  setCategories]  = useState([])
   const [suppliers,   setSuppliers]   = useState([])
-  const [taxRates,    setTaxRates]    = useState([])
   const [showFilters, setShowFilters] = useState(false)
   /* Filtres — états primitifs pour que useEffect les détecte fiablement */
   const [filterCat,      setFilterCat]      = useState('')
@@ -732,15 +280,6 @@ export default function Products() {
 
     /* getSuppliers() retourne { data: [], pagination: {} } */
     getSuppliers({ limit: 100 }).then(({ data }) => setSuppliers(data)).catch(() => {})
-
-    /* getTaxRates() retourne [] */
-    getTaxRates().then(setTaxRates).catch(() => {
-      setTaxRates([
-        { id: 1, name: 'Taux normal',   rate: 8.1 },
-        { id: 2, name: 'Taux réduit',   rate: 2.6 },
-        { id: 3, name: 'Taux hôtelier', rate: 3.8 },
-      ])
-    })
   }, [])
 
   const handleSort = (col) => {
@@ -842,14 +381,11 @@ export default function Products() {
     return () => { cancelled = true }
   }, [page, search, filterCat, filterSupplier, filterMinPrice, filterMaxPrice, filterInStock, filterIsActive, filterFeatured, sortCol, sortDir, refreshTick])
 
-  /* Ouvrir directement la modale si ?edit=ID dans l'URL (ex: depuis dashboard) */
+  /* Rediriger vers la page d'édition si ?edit=ID dans l'URL (ex: depuis dashboard) */
   useEffect(() => {
     const editId = searchParams.get('edit')
     if (!editId) return
-    setSearchParams({}, { replace: true })
-    getProductById(Number(editId))
-      .then(res => { if (res) setModal(res) })
-      .catch(() => {})
+    navigate(`/produits/${editId}`)
   }, []) // une seule fois au montage
 
   const handleDelete = (id) => {
@@ -872,23 +408,13 @@ export default function Products() {
   return (
     <div className={s.page}>
       {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
-      {modal && (
-        <ProductModal
-          product={modal === 'new' ? null : modal}
-          categories={categories}
-          suppliers={suppliers}
-          taxRates={taxRates}
-          onClose={() => setModal(null)}
-          onSaved={() => { load(); loadFeatured() }}
-        />
-      )}
 
       <div className={s.pageHead}>
         <div>
           <h1 className={s.pageTitle}>Produits</h1>
           <p className={s.pageSub}>{total.toLocaleString('fr-CH')} produit{total > 1 ? 's' : ''}</p>
         </div>
-        <button className={s.btnPrimary} onClick={() => setModal('new')}>
+        <button className={s.btnPrimary} onClick={() => navigate('/produits/nouveau')}>
           <Plus size={16} /> Nouveau produit
         </button>
       </div>
@@ -1039,7 +565,7 @@ export default function Products() {
 
       <FeaturedSlots
         featuredProducts={featuredProducts}
-        onEdit={(product) => setModal(product)}
+        onEdit={(product) => navigate(`/produits/${product.id}`)}
         onRemove={handleRemoveFeatured}
         onAdd={handleAddFeatured}
       />
@@ -1102,7 +628,7 @@ export default function Products() {
                 {product.is_active ? 'Actif' : 'Inactif'}
               </span>
               <div className={s.actions}>
-                <button className={s.iconBtn} onClick={() => setModal(product)} aria-label="Modifier">
+                <button className={s.iconBtn} onClick={() => navigate(`/produits/${product.id}`)} aria-label="Modifier">
                   <Edit2 size={14} />
                 </button>
                 <button className={s.iconBtnDanger} onClick={() => handleDelete(product.id)} aria-label="Supprimer">
