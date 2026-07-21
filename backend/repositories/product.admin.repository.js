@@ -1,7 +1,16 @@
 const { pool } = require('../config/db');
 
+// Remplace l'ensemble des tags liés à un produit par tagIds (liste d'id)
+const syncTags = async (connection, productId, tagIds) => {
+  await connection.execute(`DELETE FROM product_tags WHERE product_id = ?`, [productId]);
+  if (!tagIds || tagIds.length === 0) return;
+
+  const values = tagIds.map((tagId) => [productId, tagId]);
+  await connection.query(`INSERT INTO product_tags (product_id, tag_id) VALUES ?`, [values]);
+};
+
 // Création d'un produit avec ses traductions — transaction atomique
-const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, badge, translations }) => {
+const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, badge, translations, tagIds }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -22,6 +31,8 @@ const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf,
       );
     }
 
+    await syncTags(connection, productId, tagIds);
+
     await connection.commit();
     return productId;
   } catch (error) {
@@ -33,7 +44,7 @@ const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf,
 };
 
 // Mise à jour d'un produit avec ses traductions
-const update = async (id, { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, isActive, badge, translations }) => {
+const update = async (id, { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, isActive, badge, translations, tagIds }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -60,6 +71,10 @@ const update = async (id, { categoryId, supplierId, slug, priceChf, comparePrice
           [id, locale, trans.name, trans.description || null, trans.slug || slug || null]
         );
       }
+    }
+
+    if (tagIds !== undefined) {
+      await syncTags(connection, id, tagIds);
     }
 
     await connection.commit();
@@ -159,7 +174,15 @@ const findByIdAdmin = async (id, locale = 'fr') => {
     [id]
   );
 
-  return { ...rows[0], description_fr: rows[0].description, images };
+  const [tags] = await pool.execute(
+    `SELECT t.id, t.slug
+     FROM product_tags pt
+     INNER JOIN tags t ON t.id = pt.tag_id
+     WHERE pt.product_id = ?`,
+    [id]
+  );
+
+  return { ...rows[0], description_fr: rows[0].description, images, tags };
 };
 
 const ALLOWED_SORT_ADMIN = {
@@ -190,9 +213,14 @@ const findAllAdmin = async ({
     params.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
   if (categoryId) {
-    /* Inclut la catégorie parente ET ses sous-catégories */
-    where += ' AND p.category_id IN (SELECT id FROM categories WHERE id = ? OR parent_id = ?)';
-    params.push(categoryId, categoryId);
+    /* Inclut la catégorie choisie ET toute sa descendance (hiérarchie à 3 niveaux max) */
+    where += ` AND p.category_id IN (
+      SELECT descendant.id
+      FROM categories descendant
+      LEFT JOIN categories parent ON parent.id = descendant.parent_id
+      WHERE descendant.id = ? OR descendant.parent_id = ? OR parent.parent_id = ?
+    )`;
+    params.push(categoryId, categoryId, categoryId);
   }
   if (supplierId) {
     where += ' AND p.supplier_id = ?';
@@ -252,4 +280,29 @@ const findAllAdmin = async ({
   return { rows, total };
 };
 
-module.exports = { create, update, softDelete, addImage, removeImage, setPrimaryImage, findAllAdmin, findByIdAdmin };
+// Vérifie si un slug produit est déjà utilisé (optionnellement en excluant un id)
+const slugExists = async (slug, excludeId = null) => {
+  const params = [slug];
+  let query = `SELECT id FROM products WHERE slug = ?`;
+  if (excludeId) {
+    query += ` AND id != ?`;
+    params.push(excludeId);
+  }
+  const [rows] = await pool.execute(query, params);
+  return rows.length > 0;
+};
+
+// Vérifie si un SKU produit est déjà utilisé (optionnellement en excluant un id) — sku étant nullable
+const skuExists = async (sku, excludeId = null) => {
+  if (!sku) return false;
+  const params = [sku];
+  let query = `SELECT id FROM products WHERE sku = ?`;
+  if (excludeId) {
+    query += ` AND id != ?`;
+    params.push(excludeId);
+  }
+  const [rows] = await pool.execute(query, params);
+  return rows.length > 0;
+};
+
+module.exports = { create, update, softDelete, addImage, removeImage, setPrimaryImage, findAllAdmin, findByIdAdmin, slugExists, skuExists };

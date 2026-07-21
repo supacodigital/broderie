@@ -4,6 +4,7 @@ const { processImage }       = require('../../config/sharp');
 const { invalidateProducts } = require('../../config/cache');
 const { AppError }           = require('../../middlewares/errorHandler');
 const { normalizeLocale }    = require('../../utils/locale.utils');
+const { mapDbError }         = require('../../utils/db.utils');
 
 const ALLOWED_SORT_FIELDS = ['created_at', 'price_chf', 'name', 'stock'];
 
@@ -28,6 +29,7 @@ const productBodySchema = z.object({
   isFeatured:      z.boolean().optional().default(false),
   isMadeToOrder:   z.boolean().optional().default(false),
   badge:           z.string().max(50).optional().nullable(),
+  tagIds:          z.array(z.number().int().positive()).optional().default([]),
   translations: z.object({
     fr: translationSchema,
     de: translationSchema.optional(),
@@ -92,16 +94,35 @@ const create = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors });
     }
 
-    const { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, badge, translations } = parsed.data;
+    const { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, badge, translations, tagIds } = parsed.data;
+
+    if (await productAdminRepository.skuExists(sku)) {
+      return res.status(409).json({
+        success: false,
+        message: 'Données invalides.',
+        errors: [{ field: 'sku', message: 'Cette référence (SKU) est déjà utilisée par un autre produit.' }],
+      });
+    }
+
+    // Le slug n'est pas saisi par l'admin (généré depuis le nom côté formulaire) — en cas de
+    // collision (ex: deux produits au même nom), on rend le slug unique automatiquement plutôt
+    // que de bloquer la création sur un champ que Julie ne voit ni ne contrôle.
+    let uniqueSlug = slug;
+    let suffix = 2;
+    while (await productAdminRepository.slugExists(uniqueSlug)) {
+      uniqueSlug = `${slug}-${suffix}`;
+      suffix += 1;
+    }
+
     const productId = await productAdminRepository.create({
-      categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, badge, translations,
+      categoryId, supplierId, slug: uniqueSlug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, badge, translations, tagIds,
     });
 
     invalidateProducts();
     const product = await productAdminRepository.findByIdAdmin(productId, 'fr');
     res.status(201).json({ success: true, data: product });
   } catch (error) {
-    next(error);
+    next(mapDbError(error));
   }
 };
 
@@ -116,9 +137,21 @@ const update = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors });
     }
 
-    const { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, isActive, badge, translations } = parsed.data;
+    const { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, isActive, badge, translations, tagIds } = parsed.data;
+
+    const conflicts = [];
+    if (slug && await productAdminRepository.slugExists(slug, id)) {
+      conflicts.push({ field: 'slug', message: 'Ce slug est déjà utilisé par un autre produit.' });
+    }
+    if (sku && await productAdminRepository.skuExists(sku, id)) {
+      conflicts.push({ field: 'sku', message: 'Cette référence (SKU) est déjà utilisée par un autre produit.' });
+    }
+    if (conflicts.length > 0) {
+      return res.status(409).json({ success: false, message: 'Données invalides.', errors: conflicts });
+    }
+
     await productAdminRepository.update(id, {
-      categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, isActive, badge, translations,
+      categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, isActive, badge, translations, tagIds,
     });
 
     invalidateProducts();
@@ -126,7 +159,7 @@ const update = async (req, res, next) => {
     if (!product) return next(new AppError('Produit introuvable.', 404));
     res.json({ success: true, data: product });
   } catch (error) {
-    next(error);
+    next(mapDbError(error));
   }
 };
 

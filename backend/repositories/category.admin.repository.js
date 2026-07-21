@@ -56,8 +56,28 @@ const findById = async (id) => {
   };
 };
 
+// Calcule la profondeur d'une catégorie (0 = racine, 1 = enfant, 2 = petit-enfant)
+const getDepth = async (categoryId) => {
+  let depth = 0;
+  let currentId = categoryId;
+  while (currentId) {
+    const [rows] = await pool.execute(`SELECT parent_id FROM categories WHERE id = ?`, [currentId]);
+    if (!rows[0]) break;
+    currentId = rows[0].parent_id;
+    if (currentId) depth += 1;
+  }
+  return depth;
+};
+
 // Création d'une catégorie avec ses traductions — transaction atomique
 const create = async ({ parentId, slug, imageUrl, sortOrder, translations }) => {
+  if (parentId) {
+    const parentDepth = await getDepth(parentId);
+    if (parentDepth >= 2) {
+      throw new Error('Profondeur maximale atteinte : la hiérarchie des catégories est limitée à 3 niveaux.');
+    }
+  }
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -87,8 +107,46 @@ const create = async ({ parentId, slug, imageUrl, sortOrder, translations }) => 
   }
 };
 
+// Vérifie qu'un déplacement (id -> nouveau parentId) ne crée pas de cycle
+// et ne dépasse pas 3 niveaux (le sous-arbre le plus profond de id doit tenir)
+const assertValidMove = async (id, parentId) => {
+  if (!parentId) return;
+  if (parentId === id) {
+    throw new Error('Une catégorie ne peut pas être son propre parent.');
+  }
+
+  const parentDepth = await getDepth(parentId);
+  if (parentDepth >= 2) {
+    throw new Error('Profondeur maximale atteinte : la hiérarchie des catégories est limitée à 3 niveaux.');
+  }
+
+  // Le nouveau parent ne doit pas être un descendant de id (éviterait un cycle)
+  let currentId = parentId;
+  while (currentId) {
+    const [rows] = await pool.execute(`SELECT parent_id FROM categories WHERE id = ?`, [currentId]);
+    if (!rows[0]) break;
+    currentId = rows[0].parent_id;
+    if (currentId === id) {
+      throw new Error('Déplacement invalide : cette catégorie deviendrait sa propre descendante.');
+    }
+  }
+
+  // Si id a déjà des petits-enfants, le déplacer sous parentId (profondeur 1) créerait un niveau 4
+  const [grandchildren] = await pool.execute(
+    `SELECT COUNT(*) AS total FROM categories child
+     INNER JOIN categories grandchild ON grandchild.parent_id = child.id
+     WHERE child.parent_id = ?`,
+    [id]
+  );
+  if (grandchildren[0].total > 0) {
+    throw new Error('Impossible de déplacer : cette catégorie a des petites-sous-catégories qui dépasseraient 3 niveaux.');
+  }
+};
+
 // Mise à jour d'une catégorie avec ses traductions
 const update = async (id, { parentId, slug, imageUrl, sortOrder, translations }) => {
+  await assertValidMove(id, parentId || null);
+
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -119,8 +177,16 @@ const update = async (id, { parentId, slug, imageUrl, sortOrder, translations })
   }
 };
 
-// Suppression d'une catégorie — vérifie qu'elle n'a pas de produits liés
+// Suppression d'une catégorie — vérifie qu'elle n'a ni sous-catégorie ni produit lié
 const remove = async (id) => {
+  const [children] = await pool.execute(
+    `SELECT COUNT(*) AS total FROM categories WHERE parent_id = ?`,
+    [id]
+  );
+  if (children[0].total > 0) {
+    throw new Error(`Impossible de supprimer : ${children[0].total} sous-catégorie(s) rattachée(s) à cette catégorie.`);
+  }
+
   const [products] = await pool.execute(
     `SELECT COUNT(*) AS total FROM products WHERE category_id = ? AND deleted_at IS NULL`,
     [id]

@@ -1,9 +1,28 @@
 /* ── En-tête ── */
 .hero {
-  background: var(--rose-pale);
+  position: relative;
+  background-image: url('/banierecatalogue.webp');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   border-bottom: 1px solid var(--rose-border);
   padding: 40px 80px 48px;
   text-align: center;
+  overflow: hidden;
+}
+
+/* Voile sombre pour garantir la lisibilité du texte sur la photo */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 12, 16, 0.55);
+  z-index: 0;
+}
+
+.hero > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Breadcrumb ── */
@@ -13,13 +32,13 @@
   gap: 6px;
   font-family: 'Montserrat', sans-serif;
   font-size: 11px;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.75);
   margin-bottom: 16px;
 }
 
 .breadcrumb a,
 .breadcrumbBtn {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.75);
   text-decoration: none;
   background: none;
   border: none;
@@ -31,9 +50,16 @@
 }
 
 .breadcrumb a:hover,
-.breadcrumbBtn:hover { color: var(--rose); }
+.breadcrumbBtn:hover { color: #fff; }
 
-.breadcrumb span[aria-current] { color: var(--text-dark); font-weight: 600; }
+.breadcrumb span[aria-current] { color: #fff; font-weight: 600; }
+
+/* Regroupe un chevron + son bouton ancêtre — un segment par niveau de la hiérarchie */
+.breadcrumbSegment {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 
 .heroEyebrow {
   font-family: 'Montserrat', sans-serif;
@@ -41,12 +67,13 @@
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--rose);
+  color: #fbcfe8;
   margin-bottom: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .heroEyebrow::before,
@@ -55,21 +82,23 @@
   display: block;
   width: 32px;
   height: 1px;
-  background: var(--rose-border);
+  background: rgba(255, 255, 255, 0.4);
 }
 
 .heroTitle {
   font-family: 'Great Vibes', cursive;
   font-size: clamp(38px, 4vw, 60px);
-  color: var(--text);
+  color: #fff;
   line-height: 1.15;
   margin-bottom: 10px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 .heroCount {
   font-family: 'Montserrat', sans-serif;
   font-size: 12px;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Layout ── */

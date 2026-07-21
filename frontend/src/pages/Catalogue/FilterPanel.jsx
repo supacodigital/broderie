@@ -1,16 +1,28 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X, SlidersHorizontal, ChevronDown, Star } from 'lucide-react'
 import s from './FilterPanel.module.css'
 
-/* Construit l'arbre catégories → sous-catégories à partir d'une liste plate */
-function buildTree(categories) {
-  const parents  = categories.filter(c => !c.parent_id)
-  const children = categories.filter(c =>  c.parent_id)
-  return parents.map(p => ({
-    ...p,
-    children: children.filter(c => c.parent_id === p.id),
-  }))
+/* Construit l'arbre catégories → sous-catégories → petites-sous-catégories (3 niveaux max)
+   à partir d'une liste plate — chaque nœud reçoit un tableau `children` récursif */
+function buildTree(categories, parentId = null) {
+  return categories
+    .filter(c => (c.parent_id ?? null) === parentId)
+    .map(c => ({
+      ...c,
+      children: buildTree(categories, c.id),
+    }))
+}
+
+/* Remonte la chaîne d'ancêtres d'une catégorie active, du plus proche parent à la racine */
+function ancestorIds(categories, activeId) {
+  const ids = []
+  let current = categories.find(c => c.id === activeId)
+  while (current?.parent_id) {
+    ids.push(current.parent_id)
+    current = categories.find(c => c.id === current.parent_id)
+  }
+  return ids
 }
 
 const BADGES = [
@@ -22,23 +34,90 @@ const BADGES = [
 
 const MIN_RATINGS = [4, 3, 2]
 
-export default function FilterPanel({ filters, onChange, categories = [], onClose, mobileOpen }) {
+/* Un nœud de l'arbre catégories, rendu récursivement pour supporter les 3 niveaux
+   (parent → enfant → petit-enfant) avec un accordéon à chaque niveau qui en a besoin.
+   `depth` pilote uniquement l'indentation visuelle du bouton. */
+function CategoryNode({ node, depth, activeSlug, openParents, onToggle, onSelect }) {
+  const isOpen        = !!openParents[node.id]
+  const isActive      = activeSlug === node.slug
+  const hasDescendantActive = (n) =>
+    n.children.some(c => c.slug === activeSlug || hasDescendantActive(c))
+  const descendantActive = hasDescendantActive(node)
+  const hasChildren   = node.children.length > 0
+
+  return (
+    <li className={depth === 0 ? s.catGroup : undefined}>
+      <div className={`${s.parentRow} ${isActive || descendantActive ? s.parentRowActive : ''}`}>
+        <button
+          className={`${s.catBtn} ${depth === 0 ? s.catBtnParent : s.subCatBtn} ${isActive ? s.catBtnActive : ''}`}
+          style={depth > 1 ? { paddingLeft: 22 + (depth - 1) * 14 } : undefined}
+          onClick={() => onSelect(node.slug)}
+        >
+          {node.name}
+        </button>
+        {hasChildren && (
+          <button
+            className={`${s.arrowBtn} ${isOpen ? s.arrowOpen : ''}`}
+            onClick={() => onToggle(node.id)}
+            aria-label={isOpen ? 'Réduire' : 'Développer'}
+            aria-expanded={isOpen}
+          >
+            <ChevronDown size={14} />
+          </button>
+        )}
+      </div>
+
+      {hasChildren && (
+        <ul className={`${s.subList} ${isOpen ? s.subListOpen : ''}`} role="list">
+          {node.children.map(child => (
+            <CategoryNode
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              activeSlug={activeSlug}
+              openParents={openParents}
+              onToggle={onToggle}
+              onSelect={onSelect}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  )
+}
+
+export default function FilterPanel({ filters, onChange, categories = [], tags = [], onClose, mobileOpen }) {
   const { t } = useTranslation()
 
   const tree = useMemo(() => buildTree(categories), [categories])
 
   const activeSlug = filters.category ?? ''
-  const activeParentId = useMemo(() => {
+  /* Tous les ancêtres (parent, grand-parent…) de la catégorie active, peu importe sa
+     profondeur — sert à déplier automatiquement toute la branche jusqu'à la racine */
+  const activeAncestorIds = useMemo(() => {
     const active = categories.find(c => c.slug === activeSlug)
-    if (!active) return null
-    if (!active.parent_id) return active.id
-    return active.parent_id
+    if (!active) return []
+    return ancestorIds(categories, active.id)
   }, [categories, activeSlug])
 
   const [openParents, setOpenParents] = useState(() => {
-    if (!activeParentId) return {}
-    return { [activeParentId]: true }
+    if (activeAncestorIds.length === 0) return {}
+    return Object.fromEntries(activeAncestorIds.map(id => [id, true]))
   })
+
+  /* Si la catégorie active change (ex: navigation depuis la navbar), on déplie toute sa
+     branche sans jamais replier une section déjà ouverte par l'utilisateur */
+  useEffect(() => {
+    if (activeAncestorIds.length === 0) return
+    setOpenParents(prev => {
+      const next = { ...prev }
+      let changed = false
+      for (const id of activeAncestorIds) {
+        if (!next[id]) { next[id] = true; changed = true }
+      }
+      return changed ? next : prev
+    })
+  }, [activeAncestorIds])
 
   function set(key, value) {
     onChange({ ...filters, [key]: value, page: 1 })
@@ -60,7 +139,7 @@ export default function FilterPanel({ filters, onChange, categories = [], onClos
     set('min_rating', filters.min_rating === value ? undefined : value)
   }
 
-  const hasActive = filters.category || filters.min_price || filters.max_price
+  const hasActive = filters.category || filters.tag || filters.min_price || filters.max_price
     || filters.in_stock || filters.made_to_order || filters.badge || filters.min_rating
 
   return (
@@ -101,54 +180,39 @@ export default function FilterPanel({ filters, onChange, categories = [], onClos
               </button>
             </li>
 
-            {tree.map(parent => {
-              const isOpen       = !!openParents[parent.id]
-              const parentActive = activeSlug === parent.slug
-              const childActive  = parent.children.some(c => c.slug === activeSlug)
-
-              return (
-                <li key={parent.id} className={s.catGroup}>
-                  <div className={`${s.parentRow} ${parentActive || childActive ? s.parentRowActive : ''}`}>
-                    <button
-                      className={`${s.catBtn} ${s.catBtnParent} ${parentActive ? s.catBtnActive : ''}`}
-                      onClick={() => set('category', parent.slug)}
-                    >
-                      {parent.name}
-                    </button>
-                    {parent.children.length > 0 && (
-                      <button
-                        className={`${s.arrowBtn} ${isOpen ? s.arrowOpen : ''}`}
-                        onClick={() => toggleParent(parent.id)}
-                        aria-label={isOpen ? 'Réduire' : 'Développer'}
-                        aria-expanded={isOpen}
-                      >
-                        <ChevronDown size={14} />
-                      </button>
-                    )}
-                  </div>
-
-                  {parent.children.length > 0 && (
-                    <ul
-                      className={`${s.subList} ${isOpen ? s.subListOpen : ''}`}
-                      role="list"
-                    >
-                      {parent.children.map(child => (
-                        <li key={child.id}>
-                          <button
-                            className={`${s.catBtn} ${s.subCatBtn} ${activeSlug === child.slug ? s.catBtnActive : ''}`}
-                            onClick={() => set('category', child.slug)}
-                          >
-                            {child.name}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              )
-            })}
+            {tree.map(parent => (
+              <CategoryNode
+                key={parent.id}
+                node={parent}
+                depth={0}
+                activeSlug={activeSlug}
+                openParents={openParents}
+                onToggle={toggleParent}
+                onSelect={slug => set('category', slug)}
+              />
+            ))}
           </ul>
         </div>
+
+        {/* ── Tags / thèmes — sélection unique, alignée sur le filtre ?tag=slug de l'API ── */}
+        {tags.length > 0 && (
+          <div className={s.group}>
+            <p className={s.groupTitle}>Thème</p>
+            <div className={s.tagCheckList}>
+              {tags.map(tag => (
+                <label key={tag.id} className={s.checkRow}>
+                  <input
+                    type="checkbox"
+                    className={s.checkbox}
+                    checked={filters.tag === tag.slug}
+                    onChange={() => set('tag', filters.tag === tag.slug ? undefined : tag.slug)}
+                  />
+                  <span>{tag.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── Badges ── */}
         <div className={s.group}>

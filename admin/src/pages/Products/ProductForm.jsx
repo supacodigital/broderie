@@ -13,6 +13,7 @@ import {
 import { getCategories } from '../../services/categories.service.js'
 import { getSuppliers } from '../../services/suppliers.service.js'
 import { getTaxRates } from '../../services/settings.service.js'
+import { getTags } from '../../services/tags.service.js'
 import { useToast } from '../../contexts/ToastContext.jsx'
 import s from './ProductForm.module.css'
 
@@ -202,12 +203,14 @@ export default function ProductForm() {
   const [categories, setCategories] = useState([])
   const [suppliers,  setSuppliers]  = useState([])
   const [taxRates,   setTaxRates]   = useState([])
+  const [tags,       setTags]       = useState([])
+  const [selectedTagIds, setSelectedTagIds] = useState([])
   const [images,     setImages]     = useState([])
   const [imgLoading, setImgLoading] = useState(false)
   const [saved,      setSaved]      = useState(false)
   const [apiError,   setApiError]   = useState('')
 
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, watch, setValue, setError, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { isActive: true, isFeatured: false, isMadeToOrder: false, badge: '', stock: 0 },
   })
@@ -227,18 +230,23 @@ export default function ProductForm() {
         parentId: c.parent_id ?? null,
         name:     c.translations?.fr?.name ?? c.slug,
       }))
-      const parents  = raw.filter(c => !c.parentId)
-      const children = raw.filter(c =>  c.parentId)
+      /* Arbre à N niveaux (jusqu'à 3) construit en profondeur — chaque enfant est indenté
+         d'un préfixe "— " supplémentaire par niveau. Les <option> HTML ne supportant pas
+         de style riche, l'indentation se fait en texte. */
+      const byParent = new Map()
+      for (const c of raw) {
+        const key = c.parentId ?? null
+        if (!byParent.has(key)) byParent.set(key, [])
+        byParent.get(key).push(c)
+      }
       const sorted = []
-      for (const p of parents) {
-        sorted.push(p)
-        for (const ch of children.filter(c => c.parentId === p.id)) {
-          sorted.push({ ...ch, name: `— ${ch.name}` })
+      const visit = (parentId, depth) => {
+        for (const c of byParent.get(parentId) ?? []) {
+          sorted.push({ ...c, name: depth > 0 ? `${'— '.repeat(depth)}${c.name}` : c.name })
+          visit(c.id, depth + 1)
         }
       }
-      for (const ch of children.filter(c => !parents.find(p => p.id === c.parentId))) {
-        sorted.push({ ...ch, name: `— ${ch.name}` })
-      }
+      visit(null, 0)
       setCategories(sorted)
     }).catch(() => {})
 
@@ -251,6 +259,8 @@ export default function ProductForm() {
         { id: 3, name: 'Taux hôtelier', rate: 3.8 },
       ])
     })
+
+    getTags().then(setTags).catch(() => {})
   }, [])
 
   /* Taux TVA fixé automatiquement (toujours 8.1% pour ce catalogue) — appliqué
@@ -293,12 +303,20 @@ export default function ProductForm() {
         })
         const imgs = (res?.images ?? []).map(img => ({ ...img, isPrimary: !!img.is_primary }))
         setImages(imgs)
+        setSelectedTagIds((res?.tags ?? []).map(t => t.id))
       })
       .catch(() => setApiError('Impossible de charger ce produit.'))
       .finally(() => { setLoading(false); setImgLoading(false) })
   }, [isEdit, id, reset])
 
   const goBack = () => navigate('/produits')
+
+  /* Coche / décoche un tag dans la sélection multiple */
+  const toggleTag = (tagId) => {
+    setSelectedTagIds(prev =>
+      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
+    )
+  }
 
   const onSubmit = async (data) => {
     setApiError('')
@@ -327,6 +345,7 @@ export default function ProductForm() {
         isMadeToOrder:   !!data.isMadeToOrder,
         isActive:        !!data.isActive,
         badge:           data.badge || null,
+        tagIds:          selectedTagIds,
         translations: {
           fr: { name: data.name, description: data.description ?? '' },
           ...(data.nameDe ? { de: { name: data.nameDe, description: data.descriptionDe ?? '' } } : {}),
@@ -343,7 +362,36 @@ export default function ProductForm() {
       toast.success(isEdit ? 'Produit mis à jour.' : 'Produit créé.')
       setTimeout(goBack, 500)
     } catch (err) {
-      setApiError(err.response?.data?.message ?? 'Une erreur est survenue.')
+      /* Pas de réponse serveur — coupure réseau, timeout, backend injoignable */
+      if (!err.response) {
+        setApiError('Impossible de contacter le serveur. Vérifiez votre connexion et réessayez.')
+        return
+      }
+
+      const { status, data } = err.response
+
+      /* Erreurs de champ (validation 400, conflit 409) — affichées sous le champ concerné */
+      const fieldErrors = data?.errors?.filter(e => e.field && e.field !== '_')
+      if (fieldErrors?.length) {
+        fieldErrors.forEach(({ field, message }) => {
+          if (field in schema.shape) setError(field, { type: 'server', message })
+        })
+        /* Un conflit peut porter sur un champ hors formulaire visible (ex: slug) —
+           dans ce cas le bandeau générique reste le seul moyen de le signaler */
+        const unmapped = fieldErrors.filter(e => !(e.field in schema.shape))
+        setApiError(unmapped.length ? unmapped.map(e => e.message).join(' ') : '')
+        if (fieldErrors.length) return
+      }
+
+      if (status === 404) {
+        setApiError('Ce produit n\'existe plus — il a peut-être été supprimé entre-temps.')
+      } else if (status === 401 || status === 403) {
+        setApiError('Votre session a expiré. Reconnectez-vous puis réessayez.')
+      } else if (status >= 500) {
+        setApiError('Une erreur serveur est survenue. Veuillez réessayer dans un instant.')
+      } else {
+        setApiError(data?.message ?? 'Une erreur est survenue.')
+      }
     }
   }
 
@@ -463,6 +511,30 @@ export default function ProductForm() {
                 </p>
               )}
             </div>
+          </section>
+
+          {/* Tags / thèmes */}
+          <section className={s.section}>
+            <h2 className={s.sectionTitle}>Tags / thèmes</h2>
+            {tags.length === 0 ? (
+              <p className={s.tagEmpty}>Aucun tag disponible — créez-en depuis l'onglet Tags.</p>
+            ) : (
+              <div className={s.tagList}>
+                {tags.map(tag => {
+                  const checked = selectedTagIds.includes(tag.id)
+                  return (
+                    <label key={tag.id} className={`${s.tagChip} ${checked ? s.tagChipActive : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleTag(tag.id)}
+                      />
+                      {tag.translations?.fr?.name ?? tag.slug}
+                    </label>
+                  )
+                })}
+              </div>
+            )}
           </section>
 
           {/* Prix & stock */}

@@ -3,6 +3,7 @@ import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, ArrowUp } from 'lucide-react'
 import { getProducts, getCategories } from '../../services/products.service.js'
+import { getTags } from '../../services/tags.service.js'
 import { normalizeLocale } from '../../utils/locale.js'
 import { useWishlist } from '../../contexts/WishlistContext.jsx'
 import ProductCard            from '../../components/ui/ProductCard/ProductCard.jsx'
@@ -15,7 +16,7 @@ import Seo                    from '../../components/seo/Seo.jsx'
 import s from './Catalogue.module.css'
 
 /* ── Chips filtres actifs ── */
-function ActiveFilters({ filters, categories, onChange }) {
+function ActiveFilters({ filters, categories, tags, onChange }) {
   const { t } = useTranslation()
   const chips = []
 
@@ -25,6 +26,14 @@ function ActiveFilters({ filters, categories, onChange }) {
       key:   'category',
       label: cat?.name ?? filters.category,
       clear: () => onChange({ ...filters, category: '', page: 1 }),
+    })
+  }
+  if (filters.tag) {
+    const tag = tags.find(t => t.slug === filters.tag)
+    chips.push({
+      key:   'tag',
+      label: tag?.name ?? filters.tag,
+      clear: () => onChange({ ...filters, tag: undefined, page: 1 }),
     })
   }
   if (filters.q) {
@@ -130,6 +139,7 @@ export default function Catalogue() {
 
   const [products,    setProducts]    = useState([])
   const [categories,  setCategories]  = useState([])
+  const [tags,        setTags]        = useState([])
   const [pagination,  setPagination]  = useState({ page: 1, totalPages: 1, total: 0 })
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState(false)
@@ -151,6 +161,7 @@ export default function Catalogue() {
     page:     1,
     limit:    20,
     category: categorySlug ?? searchParams.get('category') ?? '',
+    tag:      searchParams.get('tag')       ?? undefined,
     q:        searchParams.get('q')         ?? undefined,
     min_price:searchParams.get('min_price') ?? undefined,
     max_price:searchParams.get('max_price') ?? undefined,
@@ -172,6 +183,7 @@ export default function Catalogue() {
     setFilters(f => ({
       ...f,
       page:       1,
+      tag:        searchParams.get('tag')         ?? undefined,
       q:          searchParams.get('q')          ?? undefined,
       min_price:  searchParams.get('min_price')  ?? undefined,
       max_price:  searchParams.get('max_price')  ?? undefined,
@@ -188,6 +200,9 @@ export default function Catalogue() {
   useEffect(() => {
     getCategories(normalizeLocale(i18n.language))
       .then(d => setCategories(d.data ?? []))
+      .catch(() => {})
+    getTags(normalizeLocale(i18n.language))
+      .then(d => setTags(d.data ?? []))
       .catch(() => {})
   }, [i18n.language])
 
@@ -220,11 +235,21 @@ export default function Catalogue() {
   const handlePageChange    = useCallback((p)    => setFilters(f => ({ ...f, page: p })), [])
   const handleWishlist      = useCallback((id)   => toggleWishlist(id), [toggleWishlist])
 
-  /* Breadcrumb : catégorie active + son parent éventuel */
+  /* Breadcrumb : catégorie active + toute la chaîne de ses ancêtres (jusqu'à 2 niveaux
+     au-dessus, la hiérarchie catégories étant limitée à 3 niveaux), du plus proche
+     parent à la racine */
   const activeCategory  = categories.find(c => c.slug === filters.category)
-  const parentCategory  = activeCategory?.parent_id
-    ? categories.find(c => c.id === activeCategory.parent_id)
-    : null
+  const ancestorCategories = (() => {
+    const chain = []
+    let current = activeCategory
+    while (current?.parent_id) {
+      const parent = categories.find(c => c.id === current.parent_id)
+      if (!parent) break
+      chain.unshift(parent)
+      current = parent
+    }
+    return chain
+  })()
 
   const pageTitle = activeCategory?.name ?? t('catalogue.allProducts')
 
@@ -239,17 +264,17 @@ export default function Catalogue() {
         {activeCategory && (
           <nav className={s.breadcrumb} aria-label="Fil d'Ariane">
             <Link to="/catalogue">{t('catalogue.allProducts')}</Link>
-            {parentCategory && (
-              <>
+            {ancestorCategories.map(ancestor => (
+              <span key={ancestor.id} className={s.breadcrumbSegment}>
                 <ChevronRight size={12} aria-hidden="true" />
                 <button
                   className={s.breadcrumbBtn}
-                  onClick={() => handleFiltersChange({ ...filters, category: parentCategory.slug, page: 1 })}
+                  onClick={() => handleFiltersChange({ ...filters, category: ancestor.slug, page: 1 })}
                 >
-                  {parentCategory.name}
+                  {ancestor.name}
                 </button>
-              </>
-            )}
+              </span>
+            ))}
             <ChevronRight size={12} aria-hidden="true" />
             <span aria-current="page">{activeCategory.name}</span>
           </nav>
@@ -269,6 +294,7 @@ export default function Catalogue() {
           filters={filters}
           onChange={handleFiltersChange}
           categories={categories}
+          tags={tags}
           mobileOpen={filtersOpen}
           onClose={() => setFiltersOpen(false)}
         />
@@ -288,6 +314,7 @@ export default function Catalogue() {
           <ActiveFilters
             filters={filters}
             categories={categories}
+            tags={tags}
             onChange={handleFiltersChange}
           />
 

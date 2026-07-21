@@ -1,18 +1,36 @@
 .hero {
   position: relative;
   min-height: 90vh;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
+  background-image: url('/hero.webp');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Voile sombre pour garantir la lisibilité du texte sur toute l'image —
+   renforcé au centre (là où repose le texte) car la photo (fils colorés
+   autour d'un cœur clair) est trop chargée pour un voile uniforme léger */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(12, 8, 10, 0.78) 0%, rgba(12, 8, 10, 0.7) 45%, rgba(12, 8, 10, 0.5) 100%);
+  z-index: 0;
 }
 
 /* ── Contenu texte ── */
 .content {
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 80px 64px 80px 80px;
-  background: var(--rose-pale);
+  text-align: center;
+  padding: 80px 40px;
+  max-width: 680px;
   position: relative;
   z-index: 1;
 }
@@ -23,11 +41,13 @@
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--rose);
+  color: #fbcfe8;
   margin-bottom: 20px;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 
 .eyebrow::before {
@@ -35,15 +55,21 @@
   display: block;
   width: 32px;
   height: 1px;
-  background: var(--rose);
+  background: #fbcfe8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .title {
   font-family: 'Great Vibes', cursive;
   font-size: clamp(52px, 5vw, 80px);
-  color: var(--text);
+  color: #fff;
   line-height: 1.1;
   margin-bottom: 12px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.titleAccent {
+  color: var(--rose);
 }
 
 .subtitle {
@@ -51,24 +77,27 @@
   font-size: clamp(20px, 2vw, 28px);
   font-weight: 300;
   font-style: italic;
-  color: var(--text-muted);
+  color: #fff;
   margin-bottom: 28px;
   line-height: 1.4;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), 0 6px 24px rgba(0, 0, 0, 0.4);
 }
 
 .desc {
   font-family: 'Cormorant Infant', serif;
   font-size: 17px;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.95);
   line-height: 1.7;
-  max-width: 400px;
-  margin-bottom: 40px;
+  max-width: 460px;
+  margin: 0 auto 40px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
 .actions {
   display: flex;
   gap: 16px;
   align-items: center;
+  justify-content: center;
   flex-wrap: wrap;
 }
 
@@ -98,7 +127,7 @@
 }
 
 .btnSecondary {
-  color: var(--rose);
+  color: #fff;
   font-family: 'Montserrat', sans-serif;
   font-size: 13px;
   font-weight: 600;
@@ -110,6 +139,7 @@
   transition: gap 0.2s;
   text-decoration: none;
   padding: 14px 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 .btnSecondary:hover { gap: 10px; }
@@ -117,10 +147,11 @@
 /* ── Stats ── */
 .stats {
   display: flex;
+  justify-content: center;
   gap: 40px;
   margin-top: 56px;
   padding-top: 40px;
-  border-top: 1px solid var(--rose-border);
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
 }
 
 .stat strong {
@@ -128,8 +159,9 @@
   font-family: 'Cormorant Infant', serif;
   font-size: 32px;
   font-weight: 600;
-  color: var(--rose);
+  color: #fff;
   line-height: 1;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
 
 .stat span {
@@ -138,255 +170,18 @@
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.85);
   margin-top: 4px;
   display: block;
-}
-
-/* ── Visuel — mosaïque flottante ── */
-.visual {
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-  --scroll: 0px;
-
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 64px 48px 32px;
-  background: var(--rose-pale);
-  overflow: hidden;
-}
-
-/* Cercle décoratif principal — gros disque rose pâle qui flotte en parallax */
-.bgCircle {
-  position: absolute;
-  width: 540px;
-  height: 540px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, rgba(219, 39, 119, 0.10), rgba(219, 39, 119, 0.02) 60%, transparent 75%);
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, calc(-50% + var(--scroll) * -0.15));
-  z-index: 0;
-  pointer-events: none;
-}
-
-/* Cercle vide décoratif en fond — bouge plus lentement */
-.bgRing {
-  position: absolute;
-  width: 420px;
-  height: 420px;
-  border-radius: 50%;
-  border: 1.5px dashed var(--rose-border);
-  top: 50%;
-  left: 50%;
-  transform: translate(calc(-50% + 80px), calc(-50% + var(--scroll) * -0.08));
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.6;
-}
-
-/* ── Image principale ── */
-.mainImageWrap {
-  position: relative;
-  z-index: 2;
-  width: min(420px, 70%);
-  aspect-ratio: 4 / 5;
-  border-radius: 24px;
-  overflow: hidden;
-  box-shadow:
-    0 32px 80px rgba(190, 24, 93, 0.18),
-    0 12px 32px rgba(0, 0, 0, 0.08);
-  /* Animation d'entrée : commence à 0.95 + opacité 0, jamais scale(0) */
-  opacity: 0;
-  transform: translateY(24px) scale(0.96);
-  animation: heroEnter 700ms var(--ease-out) 100ms forwards;
-  /* Parallax doux + léger flottement perpétuel */
-  will-change: transform;
-}
-
-/* Léger flottement perpétuel — appliqué une fois l'entrée terminée */
-.mainImageWrap::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.mainImage {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  /* Ken Burns subtil au scroll : zoom léger */
-  transform: scale(calc(1 + var(--scroll) * 0.0002));
-  transition: transform 600ms var(--ease-out);
-}
-
-.mainImageGloss {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, transparent 40%, rgba(190, 24, 93, 0.08) 100%);
-  pointer-events: none;
-}
-
-/* ── Cartes flottantes ── */
-.floatCard {
-  position: absolute;
-  z-index: 3;
-  background: #fff;
-  border-radius: 14px;
-  padding: 12px 16px;
-  box-shadow: 0 12px 32px rgba(190, 24, 93, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  /* Animation d'entrée commune */
-  opacity: 0;
-  transform: translateY(16px) scale(0.94);
-  animation: cardEnter 600ms var(--ease-out) forwards;
-}
-
-.floatCard span {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-dark);
-  display: block;
-  line-height: 1.2;
-}
-
-.floatCard small {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 11px;
-  color: var(--text-muted);
-  display: block;
-  margin-top: 2px;
-}
-
-/* Carte note clients — haut gauche, légèrement inclinée, parallax plus rapide */
-.ratingCard {
-  top: 14%;
-  left: 6%;
-  animation-delay: 360ms;
-  transform-origin: bottom left;
-  /* Décalage parallax + flottement continu */
-  transform: translateY(calc(var(--scroll) * -0.12)) rotate(-2deg);
-}
-
-.ratingDot {
-  width: 34px;
-  height: 34px;
-  background: var(--rose-pale);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--rose);
-  flex-shrink: 0;
-}
-
-/* Carte Made in CH — bas droite, parallax plus lent */
-.swissCard {
-  bottom: 14%;
-  right: 6%;
-  animation-delay: 520ms;
-  transform-origin: top right;
-  transform: translateY(calc(var(--scroll) * -0.06)) rotate(2deg);
-}
-
-.swissFlag {
-  width: 34px;
-  height: 34px;
-  background: linear-gradient(135deg, #db2777, #be185d);
-  color: #fff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-/* ── Animations d'entrée ── */
-@keyframes heroEnter {
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes cardEnter {
-  to {
-    opacity: 1;
-  }
-}
-
-/* Une fois entrée terminée, on garde le rotate + parallax via les classes dédiées */
-.ratingCard {
-  animation-name: ratingEnter;
-}
-.swissCard {
-  animation-name: swissEnter;
-}
-
-@keyframes ratingEnter {
-  from {
-    opacity: 0;
-    transform: translateY(16px) rotate(-2deg) scale(0.94);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(calc(var(--scroll) * -0.12)) rotate(-2deg) scale(1);
-  }
-}
-
-@keyframes swissEnter {
-  from {
-    opacity: 0;
-    transform: translateY(16px) rotate(2deg) scale(0.94);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(calc(var(--scroll) * -0.06)) rotate(2deg) scale(1);
-  }
-}
-
-/* ── Hover : suspension légère sur la mosaïque entière ── */
-@media (hover: hover) and (pointer: fine) {
-  .visual:hover .ratingCard {
-    transform: translateY(calc(var(--scroll) * -0.12 - 6px)) rotate(-3deg) scale(1.02);
-    transition: transform 320ms var(--ease-out);
-  }
-  .visual:hover .swissCard {
-    transform: translateY(calc(var(--scroll) * -0.06 - 6px)) rotate(3deg) scale(1.02);
-    transition: transform 320ms var(--ease-out);
-  }
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Responsive ── */
 @media (max-width: 1024px) {
-  .hero    { grid-template-columns: 1fr; min-height: auto; }
-  .content { padding: 60px 40px; }
-  .visual  { display: none; }
+  .content { padding: 60px 40px; max-width: 100%; }
 }
 
 @media (max-width: 640px) {
   .content { padding: 48px 20px; }
-  .stats   { gap: 24px; flex-wrap: wrap; }
-}
-
-/* ── Accessibilité : mouvement réduit ── */
-@media (prefers-reduced-motion: reduce) {
-  .mainImageWrap,
-  .floatCard,
-  .ratingCard,
-  .swissCard {
-    animation: none;
-    opacity: 1;
-    transform: none;
-  }
-  .ratingCard { transform: rotate(-2deg); }
-  .swissCard  { transform: rotate(2deg); }
+  .stats   { gap: 24px; flex-wrap: wrap; justify-content: center; }
 }

@@ -197,6 +197,45 @@
   cursor: pointer;
 }
 
+/* ── Sélecteur de tags (thèmes) — pills à cocher ── */
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tagChip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+
+.tagChip:hover { border-color: var(--rose); }
+
+.tagChipActive {
+  background: var(--rose-pale);
+  border-color: var(--rose);
+  color: var(--rose-dark, var(--rose));
+  font-weight: 600;
+}
+
+.tagChip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tagEmpty { font-size: 12.5px; color: var(--text-muted); }
+
 /* ── Actions header ── */
 .btnCancel {
   padding: 9px 18px;

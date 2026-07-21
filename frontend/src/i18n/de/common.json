@@ -7,7 +7,7 @@
   },
   "nav": {
     "home": "Startseite",
-    "collections": "Kollektionen",
+    "collections": "Katalog",
     "newArrivals": "Neuheiten",
     "promos": "Aktionen",
     "about": "Unsere Geschichte",
@@ -29,7 +29,7 @@
   },
   "hero": {
     "eyebrow": "Schweizer Handwerk seit 1987",
-    "title": "Die Kunst der Nadelstickerei",
+    "title": "Die Kunst der <1>Nadelstickerei</1>",
     "subtitle": "Kits, Garne und Zubehör mit Leidenschaft ausgewählt",
     "desc": "Entdecken Sie unsere Kollektion von DMC-Garnen, Sticksets und hochwertigem Schweizer Zubehör. Ideal für Anfängerinnen und Expertinnen.",
     "cta": "Shop entdecken",

@@ -5,6 +5,7 @@ const TTL = {
   PRODUCTS: 300,      // 5 minutes — catalogue produits
   PRODUCT: 300,       // 5 minutes — détail produit
   CATEGORIES: 1800,   // 30 minutes — catégories
+  TAGS: 1800,         // 30 minutes — tags/thèmes
   TAX_RATES: 86400,   // 24 heures — taux TVA
   SHIPPING: 86400,    // 24 heures — frais de port
 };
@@ -21,6 +22,7 @@ const keys = {
     `products:list:${locale}:${page}:${limit}:${filters}`,
   product: (id, locale) => `product:${id}:${locale}`,
   categories: (locale) => `categories:${locale}`,
+  tags: (locale) => `tags:${locale}`,
   taxRates: () => 'tax_rates',
   shippingRates: () => 'shipping_rates',
 };

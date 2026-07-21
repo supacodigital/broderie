@@ -13,9 +13,9 @@ export default function Home() {
     <>
       <Seo title={t('seo.homeTitle')} description={t('seo.homeDesc')} />
       <HeroSection />
-      <AdvantagesSection />
       <FeaturedProductsSection />
       <CraftsSection />
+      <AdvantagesSection />
       <TestimonialsSection />
       <NewsletterSection />
     </>

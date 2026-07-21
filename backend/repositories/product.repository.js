@@ -57,6 +57,11 @@ const buildFilters = (filters) => {
     conditions.push('COALESCE(ROUND((SELECT AVG(rating) FROM reviews WHERE product_id = p.id AND is_approved = 1), 1), 0) >= ?');
     params.push(parseFloat(filters.minRating));
   }
+  if (filters.tagId) {
+    // Filtre par tag via la table de liaison product_tags (index idx_product_tags_tag existant)
+    conditions.push('p.id IN (SELECT pt2.product_id FROM product_tags pt2 WHERE pt2.tag_id = ?)');
+    params.push(filters.tagId);
+  }
 
   return { conditions, params };
 };

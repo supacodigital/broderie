@@ -35,7 +35,7 @@ function CategoryModal({ category, categories, onClose, onSaved }) {
   const [apiError, setApiError] = useState('')
   const [saved,    setSaved]    = useState(false)
 
-  const { register, handleSubmit, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, setValue, watch, setError, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: isEdit ? {
       slug:      category.slug         ?? '',
@@ -77,11 +77,60 @@ function CategoryModal({ category, categories, onClose, onSaved }) {
       setSaved(true)
       setTimeout(() => { onSaved(); onClose() }, 500)
     } catch (err) {
-      setApiError(err.response?.data?.message ?? 'Une erreur est survenue.')
+      if (!err.response) {
+        setApiError('Impossible de contacter le serveur. Vérifiez votre connexion et réessayez.')
+        return
+      }
+
+      const { status, data } = err.response
+      /* Le backend renvoie "name" pour le nom FR — mappé sur le champ réel du formulaire */
+      const FIELD_MAP = { name: 'nameFr' }
+      const fieldErrors = data?.errors
+      if (fieldErrors?.length) {
+        fieldErrors.forEach(({ field, message }) => {
+          const formField = FIELD_MAP[field] ?? field
+          if (formField in schema.shape) setError(formField, { type: 'server', message })
+        })
+        return
+      }
+
+      if (status >= 500) {
+        setApiError('Une erreur serveur est survenue. Veuillez réessayer dans un instant.')
+      } else {
+        setApiError(data?.message ?? 'Une erreur est survenue.')
+      }
     }
   }
 
-  const parents = categories.filter(c => !c.parent_id && c.id !== category?.id)
+  /* Catégories pouvant servir de parent : niveaux 1 et 2 uniquement (un niveau 3 comme
+     parent créerait un niveau 4, refusé par le backend). On exclut aussi la catégorie
+     éditée elle-même et — en édition — ses propres descendants, pour éviter un cycle
+     que le backend rejetterait de toute façon. */
+  const depthOf = (cat) => {
+    let depth = 0
+    let current = cat
+    while (current?.parent_id) {
+      depth += 1
+      current = categories.find(c => c.id === current.parent_id)
+      if (!current) break
+    }
+    return depth
+  }
+  const isDescendantOf = (candidateId, ancestorId) => {
+    let current = categories.find(c => c.id === candidateId)
+    while (current?.parent_id) {
+      if (current.parent_id === ancestorId) return true
+      current = categories.find(c => c.id === current.parent_id)
+    }
+    return false
+  }
+  const parents = categories.filter(c => {
+    if (c.id === category?.id) return false
+    if (depthOf(c) >= 2) return false
+    if (isEdit && isDescendantOf(c.id, category.id)) return false
+    return true
+  })
+  const parentDepthLabel = (cat) => (depthOf(cat) === 1 ? '— ' : '')
 
   return (
     <div
@@ -150,14 +199,15 @@ function CategoryModal({ category, categories, onClose, onSaved }) {
             </div>
             <div className={s.field}>
               <label className={s.label}>Catégorie parente</label>
-              <select className={s.input} {...register('parentId')}>
+              <select className={`${s.input} ${errors.parentId ? s.inputError : ''}`} {...register('parentId')}>
                 <option value="">— Racine —</option>
                 {parents.map(p => (
                   <option key={p.id} value={p.id}>
-                    {p.translations?.fr?.name ?? p.slug}
+                    {parentDepthLabel(p)}{p.translations?.fr?.name ?? p.slug}
                   </option>
                 ))}
               </select>
+              {errors.parentId && <span className={s.err}>{errors.parentId.message}</span>}
             </div>
             <div className={s.field}>
               <label className={s.label}>Ordre d'affichage</label>
@@ -231,17 +281,38 @@ export default function Categories() {
     })
   }
 
-  /* Tri : parents d'abord, enfants juste après leur parent */
-  const sorted = (() => {
-    const parents  = categories.filter(c => !c.parent_id)
-    const children = categories.filter(c =>  c.parent_id)
-    const result   = []
-    for (const p of parents) {
-      result.push(p)
-      result.push(...children.filter(c => c.parent_id === p.id))
+  /* Profondeur d'une catégorie dans la hiérarchie (0 = racine, 1 = enfant, 2 = petit-enfant) */
+  const depthOf = (cat) => {
+    let depth = 0
+    let current = cat
+    while (current?.parent_id) {
+      depth += 1
+      current = categories.find(c => c.id === current.parent_id)
+      if (!current) break
     }
+    return depth
+  }
+
+  /* Tri en profondeur (DFS) : chaque catégorie est suivie immédiatement de ses descendants,
+     ce qui généralise l'ancien tri "parent puis enfants" à un nombre de niveaux quelconque */
+  const sorted = (() => {
+    const byParent = new Map()
+    for (const c of categories) {
+      const key = c.parent_id ?? null
+      if (!byParent.has(key)) byParent.set(key, [])
+      byParent.get(key).push(c)
+    }
+    const result = []
+    const visit = (parentId) => {
+      for (const c of byParent.get(parentId) ?? []) {
+        result.push(c)
+        visit(c.id)
+      }
+    }
+    visit(null)
+    /* Filet de sécurité : catégories orphelines (parent_id pointant vers un id absent) */
     const inResult = new Set(result.map(c => c.id))
-    result.push(...children.filter(c => !inResult.has(c.id)))
+    result.push(...categories.filter(c => !inResult.has(c.id)))
     return result
   })()
 
@@ -254,28 +325,18 @@ export default function Categories() {
 
   const query = search.trim().toLowerCase()
 
-  /* Sans recherche : accordéon — n'affiche les enfants que si leur parent est déplié.
-     Avec recherche : filtre sur tous les niveaux, en dépliant automatiquement le parent
-     d'une sous-catégorie trouvée pour qu'elle reste visible. */
-  const filtered = query
-    ? sorted.filter(c => {
-        if (matchesQuery(c, query)) return true
-        if (!c.parent_id) {
-          return sorted.some(child => child.parent_id === c.id && matchesQuery(child, query))
-        }
-        return false
-      })
-    : sorted.filter(c => !c.parent_id || expandedIds.has(c.parent_id))
-
-  /* Compte total d'une catégorie parente = ses propres produits + ceux de toutes ses sous-catégories */
-  const getTotalProductCount = (cat) => {
-    const own = Number(cat.product_count) || 0
-    if (cat.parent_id) return own
-    const childrenTotal = categories
-      .filter(c => c.parent_id === cat.id)
-      .reduce((sum, c) => sum + (Number(c.product_count) || 0), 0)
-    return own + childrenTotal
+  /* Une catégorie a-t-elle un descendant (à n'importe quelle profondeur) qui matche la recherche ? */
+  const hasMatchingDescendant = (catId, q) => {
+    const directChildren = sorted.filter(c => c.parent_id === catId)
+    return directChildren.some(child => matchesQuery(child, q) || hasMatchingDescendant(child.id, q))
   }
+
+  /* Sans recherche : accordéon — une catégorie n'est visible que si tous ses ancêtres sont dépliés.
+     Avec recherche : filtre sur tous les niveaux, en gardant visibles les ancêtres d'une
+     sous-catégorie trouvée pour qu'elle reste accessible dans l'arbre. */
+  const filtered = query
+    ? sorted.filter(c => matchesQuery(c, query) || hasMatchingDescendant(c.id, query))
+    : sorted.filter(c => !c.parent_id || expandedIds.has(c.parent_id))
 
   return (
     <div className={s.page}>
@@ -337,19 +398,20 @@ export default function Categories() {
           </p>
         ) : (
           filtered.map(cat => {
-            const isChild   = !!cat.parent_id
+            const depth     = depthOf(cat)
+            const isChild   = depth > 0
             const nameFr    = cat.translations?.fr?.name ?? cat.slug
             const nameDe    = cat.translations?.de?.name
             const nameEn    = cat.translations?.en?.name
-            const hasChildren = !isChild && sorted.some(c => c.parent_id === cat.id)
+            const hasChildren = sorted.some(c => c.parent_id === cat.id)
             const isExpanded  = query ? true : expandedIds.has(cat.id)
+            /* Le compte produits vient déjà agrégé sur toute la descendance depuis le backend */
+            const productCount = Number(cat.product_count) || 0
 
             return (
               <div key={cat.id} className={`${s.tableRow} ${isChild ? s.tableRowChild : ''}`}>
-                <div className={`${s.catCell} ${isChild ? s.catCellChild : ''}`}>
-                  {isChild ? (
-                    <ChevronRight size={14} className={s.childArrow} />
-                  ) : hasChildren ? (
+                <div className={`${s.catCell} ${isChild ? s.catCellChild : ''}`} style={isChild ? { paddingLeft: 22 * depth } : undefined}>
+                  {hasChildren ? (
                     <button
                       type="button"
                       className={s.expandBtn}
@@ -360,6 +422,8 @@ export default function Categories() {
                     >
                       {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </button>
+                  ) : isChild ? (
+                    <ChevronRight size={14} className={s.childArrow} />
                   ) : (
                     <span className={s.expandSpacer} />
                   )}
@@ -369,8 +433,8 @@ export default function Categories() {
                 <span className={s.slug}>{cat.slug}</span>
                 <span className={s.transCell}>{nameDe || <span className={s.missing}>—</span>}</span>
                 <span className={s.transCell}>{nameEn || <span className={s.missing}>—</span>}</span>
-                <span className={s.productCount} data-zero={getTotalProductCount(cat) === 0 ? 'true' : 'false'}>
-                  {getTotalProductCount(cat)}
+                <span className={s.productCount} data-zero={productCount === 0 ? 'true' : 'false'}>
+                  {productCount}
                 </span>
                 <span className={s.muted}>{cat.sort_order ?? 0}</span>
                 <div className={s.actions}>

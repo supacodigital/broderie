@@ -40,7 +40,7 @@ export default function SupplierForm() {
   const [saved,     setSaved]     = useState(false)
   const [apiError,  setApiError]  = useState('')
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, setError, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { isActive: true },
   })
@@ -87,7 +87,25 @@ export default function SupplierForm() {
       toast.success(isEdit ? 'Fournisseur mis à jour.' : 'Fournisseur créé.')
       setTimeout(goBack, 500)
     } catch (err) {
-      setApiError(err.response?.data?.message ?? 'Une erreur est survenue.')
+      if (!err.response) {
+        setApiError('Impossible de contacter le serveur. Vérifiez votre connexion et réessayez.')
+        return
+      }
+
+      const { status, data } = err.response
+      const fieldErrors = data?.errors
+      if (fieldErrors?.length) {
+        fieldErrors.forEach(({ field, message }) => {
+          if (field in schema.shape) setError(field, { type: 'server', message })
+        })
+        return
+      }
+
+      if (status >= 500) {
+        setApiError('Une erreur serveur est survenue. Veuillez réessayer dans un instant.')
+      } else {
+        setApiError(data?.message ?? 'Une erreur est survenue.')
+      }
     }
   }
 

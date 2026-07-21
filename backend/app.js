@@ -143,6 +143,7 @@ app.use('/api/v1/auth', require('./routes/auth.routes'));
 app.use('/api/v1/mfa',  require('./routes/mfa.routes'));
 app.use('/api/v1/products', require('./routes/products.routes'));
 app.use('/api/v1/categories', require('./routes/categories.routes'));
+app.use('/api/v1/tags', require('./routes/tags.routes'));
 app.use('/api/v1/cart', require('./routes/cart.routes'));
 app.use('/api/v1/orders', require('./routes/orders.routes'));
 app.use('/api/v1/coupons', require('./routes/coupons.routes'));
@@ -187,6 +188,7 @@ const ROUTES = [
   { path: '/api/v1/mfa',               label: 'MFA'          },
   { path: '/api/v1/products',          label: 'Produits'     },
   { path: '/api/v1/categories',        label: 'Catégories'   },
+  { path: '/api/v1/tags',              label: 'Tags'         },
   { path: '/api/v1/cart',              label: 'Panier'       },
   { path: '/api/v1/orders',            label: 'Commandes'    },
   { path: '/api/v1/coupons',           label: 'Coupons'      },

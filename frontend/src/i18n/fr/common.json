@@ -7,7 +7,7 @@
   },
   "nav": {
     "home": "Accueil",
-    "collections": "Collections",
+    "collections": "Catalogue",
     "newArrivals": "Nouveautés",
     "promos": "Promotions",
     "about": "Notre histoire",
@@ -29,7 +29,7 @@
   },
   "hero": {
     "eyebrow": "Artisanat suisse depuis 1987",
-    "title": "L'art de la broderie à l'aiguille",
+    "title": "L'art de la broderie à <1>l'aiguille</1>",
     "subtitle": "Kits, fils et accessoires sélectionnés avec passion",
     "desc": "Découvrez notre collection de fils DMC, kits de broderie et accessoires de qualité suisse. Idéal pour les débutantes comme les expertes.",
     "cta": "Découvrir la boutique",

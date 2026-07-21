@@ -166,20 +166,6 @@
   gap: 9px;
 }
 
-.megaCount {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: var(--rose-pale);
-  color: var(--rose);
-  font-size: 10px;
-  font-weight: 700;
-}
-
 /* ── SOUS-LIENS — répartis automatiquement en colonnes ── */
 .subList {
   list-style: none;
@@ -217,23 +203,11 @@
   white-space: nowrap;
 }
 
-.subCount {
-  flex-shrink: 0;
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--text-muted);
-  transition: color 0.13s ease-out;
-}
-
 .subLink:hover {
   background: var(--rose-pale);
   color: var(--rose);
   /* Léger glissement sans déclencher de reflow */
   transform: translateX(3px);
-}
-
-.subLink:hover .subCount {
-  color: var(--rose);
 }
 
 .subLinkActive {
@@ -242,8 +216,39 @@
   background: var(--rose-pale);
 }
 
-.subLinkActive .subCount {
+/* ── PETITS-ENFANTS (niveau 3) — sous-liste indentée et allégée sous chaque enfant ── */
+.subSubList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 4px;
+}
+
+.subSubLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 14px 5px 26px;
+  border-radius: 6px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 11.5px;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: background 0.13s ease-out, color 0.13s ease-out, transform 0.13s ease-out;
+}
+
+.subSubLink:hover {
+  background: var(--rose-pale);
   color: var(--rose);
+  transform: translateX(3px);
+}
+
+.subSubLinkActive {
+  color: var(--rose);
+  font-weight: 600;
+  background: var(--rose-pale);
 }
 
 /* Respecte la préférence d'animation réduite : on garde l'opacité, on retire le mouvement */

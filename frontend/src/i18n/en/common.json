@@ -7,7 +7,7 @@
   },
   "nav": {
     "home": "Home",
-    "collections": "Collections",
+    "collections": "Catalogue",
     "newArrivals": "New arrivals",
     "promos": "Promotions",
     "about": "Our story",
@@ -29,7 +29,7 @@
   },
   "hero": {
     "eyebrow": "Swiss craftsmanship since 1987",
-    "title": "The art of needle embroidery",
+    "title": "The art of <1>needle</1> embroidery",
     "subtitle": "Kits, threads and accessories selected with passion",
     "desc": "Discover our collection of DMC threads, embroidery kits and Swiss-quality accessories. Perfect for beginners and experts alike.",
     "cta": "Explore the shop",

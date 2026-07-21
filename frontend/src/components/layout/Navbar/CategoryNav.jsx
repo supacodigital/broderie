@@ -10,8 +10,9 @@ export default function CategoryNav() {
   const { i18n, t } = useTranslation()
   const location     = useLocation()
 
-  const [parents,     setParents]     = useState([])
-  const [childrenMap, setChildrenMap] = useState({})
+  const [parents,      setParents]      = useState([])
+  const [childrenMap,  setChildrenMap]  = useState({})
+  const [grandchildrenMap, setGrandchildrenMap] = useState({})
   const [openId,      setOpenId]      = useState(null)
   const [dropdownPos, setDropdownPos] = useState({ left: 0, top: 0 })
 
@@ -50,13 +51,22 @@ export default function CategoryNav() {
       .then(res => {
         const all = res.data ?? []
         const ps  = all.filter(c => !c.parent_id)
+        /* Niveau 2 : enfants directs d'un parent de niveau 1 */
+        const level2Ids = new Set(all.filter(c => c.parent_id && ps.some(p => p.id === c.parent_id)).map(c => c.id))
         const cmap = {}
-        all.filter(c => c.parent_id).forEach(c => {
+        all.filter(c => c.parent_id && ps.some(p => p.id === c.parent_id)).forEach(c => {
           if (!cmap[c.parent_id]) cmap[c.parent_id] = []
           cmap[c.parent_id].push(c)
         })
+        /* Niveau 3 : petits-enfants, rattachés à leur parent de niveau 2 */
+        const gmap = {}
+        all.filter(c => c.parent_id && level2Ids.has(c.parent_id)).forEach(c => {
+          if (!gmap[c.parent_id]) gmap[c.parent_id] = []
+          gmap[c.parent_id].push(c)
+        })
         setParents(ps)
         setChildrenMap(cmap)
+        setGrandchildrenMap(gmap)
       })
       .catch(() => {})
   }, [i18n.language])
@@ -168,6 +178,7 @@ export default function CategoryNav() {
               const hasChildren = children.length > 0
               const isActive    = activeSlug === cat.slug
                 || children.some(c => c.slug === activeSlug)
+                || children.some(c => (grandchildrenMap[c.id] ?? []).some(gc => gc.slug === activeSlug))
 
               return (
                 <li
@@ -213,7 +224,7 @@ export default function CategoryNav() {
           aria-label={`Sous-catégories de ${openCat.name}`}
         >
           <div className={s.dropdownInner}>
-            {/* En-tête : nom de la catégorie + lien « Tout voir » + nombre de produits */}
+            {/* En-tête : nom de la catégorie + lien « Tout voir » */}
             <div className={s.megaHeader}>
               <span className={s.megaTitle}>{openCat.name}</span>
               <Link
@@ -223,30 +234,44 @@ export default function CategoryNav() {
                 onClick={() => setOpenId(null)}
               >
                 {t('catalogue.viewAll', 'Tout voir')}
-                {openCat.product_count != null && (
-                  <span className={s.megaCount}>{openCat.product_count}</span>
-                )}
                 <ChevronRight size={13} aria-hidden="true" />
               </Link>
             </div>
 
-            {/* Sous-catégories réparties automatiquement en colonnes */}
+            {/* Sous-catégories réparties automatiquement en colonnes — chaque enfant peut
+                lister ses propres petits-enfants (niveau 3) en retrait juste en dessous */}
             <ul className={s.subList} role="list">
-              {openChildren.map(child => (
-                <li key={child.id} className={s.subItem}>
-                  <Link
-                    to={`/catalogue/${child.slug}`}
-                    className={`${s.subLink} ${activeSlug === child.slug ? s.subLinkActive : ''}`}
-                    role="menuitem"
-                    onClick={() => setOpenId(null)}
-                  >
-                    <span className={s.subName}>{child.name}</span>
-                    {child.product_count != null && (
-                      <span className={s.subCount}>{child.product_count}</span>
+              {openChildren.map(child => {
+                const grandchildren = grandchildrenMap[child.id] ?? []
+                return (
+                  <li key={child.id} className={s.subItem}>
+                    <Link
+                      to={`/catalogue/${child.slug}`}
+                      className={`${s.subLink} ${activeSlug === child.slug ? s.subLinkActive : ''}`}
+                      role="menuitem"
+                      onClick={() => setOpenId(null)}
+                    >
+                      <span className={s.subName}>{child.name}</span>
+                    </Link>
+                    {grandchildren.length > 0 && (
+                      <ul className={s.subSubList} role="list">
+                        {grandchildren.map(gc => (
+                          <li key={gc.id}>
+                            <Link
+                              to={`/catalogue/${gc.slug}`}
+                              className={`${s.subSubLink} ${activeSlug === gc.slug ? s.subSubLinkActive : ''}`}
+                              role="menuitem"
+                              onClick={() => setOpenId(null)}
+                            >
+                              <span className={s.subName}>{gc.name}</span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
                     )}
-                  </Link>
-                </li>
-              ))}
+                  </li>
+                )
+              })}
             </ul>
           </div>
         </div>

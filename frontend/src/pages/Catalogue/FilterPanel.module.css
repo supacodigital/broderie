@@ -312,6 +312,12 @@
   padding-bottom: 8px;
 }
 
+/* ── Tags / thèmes ── */
+.tagCheckList {
+  display: flex;
+  flex-direction: column;
+}
+
 /* ── Checkbox ── */
 .checkRow {
   display: flex;

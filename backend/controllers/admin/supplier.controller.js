@@ -1,5 +1,6 @@
 const supplierRepository = require('../../repositories/supplier.repository');
 const { AppError }        = require('../../middlewares/errorHandler');
+const { mapDbError }      = require('../../utils/db.utils');
 
 // Valide la cohérence du délai "sur commande" (min/max en semaines, max >= min)
 const validateDelay = (madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks) => {
@@ -43,14 +44,18 @@ const getById = async (req, res, next) => {
 const create = async (req, res, next) => {
   try {
     const { name, contactName, email, phone, address, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks } = req.body;
-    if (!name) return next(new AppError('Le nom du fournisseur est obligatoire.', 400));
+    if (!name) {
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'name', message: 'Le nom du fournisseur est obligatoire.' }] });
+    }
     const delayError = validateDelay(madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks);
-    if (delayError) return next(new AppError(delayError, 400));
+    if (delayError) {
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'madeToOrderDelayMaxWeeks', message: delayError }] });
+    }
     const id = await supplierRepository.create({ name, contactName, email, phone, address, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks });
     const supplier = await supplierRepository.findById(id);
     res.status(201).json({ success: true, data: supplier });
   } catch (error) {
-    next(error);
+    next(mapDbError(error));
   }
 };
 
@@ -60,12 +65,17 @@ const update = async (req, res, next) => {
     const existing = await supplierRepository.findById(id);
     if (!existing) return next(new AppError('Fournisseur introuvable.', 404));
     const { name, contactName, email, phone, address, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks, isActive } = req.body;
+    if (!name) {
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'name', message: 'Le nom du fournisseur est obligatoire.' }] });
+    }
     const delayError = validateDelay(madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks);
-    if (delayError) return next(new AppError(delayError, 400));
+    if (delayError) {
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'madeToOrderDelayMaxWeeks', message: delayError }] });
+    }
     const supplier = await supplierRepository.update(id, { name, contactName, email, phone, address, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks, isActive });
     res.json({ success: true, data: supplier });
   } catch (error) {
-    next(error);
+    next(mapDbError(error));
   }
 };
 
@@ -76,7 +86,11 @@ const remove = async (req, res, next) => {
     if (!deleted) return next(new AppError('Fournisseur introuvable.', 404));
     res.json({ success: true, message: 'Fournisseur supprimé.' });
   } catch (error) {
-    next(error);
+    // Erreur métier (produits liés) — retournée telle quelle, déjà lisible
+    if (error.message.startsWith('Impossible de supprimer')) {
+      return next(new AppError(error.message, 400));
+    }
+    next(mapDbError(error));
   }
 };
 

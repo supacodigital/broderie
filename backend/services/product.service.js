@@ -1,5 +1,6 @@
 const productRepository = require('../repositories/product.repository');
 const categoryRepository = require('../repositories/category.repository');
+const tagRepository = require('../repositories/tag.repository');
 const { cache, TTL, keys } = require('../config/cache');
 const { AppError } = require('../middlewares/errorHandler');
 const { normalizeLocale } = require('../utils/locale.utils');
@@ -17,6 +18,7 @@ const getAll = async (query) => {
   const filters = {
     ...(query.q?.trim().length >= 2 && { q: query.q.trim() }),
     ...(query.category && { categorySlug: query.category }),
+    ...(query.tag && { tagSlug: query.tag }),
     ...(query.min_price !== undefined && { minPrice: parseFloat(query.min_price) }),
     ...(query.max_price !== undefined && { maxPrice: parseFloat(query.max_price) }),
     ...(query.in_stock === 'true' && { inStock: true }),
@@ -27,14 +29,24 @@ const getAll = async (query) => {
   };
 
   // Résolution du slug catégorie en id(s) pour la requête SQL
-  // Si la catégorie a des enfants, on inclut aussi leurs produits
+  // Hiérarchie à 3 niveaux : on inclut les enfants ET les petits-enfants de la catégorie ciblée
   if (filters.categorySlug) {
     const category = await categoryRepository.findBySlug(filters.categorySlug, locale);
     if (!category) throw new AppError('Catégorie introuvable.', 404);
     const allCats = await categoryRepository.findAll(locale);
     const children = allCats.filter(c => c.parent_id === category.id).map(c => c.id);
-    filters.categoryIds = children.length > 0 ? [category.id, ...children] : [category.id];
+    const grandchildren = allCats.filter(c => children.includes(c.parent_id)).map(c => c.id);
+    filters.categoryIds = [category.id, ...children, ...grandchildren];
     delete filters.categorySlug;
+  }
+
+  // Résolution du slug tag en id pour la requête SQL
+  if (filters.tagSlug) {
+    const allTags = await tagRepository.findAll(locale);
+    const tag = allTags.find(t => t.slug === filters.tagSlug);
+    if (!tag) throw new AppError('Tag introuvable.', 404);
+    filters.tagId = tag.id;
+    delete filters.tagSlug;
   }
 
   const filterKey = JSON.stringify({ ...filters, sort, order });

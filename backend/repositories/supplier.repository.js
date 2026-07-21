@@ -61,7 +61,18 @@ const update = async (id, { name, contactName, email, phone, address, notes, mad
   return findById(id);
 };
 
+// Suppression d'un fournisseur — bloquée si des produits actifs y sont encore rattachés
+// (products.supplier_id est en ON DELETE SET NULL : sans ce garde-fou, la suppression
+// réussirait silencieusement et détacherait tous ses produits de leur fournisseur)
 const remove = async (id) => {
+  const [products] = await pool.execute(
+    `SELECT COUNT(*) AS total FROM products WHERE supplier_id = ? AND deleted_at IS NULL`,
+    [id]
+  );
+  if (products[0].total > 0) {
+    throw new Error(`Impossible de supprimer : ${products[0].total} produit(s) lié(s) à ce fournisseur.`);
+  }
+
   const [result] = await pool.execute(
     `DELETE FROM suppliers WHERE id = ?`,
     [id]
