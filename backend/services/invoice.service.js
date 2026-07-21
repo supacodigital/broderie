@@ -1,9 +1,12 @@
+const path             = require('path');
 const PDFDocument     = require('pdfkit');
 const { SwissQRBill } = require('swissqrbill/pdf');
 const { roundCHF }    = require('../utils/chf.utils');
 const env             = require('../config/env');
 const emailService    = require('./email.service');
 const { AppError }    = require('../middlewares/errorHandler');
+
+const LOGO_PATH = path.join(__dirname, '../assets/logo.png');
 
 // ─────────────────────────────────────────────────────────────
 // Référence de paiement interne — figée sur la commande facture QR
@@ -65,6 +68,23 @@ const buildQrBillData = (order) => {
   };
 };
 
+// Palette et constantes de mise en page partagées par tout le document
+const COLORS = {
+  rose:      '#be185d',
+  roseLight: '#fdf2f8',
+  dark:      '#1a0a1e',
+  muted:     '#6b7280',
+  border:    '#e5e7eb',
+  rowAlt:    '#faf9fb',
+};
+const PAGE_MARGIN  = 50;
+const CONTENT_W    = 495; // largeur utile (595 - 2×50)
+const TABLE_COLS   = { name: 55, nameW: 230, qty: 290, qtyW: 50, price: 345, priceW: 90, total: 440, totalW: 105 };
+// Hauteur réservée en bas de la dernière page pour le bulletin QR suisse (bulletin
+// officiel ≈ 105mm ≈ 297pt) — le tableau ne doit jamais empiéter dessus.
+const QR_BILL_HEIGHT = 300;
+const PAGE_BOTTOM    = 792 - PAGE_MARGIN; // A4 = 842pt de haut, marge basse identique à la marge haute
+
 // ─────────────────────────────────────────────────────────────
 // Génère un PDF de facture (Buffer) : facture détaillée + QR-facture suisse
 // Signature conservée { order, user } — utilisée par l'admin et le flux client
@@ -72,61 +92,71 @@ const buildQrBillData = (order) => {
 const generateInvoicePDF = ({ order, user }) => {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      const doc = new PDFDocument({ margin: PAGE_MARGIN, size: 'A4' });
       const chunks = [];
 
       doc.on('data', (chunk) => chunks.push(chunk));
       doc.on('end',  ()      => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      const rose  = '#be185d';
-      const dark  = '#1a0a1e';
-      const muted = '#6b7280';
-      const W = 495; // largeur utile (595 - 2×50)
-
+      const { rose, roseLight, dark, muted, border, rowAlt } = COLORS;
       const dueDays = env.invoiceDueDays || 30;
 
-      // ── En-tête ──────────────────────────────────────────────
-      doc.fontSize(22).fillColor(rose).font('Helvetica-Bold')
-         .text(env.qrInvoiceName, 50, 50);
+      // ── En-tête : logo + bloc FACTURE ──────────────────────────
+      // Logo redimensionné à une hauteur fixe, ratio préservé (source 2720×1360)
+      doc.image(LOGO_PATH, PAGE_MARGIN, 44, { height: 46 });
 
       doc.fontSize(9).fillColor(muted).font('Helvetica')
-         .text(`${env.qrInvoiceAddress} · ${env.qrInvoiceZip} ${env.qrInvoiceCity}`, 50, 76);
+         .text(`${env.qrInvoiceAddress} · ${env.qrInvoiceZip} ${env.qrInvoiceCity}`, PAGE_MARGIN, 96);
 
-      // Bloc FACTURE (aligné à droite)
-      doc.fontSize(26).fillColor(dark).font('Helvetica-Bold')
-         .text('FACTURE', 350, 50, { align: 'right', width: 195 });
+      doc.fontSize(24).fillColor(dark).font('Helvetica-Bold')
+         .text('FACTURE', 350, 46, { align: 'right', width: 195 });
 
       doc.fontSize(9).fillColor(muted).font('Helvetica')
-         .text(`N° ${String(order.id).padStart(6, '0')}`, 350, 82, { align: 'right', width: 195 })
-         .text(`Date : ${formatDate(order.created_at)}`,   350, 96, { align: 'right', width: 195 })
-         .text(`Échéance : paiement sous ${dueDays} jours`, 350, 110, { align: 'right', width: 195 });
+         .text(`N° ${String(order.id).padStart(6, '0')}`,           350, 78,  { align: 'right', width: 195 })
+         .text(`Date : ${formatDate(order.created_at)}`,            350, 92,  { align: 'right', width: 195 })
+         .text(`Échéance : paiement sous ${dueDays} jours`,         350, 106, { align: 'right', width: 195 });
 
-      // Ligne de séparation
-      doc.moveTo(50, 130).lineTo(545, 130).strokeColor('#e5e7eb').lineWidth(1).stroke();
+      doc.moveTo(PAGE_MARGIN, 128).lineTo(545, 128).strokeColor(border).lineWidth(1).stroke();
 
-      // ── Adresse client ────────────────────────────────────────
-      doc.fontSize(9).fillColor(muted).font('Helvetica')
-         .text('Facturé à :', 50, 145);
+      // ── Adresse de facturation complète ─────────────────────────
+      const billFirst  = order.billing_first_name ?? order.shipping_first_name ?? user.first_name;
+      const billLast   = order.billing_last_name  ?? order.shipping_last_name  ?? user.last_name;
+      const billStreet = order.billing_street ?? order.shipping_street;
+      const billNumber = order.billing_street_number ?? order.shipping_street_number;
+      const billZip    = order.billing_zip ?? order.shipping_zip;
+      const billCity   = order.billing_city ?? order.shipping_city;
+
+      doc.fontSize(8).fillColor(muted).font('Helvetica-Bold')
+         .text('FACTURÉ À', PAGE_MARGIN, 144, { characterSpacing: 0.5 });
 
       doc.fontSize(10).fillColor(dark).font('Helvetica-Bold')
-         .text(`${user.first_name} ${user.last_name}`, 50, 160);
+         .text(`${billFirst ?? ''} ${billLast ?? ''}`.trim() || 'Client', PAGE_MARGIN, 158);
 
-      doc.fontSize(10).fillColor(dark).font('Helvetica')
-         .text(user.email, 50, 175);
+      let addrY = 173;
+      doc.fontSize(9.5).fillColor(dark).font('Helvetica');
+      if (billStreet) {
+        doc.text(`${billStreet}${billNumber ? ' ' + billNumber : ''}`, PAGE_MARGIN, addrY);
+        addrY += 13;
+      }
+      if (billZip || billCity) {
+        doc.text(`${billZip ?? ''} ${billCity ?? ''}`.trim(), PAGE_MARGIN, addrY);
+        addrY += 13;
+      }
+      doc.fillColor(muted).text(user.email, PAGE_MARGIN, addrY);
 
-      // ── Tableau des articles ──────────────────────────────────
-      const tableTop = 220;
+      // ── Tableau des articles — en-tête réutilisable pour la pagination ──
+      const drawTableHeader = (top) => {
+        doc.rect(PAGE_MARGIN, top - 4, CONTENT_W, 20).fillColor('#f9fafb').fill();
+        doc.fontSize(8).fillColor(muted).font('Helvetica-Bold')
+           .text('PRODUIT',     TABLE_COLS.name,  top + 2, { width: TABLE_COLS.nameW })
+           .text('QTÉ',         TABLE_COLS.qty,   top + 2, { width: TABLE_COLS.qtyW,   align: 'center' })
+           .text('PRIX UNIT.',  TABLE_COLS.price, top + 2, { width: TABLE_COLS.priceW, align: 'right' })
+           .text('TOTAL',       TABLE_COLS.total, top + 2, { width: TABLE_COLS.totalW, align: 'right' });
+        return top + 24;
+      };
 
-      doc.fontSize(8).fillColor(muted).font('Helvetica-Bold');
-      doc.rect(50, tableTop - 4, W, 20).fillColor('#f9fafb').fill();
-      doc.fillColor(muted)
-         .text('PRODUIT',     55, tableTop + 2, { width: 230 })
-         .text('QTÉ',        290, tableTop + 2, { width: 50,  align: 'center' })
-         .text('PRIX UNIT.', 345, tableTop + 2, { width: 90,  align: 'right' })
-         .text('TOTAL',      440, tableTop + 2, { width: 105, align: 'right' });
-
-      let y = tableTop + 24;
+      let y = drawTableHeader(220);
       const items = order.items || [];
 
       items.forEach((item, idx) => {
@@ -138,31 +168,41 @@ const generateInvoicePDF = ({ order, user }) => {
         const sku       = snapshot.sku  || '';
         const unitPrice = roundCHF(parseFloat(item.unit_price));
         const lineTotal = roundCHF(unitPrice * item.quantity);
+        const rowHeight = sku ? 26 : 22;
+
+        // Saut de page si la ligne dépasserait la zone réservée au bulletin QR
+        // (uniquement sur la dernière page — les pages intermédiaires vont jusqu'au bas)
+        const isLastItem = idx === items.length - 1;
+        const reserved = isLastItem ? QR_BILL_HEIGHT + 90 : 40;
+        if (y + rowHeight > PAGE_BOTTOM - reserved) {
+          doc.addPage();
+          y = drawTableHeader(PAGE_MARGIN);
+        }
 
         if (idx % 2 === 0) {
-          doc.rect(50, y - 2, W, 22).fillColor('#fff').fill();
+          doc.rect(PAGE_MARGIN, y - 2, CONTENT_W, rowHeight).fillColor(rowAlt).fill();
         }
 
         doc.fontSize(9).fillColor(dark).font('Helvetica-Bold')
-           .text(name, 55, y, { width: 230, ellipsis: true });
+           .text(name, TABLE_COLS.name, y, { width: TABLE_COLS.nameW, height: 11, ellipsis: true });
 
         if (sku) {
           doc.fontSize(7.5).fillColor(muted).font('Helvetica')
-             .text(`Réf. ${sku}`, 55, y + 11, { width: 230 });
+             .text(`Réf. ${sku}`, TABLE_COLS.name, y + 11, { width: TABLE_COLS.nameW });
         }
 
         doc.fontSize(9).fillColor(dark).font('Helvetica')
-           .text(String(item.quantity),         290, y, { width: 50,  align: 'center' })
-           .text(`CHF ${unitPrice.toFixed(2)}`, 345, y, { width: 90,  align: 'right' })
-           .text(`CHF ${lineTotal.toFixed(2)}`, 440, y, { width: 105, align: 'right' });
+           .text(String(item.quantity),         TABLE_COLS.qty,   y, { width: TABLE_COLS.qtyW,   align: 'center' })
+           .text(`CHF ${unitPrice.toFixed(2)}`, TABLE_COLS.price, y, { width: TABLE_COLS.priceW, align: 'right' })
+           .text(`CHF ${lineTotal.toFixed(2)}`, TABLE_COLS.total, y, { width: TABLE_COLS.totalW, align: 'right' });
 
-        y += sku ? 26 : 22;
+        y += rowHeight;
       });
 
-      doc.moveTo(50, y + 4).lineTo(545, y + 4).strokeColor('#e5e7eb').lineWidth(0.5).stroke();
+      doc.moveTo(PAGE_MARGIN, y + 4).lineTo(545, y + 4).strokeColor(border).lineWidth(0.5).stroke();
 
       // ── Totaux ────────────────────────────────────────────────
-      const totalsLeft = 330;
+      const totalsLeft  = 330;
       const totalsWidth = 215;
       let ty = y + 16;
 
@@ -171,10 +211,8 @@ const generateInvoicePDF = ({ order, user }) => {
       const taxAmount = roundCHF(parseFloat(order.tax_amount));
       const total     = roundCHF(parseFloat(order.total));
 
-      const rowTotals = (label, value, isBold = false) => {
-        doc.fontSize(9)
-           .font(isBold ? 'Helvetica-Bold' : 'Helvetica')
-           .fillColor(isBold ? dark : muted)
+      const rowTotals = (label, value) => {
+        doc.fontSize(9).font('Helvetica').fillColor(muted)
            .text(label, totalsLeft, ty, { width: 120 })
            .text(value, totalsLeft + 120, ty, { width: 95, align: 'right' });
         ty += 18;
@@ -185,20 +223,20 @@ const generateInvoicePDF = ({ order, user }) => {
       const blendedRate = subtotal > 0 ? ((taxAmount / subtotal) * 100).toFixed(1) : '8.1';
       rowTotals(`TVA incluse (${blendedRate}%)`, `CHF ${taxAmount.toFixed(2)}`);
 
-      doc.rect(totalsLeft, ty - 2, totalsWidth, 24).fillColor('#fdf2f8').fill();
+      doc.rect(totalsLeft, ty - 2, totalsWidth, 26).fillColor(roseLight).fill();
       doc.fontSize(11).font('Helvetica-Bold').fillColor(rose)
-         .text('TOTAL TTC',               totalsLeft + 4,   ty + 4, { width: 120 })
-         .text(`CHF ${total.toFixed(2)}`, totalsLeft + 120, ty + 4, { width: 95, align: 'right' });
+         .text('TOTAL TTC',               totalsLeft + 8,   ty + 5, { width: 120 })
+         .text(`CHF ${total.toFixed(2)}`, totalsLeft + 120, ty + 5, { width: 87, align: 'right' });
 
       // ── Note de paiement ──────────────────────────────────────
-      const noteY = Math.max(ty + 40, y + 130);
+      const noteY = ty + 46;
       doc.fontSize(9).fillColor(dark).font('Helvetica')
          .text(
            `Réglez cette facture en scannant le QR code ci-dessous avec votre application bancaire, sous ${dueDays} jours.`,
-           50, noteY, { width: W }
+           PAGE_MARGIN, noteY, { width: CONTENT_W }
          );
 
-      // ── QR-facture suisse — attachée en bas de page (ou page suivante si nécessaire) ──
+      // ── QR-facture suisse — attachée en bas de la dernière page ──
       const qrBill = new SwissQRBill(buildQrBillData(order));
       qrBill.attachTo(doc);
 

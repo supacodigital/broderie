@@ -55,7 +55,7 @@ du `.env` (pas une base de test dédiée). Prérequis pour les relancer :
 - [x] **Fixes prod faits** : `trust proxy` (cookies Secure derrière Nginx), chargement `.env.production`
 
 ### 2. Déploiement
-- [ ] Exécuter `database/schema.sql` **puis les 8 migrations** (`001` → `008`) sur la base de prod
+- [ ] Exécuter `database/broderie.sql` sur la base de prod
 - [ ] Renseigner les variables d'env de prod (voir section dédiée plus bas)
 - [ ] Configurer PM2 ou le gestionnaire de process Infomaniak
 - [ ] CORS = domaine de prod exact (pas de wildcard `*`)

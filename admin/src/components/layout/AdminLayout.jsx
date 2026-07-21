@@ -15,7 +15,6 @@ import {
   Truck,
   Heart,
   Tag,
-  Tags,
   Ticket,
   Mail,
   Settings,
@@ -57,7 +56,6 @@ function buildNavMain(pendingOrders, pendingReviews) {
 const NAV_CATALOG = [
   { to: "/produits", icon: Package, label: "Produits" },
   { to: "/categories", icon: Tag, label: "Catégories" },
-  { to: "/tags", icon: Tags, label: "Tags" },
   { to: "/fournisseurs", icon: Truck, label: "Fournisseurs" },
 ];
 
@@ -103,7 +101,6 @@ const ROUTE_LABELS = {
   "/fournisseurs": "Fournisseurs",
   "/fidelite": "Fidélité",
   "/categories": "Catégories",
-  "/tags": "Tags",
   "/coupons": "Promotions",
   "/parametres": "Paramètres",
 };

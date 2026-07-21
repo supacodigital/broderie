@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Plus, Edit2, Trash2, Tag, AlertTriangle, Check, X, ChevronRight, ChevronDown, Search } from 'lucide-react'
+import { Plus, Edit2, Trash2, Tag, Tags as TagsIcon, AlertTriangle, Check, X, ChevronRight, ChevronDown, Search } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../../services/categories.service.js'
+import { TagsPanel } from '../Tags/Tags.jsx'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import { useToast } from '../../contexts/ToastContext.jsx'
@@ -230,8 +231,8 @@ function CategoryModal({ category, categories, onClose, onSaved }) {
   )
 }
 
-/* ── Page principale ── */
-export default function Categories() {
+/* ── Panneau catégories — utilisé comme onglet dans la page Catégories & Tags ── */
+function CategoriesPanel() {
   const toast = useToast()
   const [categories, setCategories] = useState([])
   const [loading,    setLoading]    = useState(true)
@@ -339,7 +340,7 @@ export default function Categories() {
     : sorted.filter(c => !c.parent_id || expandedIds.has(c.parent_id))
 
   return (
-    <div className={s.page}>
+    <>
       {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
       {modal && (
         <CategoryModal
@@ -450,6 +451,36 @@ export default function Categories() {
           })
         )}
       </div>
+    </>
+  )
+}
+
+/* ── Page principale — onglets Catégories / Tags ── */
+const TABS = [
+  { id: 'categories', label: 'Catégories', icon: Tag },
+  { id: 'tags',       label: 'Tags',       icon: TagsIcon },
+]
+
+export default function Categories() {
+  const [activeTab, setActiveTab] = useState('categories')
+
+  return (
+    <div className={s.page}>
+      <div className={s.tabs} role="tablist" aria-label="Catégories et tags">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={`${s.tab} ${activeTab === tab.id ? s.tabActive : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            <tab.icon size={14} /> {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'categories' ? <CategoriesPanel /> : <TagsPanel />}
     </div>
   )
 }

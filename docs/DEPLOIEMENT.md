@@ -85,7 +85,7 @@ EXIT;
 Importer le schéma (source unique, toujours à jour) :
 ```bash
 cd ~/broderie/database
-sudo mysql broderie < schema.sql
+sudo mysql broderie < broderie.sql
 ```
 
 > ℹ️ **Reprise des données de l'ancien site : pas maintenant.** On démarre sur une base neuve

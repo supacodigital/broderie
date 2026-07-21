@@ -163,8 +163,8 @@ function TagModal({ tag, onClose, onSaved }) {
   )
 }
 
-/* ── Page principale ── */
-export default function Tags() {
+/* ── Panneau tags — utilisé comme onglet dans la page Catégories ── */
+export function TagsPanel() {
   const toast = useToast()
   const [tags,    setTags]    = useState([])
   const [loading, setLoading] = useState(true)
@@ -215,7 +215,7 @@ export default function Tags() {
   const filtered = query ? sorted.filter(t => matchesQuery(t, query)) : sorted
 
   return (
-    <div className={s.page}>
+    <>
       {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
       {modal && (
         <TagModal
@@ -304,6 +304,6 @@ export default function Tags() {
           })
         )}
       </div>
-    </div>
+    </>
   )
 }

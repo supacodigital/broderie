@@ -80,7 +80,7 @@ server/
   app.js
 
 database/
-  schema.sql             # Tables complètes
+  broderie.sql           # Tables complètes
 ```
 
 ### Rôles & permissions
@@ -582,11 +582,11 @@ Le site doit être **perçu comme instantané** par l'utilisateur final. Chaque 
 - Jamais de `SELECT` sur `product_translations` sans filtre `locale` — sinon 42 000 lignes scannées
 - L'import des 14 000 produits se fait en **batch de 500** via `INSERT INTO ... VALUES (...), (...), ...` — jamais ligne par ligne
 - Après chaque import en masse : exécuter `ANALYZE TABLE products; ANALYZE TABLE product_translations;`
-- Reconstruire l'index FULLTEXT après l'import initial complet (voir commentaires dans schema.sql)
+- Reconstruire l'index FULLTEXT après l'import initial complet (voir commentaires dans broderie.sql)
 
 ### Base de données — requêtes optimisées
 
-**Index — obligatoires dès le schema.sql :**
+**Index — obligatoires dès le broderie.sql :**
 ```sql
 -- Catalogue produits — index composites (is_active en premier, toujours présent dans les filtres boutique)
 INDEX idx_products_active_cat   (is_active, category_id)   -- filtre catégorie
@@ -798,7 +798,7 @@ Tout doit être vert avant de mettre en production.
 - [ ] Lighthouse ≥ 90 sur mobile ET desktop (Production URL)
 - [ ] Aucune requête `SELECT *` dans le code — vérifier avec grep
 - [ ] Aucune requête SQL dans une boucle — vérifier avec grep
-- [ ] Tous les index du schema.sql créés et vérifiés avec `EXPLAIN`
+- [ ] Tous les index du broderie.sql créés et vérifiés avec `EXPLAIN`
 - [ ] Connection pool MySQL configuré (min 5, max 20)
 - [ ] Cache mémoire actif sur catalogue, catégories, TVA, frais de port
 - [ ] Compression gzip activée sur le serveur Express
@@ -818,7 +818,7 @@ Tout doit être vert avant de mettre en production.
 - [ ] Migration 1800 clients testée sur environnement de staging
 
 ### Base de données
-- [ ] `schema.sql` à jour et exécutable de zéro sans erreur
+- [ ] `broderie.sql` à jour et exécutable de zéro sans erreur
 - [ ] Index créés et vérifiés avec `EXPLAIN` sur les requêtes fréquentes
 - [ ] Transactions testées sous charge concurrente
 - [ ] Soft delete vérifié — les produits/utilisateurs supprimés n'apparaissent pas en boutique

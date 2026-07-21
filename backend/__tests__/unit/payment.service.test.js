@@ -23,7 +23,6 @@ const stripe            = require('../../config/stripe');
 const paymentRepository = require('../../repositories/payment.repository');
 const orderRepository   = require('../../repositories/order.repository');
 const userRepository    = require('../../repositories/user.repository');
-const emailService      = require('../../services/email.service');
 const loyaltyService    = require('../../services/loyalty.service');
 const { pool }          = require('../../config/db');
 const paymentService    = require('../../services/payment.service');
@@ -222,7 +221,6 @@ describe('payment.service — handleWebhook()', () => {
 
     orderRepository.findById.mockResolvedValue(makeOrder({ status: 'paid' }));
     userRepository.findById.mockResolvedValue(makeUser());
-    emailService.sendOrderStatusUpdate.mockResolvedValue();
     loyaltyService.processOrderEarning.mockResolvedValue();
 
     await paymentService.handleWebhook('raw', 'sig');
@@ -309,7 +307,6 @@ describe('payment.service — handleWebhook()', () => {
 
     orderRepository.findById.mockResolvedValue(makeOrder({ id: 3, status: 'paid' }));
     userRepository.findById.mockResolvedValue(makeUser());
-    emailService.sendOrderStatusUpdate.mockResolvedValue();
     loyaltyService.processOrderEarning.mockResolvedValue();
 
     await paymentService.handleWebhook('raw', 'sig');

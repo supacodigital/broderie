@@ -8,9 +8,17 @@ const googleVerifySchema = z.object({
 
 const LOCALES = ['fr', 'de', 'en'];
 
+// Au moins 5 caractères, une majuscule, un chiffre et un symbole — appliqué
+// à la création et à la réinitialisation du mot de passe (pas à la connexion,
+// pour ne pas bloquer les comptes créés avant ce renforcement).
+const passwordSchema = z.string().min(5).max(128)
+  .regex(/[A-Z]/, 'Le mot de passe doit contenir au moins une majuscule.')
+  .regex(/[0-9]/, 'Le mot de passe doit contenir au moins un chiffre.')
+  .regex(/[^A-Za-z0-9]/, 'Le mot de passe doit contenir au moins un symbole.');
+
 const registerSchema = z.object({
   email:     z.string().email(),
-  password:  z.string().min(8).max(128),
+  password:  passwordSchema,
   firstName: z.string().min(1).max(100),
   lastName:  z.string().min(1).max(100),
   locale:    z.enum(LOCALES).optional().default('fr'),
@@ -27,7 +35,7 @@ const forgotSchema = z.object({
 
 const resetSchema = z.object({
   token:    z.string().min(1),
-  password: z.string().min(8).max(128),
+  password: passwordSchema,
 });
 
 const register = async (req, res, next) => {

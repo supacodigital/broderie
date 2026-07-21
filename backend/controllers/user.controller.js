@@ -116,8 +116,8 @@ const changePassword = async (req, res, next) => {
     if (!current_password || !new_password) {
       return next(new AppError('Mot de passe actuel et nouveau mot de passe requis.', 400));
     }
-    if (new_password.length < 8) {
-      return next(new AppError('Le nouveau mot de passe doit contenir au moins 8 caractères.', 400));
+    if (new_password.length < 5) {
+      return next(new AppError('Le nouveau mot de passe doit contenir au moins 5 caractères.', 400));
     }
 
     const user = await userRepository.findByIdWithPassword(req.user.id);

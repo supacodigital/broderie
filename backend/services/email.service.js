@@ -404,100 +404,6 @@ async function sendPasswordReset({ user, resetToken }) {
 }
 
 // ─────────────────────────────────────────────
-// 5. Changement de statut commande (admin)
-// ─────────────────────────────────────────────
-async function sendOrderStatusUpdate({ user, order, newStatus }) {
-  const locale = user.locale ?? 'fr';
-
-  const statusLabels = {
-    fr: { paid: 'Payée', shipped: 'Expédiée', delivered: 'Livrée', cancelled: 'Annulée', refunded: 'Remboursée' },
-    de: { paid: 'Bezahlt', shipped: 'Versendet', delivered: 'Geliefert', cancelled: 'Storniert', refunded: 'Erstattet' },
-    en: { paid: 'Paid', shipped: 'Shipped', delivered: 'Delivered', cancelled: 'Cancelled', refunded: 'Refunded' },
-  };
-
-  const label = (statusLabels[locale] ?? statusLabels.fr)[newStatus] ?? newStatus;
-
-  const subjects = {
-    fr: `Commande #${order.id} — Statut : ${label}`,
-    de: `Bestellung #${order.id} — Status: ${label}`,
-    en: `Order #${order.id} — Status: ${label}`,
-  };
-
-  const intros = {
-    fr: `Le statut de votre commande <strong>#${order.id}</strong> a été mis à jour : <strong>${label}</strong>.`,
-    de: `Der Status Ihrer Bestellung <strong>#${order.id}</strong> wurde aktualisiert: <strong>${label}</strong>.`,
-    en: `The status of your order <strong>#${order.id}</strong> has been updated: <strong>${label}</strong>.`,
-  };
-
-  const btnLabels = {
-    fr: 'Voir ma commande',
-    de: 'Meine Bestellung ansehen',
-    en: 'View my order',
-  };
-
-  const body = `
-    <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-      Commande #${order.id}
-    </h1>
-    <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
-      ${intros[locale] ?? intros.fr}
-    </p>
-    <div style="background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:14px 20px;font-size:14px;color:#DB2777;font-weight:600;">
-      ${label}
-    </div>
-    ${btn(`${BASE_URL}/mon-compte`, btnLabels[locale] ?? btnLabels.fr)}
-  `;
-
-  await transporter.sendMail({
-    from:    FROM,
-    to:      user.email,
-    subject: subjects[locale] ?? subjects.fr,
-    html:    layout(body, locale),
-  });
-}
-
-// ─────────────────────────────────────────────
-// 6. Email de bienvenue migration (clients importés)
-// ─────────────────────────────────────────────
-async function sendMigrationWelcome({ user, resetToken }) {
-  const locale    = user.locale ?? 'fr';
-  const firstName = escapeHtml(user.first_name);
-  const resetUrl  = `${BASE_URL}/reinitialiser-mot-de-passe?token=${resetToken}`;
-
-  const subjects = {
-    fr: 'Votre compte Au Point-Compté est prêt — choisissez votre mot de passe',
-    de: 'Ihr Au Point-Compté Konto ist bereit — Wählen Sie Ihr Passwort',
-    en: 'Your Au Point-Compté account is ready — choose your password',
-  };
-
-  const body = `
-    <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-      Bonjour ${firstName},
-    </h1>
-    <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
-      Votre compte a été transféré sur notre nouveau site. Votre email et votre historique
-      de commandes sont conservés. Il vous suffit de définir un nouveau mot de passe pour
-      accéder à votre espace.
-    </p>
-    <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
-      Ce lien est valable <strong>48 heures</strong>.
-    </p>
-    ${btn(resetUrl, 'Définir mon mot de passe')}
-    <p style="margin:24px 0 0;font-size:12px;color:#9D6480;">
-      Si vous n'êtes pas à l'origine de cette demande, contactez-nous à
-      <a href="mailto:contact@broderie-domaine.ch" style="color:#DB2777;">contact@broderie-domaine.ch</a>.
-    </p>
-  `;
-
-  await transporter.sendMail({
-    from:    FROM,
-    to:      user.email,
-    subject: subjects[locale] ?? subjects.fr,
-    html:    layout(body, locale),
-  });
-}
-
-// ─────────────────────────────────────────────
 // 8. Facture QR suisse — email avec QR-facture PDF en pièce jointe
 // ─────────────────────────────────────────────
 async function sendInvoice({ user, order, pdfBuffer, dueDate }) {
@@ -758,8 +664,6 @@ module.exports = {
   sendOrderConfirmation,
   sendOrderShipped,
   sendPasswordReset,
-  sendOrderStatusUpdate,
-  sendMigrationWelcome,
   sendInvoice,
   sendPickupReady,
   sendEmailVerification,

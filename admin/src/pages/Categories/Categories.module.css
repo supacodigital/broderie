@@ -1,4 +1,11 @@
 .page {}
+
+/* ── Onglets Catégories / Tags ── */
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1.5px solid var(--rose-border); }
+.tab { display: flex; align-items: center; gap: 6px; padding: 10px 16px; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1.5px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: color .15s, border-color .15s; }
+.tab:hover { color: var(--text-dark); }
+.tabActive { color: var(--rose); border-bottom-color: var(--rose); }
+
 .pageHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
 .pageTitle { font-size: 22px; font-weight: 700; color: var(--text-dark); }
 .pageSub   { font-size: 13px; color: var(--text-muted); margin-top: 2px; }

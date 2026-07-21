@@ -18,7 +18,6 @@ const Suppliers   = lazy(() => import('./pages/Suppliers/Suppliers.jsx'))
 const SupplierForm = lazy(() => import('./pages/Suppliers/SupplierForm.jsx'))
 const Loyalty    = lazy(() => import('./pages/Loyalty/Loyalty.jsx'))
 const Categories = lazy(() => import('./pages/Categories/Categories.jsx'))
-const Tags       = lazy(() => import('./pages/Tags/Tags.jsx'))
 const Coupons    = lazy(() => import('./pages/Coupons/Coupons.jsx'))
 const Settings    = lazy(() => import('./pages/Settings/Settings.jsx'))
 const Newsletter  = lazy(() => import('./pages/Newsletter/Newsletter.jsx'))
@@ -82,7 +81,7 @@ export default function App() {
             <Route path="fournisseurs/:id"     element={<SupplierForm />} />
             <Route path="fidelite"   element={<Loyalty />} />
             <Route path="categories" element={<Categories />} />
-            <Route path="tags"       element={<Tags />} />
+            <Route path="tags"       element={<Navigate to="/categories" replace />} />
             <Route path="coupons"    element={<Coupons />} />
             <Route path="parametres"  element={<Settings />} />
             <Route path="newsletter"  element={<Newsletter />} />

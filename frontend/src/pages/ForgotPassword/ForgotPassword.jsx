@@ -54,7 +54,7 @@ export default function ForgotPassword() {
       <div className={s.card}>
 
         <div className={s.header}>
-          <Link to="/" className={s.logo}>✦ Au Point-Compté</Link>
+          <Link to="/" className={s.logo}>Au Point-Compté</Link>
           <h1 className={s.title}>Mot de passe oublié</h1>
           <p className={s.subtitle}>
             Indiquez votre email — nous vous envoyons un lien de réinitialisation.

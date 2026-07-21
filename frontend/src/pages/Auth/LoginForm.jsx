@@ -74,7 +74,6 @@ export default function LoginForm() {
     <>
       {/* En-tête */}
       <div className={s.header}>
-        <Link to="/" className={s.logo}>✦ Au Point-Compté</Link>
         <h1 className={s.title}>{t('auth.loginTitle')}</h1>
         <p className={s.subtitle}>{t('auth.loginSubtitle')}</p>
       </div>

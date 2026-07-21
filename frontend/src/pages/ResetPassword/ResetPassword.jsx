@@ -8,7 +8,10 @@ import { resetPassword } from '../../services/auth.service.js'
 import s from './ResetPassword.module.css'
 
 const schema = z.object({
-  password: z.string().min(8, 'Minimum 8 caractères'),
+  password: z.string().min(5, 'Minimum 5 caractères')
+    .regex(/[A-Z]/, 'Au moins une majuscule requise')
+    .regex(/[0-9]/, 'Au moins un chiffre requis')
+    .regex(/[^A-Za-z0-9]/, 'Au moins un symbole requis'),
   confirm: z.string().min(1, 'Veuillez confirmer le mot de passe'),
 }).refine((d) => d.password === d.confirm, {
   message: 'Les mots de passe ne correspondent pas',
@@ -93,7 +96,7 @@ export default function ResetPassword() {
       <div className={s.card}>
 
         <div className={s.header}>
-          <Link to="/" className={s.logo}>✦ Au Point-Compté</Link>
+          <Link to="/" className={s.logo}>Au Point-Compté</Link>
           <h1 className={s.title}>Nouveau mot de passe</h1>
           <p className={s.subtitle}>Choisissez un mot de passe sécurisé pour votre compte.</p>
         </div>

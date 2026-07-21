@@ -43,7 +43,7 @@ export default function AuthLayout() {
         <aside className={s.aside}>
           {/* Contenu connexion */}
           <div className={`${s.asideContent} ${isRegister ? s.asideHidden : ''}`} aria-hidden={isRegister}>
-            <span className={s.asideLogo}>✦ Au Point-Compté</span>
+            <span className={s.asideLogo}>Au Point-Compté</span>
             <p className={s.asideTagline}>{t('auth.aside.tagline')}</p>
             <p className={s.asideSubtext}>{t('auth.aside.subtext')}</p>
 
@@ -63,7 +63,7 @@ export default function AuthLayout() {
 
           {/* Contenu inscription */}
           <div className={`${s.asideContent} ${!isRegister ? s.asideHidden : ''}`} aria-hidden={!isRegister}>
-            <span className={s.asideLogo}>✦ Au Point-Compté</span>
+            <span className={s.asideLogo}>Au Point-Compté</span>
             <p className={s.asideTagline}>{t('auth.aside.registerTagline')}</p>
             <p className={s.asideSubtext}>{t('auth.aside.registerSubtext')}</p>
 

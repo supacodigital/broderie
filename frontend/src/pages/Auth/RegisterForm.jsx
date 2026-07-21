@@ -15,7 +15,10 @@ function buildSchema(t) {
     first_name: z.string().min(1, t('auth.errors.firstNameRequired')),
     last_name:  z.string().min(1, t('auth.errors.lastNameRequired')),
     email:      z.string().min(1, t('auth.errors.emailRequired')).email(t('auth.errors.emailInvalid')),
-    password:   z.string().min(1, t('auth.errors.passwordRequired')).min(8, t('auth.errors.passwordMin')),
+    password:   z.string().min(1, t('auth.errors.passwordRequired')).min(5, t('auth.errors.passwordMin'))
+      .regex(/[A-Z]/, t('auth.errors.passwordUppercase'))
+      .regex(/[0-9]/, t('auth.errors.passwordDigit'))
+      .regex(/[^A-Za-z0-9]/, t('auth.errors.passwordSymbol')),
     password_confirm: z.string(),
     /* Zod 4 : la case CGV doit valoir true — message custom via refine */
     cgv: z.boolean().refine(v => v === true, { message: t('auth.errors.cgvRequired') }),
@@ -81,7 +84,6 @@ export default function RegisterForm() {
     <>
       {/* En-tête */}
       <div className={s.header}>
-        <Link to="/" className={s.logo}>✦ Au Point-Compté</Link>
         <h1 className={s.title}>{t('auth.registerTitle')}</h1>
         <p className={s.subtitle}>{t('auth.registerSubtitle')}</p>
       </div>

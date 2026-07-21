@@ -111,10 +111,6 @@ const updateStatus = async (req, res, next) => {
         });
 
       } else if (['paid', 'delivered', 'cancelled', 'refunded'].includes(status)) {
-        emailService.sendOrderStatusUpdate({ user, order, newStatus: status }).catch((err) => {
-          console.error('[Email] Statut non envoyé :', err.message);
-        });
-
         // Débit fidélité uniquement si la commande avait été payée
         if (status === 'refunded' || (status === 'cancelled' && ['paid', 'processing', 'shipped', 'delivered'].includes(order.status))) {
           loyaltyService.processRefund(order.user_id, order.id, order.total).catch((err) => {

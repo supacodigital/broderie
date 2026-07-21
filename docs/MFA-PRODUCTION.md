@@ -72,7 +72,7 @@ Sauvegardez (`Ctrl+O`, `Entrée`, `Ctrl+X` dans nano).
 ## 3. Vérifier les tables MySQL
 
 La MFA a besoin de deux tables (`user_mfa`, `user_mfa_recovery_codes`). Elles sont incluses dans
-`database/schema.sql` — l'import initial (`mysql broderie < schema.sql` sur la base neuve) les crée
+`database/broderie.sql` — l'import initial (`mysql broderie < broderie.sql` sur la base neuve) les crée
 directement, rien de plus à faire.
 
 Vérification que les tables existent bien :
@@ -150,7 +150,7 @@ sudo mysql broderie -e "DELETE FROM user_mfa WHERE user_id = <id>;"
 - [ ] `JWT_MFA_PENDING_SECRET` généré (`openssl rand -base64 64`) et ajouté dans `.env.production`
 - [ ] `MFA_ENCRYPTION_KEY` généré (`crypto.randomBytes(32).toString('hex')`, 64 caractères) et ajouté
 - [ ] Les deux secrets sont différents entre eux et de `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET`
-- [ ] Migration `011_add_mfa.sql` exécutée (ou tables déjà présentes via `schema.sql` sur base neuve)
+- [ ] Migration `011_add_mfa.sql` exécutée (ou tables déjà présentes via `broderie.sql` sur base neuve)
 - [ ] `pm2 reload broderie-api` sans erreur, ligne `✓ MFA /api/v1/mfa` visible dans les logs
 - [ ] Testé : un compte admin existant redirige bien vers la configuration MFA à son prochain login
 - [ ] Julie (et tout autre admin) informée du déroulé du setup (§5) et de la conservation des codes

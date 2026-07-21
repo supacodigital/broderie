@@ -16,8 +16,8 @@ jest.mock('../../config/db', () => ({
 }));
 
 jest.mock('../../services/email.service', () => ({
-  sendOrderShipped:      jest.fn().mockResolvedValue({}),
-  sendOrderStatusUpdate: jest.fn().mockResolvedValue({}),
+  sendOrderShipped: jest.fn().mockResolvedValue({}),
+  sendPickupReady:  jest.fn().mockResolvedValue({}),
 }));
 
 jest.mock('../../services/shipping.service', () => ({
@@ -225,7 +225,7 @@ describe('order.admin.controller — updateStatus()', () => {
     expect(emailService.sendOrderShipped).toHaveBeenCalled();
   });
 
-  test('envoie sendOrderStatusUpdate pour statut "cancelled"', async () => {
+  test('débite la fidélité pour statut "cancelled" (commande déjà payée)', async () => {
     const conn = makeConn();
     conn.execute
       .mockResolvedValueOnce([[{ id: 1 }]])
@@ -241,11 +241,10 @@ describe('order.admin.controller — updateStatus()', () => {
 
     await new Promise(resolve => setTimeout(resolve, 50));
 
-    expect(emailService.sendOrderStatusUpdate).toHaveBeenCalled();
     expect(loyaltyService.processRefund).toHaveBeenCalled();
   });
 
-  test('envoie sendOrderStatusUpdate pour statut "refunded"', async () => {
+  test('débite la fidélité pour statut "refunded"', async () => {
     const conn = makeConn();
     conn.execute
       .mockResolvedValueOnce([[{ id: 1 }]])

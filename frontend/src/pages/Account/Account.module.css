@@ -476,8 +476,7 @@
 .loyaltyCard {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+  justify-content: center;
   border: 1px solid var(--rose-border);
   border-radius: 12px;
   padding: 16px 20px;

@@ -2,7 +2,6 @@ const stripe            = require('../config/stripe');
 const paymentRepository = require('../repositories/payment.repository');
 const orderRepository   = require('../repositories/order.repository');
 const userRepository    = require('../repositories/user.repository');
-const emailService      = require('./email.service');
 const loyaltyService    = require('./loyalty.service');
 const { pool }          = require('../config/db');
 const { AppError }      = require('../middlewares/errorHandler');
@@ -140,15 +139,11 @@ const handleWebhook = async (rawBody, signature) => {
       connection.release();
     }
 
-    // Email + fidélité — non bloquants
+    // Fidélité — non bloquant
     const order = await orderRepository.findById(orderId);
     if (order) {
       userRepository.findById(order.user_id).then(async (user) => {
         if (!user) return;
-
-        emailService.sendOrderStatusUpdate({ user, order, newStatus: 'paid' }).catch((err) => {
-          console.error('[Email] Statut payé non envoyé :', err.message);
-        });
 
         loyaltyService.processOrderEarning(order.user_id, orderId, order.total).catch((err) => {
           console.error('[Fidélité] Crédit points échoué :', err.message);

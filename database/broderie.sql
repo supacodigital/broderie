@@ -901,6 +901,190 @@ INSERT INTO tag_translations (tag_id, locale, name) VALUES
 ALTER TABLE tags AUTO_INCREMENT = 100;
 
 -- ============================================================
+-- DONNÉES DE RÉFÉRENCE — FOURNISSEURS ET PRODUITS INITIAUX
+-- Source : database/products.md (catalogue fourni par le client)
+-- Traductions FR uniquement — DE/EN à compléter via l'admin.
+-- weight_kg estimé à 10g (échevettes/bobines de fil) — à ajuster si besoin.
+-- ============================================================
+INSERT INTO suppliers (id, name, is_active) VALUES
+  (1, 'Caron', 1),
+  (2, 'DMC', 1),
+  (3, 'Madeira', 1);
+ALTER TABLE suppliers AUTO_INCREMENT = 100;
+
+INSERT INTO products (id, category_id, supplier_id, slug, price_chf, tax_rate_id, sku, stock, weight_kg, is_active) VALUES
+  (100, 107, 1, 'caron-echevette-waterlilies', 8.11, 3, 'CAWL', 115, 0.010, 1),
+  (101, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-ancolie-des-jardins', 2.59, 3, 'COL4500', 7, 0.010, 1),
+  (102, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-fleurs-des-champs', 2.59, 3, 'COL4501', 5, 0.010, 1),
+  (103, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-camelia', 2.59, 3, 'COL4502', 6, 0.010, 1),
+  (104, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-glycine', 2.59, 3, 'COL4503', 7, 0.010, 1),
+  (105, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-hortensia', 2.59, 3, 'COL4504', 5, 0.010, 1),
+  (106, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-bruyeres', 2.59, 3, 'COL4505', 0, 0.010, 1),
+  (107, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-primavera', 2.59, 3, 'COL4506', 7, 0.010, 1),
+  (108, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-bougainvillier', 2.59, 3, 'COL4507', 7, 0.010, 1),
+  (109, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-campagne-givree', 2.59, 3, 'COL4508', 6, 0.010, 1),
+  (110, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-cote-de-granit', 2.59, 3, 'COL4509', 8, 0.010, 1),
+  (111, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-erable', 2.59, 3, 'COL4510', 7, 0.010, 1),
+  (112, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-ete-indien', 2.59, 3, 'COL4511', 7, 0.010, 1),
+  (113, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-states', 2.59, 3, 'COL4512', 7, 0.010, 1),
+  (114, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-londres', 2.59, 3, 'COL4513', 7, 0.010, 1),
+  (115, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-venise', 2.59, 3, 'COL4514', 7, 0.010, 1),
+  (116, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-paris', 2.59, 3, 'COL4515', 11, 0.010, 1),
+  (117, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-foret-noire', 2.59, 3, 'COL4516', 6, 0.010, 1),
+  (118, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-lutins', 2.59, 3, 'COL4517', 6, 0.010, 1),
+  (119, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-cottage', 2.59, 3, 'COL4518', 5, 0.010, 1),
+  (120, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-jingle-bells', 2.59, 3, 'COL4519', 7, 0.010, 1),
+  (121, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-conte-de-noel', 2.59, 3, 'COL4520', 5, 0.010, 1),
+  (122, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-grands-espaces', 2.59, 3, 'COL4521', 7, 0.010, 1),
+  (123, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-nuit-canadienne', 2.59, 3, 'COL4522', 7, 0.010, 1),
+  (124, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-vent-du-nord', 2.59, 3, 'COL4523', 6, 0.010, 1),
+  (125, 107, 3, 'madeira-bobine-neon-orange', 5.95, 3, 'N949', 2, 0.010, 1),
+  (126, 107, 3, 'madeira-bobine-neon-rose', 5.95, 3, 'N950', 1, 0.010, 1),
+  (127, 107, 3, 'madeira-bobine-neon-rouge-orange', 5.95, 3, 'N951', 2, 0.010, 1),
+  (128, 107, 3, 'madeira-bobine-neon-vert', 5.95, 3, 'N948', 2, 0.010, 1);
+
+INSERT INTO product_translations (product_id, locale, name, description, slug) VALUES
+  (100, 'fr', 'Caron, échevette Waterlilies', 'Echevette de 5.5m en soie, mettre sous remarque dans la commandele le numéro désiré.', 'caron-echevette-waterlilies'),
+  (101, 'fr', 'DMC Coloris art 517, échevette 6 mètres Ancolie des Jardins', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-ancolie-des-jardins'),
+  (102, 'fr', 'DMC Coloris art 517, échevette 6 mètres Fleurs des Champs', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-fleurs-des-champs'),
+  (103, 'fr', 'DMC Coloris art 517, échevette 6 mètres Camélia', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-camelia'),
+  (104, 'fr', 'DMC Coloris art 517, échevette 6 mètres Glycine', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-glycine'),
+  (105, 'fr', 'DMC Coloris art 517, échevette 6 mètres Hortensia', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-hortensia'),
+  (106, 'fr', 'DMC Coloris art 517, échevette 6 mètres Bruyères', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-bruyeres'),
+  (107, 'fr', 'DMC Coloris art 517, échevette 6 mètres Primavera', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-primavera'),
+  (108, 'fr', 'DMC Coloris art 517, échevette 6 mètres Bougainvillier', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-bougainvillier'),
+  (109, 'fr', 'DMC Coloris art 517, échevette 6 mètres Campagne givrée', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-campagne-givree'),
+  (110, 'fr', 'DMC Coloris art 517, échevette 6 mètres Côte de Granit', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-cote-de-granit'),
+  (111, 'fr', 'DMC Coloris art 517, échevette 6 mètres Erable', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-erable'),
+  (112, 'fr', 'DMC Coloris art 517, échevette 6 mètres Eté indien', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-ete-indien'),
+  (113, 'fr', 'DMC Coloris art 517, échevette 6 mètres States', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-states'),
+  (114, 'fr', 'DMC Coloris art 517, échevette 6 mètres Londres', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-londres'),
+  (115, 'fr', 'DMC Coloris art 517, échevette 6 mètres Venise', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-venise'),
+  (116, 'fr', 'DMC Coloris art 517, échevette 6 mètres Paris', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-paris'),
+  (117, 'fr', 'DMC Coloris art 517, échevette 6 mètres Forêt Noire', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-foret-noire'),
+  (118, 'fr', 'DMC Coloris art 517, échevette 6 mètres Lutins', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-lutins'),
+  (119, 'fr', 'DMC Coloris art 517, échevette 6 mètres Cottage', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-cottage'),
+  (120, 'fr', 'DMC Coloris art 517, échevette 6 mètres Jingle Bells', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-jingle-bells'),
+  (121, 'fr', 'DMC Coloris art 517, échevette 6 mètres Conte de Noël', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-conte-de-noel'),
+  (122, 'fr', 'DMC Coloris art 517, échevette 6 mètres Grands Espaces', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-grands-espaces'),
+  (123, 'fr', 'DMC Coloris art 517, échevette 6 mètres Nuit canadienne', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-nuit-canadienne'),
+  (124, 'fr', 'DMC Coloris art 517, échevette 6 mètres Vent du Nord', 'Echevette composées de 6 brins, et avec 4 teintes qui se marient bien, pour donner un aspect explosif couleurs et unique é votre broderie. 100%coton, lavable à 60°C', 'dmc-coloris-art-517-echevette-6-metres-vent-du-nord'),
+  (125, 'fr', 'Madeira, Bobine Néon orange', 'Bobine de 20 mètres de fil, séparable en 6 brins, 100% polyester.', 'madeira-bobine-neon-orange'),
+  (126, 'fr', 'Madeira, Bobine Néon Rose', 'Bobine de 20 mètres de fil, séparable en 6 brins, 100% polyester.', 'madeira-bobine-neon-rose'),
+  (127, 'fr', 'Madeira, Bobine Néon rouge-orangé', 'Bobine de 20 mètres de fil, séparable en 6 brins, 100% polyester.', 'madeira-bobine-neon-rouge-orange'),
+  (128, 'fr', 'Madeira, Bobine Néon vert', 'Bobine de 20 mètres de fil, séparable en 6 brins, 100% polyester.', 'madeira-bobine-neon-vert');
+
+ALTER TABLE products AUTO_INCREMENT = 200;
+
+-- ============================================================
+-- IMPORT PRODUITS LANARTE — database/products.md (45 produits)
+-- 4 lignes exclues (nom corrompu dans l'export : SKU 34277, 34276, 25040, 15534)
+-- Fournisseur Lanarte créé avec délai sur commande 3-4 semaines
+-- Catégorie : Kits de Broderie (id 101) — tous produits Lanarte = kits/canevas
+-- Traductions FR uniquement — DE/EN à compléter via l'admin
+-- ============================================================
+
+INSERT INTO suppliers (id, name, made_to_order_delay_min_weeks, made_to_order_delay_max_weeks, is_active) VALUES
+  (4, 'Lanarte', 3, 4, 1);
+
+INSERT INTO products (id, category_id, supplier_id, slug, price_chf, compare_price_chf, tax_rate_id, sku, stock, weight_kg, is_made_to_order, length_cm, width_cm, is_active) VALUES
+  (200, 101, 4, 'lanarte-fruits-and-flowers-pruneau', 22.16, NULL, 3, '34278', 0, 0.300, 1, 14.0, 14.0, 1),
+  (201, 101, 4, 'lanarte-kit-chataigner-seconde-main-non-deballe', 47.24, NULL, 3, '34264', 0, 0.300, 1, 29.0, 22.0, 1),
+  (202, 101, 4, 'lanarte-oak-kit-chene-seconde-main-non-deballe', 47.24, NULL, 3, '34265', 0, 0.300, 1, 29.0, 22.0, 1),
+  (203, 101, 4, 'lanarte-kit-cerisier-seconde-main-non-deballe', 47.24, NULL, 3, '34266', 0, 0.300, 1, 29.0, 22.0, 1),
+  (204, 101, 4, 'lanarte-flowers-strawberries', 84.86, NULL, 3, '34193', 0, 0.300, 1, NULL, NULL, 1),
+  (205, 101, 4, 'lanarte-flowers-asparagus', 94.59, NULL, 3, '34192', 0, 0.300, 1, NULL, NULL, 1),
+  (206, 101, 4, 'lanarte-kit-4-saisons', 91.34, NULL, 3, 'LA0007961', 0, 0.300, 1, 63.0, 52.0, 1),
+  (207, 101, 4, 'lanarte-kit-panier-de-fruits', 56.75, NULL, 3, 'LA0007960', 0, 0.300, 1, 29.0, 39.0, 1),
+  (208, 101, 4, 'lanarte-your-favorites-char-fleuri', 21.08, NULL, 3, '34164', 0, 0.300, 1, 12.0, 17.0, 1),
+  (209, 101, 4, 'lanarte-your-favorites-arbuste-boule', 21.62, NULL, 3, '34166', 0, 0.300, 1, NULL, NULL, 1),
+  (210, 101, 4, 'lanarte-your-favorites-fraises-et-papillon', 21.62, NULL, 3, '34177', 0, 0.300, 1, 17.0, 12.0, 1),
+  (211, 101, 4, 'lanarte-bavette-blanche', 17.19, NULL, 3, '25121', 0, 0.300, 1, NULL, NULL, 1),
+  (212, 101, 4, 'lanarte-catalogue-n-15', 2.97, NULL, 3, 'N15', 0, 0.300, 1, NULL, NULL, 1),
+  (213, 101, 4, 'lanarte-cadre-en-bois-naturel-14-x-14', 18.59, NULL, 3, '70772', 0, 0.300, 1, NULL, NULL, 1),
+  (214, 101, 4, 'lanarte-cadre-your-favorites-rose-12-x-17', 14.27, NULL, 3, '70751', 0, 0.300, 1, NULL, NULL, 1),
+  (215, 101, 4, 'lanarte-cadre-your-favorites-saumon-12-x-17', 14.27, NULL, 3, '70753', 0, 0.300, 1, NULL, NULL, 1),
+  (216, 101, 4, 'lanarte-kit-family-tree-bears-arbre-genealogique', 41.08, NULL, 3, '15526', 0, 0.300, 1, 22.0, 29.0, 1),
+  (217, 101, 4, 'lanarte-birth-tile-robert', 30.27, NULL, 3, '15525', 0, 0.300, 1, 15.0, 20.0, 1),
+  (218, 101, 4, 'lanarte-ours-et-lapins-lapins-aida', 18.92, NULL, 3, '15530A', 0, 0.300, 1, NULL, NULL, 1),
+  (219, 101, 4, 'lanarte-flowers-facade-canevas-peint', 78.91, NULL, 3, '42060', 0, 0.300, 1, NULL, NULL, 1),
+  (220, 101, 4, 'lanarte-cadre-bois-naturel-pour-abc-nounours', 15.57, NULL, 3, '70771', 0, 0.300, 1, NULL, NULL, 1),
+  (221, 101, 4, 'lanarte-pump-with-watering-can-canevas-peint-sans-coton', 44.32, NULL, 3, '41058', 0, 0.300, 1, 29.0, 22.0, 1),
+  (222, 101, 4, 'lanarte-birth-sampler', 35.67, NULL, 3, '15514', 0, 0.300, 1, NULL, NULL, 1),
+  (223, 101, 4, 'lanarte-birth-banner', 38.92, NULL, 3, '15516', 0, 0.300, 1, NULL, NULL, 1),
+  (224, 101, 4, 'lanarte-birth-document-bears', 47.56, NULL, 3, '15520', 0, 0.300, 1, NULL, NULL, 1),
+  (225, 101, 4, 'lanarte-birth-tile-bears', 22.21, NULL, 3, '15521', 0, 0.300, 1, NULL, NULL, 1),
+  (226, 101, 4, 'lanarte-rose-canevas-peint', 78.91, NULL, 3, '42045', 0, 0.300, 1, NULL, NULL, 1),
+  (227, 101, 4, 'lanarte-bears-with-hat-canevas-peint', 78.91, NULL, 3, '42050', 0, 0.300, 1, NULL, NULL, 1),
+  (228, 101, 4, 'lanarte-new-romantics-2-ours', 10.81, NULL, 3, '34118', 0, 0.300, 1, 6.0, 8.0, 1),
+  (229, 101, 4, 'lanarte-cadre-bois-naturel-new-romantics', 10.81, NULL, 3, '70776', 0, 0.300, 1, NULL, NULL, 1),
+  (230, 101, 4, 'sweatshirt-ravel', 21.62, NULL, 3, '48', 0, 0.300, 1, NULL, NULL, 1),
+  (231, 101, 4, 'lanarte-alphabet-ours-lettre-q', 17.3, NULL, 3, '34250', 0, 0.300, 1, 14.0, 12.0, 1),
+  (232, 101, 4, 'sweatshirt-ravel-carton-de-36-pieces-assorties', 505.91, NULL, 3, '50', 0, 0.300, 1, NULL, NULL, 1),
+  (233, 101, 4, 'sweatshirt-ravel-carton-de-18-pieces-assorties', 252.95, NULL, 3, '51', 0, 0.300, 1, NULL, NULL, 1),
+  (234, 101, 4, 'lanarte-zoo-rabbits-aida', 70.27, 78.0, 3, '15528A', 0, 0.300, 1, 37.0, 62.0, 1),
+  (235, 101, 4, 'lanarte-clown-flower-aida', 32.43, NULL, 3, '15533A', 0, 0.300, 1, 20.0, 15.0, 1),
+  (236, 101, 4, 'lanarte-collage-bird-s-nest-m-b-epuise', 94.59, NULL, 3, '34283', 0, 0.300, 1, 44.0, 34.0, 0), -- épuisé, désactivé
+  (237, 101, 4, 'lanarte-blue-sampler-small', 64.86, NULL, 3, '34293', 0, 0.300, 1, 37.0, 32.0, 1),
+  (238, 101, 4, 'lanarte-arrosoir-et-tournesol', 19.46, NULL, 3, '34296', 0, 0.300, 1, 14.0, 14.0, 1),
+  (239, 101, 4, 'lanarte-sunflower-pumpkin-14-x-14', 21.19, NULL, 3, '34297', 0, 0.300, 1, 14.0, 14.0, 1),
+  (240, 101, 4, 'lanarte-hortensias-et-chapeau', 81.08, NULL, 3, '34302', 0, 0.300, 1, 34.0, 44.0, 1),
+  (241, 101, 4, 'lanarte-collage-cats', 94.59, NULL, 3, '34303', 0, 0.300, 1, 38.0, 46.0, 1),
+  (242, 101, 4, 'lanarte-field-flowers-coraline', 94.59, NULL, 3, '34304', 0, 0.300, 1, 43.0, 37.0, 1),
+  (243, 101, 4, 'lanarte-two-hydrangea-s-aida', 44.86, NULL, 3, '34306A', 0, 0.300, 1, 22.0, 29.0, 1),
+  (244, 101, 4, 'lanarte-panier-de-prunes', 48.64, NULL, 3, '34307', 0, 0.300, 1, 22.0, 30.0, 1);
+
+INSERT INTO product_translations (product_id, locale, name, description, slug) VALUES
+  (200, 'fr', 'Lanarte, Fruits and Flowers , pruneau', NULL, 'lanarte-fruits-and-flowers-pruneau'),
+  (201, 'fr', 'Lanarte, kit Châtaigner - seconde main,  non déballé', NULL, 'lanarte-kit-chataigner-seconde-main-non-deballe'),
+  (202, 'fr', 'Lanarte, Oak , kit Chêne - seconde main, non déballé', NULL, 'lanarte-oak-kit-chene-seconde-main-non-deballe'),
+  (203, 'fr', 'Lanarte, kit cerisier - seconde main, non déballé', NULL, 'lanarte-kit-cerisier-seconde-main-non-deballe'),
+  (204, 'fr', 'Lanarte, Flowers & Strawberries', NULL, 'lanarte-flowers-strawberries'),
+  (205, 'fr', 'Lanarte, Flowers & Asparagus', NULL, 'lanarte-flowers-asparagus'),
+  (206, 'fr', 'Lanarte, kit 4 saisons', NULL, 'lanarte-kit-4-saisons'),
+  (207, 'fr', 'Lanarte, kit panier de fruits', NULL, 'lanarte-kit-panier-de-fruits'),
+  (208, 'fr', 'Lanarte, Your Favorites, char fleuri', NULL, 'lanarte-your-favorites-char-fleuri'),
+  (209, 'fr', 'Lanarte, Your Favorites, arbuste boule', NULL, 'lanarte-your-favorites-arbuste-boule'),
+  (210, 'fr', 'Lanarte, Your Favorites, fraises et papillon', NULL, 'lanarte-your-favorites-fraises-et-papillon'),
+  (211, 'fr', 'Lanarte, bavette blanche', NULL, 'lanarte-bavette-blanche'),
+  (212, 'fr', 'Lanarte catalogue N° 15', NULL, 'lanarte-catalogue-n-15'),
+  (213, 'fr', 'Lanarte cadre en bois naturel 14 x 14', NULL, 'lanarte-cadre-en-bois-naturel-14-x-14'),
+  (214, 'fr', 'Lanarte cadre Your Favorites, rose 12 x 17', NULL, 'lanarte-cadre-your-favorites-rose-12-x-17'),
+  (215, 'fr', 'Lanarte cadre Your Favorites, saumon 12 x 17', NULL, 'lanarte-cadre-your-favorites-saumon-12-x-17'),
+  (216, 'fr', 'Lanarte, kit Family tree bears , arbre généalogique', NULL, 'lanarte-kit-family-tree-bears-arbre-genealogique'),
+  (217, 'fr', 'Lanarte, Birth Tile , Robert', NULL, 'lanarte-birth-tile-robert'),
+  (218, 'fr', 'Lanarte, Ours et  Lapins , lapins (Aïda)', NULL, 'lanarte-ours-et-lapins-lapins-aida'),
+  (219, 'fr', 'Lanarte, Flowers facade , canevas peint', NULL, 'lanarte-flowers-facade-canevas-peint'),
+  (220, 'fr', 'Lanarte cadre "bois naturel pour ABC nounours"', NULL, 'lanarte-cadre-bois-naturel-pour-abc-nounours'),
+  (221, 'fr', 'Lanarte, Pump with watering can , canevas peint sans coton', NULL, 'lanarte-pump-with-watering-can-canevas-peint-sans-coton'),
+  (222, 'fr', 'Lanarte, Birth Sampler', NULL, 'lanarte-birth-sampler'),
+  (223, 'fr', 'Lanarte, Birth Banner', NULL, 'lanarte-birth-banner'),
+  (224, 'fr', 'Lanarte, Birth document bears', NULL, 'lanarte-birth-document-bears'),
+  (225, 'fr', 'Lanarte, Birth Tile bears', NULL, 'lanarte-birth-tile-bears'),
+  (226, 'fr', 'Lanarte, Rose, canevas peint', NULL, 'lanarte-rose-canevas-peint'),
+  (227, 'fr', 'Lanarte, Bears with hat , canevas peint', NULL, 'lanarte-bears-with-hat-canevas-peint'),
+  (228, 'fr', 'Lanarte, New Romantics , 2 Ours', NULL, 'lanarte-new-romantics-2-ours'),
+  (229, 'fr', 'Lanarte cadre bois naturel "New Romantics"', NULL, 'lanarte-cadre-bois-naturel-new-romantics'),
+  (230, 'fr', 'Sweatshirt RAVEL', NULL, 'sweatshirt-ravel'),
+  (231, 'fr', 'Lanarte, alphabet Ours lettre Q', NULL, 'lanarte-alphabet-ours-lettre-q'),
+  (232, 'fr', 'Sweatshirt RAVEL, carton de 36 pièces assorties', NULL, 'sweatshirt-ravel-carton-de-36-pieces-assorties'),
+  (233, 'fr', 'Sweatshirt RAVEL, carton de 18 pièces assorties', NULL, 'sweatshirt-ravel-carton-de-18-pieces-assorties'),
+  (234, 'fr', 'Lanarte, Zoo / rabbits (Aïda)', NULL, 'lanarte-zoo-rabbits-aida'),
+  (235, 'fr', 'Lanarte, Clown/flower (Aïda)', NULL, 'lanarte-clown-flower-aida'),
+  (236, 'fr', 'Lanarte, Collage Bird\'s nest M.B.', NULL, 'lanarte-collage-bird-s-nest-m-b-epuise'),
+  (237, 'fr', 'Lanarte, Blue sampler, small', NULL, 'lanarte-blue-sampler-small'),
+  (238, 'fr', 'Lanarte, Arrosoir et tournesol', NULL, 'lanarte-arrosoir-et-tournesol'),
+  (239, 'fr', 'Lanarte, Sunflower/pumpkin 14 X 14', NULL, 'lanarte-sunflower-pumpkin-14-x-14'),
+  (240, 'fr', 'Lanarte, Hortensias et chapeau', NULL, 'lanarte-hortensias-et-chapeau'),
+  (241, 'fr', 'Lanarte, Collage Cats', NULL, 'lanarte-collage-cats'),
+  (242, 'fr', 'Lanarte, Field flowers Coraline', NULL, 'lanarte-field-flowers-coraline'),
+  (243, 'fr', 'Lanarte, Two hydrangea\'s (Aïda)', NULL, 'lanarte-two-hydrangea-s-aida'),
+  (244, 'fr', 'Lanarte, panier de prunes', NULL, 'lanarte-panier-de-prunes');
+
+ALTER TABLE products AUTO_INCREMENT = 255;
+ALTER TABLE suppliers AUTO_INCREMENT = 100;
+
+-- ============================================================
 -- OPTIMISATION APRÈS IMPORT EN MASSE (14 000 produits)
 -- À exécuter UNE FOIS après chaque import CSV/migration
 -- ============================================================
