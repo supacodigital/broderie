@@ -145,6 +145,8 @@
 
 .label { font-size: 12px; font-weight: 600; color: var(--text-dark); }
 
+.hint { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
 .input {
   padding: 9px 12px;
   border: 1.5px solid var(--rose-border);
@@ -164,6 +166,87 @@
   resize: vertical;
   min-height: 90px;
   font-family: inherit;
+}
+
+.discountBox {
+  border-top: 1px solid var(--rose-border);
+  padding-top: 14px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.discountRow {
+  display: flex;
+  gap: 10px;
+}
+
+.discountModeSelect {
+  padding: 9px 12px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color .2s;
+}
+
+.discountModeSelect:focus { border-color: var(--rose); }
+
+.discountValueInput {
+  padding: 9px 12px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  width: 140px;
+  transition: border-color .2s;
+}
+
+.discountValueInput:focus { border-color: var(--rose); }
+
+.pricePreview {
+  border-top: 1px solid var(--rose-border);
+  margin-top: 14px;
+  margin-bottom: 14px;
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pricePreviewLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.pricePreviewRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.priceOld {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.priceNew {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--rose-dark, var(--rose));
+}
+
+.priceWarning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #92400e;
 }
 
 .checkGroupInline {

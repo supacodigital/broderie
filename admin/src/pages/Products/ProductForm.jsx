@@ -15,6 +15,7 @@ import { getSuppliers } from '../../services/suppliers.service.js'
 import { getTaxRates } from '../../services/settings.service.js'
 import { getTags } from '../../services/tags.service.js'
 import { useToast } from '../../contexts/ToastContext.jsx'
+import { roundCHF } from '../../utils/chf.js'
 import s from './ProductForm.module.css'
 
 const schema = z.object({
@@ -25,7 +26,6 @@ const schema = z.object({
   weightKg:         z.coerce.number().min(0).optional(),
   lengthCm:         z.coerce.number().min(0).optional(),
   widthCm:          z.coerce.number().min(0).optional(),
-  comparePriceChf:  z.coerce.number().min(0).optional(),
   categoryId:       z.coerce.number().int().positive('Catégorie requise'),
   supplierId:       z.coerce.number().int().min(0).optional(),
   taxRateId:        z.coerce.number().int().positive('Taxe requise'),
@@ -210,6 +210,13 @@ export default function ProductForm() {
   const [saved,      setSaved]      = useState(false)
   const [apiError,   setApiError]   = useState('')
 
+  /* Réduction — le champ "Prix de vente" (priceChf) reste le prix normal, jamais
+     modifié automatiquement. La réduction (% ou CHF) calcule à part le prix final
+     réellement payé, envoyé à l'API en tant que priceChf ; le prix normal saisi
+     devient alors comparePriceChf (ancien prix, affiché barré en boutique) */
+  const [discountMode,  setDiscountMode]  = useState('none') // 'none' | 'percent' | 'fixed'
+  const [discountValue, setDiscountValue] = useState('')
+
   const { register, handleSubmit, reset, watch, setValue, setError, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { isActive: true, isFeatured: false, isMadeToOrder: false, badge: '', stock: 0 },
@@ -217,6 +224,19 @@ export default function ProductForm() {
 
   const selectedSupplierId = watch('supplierId')
   const isMadeToOrderChecked = watch('isMadeToOrder')
+  const watchedPrice = watch('priceChf')
+
+  /* Prix final réellement payé, dérivé du prix de vente saisi + de la réduction —
+     null si aucune réduction active (le prix de vente est alors payé tel quel) */
+  const finalPrice = (() => {
+    if (discountMode === 'none' || !discountValue) return null
+    const price = Number(watchedPrice)
+    const value = Number(discountValue)
+    if (!(price > 0) || !(value > 0)) return null
+    const computed = discountMode === 'percent' ? price * (1 - value / 100) : price - value
+    return computed > 0 ? roundCHF(computed) : null
+  })()
+
   const selectedSupplier = suppliers.find(sup => String(sup.id) === String(selectedSupplierId))
   const supplierDelay = selectedSupplier?.made_to_order_delay_min_weeks && selectedSupplier?.made_to_order_delay_max_weeks
     ? `${selectedSupplier.made_to_order_delay_min_weeks} à ${selectedSupplier.made_to_order_delay_max_weeks} semaines`
@@ -279,11 +299,26 @@ export default function ProductForm() {
     getProductById(Number(id))
       .then(res => {
         setProduct(res)
+
+        /* Si une réduction existe déjà en base, on la reconstitue dans le sélecteur
+           réduction : le "Prix de vente" affiché redevient l'ancien prix (barré) et
+           la réduction en % est recalculée à partir des deux prix stockés */
+        const hasDiscount = res.compare_price_chf && res.price_chf && res.compare_price_chf > res.price_chf
+        if (hasDiscount) {
+          const oldPrice = Number(res.compare_price_chf)
+          const paidPrice = Number(res.price_chf)
+          const percent = Math.round((1 - paidPrice / oldPrice) * 100)
+          setDiscountMode('percent')
+          setDiscountValue(String(percent))
+        } else {
+          setDiscountMode('none')
+          setDiscountValue('')
+        }
+
         reset({
           name:            res.name ?? '',
           sku:             res.sku ?? '',
-          priceChf:        res.price_chf ?? '',
-          comparePriceChf: res.compare_price_chf ?? '',
+          priceChf:        hasDiscount ? res.compare_price_chf : (res.price_chf ?? ''),
           stock:           res.stock ?? 0,
           weightKg:        res.weight_kg ?? '',
           lengthCm:        res.length_cm ?? '',
@@ -329,13 +364,16 @@ export default function ProductForm() {
         .replace(/^-+|-+$/g, '')
       const slug = slugBase || `produit-${Date.now()}`
 
+      /* Réduction active : le prix de vente saisi devient l'ancien prix (barré),
+         le prix réellement payé est celui calculé par la réduction */
+      const hasDiscount = finalPrice != null
       const payload = {
         categoryId:      Number(data.categoryId),
         supplierId:      data.supplierId ? Number(data.supplierId) : null,
         taxRateId:       Number(data.taxRateId),
         slug:            isEdit ? undefined : slug,
-        priceChf:        Number(data.priceChf),
-        comparePriceChf: data.comparePriceChf ? Number(data.comparePriceChf) : null,
+        priceChf:        hasDiscount ? finalPrice : Number(data.priceChf),
+        comparePriceChf: hasDiscount ? Number(data.priceChf) : null,
         sku:             data.sku,
         stock:           Number(data.stock),
         weightKg:        data.weightKg ? Number(data.weightKg) : null,
@@ -416,8 +454,8 @@ export default function ProductForm() {
             <h2 className={s.sectionTitle}>Informations générales</h2>
             <div className={s.formGrid}>
               <div className={s.field}>
-                <label className={s.label}>Fournisseur</label>
-                <select className={s.input} {...register('supplierId')}>
+                <label className={s.label} htmlFor="supplierId">Fournisseur</label>
+                <select id="supplierId" className={s.input} {...register('supplierId')}>
                   <option value="">— Aucun —</option>
                   {suppliers.map(sup => (
                     <option key={sup.id} value={sup.id}>{sup.name}</option>
@@ -426,8 +464,8 @@ export default function ProductForm() {
               </div>
 
               <div className={s.field}>
-                <label className={s.label}>Catégorie *</label>
-                <select className={`${s.input} ${errors.categoryId ? s.inputError : ''}`} {...register('categoryId')}>
+                <label className={s.label} htmlFor="categoryId">Catégorie *</label>
+                <select id="categoryId" className={`${s.input} ${errors.categoryId ? s.inputError : ''}`} {...register('categoryId')}>
                   <option value="">— Choisir —</option>
                   {categories.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
@@ -437,20 +475,21 @@ export default function ProductForm() {
               </div>
 
               <div className={s.field}>
-                <label className={s.label}>Nom du produit *</label>
-                <input className={`${s.input} ${errors.name ? s.inputError : ''}`} {...register('name')} />
+                <label className={s.label} htmlFor="name">Nom du produit *</label>
+                <input id="name" className={`${s.input} ${errors.name ? s.inputError : ''}`} {...register('name')} />
                 {errors.name && <span className={s.err}>{errors.name.message}</span>}
               </div>
 
               <div className={s.field}>
-                <label className={s.label}>SKU *</label>
-                <input className={`${s.input} ${errors.sku ? s.inputError : ''}`} {...register('sku')} />
+                <label className={s.label} htmlFor="sku">SKU *</label>
+                <input id="sku" className={`${s.input} ${errors.sku ? s.inputError : ''}`} {...register('sku')} />
                 {errors.sku && <span className={s.err}>{errors.sku.message}</span>}
               </div>
 
               <div className={`${s.field} ${s.fieldFull}`}>
-                <label className={s.label}>Description (FR)</label>
+                <label className={s.label} htmlFor="description">Description (FR)</label>
                 <textarea
+                  id="description"
                   className={`${s.input} ${s.textarea}`}
                   rows={4}
                   placeholder="Description du produit en français…"
@@ -459,8 +498,8 @@ export default function ProductForm() {
               </div>
 
               <div className={s.field}>
-                <label className={s.label}>Badge</label>
-                <select className={s.input} {...register('badge')}>
+                <label className={s.label} htmlFor="badge">Badge</label>
+                <select id="badge" className={s.input} {...register('badge')}>
                   <option value="">— Aucun badge —</option>
                   <option value="nouveaute">Nouveauté</option>
                   <option value="promo">Promo</option>
@@ -470,18 +509,18 @@ export default function ProductForm() {
               </div>
 
               <div className={s.field}>
-                <label className={s.label}>Poids (kg)</label>
-                <input type="number" step="0.001" min="0" className={s.input} placeholder="ex: 0.150" {...register('weightKg')} />
+                <label className={s.label} htmlFor="weightKg">Poids (kg)</label>
+                <input id="weightKg" type="number" step="0.001" min="0" className={s.input} placeholder="ex: 0.150" {...register('weightKg')} />
               </div>
 
               <div className={s.field}>
-                <label className={s.label}>Longueur (cm)</label>
-                <input type="number" step="0.1" min="0" className={s.input} placeholder="ex: 30" {...register('lengthCm')} />
+                <label className={s.label} htmlFor="lengthCm">Longueur (cm)</label>
+                <input id="lengthCm" type="number" step="0.1" min="0" className={s.input} placeholder="ex: 30" {...register('lengthCm')} />
               </div>
 
               <div className={s.field}>
-                <label className={s.label}>Largeur (cm)</label>
-                <input type="number" step="0.1" min="0" className={s.input} placeholder="ex: 20" {...register('widthCm')} />
+                <label className={s.label} htmlFor="widthCm">Largeur (cm)</label>
+                <input id="widthCm" type="number" step="0.1" min="0" className={s.input} placeholder="ex: 20" {...register('widthCm')} />
               </div>
 
               <div className={`${s.field} ${s.checkGroupInline}`}>
@@ -542,21 +581,66 @@ export default function ProductForm() {
             <h2 className={s.sectionTitle}>Prix & stock</h2>
             <div className={s.formGrid}>
               <div className={s.field}>
-                <label className={s.label}>Prix CHF *</label>
-                <input type="number" step="0.05" min="0" className={`${s.input} ${errors.priceChf ? s.inputError : ''}`} {...register('priceChf')} />
+                <label className={s.label} htmlFor="priceChf">Prix de vente (CHF) *</label>
+                <input id="priceChf" type="number" step="0.05" min="0" className={`${s.input} ${errors.priceChf ? s.inputError : ''}`} {...register('priceChf')} />
+                <span className={s.hint}>Le prix normal du produit. Ne change jamais quand vous appliquez une réduction ci-dessous.</span>
                 {errors.priceChf && <span className={s.err}>{errors.priceChf.message}</span>}
               </div>
 
               <div className={s.field}>
-                <label className={s.label}>Prix barré CHF</label>
-                <input type="number" step="0.05" min="0" className={s.input} placeholder="Optionnel" {...register('comparePriceChf')} />
+                <label className={s.label} htmlFor="discountMode">Réduction</label>
+                <div className={s.discountRow}>
+                  <select
+                    id="discountMode"
+                    className={s.discountModeSelect}
+                    value={discountMode}
+                    onChange={(e) => { setDiscountMode(e.target.value); if (e.target.value === 'none') setDiscountValue('') }}
+                  >
+                    <option value="none">Aucune</option>
+                    <option value="percent">Pourcentage (%)</option>
+                    <option value="fixed">Montant fixe (CHF)</option>
+                  </select>
+                  {discountMode !== 'none' && (
+                    <input
+                      aria-label="Valeur de la réduction"
+                      type="number"
+                      step={discountMode === 'percent' ? '1' : '0.05'}
+                      min="0"
+                      max={discountMode === 'percent' ? '99' : undefined}
+                      className={s.discountValueInput}
+                      placeholder={discountMode === 'percent' ? 'ex: 20' : 'ex: 15'}
+                      value={discountValue}
+                      onChange={(e) => setDiscountValue(e.target.value)}
+                    />
+                  )}
+                </div>
+                <span className={s.hint}>Optionnel. Calcule le prix promo affiché au client, sans toucher au prix de vente.</span>
               </div>
+            </div>
 
-              <div className={s.field}>
-                <label className={s.label}>Stock *</label>
-                <input type="number" min="0" className={`${s.input} ${errors.stock ? s.inputError : ''}`} {...register('stock')} />
-                {errors.stock && <span className={s.err}>{errors.stock.message}</span>}
+            {discountMode !== 'none' && discountValue && (
+              <div className={s.pricePreview}>
+                <span className={s.pricePreviewLabel}>Aperçu boutique</span>
+                <div className={s.pricePreviewRow}>
+                  {finalPrice != null ? (
+                    <>
+                      <span className={s.priceOld}>CHF {Number(watchedPrice).toFixed(2)}</span>
+                      <span className={s.priceNew}>CHF {finalPrice.toFixed(2)}</span>
+                    </>
+                  ) : (
+                    <span className={s.priceWarning}>
+                      <AlertTriangle size={12} />
+                      Réduction invalide — le prix final doit rester positif.
+                    </span>
+                  )}
+                </div>
               </div>
+            )}
+
+            <div className={s.field}>
+              <label className={s.label} htmlFor="stock">Stock *</label>
+              <input id="stock" type="number" min="0" className={`${s.input} ${errors.stock ? s.inputError : ''}`} {...register('stock')} />
+              {errors.stock && <span className={s.err}>{errors.stock.message}</span>}
             </div>
           </section>
 
@@ -565,20 +649,20 @@ export default function ProductForm() {
             <h2 className={s.sectionTitle}>Traductions</h2>
             <div className={s.formGrid}>
               <div className={s.field}>
-                <label className={s.label}>Nom (DE)</label>
-                <input className={s.input} placeholder="Produktname auf Deutsch…" {...register('nameDe')} />
+                <label className={s.label} htmlFor="nameDe">Nom (DE)</label>
+                <input id="nameDe" className={s.input} placeholder="Produktname auf Deutsch…" {...register('nameDe')} />
               </div>
               <div className={s.field}>
-                <label className={s.label}>Nom (EN)</label>
-                <input className={s.input} placeholder="Product name in English…" {...register('nameEn')} />
+                <label className={s.label} htmlFor="nameEn">Nom (EN)</label>
+                <input id="nameEn" className={s.input} placeholder="Product name in English…" {...register('nameEn')} />
               </div>
               <div className={s.field}>
-                <label className={s.label}>Description (DE)</label>
-                <textarea className={`${s.input} ${s.textarea}`} rows={3} placeholder="Beschreibung auf Deutsch…" {...register('descriptionDe')} />
+                <label className={s.label} htmlFor="descriptionDe">Description (DE)</label>
+                <textarea id="descriptionDe" className={`${s.input} ${s.textarea}`} rows={3} placeholder="Beschreibung auf Deutsch…" {...register('descriptionDe')} />
               </div>
               <div className={s.field}>
-                <label className={s.label}>Description (EN)</label>
-                <textarea className={`${s.input} ${s.textarea}`} rows={3} placeholder="Description in English…" {...register('descriptionEn')} />
+                <label className={s.label} htmlFor="descriptionEn">Description (EN)</label>
+                <textarea id="descriptionEn" className={`${s.input} ${s.textarea}`} rows={3} placeholder="Description in English…" {...register('descriptionEn')} />
               </div>
             </div>
           </section>
