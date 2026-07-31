@@ -275,7 +275,7 @@ describe('user.controller — changePassword()', () => {
 
   test('retourne 404 si utilisateur introuvable', async () => {
     userRepository.findByIdWithPassword.mockResolvedValue(null);
-    const req = { user: { id: 99 }, body: { current_password: 'oldpass', new_password: 'newpassword' } };
+    const req = { user: { id: 99 }, body: { current_password: 'oldpass', new_password: 'NewPass1!' } };
     const res = makeRes();
     const next = jest.fn();
     await changePassword(req, res, next);
@@ -284,7 +284,7 @@ describe('user.controller — changePassword()', () => {
 
   test('retourne 400 si compte Google (pas de password_hash)', async () => {
     userRepository.findByIdWithPassword.mockResolvedValue({ id: 1, password_hash: null });
-    const req = { user: { id: 1 }, body: { current_password: 'old', new_password: 'newpassword' } };
+    const req = { user: { id: 1 }, body: { current_password: 'old', new_password: 'NewPass1!' } };
     const res = makeRes();
     const next = jest.fn();
     await changePassword(req, res, next);
@@ -294,7 +294,7 @@ describe('user.controller — changePassword()', () => {
   test('retourne 401 si mot de passe actuel incorrect', async () => {
     userRepository.findByIdWithPassword.mockResolvedValue({ id: 1, password_hash: '$hash' });
     bcrypt.compare.mockResolvedValue(false);
-    const req = { user: { id: 1 }, body: { current_password: 'wrong', new_password: 'newpassword' } };
+    const req = { user: { id: 1 }, body: { current_password: 'wrong', new_password: 'NewPass1!' } };
     const res = makeRes();
     const next = jest.fn();
     await changePassword(req, res, next);

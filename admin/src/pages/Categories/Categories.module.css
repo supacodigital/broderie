@@ -76,6 +76,8 @@
 .iconBtn, .iconBtnDanger { background: none; border: none; padding: 6px; border-radius: 7px; display: flex; align-items: center; color: var(--text-muted); transition: all .15s; }
 .iconBtn:hover { background: var(--rose-pale); color: var(--rose); }
 .iconBtnDanger:hover { background: #fef2f2; color: #dc2626; }
+.iconBtn:disabled, .iconBtnDanger:disabled { opacity: .35; cursor: not-allowed; }
+.iconBtn:disabled:hover, .iconBtnDanger:disabled:hover { background: none; color: var(--text-muted); }
 
 .empty { padding: 32px; text-align: center; color: var(--text-muted); font-size: 13px; }
 

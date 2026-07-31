@@ -4,13 +4,14 @@ const { pool } = require('../config/db');
 const findByUser = async (userId, locale = 'fr') => {
   const [rows] = await pool.execute(
     `SELECT w.id, w.product_id, w.created_at,
-            pt.name AS product_name,
+            COALESCE(pt.name, pt_fr.name) AS product_name,
             p.price_chf, p.compare_price_chf, p.slug,
             p.stock, p.is_active,
             pi.url AS image_url
      FROM wishlists w
      INNER JOIN products p ON p.id = w.product_id AND p.deleted_at IS NULL
-     INNER JOIN product_translations pt ON pt.product_id = w.product_id AND pt.locale = ?
+     LEFT JOIN product_translations pt ON pt.product_id = w.product_id AND pt.locale = ?
+     LEFT JOIN product_translations pt_fr ON pt_fr.product_id = w.product_id AND pt_fr.locale = 'fr'
      LEFT JOIN product_images pi ON pi.product_id = w.product_id AND pi.is_primary = 1
      WHERE w.user_id = ?
      ORDER BY w.created_at DESC`,

@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
   User, Package, MapPin, Heart, LogOut, ChevronRight,
-  Check, AlertCircle, Plus, Pencil, Trash2, Star, X, Gift, Copy,
+  Check, AlertCircle, Plus, Pencil, Trash2, Star, X, Gift, Copy, Eye, EyeOff,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useWishlist } from '../../contexts/WishlistContext.jsx'
@@ -39,12 +39,27 @@ const makeProfileSchema = (t) => z.object({
 
 const makePasswordSchema = (t) => z.object({
   current_password: z.string().min(1, t('account.val.currentPasswordRequired')),
-  new_password:     z.string().min(8, t('account.val.passwordMin')),
+  new_password:     z.string()
+    .min(5, t('account.val.passwordMin'))
+    .regex(/[A-Z]/, t('account.val.passwordUppercase'))
+    .regex(/[^A-Za-z0-9]/, t('account.val.passwordSymbol')),
   confirm_password: z.string().min(1, t('account.val.confirmRequired')),
 }).refine(d => d.new_password === d.confirm_password, {
   message: t('account.val.passwordsMismatch'),
   path: ['confirm_password'],
 })
+
+/* Force du mot de passe — évaluation simple par paliers cumulés (longueur, casse, chiffre, symbole) */
+function getPasswordStrength(value) {
+  if (!value) return 0
+  let score = 0
+  if (value.length >= 5) score++
+  if (value.length >= 12) score++
+  if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score++
+  if (/\d/.test(value)) score++
+  if (/[^A-Za-z0-9]/.test(value)) score++
+  return Math.min(score, 4)
+}
 
 /* Cantons suisses officiels — code + nom (identique au checkout) */
 const SWISS_CANTONS = [
@@ -83,15 +98,62 @@ function StatusBadge({ status }) {
   )
 }
 
+/* Champ mot de passe accessible — label, bouton afficher/masquer, description et erreur reliés via aria-describedby */
+function PasswordField({
+  id, label, autoComplete, register, name, error, hintId, visible, onToggleVisible,
+}) {
+  const errorId = `${id}-error`
+  const describedBy = [hintId, error ? errorId : null].filter(Boolean).join(' ') || undefined
+
+  return (
+    <div className={s.field}>
+      <label htmlFor={id} className={s.label}>{label}</label>
+      <div className={s.inputWrap}>
+        <input
+          id={id}
+          type={visible ? 'text' : 'password'}
+          autoComplete={autoComplete}
+          className={`${s.input} ${s.inputWithEye} ${error ? s.inputError : ''}`}
+          aria-invalid={error ? 'true' : undefined}
+          aria-describedby={describedBy}
+          {...register(name)}
+        />
+        <button
+          type="button"
+          className={s.eyeBtn}
+          onClick={onToggleVisible}
+          aria-label={visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+        >
+          {visible ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
+        </button>
+      </div>
+      {error && (
+        <span id={errorId} className={s.fieldError} role="alert">
+          <AlertCircle size={11} aria-hidden="true" />{error.message}
+        </span>
+      )}
+    </div>
+  )
+}
+
+const STRENGTH_LABELS = ['Très faible', 'Faible', 'Moyen', 'Bon', 'Excellent']
+const STRENGTH_COLORS = ['#dc2626', '#f97316', '#eab308', '#65a30d', '#16a34a']
+
 /* ── Formulaire changement de mot de passe ── */
 function PasswordForm() {
   const { t } = useTranslation()
   const passwordSchema = useMemo(() => makePasswordSchema(t), [t])
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(passwordSchema),
   })
   const [saved,  setSaved]  = useState(false)
   const [apiErr, setApiErr] = useState('')
+  const [showCurrent, setShowCurrent] = useState(false)
+  const [showNew,     setShowNew]     = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  const newPasswordValue = watch('new_password', '')
+  const strength = getPasswordStrength(newPasswordValue)
 
   const onSubmit = async (data) => {
     setApiErr('')
@@ -108,6 +170,9 @@ function PasswordForm() {
   return (
     <>
       <h3 className={s.subTitle}>{t('account.changePassword')}</h3>
+      <p className={s.fieldHint}>
+        Utilisez un mot de passe d'au moins 5 caractères, avec au moins une majuscule et un symbole.
+      </p>
 
       {apiErr && (
         <div className={s.alertError} role="alert">
@@ -121,29 +186,39 @@ function PasswordForm() {
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate className={s.form}>
-        <div className={s.field}>
-          <label htmlFor="pwd-current" className={s.label}>Mot de passe actuel</label>
-          <input id="pwd-current" type="password" autoComplete="current-password"
-            className={`${s.input} ${errors.current_password ? s.inputError : ''}`}
-            {...register('current_password')} />
-          {errors.current_password && <span className={s.fieldError}><AlertCircle size={11} />{errors.current_password.message}</span>}
-        </div>
+        <PasswordField
+          id="pwd-current" label="Mot de passe actuel" autoComplete="current-password"
+          register={register} name="current_password" error={errors.current_password}
+          visible={showCurrent} onToggleVisible={() => setShowCurrent(v => !v)}
+        />
 
         <div className={s.formRow}>
-          <div className={s.field}>
-            <label htmlFor="pwd-new" className={s.label}>Nouveau mot de passe</label>
-            <input id="pwd-new" type="password" autoComplete="new-password"
-              className={`${s.input} ${errors.new_password ? s.inputError : ''}`}
-              {...register('new_password')} />
-            {errors.new_password && <span className={s.fieldError}><AlertCircle size={11} />{errors.new_password.message}</span>}
+          <div>
+            <PasswordField
+              id="pwd-new" label="Nouveau mot de passe" autoComplete="new-password"
+              register={register} name="new_password" error={errors.new_password}
+              hintId="pwd-new-hint" visible={showNew} onToggleVisible={() => setShowNew(v => !v)}
+            />
+            <p id="pwd-new-hint" className={s.fieldHint}>Minimum 5 caractères, avec une majuscule et un symbole.</p>
+            {newPasswordValue && (
+              <div className={s.strengthWrap}>
+                <div className={s.strengthBar} aria-hidden="true">
+                  <div
+                    className={s.strengthBarFill}
+                    style={{ width: `${(strength / 4) * 100}%`, background: STRENGTH_COLORS[strength] }}
+                  />
+                </div>
+                <span className={s.strengthLabel} style={{ color: STRENGTH_COLORS[strength] }} aria-live="polite">
+                  Sécurité : {STRENGTH_LABELS[strength]}
+                </span>
+              </div>
+            )}
           </div>
-          <div className={s.field}>
-            <label htmlFor="pwd-confirm" className={s.label}>Confirmer le nouveau mot de passe</label>
-            <input id="pwd-confirm" type="password" autoComplete="new-password"
-              className={`${s.input} ${errors.confirm_password ? s.inputError : ''}`}
-              {...register('confirm_password')} />
-            {errors.confirm_password && <span className={s.fieldError}><AlertCircle size={11} />{errors.confirm_password.message}</span>}
-          </div>
+          <PasswordField
+            id="pwd-confirm" label="Confirmer le nouveau mot de passe" autoComplete="new-password"
+            register={register} name="confirm_password" error={errors.confirm_password}
+            visible={showConfirm} onToggleVisible={() => setShowConfirm(v => !v)}
+          />
         </div>
 
         <div className={s.formActions}>

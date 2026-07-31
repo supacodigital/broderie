@@ -193,7 +193,8 @@ export default function AdminLayout() {
 
   /* Charge les compteurs de badges + stock critique :
      - au montage,
-     - toutes les 60s (filet de sécurité),
+     - toutes les 15s (filet de sécurité — nouvelle commande d'un client non signalée par un event),
+     - dès que l'onglet regagne le focus/la visibilité (retour depuis un autre onglet/app),
      - immédiatement quand une page admin signale une mutation (event « admin:data-changed »),
        ce qui rafraîchit le badge dès qu'on change le statut d'une commande, modère un avis, etc. */
   useEffect(() => {
@@ -201,7 +202,7 @@ export default function AdminLayout() {
     async function fetchBadges() {
       try {
         const [ordersRes, reviewsRes, stockRes] = await Promise.all([
-          getOrders({ status: "pending,awaiting_payment", limit: 1 }),
+          getOrders({ status: "pending,awaiting_payment,pending_invoice,pending_pickup", limit: 1 }),
           getReviews({ approved: false, limit: 1 }),
           getProducts({ low_stock: true, limit: 1 }),
         ]);
@@ -213,13 +214,20 @@ export default function AdminLayout() {
         /* silencieux — pas bloquant */
       }
     }
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") fetchBadges();
+    }
     fetchBadges();
-    const interval = setInterval(fetchBadges, 60_000);
+    const interval = setInterval(fetchBadges, 15_000);
     window.addEventListener("admin:data-changed", fetchBadges);
+    window.addEventListener("focus", fetchBadges);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       cancelled = true;
       clearInterval(interval);
       window.removeEventListener("admin:data-changed", fetchBadges);
+      window.removeEventListener("focus", fetchBadges);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 

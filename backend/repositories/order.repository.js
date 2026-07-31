@@ -62,9 +62,12 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
     // Insertion des articles avec snapshot produit figé
     for (const item of items) {
       const [productRows] = await connection.execute(
-        `SELECT p.price_chf, p.compare_price_chf, p.sku, p.weight_kg, p.is_made_to_order, pt.name, pt.description
+        `SELECT p.price_chf, p.compare_price_chf, p.sku, p.weight_kg, p.is_made_to_order,
+                COALESCE(pt.name, pt_fr.name) AS name,
+                COALESCE(pt.description, pt_fr.description) AS description
          FROM products p
-         INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
+         LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
+         LEFT JOIN product_translations pt_fr ON pt_fr.product_id = p.id AND pt_fr.locale = 'fr'
          WHERE p.id = ?`,
         [locale, item.product_id]
       );

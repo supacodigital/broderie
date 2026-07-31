@@ -28,6 +28,7 @@ router.get('/dashboard/stats', dashboardController.getStats);
 // Produits
 router.get('/products', productAdminController.getAll);
 router.post('/products', productAdminController.create);
+router.put('/products/featured-order', productAdminController.updateFeaturedOrder);
 router.get('/products/:id', productAdminController.getById);
 router.put('/products/:id', productAdminController.update);
 router.delete('/products/:id', productAdminController.remove);

@@ -44,6 +44,12 @@ export default function Navbar() {
   function closeSearch() { setSearchOpen(false) }
   function toggleSearch() { setSearchOpen(o => !o); setMenuOpen(false) }
 
+  /* Initiales du client connecté (ex. "Julie Dupont" → "JD") */
+  const initials = [user?.first_name, user?.last_name]
+    .filter(Boolean)
+    .map(n => n[0].toUpperCase())
+    .join('')
+
   async function handleLogout() {
     await logout()
     navigate('/')
@@ -127,8 +133,8 @@ export default function Navbar() {
           {/* Compte — desktop */}
           <div className={s.accountDesktop}>
             {isAuthenticated ? (
-              <Link to="/mon-compte" className={s.iconBtn} aria-label={t('nav.account')} title={user?.first_name ?? t('nav.account')}>
-                <User size={20} />
+              <Link to="/mon-compte" className={s.avatarBtn} aria-label={t('nav.account')} title={user?.first_name ?? t('nav.account')}>
+                {initials || <User size={20} />}
               </Link>
             ) : (
               <Link to="/connexion" className={s.iconBtn} aria-label={t('nav.account')}>
@@ -253,7 +259,7 @@ export default function Navbar() {
                   <span className={s.mobileLinkText}>{t('nav.account')}</span>
                   <span className={s.mobileLinkSub}>{user?.first_name ?? 'Mon profil'}</span>
                 </span>
-                <User size={18} className={s.mobileLinkArrow} />
+                {initials ? <span className={s.mobileAvatar} aria-hidden="true">{initials}</span> : <User size={18} className={s.mobileLinkArrow} />}
               </NavLink>
               <button className={s.mobileLogoutBtn} onClick={handleLogout}>
                 <LogOut size={16} />

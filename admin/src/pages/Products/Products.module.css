@@ -1,3 +1,7 @@
+/* Police serif du site vitrine — chargée ici uniquement pour l'aperçu bento (previewBento),
+   qui doit refléter fidèlement le rendu réel de la home (Cormorant Infant sur les titres produit). */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Infant:wght@600;700&family=Montserrat:wght@500;600&display=swap');
+
 .page {}
 
 /* ── Bande vitrine home ───────────────────────────────────────────────────── */
@@ -110,12 +114,35 @@
   overflow: hidden;
   background: var(--rose-pale);
   transition: border-color .15s, box-shadow .15s, opacity .15s;
-  cursor: default;
+  cursor: grab;
 }
 
 .featuredSlot:hover { border-color: var(--rose); }
 
 .featuredSlotLarge { border-color: var(--rose); background: #fff0f6; }
+
+.featuredSlotDragging { opacity: 0.4; cursor: grabbing; }
+
+.featuredSlotDragOver {
+  border-color: var(--rose);
+  box-shadow: 0 0 0 3px rgba(244, 114, 182, .25);
+}
+
+.featuredSlotHandle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: rgba(255,255,255,.85);
+  color: var(--text-muted);
+  pointer-events: none;
+}
 
 .featuredSlotLabel {
   position: absolute;
@@ -387,19 +414,17 @@
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
   grid-template-rows: auto auto;
-  gap: 12px;
+  gap: 20px;
 }
 
+/* Couleurs alignées sur la charte du site vitrine (frontend/src/index.css), pas celle de l'admin :
+   cet aperçu doit ressembler au vrai rendu home, pas au style back-office. */
 .previewSlot {
-  border-radius: 10px;
   overflow: hidden;
-  background: var(--rose-pale);
-  border: 1px solid var(--rose-border);
 }
 
 .previewSlotLarge {
   grid-row: 1 / 3;
-  border-color: var(--rose);
 }
 
 .previewImg {
@@ -411,6 +436,7 @@
   background: #f5e6ef;
   color: var(--text-muted);
   overflow: hidden;
+  border-radius: 4px;
 }
 
 .previewSlotLarge .previewImg { aspect-ratio: 2 / 3; }
@@ -419,27 +445,30 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.3s ease;
 }
 
+.previewSlot:hover .previewImg img { transform: scale(1.05); }
+
 .previewInfo {
-  padding: 8px 10px 10px;
+  padding: 10px 2px 0;
 }
 
 .previewName {
-  font-size: 12px;
+  font-family: 'Cormorant Infant', serif;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--text-dark);
+  color: #1E1020;
   margin-bottom: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
-.previewSlotLarge .previewName { font-size: 15px; }
+.previewSlotLarge .previewName { font-size: 19px; }
 
 .previewPrice {
-  font-size: 11px;
-  color: var(--text-muted);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: #831843;
   font-weight: 600;
 }
 

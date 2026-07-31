@@ -5,7 +5,8 @@ const { pool } = require('../config/db');
 const findAll = async (locale = 'fr') => {
   const [rows] = await pool.execute(
     `SELECT c.id, c.parent_id, c.slug, c.image_url, c.sort_order,
-            ct.name, ct.description,
+            COALESCE(ct.name, ct_fr.name) AS name,
+            COALESCE(ct.description, ct_fr.description) AS description,
             (
               SELECT COUNT(p.id)
               FROM products p
@@ -20,20 +21,23 @@ const findAll = async (locale = 'fr') => {
                 )
             ) AS product_count
      FROM categories c
-     INNER JOIN category_translations ct ON ct.category_id = c.id AND ct.locale = ?
-     ORDER BY c.sort_order ASC, ct.name ASC`,
+     LEFT JOIN category_translations ct ON ct.category_id = c.id AND ct.locale = ?
+     LEFT JOIN category_translations ct_fr ON ct_fr.category_id = c.id AND ct_fr.locale = 'fr'
+     ORDER BY c.sort_order ASC, name ASC`,
     [locale]
   );
   return rows;
 };
 
-// Une catégorie par slug avec sa traduction
+// Une catégorie par slug avec sa traduction (fallback FR si la locale demandée est absente)
 const findBySlug = async (slug, locale = 'fr') => {
   const [rows] = await pool.execute(
     `SELECT c.id, c.parent_id, c.slug, c.image_url, c.sort_order,
-            ct.name, ct.description
+            COALESCE(ct.name, ct_fr.name) AS name,
+            COALESCE(ct.description, ct_fr.description) AS description
      FROM categories c
-     INNER JOIN category_translations ct ON ct.category_id = c.id AND ct.locale = ?
+     LEFT JOIN category_translations ct ON ct.category_id = c.id AND ct.locale = ?
+     LEFT JOIN category_translations ct_fr ON ct_fr.category_id = c.id AND ct_fr.locale = 'fr'
      WHERE c.slug = ?
      LIMIT 1`,
     [locale, slug]

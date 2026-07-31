@@ -50,14 +50,17 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Sécurité des headers HTTP — CSP assouplie pour les SPA (scripts/styles hachés par Vite)
+// scriptSrc/connectSrc/frameSrc autorisent accounts.google.com : nécessaire au SDK Google
+// Identity Services (bouton « Se connecter avec Google ») chargé dynamiquement côté client.
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc:     ["'self'"],
-      scriptSrc:      ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      scriptSrc:      ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com"],
       styleSrc:       ["'self'", "'unsafe-inline'"],
       imgSrc:         ["'self'", "data:", "blob:"],
-      connectSrc:     ["'self'"],
+      connectSrc:     ["'self'", "https://accounts.google.com"],
+      frameSrc:       ["https://accounts.google.com"],
       fontSrc:        ["'self'", "data:"],
       objectSrc:      ["'none'"],
       frameAncestors: ["'none'"],

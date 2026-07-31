@@ -28,8 +28,8 @@ export default function LoginForm() {
   const [globalError,  setGlobalError]  = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
 
-  /* Redirige vers la page demandée ou /mon-compte après connexion */
-  const from = location.state?.from?.pathname ?? '/mon-compte'
+  /* Redirige vers la page demandée ou l'accueil après connexion */
+  const from = location.state?.from?.pathname ?? '/'
 
   const { register, handleSubmit, setFocus, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(buildSchema(t)),

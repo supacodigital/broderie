@@ -119,6 +119,12 @@ const changePassword = async (req, res, next) => {
     if (new_password.length < 5) {
       return next(new AppError('Le nouveau mot de passe doit contenir au moins 5 caractères.', 400));
     }
+    if (!/[A-Z]/.test(new_password)) {
+      return next(new AppError('Le nouveau mot de passe doit contenir au moins une majuscule.', 400));
+    }
+    if (!/[^A-Za-z0-9]/.test(new_password)) {
+      return next(new AppError('Le nouveau mot de passe doit contenir au moins un symbole.', 400));
+    }
 
     const user = await userRepository.findByIdWithPassword(req.user.id);
     if (!user) return next(new AppError('Utilisateur introuvable.', 404));

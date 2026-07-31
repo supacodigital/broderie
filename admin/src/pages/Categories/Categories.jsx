@@ -267,9 +267,13 @@ function CategoriesPanel() {
 
   useEffect(() => { load() }, [load])
 
-  const handleDelete = (id) => {
+  const handleDelete = (id, canDelete) => {
+    if (!canDelete) {
+      toast.error('Impossible de supprimer : des produits ou sous-catégories sont encore rattachés à cette catégorie.')
+      return
+    }
     setConfirm({
-      message: 'Supprimer cette catégorie ? Les produits liés ne seront pas supprimés.',
+      message: 'Supprimer cette catégorie ?',
       onConfirm: async () => {
         try {
           await deleteCategory(id)
@@ -406,8 +410,9 @@ function CategoriesPanel() {
             const nameEn    = cat.translations?.en?.name
             const hasChildren = sorted.some(c => c.parent_id === cat.id)
             const isExpanded  = query ? true : expandedIds.has(cat.id)
-            /* Le compte produits vient déjà agrégé sur toute la descendance depuis le backend */
+            /* Le compte produits est agrégé sur toute la descendance depuis le backend */
             const productCount = Number(cat.product_count) || 0
+            const canDelete = productCount === 0 && !hasChildren
 
             return (
               <div key={cat.id} className={`${s.tableRow} ${isChild ? s.tableRowChild : ''}`}>
@@ -442,7 +447,13 @@ function CategoriesPanel() {
                   <button className={s.iconBtn} onClick={() => setModal(cat)} aria-label="Modifier">
                     <Edit2 size={13} />
                   </button>
-                  <button className={s.iconBtnDanger} onClick={() => handleDelete(cat.id)} aria-label="Supprimer">
+                  <button
+                    className={s.iconBtnDanger}
+                    onClick={() => handleDelete(cat.id, canDelete)}
+                    disabled={!canDelete}
+                    aria-label="Supprimer"
+                    title={canDelete ? 'Supprimer' : 'Impossible : des produits ou sous-catégories sont encore rattachés'}
+                  >
                     <Trash2 size={13} />
                   </button>
                 </div>

@@ -26,6 +26,11 @@ export async function deleteProduct(id) {
   await api.delete(`/admin/products/${id}`)
 }
 
+// Persiste l'ordre des slots de la vitrine home bento (drag & drop) — productIds[0] = grande carte
+export async function updateFeaturedOrder(productIds) {
+  await api.put('/admin/products/featured-order', { productIds })
+}
+
 export async function uploadProductImage(productId, formData) {
   const res = await api.post(`/admin/products/${productId}/images`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },

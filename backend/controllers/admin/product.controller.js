@@ -232,4 +232,26 @@ const setPrimaryImage = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, create, update, remove, uploadImage, removeImage, setPrimaryImage };
+const featuredOrderSchema = z.object({
+  productIds: z.array(z.number().int().positive()).min(1).max(20),
+});
+
+// Persiste l'ordre de la vitrine home bento (drag & drop admin) — le slot 0 = grande carte.
+// Même ordre utilisé par la boutique (featured_order), voir product.repository.js#findAll.
+const updateFeaturedOrder = async (req, res, next) => {
+  try {
+    const parsed = featuredOrderSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const errors = parsed.error.issues.map(e => ({ field: e.path.join('.'), message: e.message }));
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors });
+    }
+
+    await productAdminRepository.updateFeaturedOrder(parsed.data.productIds);
+    invalidateProducts();
+    res.json({ success: true, message: 'Ordre de la vitrine mis à jour.' });
+  } catch (error) {
+    next(mapDbError(error));
+  }
+};
+
+module.exports = { getAll, getById, create, update, remove, uploadImage, removeImage, setPrimaryImage, updateFeaturedOrder };

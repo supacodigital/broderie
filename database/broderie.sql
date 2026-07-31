@@ -232,7 +232,7 @@ CREATE TABLE category_translations (
 -- ============================================================
 CREATE TABLE products (
   id                INT UNSIGNED   NOT NULL AUTO_INCREMENT,
-  category_id       INT UNSIGNED   NOT NULL,
+  category_id       INT UNSIGNED   NULL DEFAULT NULL, -- NULL possible : catégorie supprimée alors qu'un produit soft-deleted y était encore rattaché (ON DELETE SET NULL)
   supplier_id       INT UNSIGNED   NULL DEFAULT NULL,
   slug              VARCHAR(255)   NOT NULL,
   price_chf         DECIMAL(10, 2) NOT NULL,
@@ -243,6 +243,7 @@ CREATE TABLE products (
   weight_kg         DECIMAL(8, 3)  NULL DEFAULT NULL,
   is_active         TINYINT(1)     NOT NULL DEFAULT 1,
   is_featured       TINYINT(1)     NOT NULL DEFAULT 0,
+  featured_order    INT UNSIGNED   NULL DEFAULT NULL,   -- Position dans la vitrine home bento (0 = grande carte) — NULL tant que non ordonné manuellement
   is_made_to_order  TINYINT(1)     NOT NULL DEFAULT 0,  -- Produit sur commande : commande possible sans stock (délai 3 à 4 semaines)
   badge             ENUM('nouveaute','promo','coup_de_coeur','exclusif') NULL DEFAULT NULL,
   length_cm         DECIMAL(8, 2)  NULL DEFAULT NULL,
@@ -262,7 +263,7 @@ CREATE TABLE products (
   INDEX idx_products_active_feat (is_active, is_featured),           -- page accueil / featured
   INDEX idx_products_active_price(is_active, price_chf),             -- tri par prix
   INDEX idx_products_stock       (is_active, stock),                 -- filtre in_stock
-  CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories (id),
+  CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL,
   CONSTRAINT fk_products_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers (id) ON DELETE SET NULL,
   CONSTRAINT fk_products_tax      FOREIGN KEY (tax_rate_id) REFERENCES tax_rates (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

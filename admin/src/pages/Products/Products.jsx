@@ -4,10 +4,10 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Plus, Search, Edit2, Trash2,
   ImageOff, AlertTriangle,
-  SlidersHorizontal, RotateCcw, Layout, Eye, ChevronDown, X,
+  SlidersHorizontal, RotateCcw, Layout, Eye, ChevronDown, X, GripVertical,
 } from 'lucide-react'
 import {
-  getProducts, getProductById, updateProduct, deleteProduct,
+  getProducts, getProductById, updateProduct, deleteProduct, updateFeaturedOrder,
 } from '../../services/products.service.js'
 import { getCategories } from '../../services/categories.service.js'
 import { getSuppliers } from '../../services/suppliers.service.js'
@@ -123,15 +123,43 @@ function SlotSearch({ onAdd, onClose }) {
 }
 
 // ── Bande vitrine home ─────────────────────────────────────────────────────
-function FeaturedSlots({ featuredProducts, onEdit, onRemove, onAdd }) {
+function FeaturedSlots({ featuredProducts, onEdit, onRemove, onAdd, onReorder }) {
   const count                           = featuredProducts.length
   const [open, setOpen]                 = useState(true)
   const [preview, setPreview]           = useState(false)
   const [activeSearch, setActiveSearch] = useState(null)
 
+  /* Ordre local affiché pendant le drag — resynchronisé dès que featuredProducts change côté serveur */
+  const [order, setOrder]     = useState(featuredProducts)
+  const [dragIndex, setDragIndex] = useState(null)
+  const [overIndex, setOverIndex] = useState(null)
+  useEffect(() => { setOrder(featuredProducts) }, [featuredProducts])
+
+  function handleDragStart(i) {
+    setDragIndex(i)
+  }
+  function handleDragOver(e, i) {
+    e.preventDefault()
+    if (i !== overIndex) setOverIndex(i)
+  }
+  function handleDrop(i) {
+    if (dragIndex === null || dragIndex === i) { setDragIndex(null); setOverIndex(null); return }
+    const next = [...order]
+    const [moved] = next.splice(dragIndex, 1)
+    next.splice(i, 0, moved)
+    setOrder(next)
+    setDragIndex(null)
+    setOverIndex(null)
+    onReorder(next.map(p => p.id))
+  }
+  function handleDragEnd() {
+    setDragIndex(null)
+    setOverIndex(null)
+  }
+
   return (
     <>
-      {preview && <BentoPreview products={featuredProducts} onClose={() => setPreview(false)} />}
+      {preview && <BentoPreview products={order} onClose={() => setPreview(false)} />}
       <div className={s.featuredBar}>
         <button className={s.featuredBarHead} onClick={() => setOpen(v => !v)} aria-expanded={open}>
           <Layout size={14} className={s.featuredBarIcon} />
@@ -156,16 +184,24 @@ function FeaturedSlots({ featuredProducts, onEdit, onRemove, onAdd }) {
           </div>
           <div className={s.featuredSlots}>
           {Array.from({ length: FEATURED_MAX }).map((_, i) => {
-            const product = featuredProducts[i]
+            const product = order[i]
             const isFirst = i === 0
 
             if (product) {
               return (
                 <div
                   key={product.id}
-                  className={`${s.featuredSlot} ${isFirst ? s.featuredSlotLarge : ''}`}
+                  className={`${s.featuredSlot} ${isFirst ? s.featuredSlotLarge : ''} ${dragIndex === i ? s.featuredSlotDragging : ''} ${overIndex === i && dragIndex !== null && dragIndex !== i ? s.featuredSlotDragOver : ''}`}
+                  draggable
+                  onDragStart={() => handleDragStart(i)}
+                  onDragOver={(e) => handleDragOver(e, i)}
+                  onDrop={() => handleDrop(i)}
+                  onDragEnd={handleDragEnd}
                 >
                   {isFirst && <span className={s.featuredSlotLabel}>Grande carte</span>}
+                  <span className={s.featuredSlotHandle} title="Glisser pour réordonner">
+                    <GripVertical size={13} />
+                  </span>
                   <div className={s.featuredSlotImg}>
                     {product.image_url
                       ? <img src={product.image_url} alt={product.name} />
@@ -208,7 +244,7 @@ function FeaturedSlots({ featuredProducts, onEdit, onRemove, onAdd }) {
             )
           })}
           </div>
-          <p className={s.featuredBarHint}>Le slot 1 s'affiche en grande carte · Modifiez un produit pour le placer en tête</p>
+          <p className={s.featuredBarHint}>Le slot 1 s'affiche en grande carte · Glissez-déposez une carte pour réordonner la vitrine</p>
           </>
         )}
       </div>
@@ -349,6 +385,17 @@ export default function Products() {
       toast.error('Erreur lors de la mise à jour.')
     }
   }, [buildFeaturedPayload, loadFeatured, toast])
+
+  /* Persiste le nouvel ordre après un drag & drop dans la bande vitrine home */
+  const handleReorderFeatured = useCallback(async (productIds) => {
+    try {
+      await updateFeaturedOrder(productIds)
+      loadFeatured()
+    } catch {
+      toast.error('Erreur lors de la mise à jour de l\'ordre.')
+      loadFeatured() // resynchronise l'affichage avec le vrai ordre serveur en cas d'échec
+    }
+  }, [loadFeatured, toast])
 
 
   useEffect(() => {
@@ -568,6 +615,7 @@ export default function Products() {
         onEdit={(product) => navigate(`/produits/${product.id}`)}
         onRemove={handleRemoveFeatured}
         onAdd={handleAddFeatured}
+        onReorder={handleReorderFeatured}
       />
 
       {error && <ErrorBanner onRetry={load} />}

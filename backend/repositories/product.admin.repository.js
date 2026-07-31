@@ -201,9 +201,13 @@ const findAllAdmin = async ({
   isActive = null, isFeatured = null,
   sort = 'created_at', order = 'desc',
 } = {}) => {
-  const offset    = (page - 1) * limit;
-  const sortField = ALLOWED_SORT_ADMIN[sort] || 'p.created_at';
-  const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
+  const offset = (page - 1) * limit;
+  // Vitrine home bento : même ordre que la boutique (featured_order), pas le tri générique demandé —
+  // sinon la bande "Vitrine home" de l'admin et la home affichent deux ordres différents.
+  const sortField = isFeatured
+    ? 'p.featured_order IS NULL, p.featured_order, p.created_at'
+    : (ALLOWED_SORT_ADMIN[sort] || 'p.created_at');
+  const sortOrder = isFeatured ? 'ASC' : (order === 'asc' ? 'ASC' : 'DESC');
 
   const params = ['fr'];
   let where = 'WHERE p.deleted_at IS NULL';
@@ -305,4 +309,34 @@ const skuExists = async (sku, excludeId = null) => {
   return rows.length > 0;
 };
 
-module.exports = { create, update, softDelete, addImage, removeImage, setPrimaryImage, findAllAdmin, findByIdAdmin, slugExists, skuExists };
+// Persiste l'ordre des produits vedettes (bento home), fixé par drag & drop admin.
+// productIds[i] reçoit featured_order = i (0 = grande carte). Tout produit featured non listé
+// (retiré entre-temps) repasse à NULL — il retombe en fin de liste via le fallback created_at.
+const updateFeaturedOrder = async (productIds) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    await connection.query(
+      `UPDATE products SET featured_order = NULL WHERE is_featured = 1 AND id NOT IN (?)`,
+      [productIds]
+    );
+
+    // Une seule requête pour toutes les positions (CASE WHEN), pas de boucle de UPDATE.
+    const caseClause = productIds.map(() => 'WHEN ? THEN ?').join(' ');
+    const caseParams = productIds.flatMap((id, i) => [id, i]);
+    await connection.query(
+      `UPDATE products SET featured_order = CASE id ${caseClause} END WHERE id IN (?)`,
+      [...caseParams, productIds]
+    );
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+module.exports = { create, update, softDelete, addImage, removeImage, setPrimaryImage, findAllAdmin, findByIdAdmin, slugExists, skuExists, updateFeaturedOrder };

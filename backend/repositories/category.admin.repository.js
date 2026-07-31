@@ -1,13 +1,23 @@
 const { pool } = require('../config/db');
 
-// Toutes les catégories avec traductions et nombre de produits liés (admin)
+// Toutes les catégories avec traductions et nombre de produits liés — agrégé sur toute la descendance (admin)
 const findAll = async () => {
   const [categories] = await pool.execute(
     `SELECT c.id, c.parent_id, c.slug, c.image_url, c.sort_order,
-            COUNT(p.id) AS product_count
+            (
+              SELECT COUNT(p.id)
+              FROM products p
+              WHERE p.deleted_at IS NULL
+                AND p.category_id IN (
+                  SELECT descendant.id
+                  FROM categories descendant
+                  LEFT JOIN categories parent ON parent.id = descendant.parent_id
+                  WHERE descendant.id = c.id
+                     OR descendant.parent_id = c.id
+                     OR parent.parent_id = c.id
+                )
+            ) AS product_count
      FROM categories c
-     LEFT JOIN products p ON p.category_id = c.id AND p.deleted_at IS NULL
-     GROUP BY c.id
      ORDER BY c.sort_order ASC, c.id ASC`
   );
 

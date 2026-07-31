@@ -18,15 +18,16 @@ const findCartItems = async (cartId, locale = 'fr') => {
     `SELECT ci.id, ci.product_id, ci.variant_id, ci.quantity,
             ci.price_snapshot, ci.price_snapshot AS unit_price,
             ci.tax_rate_snapshot,
-            pt.name AS product_name,
-            pt.slug AS product_slug,
+            COALESCE(pt.name, pt_fr.name) AS product_name,
+            COALESCE(pt.slug, pt_fr.slug) AS product_slug,
             pi.url AS image_url,
             p.stock, p.weight_kg, p.is_active, p.is_made_to_order, p.deleted_at,
             p.category_id,
             c.slug AS category_slug
      FROM cart_items ci
      INNER JOIN products p ON p.id = ci.product_id
-     INNER JOIN product_translations pt ON pt.product_id = ci.product_id AND pt.locale = ?
+     LEFT JOIN product_translations pt ON pt.product_id = ci.product_id AND pt.locale = ?
+     LEFT JOIN product_translations pt_fr ON pt_fr.product_id = ci.product_id AND pt_fr.locale = 'fr'
      LEFT JOIN product_images pi ON pi.product_id = ci.product_id AND pi.is_primary = 1
      LEFT JOIN categories c ON c.id = p.category_id
      WHERE ci.cart_id = ?`,
