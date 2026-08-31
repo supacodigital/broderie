@@ -638,8 +638,9 @@ CREATE TABLE newsletter_subscribers (
 CREATE TABLE consent_logs (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id     INT UNSIGNED NULL DEFAULT NULL,
-  session_id  VARCHAR(255) NOT NULL,
+  session_id  VARCHAR(255) NULL DEFAULT NULL,   -- NULL possible : consentement donné avant tout panier
   type        VARCHAR(50)  NOT NULL,
+  accepted    TINYINT(1)   NOT NULL DEFAULT 1,  -- 0 = refusé, 1 = accepté
   version     VARCHAR(20)  NOT NULL,
   ip_hash     CHAR(64)     NOT NULL,
   accepted_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,

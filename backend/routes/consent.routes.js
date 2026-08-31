@@ -1,31 +1,45 @@
 const express = require('express');
 const router  = express.Router();
 const crypto  = require('crypto');
+const { z }   = require('zod');
 const { pool } = require('../config/db');
+const { optionalAuth } = require('../middlewares/optionalAuth');
 
-/* POST /api/v1/consent — log du consentement cookies (LPD art. 6) */
-router.post('/', async (req, res) => {
+// Schéma d'entrée — `accepted` est le cœur de la preuve de consentement (accepté vs refusé)
+const consentSchema = z.object({
+  type:     z.enum(['cookies']).default('cookies'),
+  accepted: z.boolean(),
+  version:  z.string().min(1).max(20).default('1.0'),
+});
+
+/* POST /api/v1/consent — journalise le choix de consentement cookies (LPD art. 6) */
+router.post('/', optionalAuth, async (req, res) => {
+  const parsed = consentSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ success: false, message: 'Données de consentement invalides.' });
+  }
+  const { type, accepted, version } = parsed.data;
+
   try {
-    const { type = 'cookies', accepted, version = '1.0' } = req.body;
-
-    /* IP hashée en SHA-256 — jamais stockée en clair (LPD) */
-    const rawIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
-      || req.socket.remoteAddress
-      || '';
+    /* IP hachée en SHA-256 — jamais stockée en clair (LPD). `req.ip` respecte `trust proxy`
+       en production ; en dev il vaut l'IP réelle de la connexion. */
+    const rawIp  = req.ip || req.socket.remoteAddress || '';
     const ipHash = crypto.createHash('sha256').update(rawIp).digest('hex');
 
     const userId    = req.user?.id ?? null;
-    const sessionId = req.cookies?.session_id ?? null;
+    const sessionId = req.cookies?.cartSession ?? null;
 
     await pool.execute(
-      `INSERT INTO consent_logs (user_id, session_id, type, version, ip_hash, accepted_at)
-       VALUES (?, ?, ?, ?, ?, NOW())`,
-      [userId, sessionId, type, version, ipHash]
+      `INSERT INTO consent_logs (user_id, session_id, type, accepted, version, ip_hash, accepted_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [userId, sessionId, type, accepted ? 1 : 0, version, ipHash]
     );
 
     res.json({ success: true, message: 'Consentement enregistré.' });
-  } catch {
-    /* Silencieux — ne jamais bloquer l'utilisateur pour un log */
+  } catch (err) {
+    /* Ne jamais bloquer le visiteur pour un log — mais tracer l'échec côté serveur
+       (une table consent_logs en panne est un problème de conformité à investiguer). */
+    console.error('[Consent] Enregistrement échoué :', err.message);
     res.json({ success: true });
   }
 });
