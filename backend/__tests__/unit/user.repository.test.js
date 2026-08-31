@@ -163,13 +163,13 @@ describe('user.repository — findByResetToken()', () => {
 // ── updatePassword() ──────────────────────────────────────────────────────────
 
 describe('user.repository — updatePassword()', () => {
-  test('met à jour le hash et invalide le token', async () => {
+  test('met à jour le hash, invalide le token et incrémente token_version', async () => {
     pool.execute.mockResolvedValue([{}]);
     await userRepository.updatePassword(1, '$2b$12$newhash');
-    expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining('reset_token_hash = NULL'),
-      ['$2b$12$newhash', 1]
-    );
+    const sql = pool.execute.mock.calls[0][0];
+    expect(sql).toMatch(/reset_token_hash = NULL/);
+    expect(sql).toMatch(/token_version = token_version \+ 1/);
+    expect(pool.execute.mock.calls[0][1]).toEqual(['$2b$12$newhash', 1]);
   });
 });
 

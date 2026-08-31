@@ -15,7 +15,7 @@ const findByEmail = async (email) => {
 // Recherche un utilisateur actif par id
 const findById = async (id) => {
   const [rows] = await pool.execute(
-    `SELECT id, email, first_name, last_name, role, locale, is_active, email_verified_at, created_at
+    `SELECT id, email, first_name, last_name, role, locale, is_active, token_version, email_verified_at, created_at
      FROM users
      WHERE id = ? AND deleted_at IS NULL
      LIMIT 1`,
@@ -270,10 +270,13 @@ const findByResetToken = async (tokenHash) => {
   return rows[0] || null;
 };
 
-// Mise à jour du mot de passe + invalidation du token
+// Mise à jour du mot de passe : invalide le token de reset ET incrémente
+// token_version → tous les refresh tokens émis avant ce changement deviennent invalides.
 const updatePassword = async (userId, passwordHash) => {
   await pool.execute(
-    `UPDATE users SET password_hash = ?, reset_token_hash = NULL, reset_token_expires = NULL
+    `UPDATE users
+     SET password_hash = ?, reset_token_hash = NULL, reset_token_expires = NULL,
+         token_version = token_version + 1
      WHERE id = ?`,
     [passwordHash, userId]
   );

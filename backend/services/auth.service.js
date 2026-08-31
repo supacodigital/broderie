@@ -19,10 +19,12 @@ const generateAccessToken = (user) => {
   );
 };
 
-// Génération d'un refresh token JWT (longue durée — cookie httpOnly)
+// Génération d'un refresh token JWT (longue durée — cookie httpOnly).
+// Le claim `tv` fige le token_version du compte : un changement de mot de passe
+// l'incrémente en base, rendant tous les refresh tokens antérieurs invalides.
 const generateRefreshToken = (user) => {
   return jwt.sign(
-    { id: user.id },
+    { id: user.id, tv: user.token_version ?? 0 },
     env.jwtRefreshSecret,
     { expiresIn: env.jwtRefreshExpiresIn }
   );
@@ -244,6 +246,13 @@ const refreshToken = async (token) => {
   const user = await userRepository.findById(payload.id);
   if (!user || !user.is_active) {
     throw new AppError('Utilisateur introuvable ou inactif.', 401);
+  }
+
+  // Le token_version du token doit correspondre à celui du compte — sinon le mot
+  // de passe a changé depuis l'émission (tokens antérieurs révoqués).
+  // `tv` absent = token émis avant cette fonctionnalité → toléré une fois (== 0).
+  if ((payload.tv ?? 0) !== user.token_version) {
+    throw new AppError('Session expirée. Veuillez vous reconnecter.', 401);
   }
 
   const accessToken = generateAccessToken(user);

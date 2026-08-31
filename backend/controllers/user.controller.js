@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const { z } = require('zod');
 const userRepository = require('../repositories/user.repository');
 const userService = require('../services/user.service');
+const authService = require('../services/auth.service');
 const env = require('../config/env');
 const { AppError } = require('../middlewares/errorHandler');
 
@@ -139,9 +140,21 @@ const changePassword = async (req, res, next) => {
     if (!valid) return next(new AppError('Mot de passe actuel incorrect.', 401));
 
     const hash = await bcrypt.hash(new_password, 12);
-    await userRepository.updatePassword(req.user.id, hash);
+    await userRepository.updatePassword(req.user.id, hash); // incrémente token_version
 
-    res.json({ success: true, message: 'Mot de passe modifié avec succès.' });
+    // token_version a changé → le refresh token courant est désormais invalide.
+    // On réémet un couple frais pour ne pas déconnecter l'utilisateur qui vient
+    // légitimement de changer son mot de passe.
+    const fresh = await userRepository.findById(req.user.id);
+    const accessToken = authService.generateAccessToken(fresh);
+    const refreshToken = authService.generateRefreshToken(fresh);
+    res.cookie('refreshToken', refreshToken, authService.refreshCookieOptions());
+
+    res.json({
+      success: true,
+      message: 'Mot de passe modifié avec succès.',
+      data: { accessToken },
+    });
   } catch (error) {
     next(error);
   }

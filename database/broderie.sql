@@ -71,6 +71,8 @@ CREATE TABLE users (
   google_id     VARCHAR(255)    NULL DEFAULT NULL,
   avatar_url    VARCHAR(500)    NULL DEFAULT NULL,
   is_active     TINYINT(1)      NOT NULL DEFAULT 1,
+  -- Incrémenté à chaque changement de mot de passe → invalide les refresh tokens antérieurs
+  token_version INT UNSIGNED     NOT NULL DEFAULT 0,
   -- Vérification email (double opt-in non bloquant) — NULL = non vérifié
   email_verified_at    DATETIME    NULL DEFAULT NULL,
   verify_token_hash    VARCHAR(64) NULL DEFAULT NULL,

@@ -21,6 +21,12 @@ jest.mock('../../services/user.service', () => ({
   deleteAccount:  jest.fn(),
 }));
 
+jest.mock('../../services/auth.service', () => ({
+  generateAccessToken:  jest.fn(() => 'new-access'),
+  generateRefreshToken: jest.fn(() => 'new-refresh'),
+  refreshCookieOptions: jest.fn(() => ({ httpOnly: true, path: '/api/v1/auth' })),
+}));
+
 const bcrypt         = require('bcrypt');
 const userRepository = require('../../repositories/user.repository');
 const userService    = require('../../services/user.service');
@@ -38,6 +44,7 @@ function makeRes() {
   res.json        = jest.fn().mockReturnValue(res);
   res.send        = jest.fn().mockReturnValue(res);
   res.setHeader   = jest.fn().mockReturnValue(res);
+  res.cookie      = jest.fn().mockReturnValue(res);
   res.clearCookie = jest.fn().mockReturnValue(res);
   return res;
 }
@@ -247,10 +254,9 @@ describe('user.controller — deleteAddress()', () => {
 // ── changePassword() ──────────────────────────────────────────────────────────
 
 describe('user.controller — changePassword()', () => {
-  test('change le mot de passe avec succès', async () => {
-    userRepository.findByIdWithPassword.mockResolvedValue({
-      id: 1, password_hash: '$hash',
-    });
+  test('change le mot de passe, réémet un couple de tokens frais', async () => {
+    userRepository.findByIdWithPassword.mockResolvedValue({ id: 1, password_hash: '$hash' });
+    userRepository.findById.mockResolvedValue({ id: 1, token_version: 1 });
     bcrypt.compare.mockResolvedValue(true);
     bcrypt.hash.mockResolvedValue('$newhash');
     userRepository.updatePassword.mockResolvedValue();
@@ -262,9 +268,15 @@ describe('user.controller — changePassword()', () => {
     const res = makeRes();
     const next = jest.fn();
     await changePassword(req, res, next);
+
     expect(bcrypt.hash).toHaveBeenCalledWith('NewPass1!', 12);
     expect(userRepository.updatePassword).toHaveBeenCalledWith(1, '$newhash');
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    // nouveau cookie refresh + access token dans la réponse
+    expect(res.cookie).toHaveBeenCalledWith('refreshToken', 'new-refresh', expect.any(Object));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      success: true,
+      data: { accessToken: 'new-access' },
+    }));
   });
 
   test('retourne 400 si champs manquants', async () => {
