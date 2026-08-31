@@ -1,6 +1,8 @@
 const bcrypt = require('bcrypt');
 const { z } = require('zod');
 const userRepository = require('../repositories/user.repository');
+const userService = require('../services/user.service');
+const env = require('../config/env');
 const { AppError } = require('../middlewares/errorHandler');
 
 // Cantons suisses officiels (2 lettres)
@@ -145,4 +147,41 @@ const changePassword = async (req, res, next) => {
   }
 };
 
-module.exports = { getMe, updateMe, getAddresses, createAddress, updateAddress, deleteAddress, changePassword };
+// Export des données personnelles (LPD art. 25) — téléchargement JSON
+const exportMyData = async (req, res, next) => {
+  try {
+    const data = await userService.exportUserData(req.user.id);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="mes-donnees-${req.user.id}-${dateStr}.json"`);
+    res.send(JSON.stringify(data, null, 2));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Suppression / anonymisation du compte (LPD art. 32)
+const deleteMyAccount = async (req, res, next) => {
+  try {
+    const { password, confirm } = req.body || {};
+    await userService.deleteAccount(req.user.id, { password, confirm });
+
+    // Révoque la session : le cookie refresh est effacé, l'access token restant
+    // (~15 min) ne verra plus le compte (findById filtre deleted_at).
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure:   env.nodeEnv === 'production',
+      sameSite: env.nodeEnv === 'production' ? 'Strict' : 'Lax',
+      path:     '/api/v1/auth',
+    });
+
+    res.json({ success: true, message: 'Votre compte et vos données personnelles ont été supprimés.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  getMe, updateMe, getAddresses, createAddress, updateAddress, deleteAddress, changePassword,
+  exportMyData, deleteMyAccount,
+};

@@ -1,0 +1,22 @@
+-- ============================================================
+-- Note de migration : droits LPD — export + suppression de compte
+-- Date       : 2026-09-01
+-- Contexte   : ajout des endpoints GET /api/v1/users/me/export (droit d'accès,
+--              LPD art. 25) et DELETE /api/v1/users/me (droit à la suppression,
+--              LPD art. 32 al. 2 let. c), jusque-là seulement promis dans les CGV.
+-- Effet SCHÉMA : AUCUN. La colonne users.deleted_at et l'index idx_users_deleted
+--              existent déjà. Ce fichier ne contient pas de DDL — il documente le
+--              changement applicatif et fournit une requête d'audit.
+-- Choix       : la suppression est une ANONYMISATION, pas un DELETE physique —
+--              fk_orders_user est en RESTRICT (NO ACTION) et les commandes /
+--              factures doivent être conservées 10 ans (CO art. 958f). Le compte
+--              est vidé de ses données personnelles (users + orders.shipping_*/
+--              billing_*), détaché (consent_logs.user_id, order_status_history.
+--              created_by → NULL) et les tables sans base légale de conservation
+--              (addresses, carts, wishlists, reviews, loyalty_*, user_mfa*) sont
+--              purgées. email → deleted+{id}+{timestamp}@anonymized.local.
+-- À exécuter  : rien. Déployer le code suffit.
+-- Audit       : SELECT COUNT(*) FROM users WHERE deleted_at IS NOT NULL;
+-- ============================================================
+
+SELECT COUNT(*) AS comptes_anonymises FROM users WHERE deleted_at IS NOT NULL;

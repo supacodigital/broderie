@@ -16,19 +16,29 @@ jest.mock('../../repositories/user.repository', () => ({
   updatePassword:      jest.fn(),
 }));
 
+jest.mock('../../services/user.service', () => ({
+  exportUserData: jest.fn(),
+  deleteAccount:  jest.fn(),
+}));
+
 const bcrypt         = require('bcrypt');
 const userRepository = require('../../repositories/user.repository');
+const userService    = require('../../services/user.service');
 const {
   getMe, updateMe, getAddresses,
   createAddress, updateAddress, deleteAddress, changePassword,
+  exportMyData, deleteMyAccount,
 } = require('../../controllers/user.controller');
 
 beforeEach(() => jest.clearAllMocks());
 
 function makeRes() {
   const res = {};
-  res.status = jest.fn().mockReturnValue(res);
-  res.json   = jest.fn().mockReturnValue(res);
+  res.status      = jest.fn().mockReturnValue(res);
+  res.json        = jest.fn().mockReturnValue(res);
+  res.send        = jest.fn().mockReturnValue(res);
+  res.setHeader   = jest.fn().mockReturnValue(res);
+  res.clearCookie = jest.fn().mockReturnValue(res);
   return res;
 }
 
@@ -299,5 +309,61 @@ describe('user.controller — changePassword()', () => {
     const next = jest.fn();
     await changePassword(req, res, next);
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 401 }));
+  });
+});
+
+// ── exportMyData() ────────────────────────────────────────────────────────────
+
+describe('user.controller — exportMyData()', () => {
+  test('renvoie un fichier JSON en pièce jointe', async () => {
+    userService.exportUserData.mockResolvedValue({ profile: { email: 'a@b.ch' }, orders: [] });
+    const req = { user: { id: 42 } };
+    const res = makeRes();
+    await exportMyData(req, res, jest.fn());
+
+    expect(userService.exportUserData).toHaveBeenCalledWith(42);
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json; charset=utf-8');
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Disposition',
+      expect.stringContaining('attachment; filename="mes-donnees-42-')
+    );
+    const sent = res.send.mock.calls[0][0];
+    expect(() => JSON.parse(sent)).not.toThrow();
+    expect(JSON.parse(sent).profile.email).toBe('a@b.ch');
+  });
+
+  test('propage l\'erreur du service', async () => {
+    userService.exportUserData.mockRejectedValue(new Error('boom'));
+    const req = { user: { id: 1 } };
+    const res = makeRes();
+    const next = jest.fn();
+    await exportMyData(req, res, next);
+    expect(next).toHaveBeenCalledWith(expect.any(Error));
+  });
+});
+
+// ── deleteMyAccount() ─────────────────────────────────────────────────────────
+
+describe('user.controller — deleteMyAccount()', () => {
+  test('supprime le compte, efface le cookie refresh, répond 200', async () => {
+    userService.deleteAccount.mockResolvedValue({ anonymizedAt: new Date() });
+    const req = { user: { id: 5 }, body: { password: 'secret' } };
+    const res = makeRes();
+    await deleteMyAccount(req, res, jest.fn());
+
+    expect(userService.deleteAccount).toHaveBeenCalledWith(5, { password: 'secret', confirm: undefined });
+    expect(res.clearCookie).toHaveBeenCalledWith('refreshToken', expect.objectContaining({ path: '/api/v1/auth' }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+  });
+
+  test('propage une AppError du service (mauvais mot de passe → 401)', async () => {
+    const err = Object.assign(new Error('Mot de passe incorrect.'), { statusCode: 401 });
+    userService.deleteAccount.mockRejectedValue(err);
+    const req = { user: { id: 5 }, body: { password: 'wrong' } };
+    const res = makeRes();
+    const next = jest.fn();
+    await deleteMyAccount(req, res, next);
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 401 }));
+    expect(res.clearCookie).not.toHaveBeenCalled();
   });
 });

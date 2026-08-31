@@ -107,6 +107,18 @@ const create = async ({ userId, productId, rating, title, body }) => {
   return result.insertId;
 };
 
+// Tous les avis d'un utilisateur — pour l'export LPD
+const findByUserId = async (userId) => {
+  const [rows] = await pool.execute(
+    `SELECT id, product_id, rating, title, body, is_approved, created_at
+     FROM reviews
+     WHERE user_id = ?
+     ORDER BY created_at DESC`,
+    [userId]
+  );
+  return rows;
+};
+
 // Approbation d'un avis
 const approve = async (id) => {
   await pool.execute(
@@ -124,4 +136,4 @@ const remove = async (id) => {
   return result.affectedRows > 0;
 };
 
-module.exports = { findApprovedByProduct, findApproved, findAll, hasPurchased, create, approve, remove };
+module.exports = { findApprovedByProduct, findApproved, findAll, findByUserId, hasPurchased, create, approve, remove };
