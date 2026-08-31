@@ -30,6 +30,23 @@ if (!/^[0-9a-fA-F]{64}$/.test(process.env.MFA_ENCRYPTION_KEY)) {
   process.exit(1);
 }
 
+/* Les secrets JWT ne doivent jamais rester sur une valeur placeholder (.env.example),
+   être trop courts, ni être identiques entre eux — un .env mal copié en production
+   permettrait sinon de forger un access token admin. */
+const PLACEHOLDER_RE = /change_me|__GENERER__|__A_DEFINIR__/i;
+const JWT_SECRETS = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'JWT_MFA_PENDING_SECRET'];
+for (const key of JWT_SECRETS) {
+  const value = process.env[key] || '';
+  if (PLACEHOLDER_RE.test(value) || value.length < 32) {
+    console.error(`[ERREUR DÉMARRAGE] ${key} invalide (valeur placeholder ou < 32 caractères). Générer avec : openssl rand -base64 64`);
+    process.exit(1);
+  }
+}
+if (new Set(JWT_SECRETS.map((k) => process.env[k])).size !== JWT_SECRETS.length) {
+  console.error('[ERREUR DÉMARRAGE] JWT_ACCESS_SECRET, JWT_REFRESH_SECRET et JWT_MFA_PENDING_SECRET doivent être distincts.');
+  process.exit(1);
+}
+
 const express = require('express');
 const helmet = require('helmet');
 const cors = require('cors');
