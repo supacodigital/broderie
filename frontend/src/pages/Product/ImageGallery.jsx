@@ -45,11 +45,12 @@ export default function ImageGallery({ images = [], productName = '', fallbackIc
         {hasImages ? (
           <img
             key={active}
-            src={images[active].url}
+            src={images[active].url_medium ?? images[active].url}
             alt={images[active].alt ?? productName}
             className={s.mainImg}
             width="600"
             height="600"
+            fetchPriority={active === 0 ? 'high' : 'auto'}
             srcSet={[
               images[active].url_medium && `${images[active].url_medium} 600w`,
               images[active].url_large  && `${images[active].url_large} 1200w`,

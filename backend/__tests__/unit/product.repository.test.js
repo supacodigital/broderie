@@ -157,6 +157,19 @@ describe('product.repository — findBySlug()', () => {
     expect(result.id).toBe(1);
     expect(result.images).toHaveLength(1);
   });
+
+  test('sélectionne url_medium et url_large pour le srcset de la galerie', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[fakeProduct]])
+      .mockResolvedValueOnce([fakeImages])
+      .mockResolvedValueOnce([fakeVariants]);
+
+    await repo.findBySlug('fil-dmc-rouge', 'fr');
+    // 2e appel = requête images
+    const imagesSql = pool.execute.mock.calls[1][0];
+    expect(imagesSql).toMatch(/url_medium/);
+    expect(imagesSql).toMatch(/url_large/);
+  });
 });
 
 // ── search() ──────────────────────────────────────────────────────────────────

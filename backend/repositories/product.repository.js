@@ -293,7 +293,8 @@ const findBySlug = async (slug, locale = 'fr') => {
   const id = rows[0].id;
 
   const [images] = await pool.execute(
-    `SELECT id, url, alt, sort_order, is_primary
+    // url_medium / url_large : indispensables au srcset de la galerie (fiche produit)
+    `SELECT id, url, url_medium, url_large, alt, sort_order, is_primary
      FROM product_images
      WHERE product_id = ?
      ORDER BY is_primary DESC, sort_order ASC`,
