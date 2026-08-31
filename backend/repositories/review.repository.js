@@ -119,21 +119,36 @@ const findByUserId = async (userId) => {
   return rows;
 };
 
-// Approbation d'un avis
-const approve = async (id) => {
+// Recalcule les colonnes dénormalisées products.rating_avg / rating_count
+// depuis les avis approuvés du produit. Appelé après toute mutation d'avis.
+const recomputeProductRating = async (productId) => {
   await pool.execute(
-    `UPDATE reviews SET is_approved = 1 WHERE id = ?`,
-    [id]
+    `UPDATE products p
+     SET p.rating_avg = COALESCE(
+           (SELECT ROUND(AVG(rating), 1) FROM reviews WHERE product_id = ? AND is_approved = 1), 0),
+         p.rating_count = (
+           SELECT COUNT(*) FROM reviews WHERE product_id = ? AND is_approved = 1)
+     WHERE p.id = ?`,
+    [productId, productId, productId]
   );
 };
 
-// Suppression d'un avis
+// Approbation d'un avis — met à jour la note dénormalisée du produit
+const approve = async (id) => {
+  const [[row]] = await pool.execute(`SELECT product_id FROM reviews WHERE id = ?`, [id]);
+  await pool.execute(`UPDATE reviews SET is_approved = 1 WHERE id = ?`, [id]);
+  if (row) await recomputeProductRating(row.product_id);
+};
+
+// Suppression d'un avis — met à jour la note dénormalisée du produit
 const remove = async (id) => {
-  const [result] = await pool.execute(
-    `DELETE FROM reviews WHERE id = ?`,
-    [id]
-  );
+  const [[row]] = await pool.execute(`SELECT product_id FROM reviews WHERE id = ?`, [id]);
+  const [result] = await pool.execute(`DELETE FROM reviews WHERE id = ?`, [id]);
+  if (row && result.affectedRows > 0) await recomputeProductRating(row.product_id);
   return result.affectedRows > 0;
 };
 
-module.exports = { findApprovedByProduct, findApproved, findAll, findByUserId, hasPurchased, create, approve, remove };
+module.exports = {
+  findApprovedByProduct, findApproved, findAll, findByUserId, hasPurchased,
+  create, approve, remove, recomputeProductRating,
+};

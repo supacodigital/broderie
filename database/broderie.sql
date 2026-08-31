@@ -246,6 +246,9 @@ CREATE TABLE products (
   weight_kg         DECIMAL(8, 3)  NULL DEFAULT NULL,
   is_active         TINYINT(1)     NOT NULL DEFAULT 1,
   is_featured       TINYINT(1)     NOT NULL DEFAULT 0,
+  -- Note moyenne dénormalisée (recalculée à l'approbation/suppression d'un avis) — évite un GROUP BY sur les listes catalogue
+  rating_avg        DECIMAL(2, 1)  NOT NULL DEFAULT 0,
+  rating_count      INT UNSIGNED   NOT NULL DEFAULT 0,
   featured_order    INT UNSIGNED   NULL DEFAULT NULL,   -- Position dans la vitrine home bento (0 = grande carte) — NULL tant que non ordonné manuellement
   is_made_to_order  TINYINT(1)     NOT NULL DEFAULT 0,  -- Produit sur commande : commande possible sans stock (délai 3 à 4 semaines)
   badge             ENUM('nouveaute','promo','coup_de_coeur','exclusif') NULL DEFAULT NULL,
@@ -265,6 +268,8 @@ CREATE TABLE products (
   INDEX idx_products_active_cat  (is_active, category_id),           -- filtre catégorie actif
   INDEX idx_products_active_feat (is_active, is_featured),           -- page accueil / featured
   INDEX idx_products_active_price(is_active, price_chf),             -- tri par prix
+  INDEX idx_products_active_rating(is_active, rating_avg),           -- tri par note
+  INDEX idx_products_active_created(is_active, created_at),          -- tri catalogue par défaut
   INDEX idx_products_stock       (is_active, stock),                 -- filtre in_stock
   CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL,
   CONSTRAINT fk_products_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers (id) ON DELETE SET NULL,

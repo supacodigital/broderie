@@ -231,7 +231,22 @@ const anonymizeUser = async (userId) => {
     await connection.execute(`DELETE FROM user_mfa_recovery_codes WHERE user_id = ?`, [userId]);
     await connection.execute(`DELETE FROM user_mfa                WHERE user_id = ?`, [userId]);
     await connection.execute(`DELETE FROM wishlists               WHERE user_id = ?`, [userId]);
+
+    // Avis : on retient les produits concernés pour recalculer leur note dénormalisée
+    const [reviewedProducts] = await connection.execute(
+      `SELECT DISTINCT product_id FROM reviews WHERE user_id = ?`, [userId]
+    );
     await connection.execute(`DELETE FROM reviews                 WHERE user_id = ?`, [userId]);
+    for (const { product_id } of reviewedProducts) {
+      await connection.execute(
+        `UPDATE products p SET
+           p.rating_avg = COALESCE((SELECT ROUND(AVG(rating),1) FROM reviews WHERE product_id = ? AND is_approved = 1), 0),
+           p.rating_count = (SELECT COUNT(*) FROM reviews WHERE product_id = ? AND is_approved = 1)
+         WHERE p.id = ?`,
+        [product_id, product_id, product_id]
+      );
+    }
+
     await connection.execute(`DELETE FROM loyalty_transactions    WHERE user_id = ?`, [userId]);
     await connection.execute(`DELETE FROM loyalty_rewards         WHERE user_id = ?`, [userId]);
     await connection.execute(`DELETE FROM loyalty_accounts        WHERE user_id = ?`, [userId]);

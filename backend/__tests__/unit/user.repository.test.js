@@ -366,9 +366,15 @@ describe('user.repository — findByIdRaw()', () => {
 describe('user.repository — anonymizeUser()', () => {
   test('anonymise, commit et release ; email de la forme deleted+{id}+{ts}@anonymized.local', async () => {
     const conn = makeConnection();
-    conn.execute
-      .mockResolvedValueOnce([[{ id: 1, email: 'julie@b.ch', deleted_at: null }]]) // SELECT ... FOR UPDATE
-      .mockResolvedValue([{ affectedRows: 1 }]);                                    // tous les UPDATE/DELETE
+    conn.execute.mockImplementation((sql) => {
+      if (/SELECT id, email, deleted_at FROM users/.test(sql)) {
+        return Promise.resolve([[{ id: 1, email: 'julie@b.ch', deleted_at: null }]]);
+      }
+      if (/SELECT DISTINCT product_id FROM reviews/.test(sql)) {
+        return Promise.resolve([[{ product_id: 3 }]]); // un produit noté
+      }
+      return Promise.resolve([{ affectedRows: 1 }]);
+    });
     pool.getConnection.mockResolvedValue(conn);
 
     const res = await userRepository.anonymizeUser(1);

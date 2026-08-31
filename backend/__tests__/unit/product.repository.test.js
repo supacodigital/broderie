@@ -99,13 +99,24 @@ describe('product.repository — findAll()', () => {
     expect(countQuery).not.toContain('p.badge = ?');
   });
 
-  test('applique le filtre minRating', async () => {
+  test('applique le filtre minRating sur la colonne dénormalisée', async () => {
     pool.execute.mockResolvedValue([[{ total: 0 }]]);
     pool.query.mockResolvedValue([[]]);
 
     await repo.findAll({ locale: 'fr', minRating: 4 });
     const countQuery = pool.execute.mock.calls[0][0];
-    expect(countQuery).toContain('COALESCE');
+    expect(countQuery).toContain('p.rating_avg >= ?');
+  });
+
+  test('la liste ne joint plus reviews ni ne GROUP BY', async () => {
+    pool.execute.mockResolvedValue([[{ total: 0 }]]);
+    pool.query.mockResolvedValue([[]]);
+
+    await repo.findAll({ locale: 'fr' });
+    const listQuery = pool.query.mock.calls[0][0];
+    expect(listQuery).not.toMatch(/JOIN reviews/);
+    expect(listQuery).not.toMatch(/GROUP BY/);
+    expect(listQuery).toMatch(/p\.rating_avg AS avg_rating/);
   });
 
   test('applique le filtre q (recherche FULLTEXT)', async () => {
