@@ -107,11 +107,30 @@ const getLegalSettings = async (req, res, next) => {
 };
 
 /* ── PUT /admin/settings/legal ── */
+// Textes légaux : borne à 50 000 caractères (colonne TEXT ≈ 65 535 octets) et
+// n'accepte que des chaînes. Le rendu front est du texte brut (React échappe) —
+// pas de sanitisation HTML nécessaire tant qu'il n'y a pas de dangerouslySetInnerHTML.
+const MAX_LEGAL_LENGTH = 50000;
+
 const updateLegalSettings = async (req, res, next) => {
   try {
     const allowed = {};
     for (const key of settingsRepository.LEGAL_KEYS) {
-      if (req.body[key] !== undefined) allowed[key] = req.body[key];
+      const raw = req.body[key];
+      if (raw === undefined) continue;
+      if (typeof raw !== 'string') {
+        return res.status(400).json({
+          success: false, message: 'Données invalides.',
+          errors: [{ field: key, message: 'Le contenu doit être du texte.' }],
+        });
+      }
+      if (raw.length > MAX_LEGAL_LENGTH) {
+        return res.status(400).json({
+          success: false, message: 'Données invalides.',
+          errors: [{ field: key, message: `Contenu trop long (max ${MAX_LEGAL_LENGTH} caractères).` }],
+        });
+      }
+      allowed[key] = raw;
     }
     await settingsRepository.upsertSettings(allowed);
     const data = await settingsRepository.findSettings(settingsRepository.LEGAL_KEYS);

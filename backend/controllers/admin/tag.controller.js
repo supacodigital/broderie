@@ -2,6 +2,17 @@ const tagAdminRepository = require('../../repositories/tag.admin.repository');
 const { AppError } = require('../../middlewares/errorHandler');
 const { cache } = require('../../config/cache');
 const { mapDbError } = require('../../utils/db.utils');
+const { tagShapeSchema } = require('../../validators/tag.validator');
+
+const checkShape = (body, res) => {
+  const parsed = tagShapeSchema.safeParse(body);
+  if (!parsed.success) {
+    const errors = parsed.error.issues.map((e) => ({ field: e.path.join('.'), message: e.message }));
+    res.status(400).json({ success: false, message: 'Données invalides.', errors });
+    return false;
+  }
+  return true;
+};
 
 // Invalide le cache des tags pour toutes les locales
 const invalidateTags = () => {
@@ -30,6 +41,7 @@ const getById = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
+    if (!checkShape(req.body, res)) return;
     const { slug, sortOrder, translations } = req.body;
 
     if (!slug) {
@@ -56,6 +68,7 @@ const create = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
+    if (!checkShape(req.body, res)) return;
     const id = parseInt(req.params.id);
     const { slug, sortOrder, translations } = req.body;
 

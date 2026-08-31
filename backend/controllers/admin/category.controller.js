@@ -2,6 +2,18 @@ const categoryAdminRepository = require('../../repositories/category.admin.repos
 const { AppError } = require('../../middlewares/errorHandler');
 const { cache, keys, TTL } = require('../../config/cache');
 const { mapDbError } = require('../../utils/db.utils');
+const { categoryShapeSchema } = require('../../validators/category.validator');
+
+// Valide la forme des champs (longueurs, format slug/imageUrl) — 400 si invalide
+const checkShape = (body, res) => {
+  const parsed = categoryShapeSchema.safeParse(body);
+  if (!parsed.success) {
+    const errors = parsed.error.issues.map((e) => ({ field: e.path.join('.'), message: e.message }));
+    res.status(400).json({ success: false, message: 'Données invalides.', errors });
+    return false;
+  }
+  return true;
+};
 
 // Invalide le cache des catégories pour toutes les locales
 const invalidateCategories = () => {
@@ -35,6 +47,7 @@ const getById = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
+    if (!checkShape(req.body, res)) return;
     const { parentId, slug, imageUrl, sortOrder, translations } = req.body;
 
     if (!slug) {
@@ -64,6 +77,7 @@ const create = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
+    if (!checkShape(req.body, res)) return;
     const id = parseInt(req.params.id);
     const { parentId, slug, imageUrl, sortOrder, translations } = req.body;
 
