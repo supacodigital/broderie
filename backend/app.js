@@ -68,19 +68,22 @@ if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
 }
 
-// Sécurité des headers HTTP — CSP assouplie pour les SPA (scripts/styles hachés par Vite)
-// scriptSrc/connectSrc/frameSrc autorisent accounts.google.com : nécessaire au SDK Google
-// Identity Services (bouton « Se connecter avec Google ») chargé dynamiquement côté client.
+// Sécurité des headers HTTP — CSP.
+// - scriptSrc : Vite en build ne produit AUCUN script inline → pas de 'unsafe-inline'
+//   ni 'unsafe-eval'. accounts.google.com / apis.google.com : SDK Google Identity Services.
+// - styleSrc : garde 'unsafe-inline' pour les attributs style={{}} de React + le SDK Google ;
+//   fonts.googleapis.com pour la feuille de styles Google Fonts (@import dans index.css).
+// - fontSrc : fonts.gstatic.com pour les fichiers de police servis par Google Fonts.
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc:     ["'self'"],
-      scriptSrc:      ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com"],
-      styleSrc:       ["'self'", "'unsafe-inline'"],
-      imgSrc:         ["'self'", "data:", "blob:"],
+      scriptSrc:      ["'self'", "https://accounts.google.com", "https://apis.google.com"],
+      styleSrc:       ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
+      imgSrc:         ["'self'", "data:", "blob:", "https://*.googleusercontent.com"],
       connectSrc:     ["'self'", "https://accounts.google.com"],
       frameSrc:       ["https://accounts.google.com"],
-      fontSrc:        ["'self'", "data:"],
+      fontSrc:        ["'self'", "data:", "https://fonts.gstatic.com"],
       objectSrc:      ["'none'"],
       frameAncestors: ["'none'"],
     },
