@@ -1,23 +1,25 @@
 require('dotenv').config();
 const request = require('supertest');
 const app = require('../../app');
+const { pool } = require('../../config/db');
+const { registerVerifiedUser } = require('../helpers/auth.helper');
 
 // — Helpers
 const registerAndLogin = async () => {
-  const email = `order.jest.${Date.now()}@broderie-test.ch`;
+  const { token, cartCookie } = await registerVerifiedUser('order.jest');
+  return { token, cookie: cartCookie };
+};
+
+// Compte NON vérifié — pour le contrôle H11
+const registerUnverified = async () => {
+  const email = `order.unverified.${Date.now()}.${Math.random().toString(36).slice(2)}@broderie-test.ch`;
   const password = 'TestOrder1234!';
-
-  await request(app)
-    .post('/api/v1/auth/register')
-    .send({ email, password, firstName: 'Test', lastName: 'Order' });
-
-  const loginRes = await request(app)
-    .post('/api/v1/auth/login')
-    .send({ email, password });
-
+  await request(app).post('/api/v1/auth/register')
+    .send({ email, password, firstName: 'Unv', lastName: 'Erified' });
+  const login = await request(app).post('/api/v1/auth/login').send({ email, password });
   return {
-    token: loginRes.body.data.accessToken,
-    cookie: loginRes.headers['set-cookie']?.find(c => c.startsWith('cartSession')),
+    token: login.body.data.accessToken,
+    cookie: login.headers['set-cookie']?.find((c) => c.startsWith('cartSession')),
   };
 };
 
@@ -58,6 +60,21 @@ describe('Commandes — panier vide', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+});
+
+describe('Commandes — email non vérifié (H11)', () => {
+  test('POST /orders retourne 403 si l\'adresse email n\'est pas confirmée', async () => {
+    const { token, cookie } = await registerUnverified();
+    await addProductToCart(token, cookie);
+
+    const res = await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', `Bearer ${token}`)
+      .set('Cookie', cookie ? [cookie] : []);
+
+    expect(res.status).toBe(403);
     expect(res.body.success).toBe(false);
   });
 });

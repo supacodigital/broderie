@@ -49,12 +49,16 @@ const getAdminToken = async () => {
 const getClientToken = async () => {
   if (_clientToken) return _clientToken;
 
+  const { pool } = require('../../config/db');
   const email    = `client.shared.${Date.now()}@broderie-test.ch`;
   const password = 'ClientJest1234!';
 
   await request(app)
     .post('/api/v1/auth/register')
     .send({ email, password, firstName: 'Client', lastName: 'Jest' });
+
+  // Email vérifié — requis pour POST /orders (H11)
+  await pool.execute(`UPDATE users SET email_verified_at = NOW() WHERE email = ?`, [email]);
 
   const loginRes = await request(app)
     .post('/api/v1/auth/login')

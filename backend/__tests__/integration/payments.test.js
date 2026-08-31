@@ -1,22 +1,13 @@
 require('dotenv').config();
 const request = require('supertest');
 const app = require('../../app');
+const { registerVerifiedUser } = require('../helpers/auth.helper');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const registerAndLogin = async () => {
-  const email    = `pay.jest.${Date.now()}@broderie-test.ch`;
-  const password = 'PayJest1234!';
-
-  await request(app)
-    .post('/api/v1/auth/register')
-    .send({ email, password, firstName: 'Pay', lastName: 'Jest' });
-
-  const loginRes = await request(app)
-    .post('/api/v1/auth/login')
-    .send({ email, password });
-
-  return loginRes.body.data.accessToken;
+  const { token } = await registerVerifiedUser('pay.jest');
+  return token;
 };
 
 const createOrderWithMethod = async (token, method = 'twint') => {

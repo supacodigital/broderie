@@ -2,17 +2,11 @@ require('dotenv').config();
 const request = require('supertest');
 const app = require('../../app');
 const { pool } = require('../../config/db');
+const { registerVerifiedUser } = require('../helpers/auth.helper');
 
 // Dépôt d'avis produit — réservé aux acheteurs, un seul par (client, produit).
 
-const registerAndLogin = async () => {
-  const email = `review.jest.${Date.now()}.${Math.random().toString(36).slice(2)}@broderie-test.ch`;
-  const password = 'ReviewJest1234!';
-  await request(app).post('/api/v1/auth/register')
-    .send({ email, password, firstName: 'Review', lastName: 'Jest' });
-  const login = await request(app).post('/api/v1/auth/login').send({ email, password });
-  return { token: login.body.data.accessToken, userId: login.body.data.user?.id, email };
-};
+const registerAndLogin = () => registerVerifiedUser('review.jest');
 
 const firstProductId = async () => {
   const res = await request(app).get('/api/v1/products').query({ locale: 'fr', limit: 1 });
