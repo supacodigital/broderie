@@ -19,12 +19,12 @@ module.exports = {
   clientUrl: process.env.CLIENT_URL,
   adminUrl:  process.env.ADMIN_URL,
 
-  /* Poivre serveur pour le hachage HMAC des IP dans consent_logs (LPD).
+  /* Poivre serveur DÉDIÉ pour le hachage HMAC des IP dans consent_logs (LPD).
      Sans secret, un SHA-256 nu d'IPv4 est réversible par force brute — le HMAC
      avec ce poivre rend le hash inexploitable si la table est exfiltrée.
-     Repli sur le secret JWT refresh si non défini (mieux que rien, mais renseigner
-     CONSENT_IP_PEPPER en production). */
-  consentIpPepper: process.env.CONSENT_IP_PEPPER || process.env.JWT_REFRESH_SECRET || 'dev-consent-pepper',
+     Secret distinct des JWT (le roter « oublie » les anciennes corrélations sans
+     invalider les sessions). Obligatoire — validé au démarrage dans app.js. */
+  consentIpPepper: process.env.CONSENT_IP_PEPPER,
 
   /* Stripe */
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
