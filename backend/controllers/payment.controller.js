@@ -7,7 +7,7 @@ const createCardIntent = async (req, res, next) => {
     const orderId = parseInt(req.params.orderId);
     if (!orderId) return next(new AppError('orderId invalide.', 400));
 
-    const result = await paymentService.createCardIntent(orderId);
+    const result = await paymentService.createCardIntent(orderId, req.user.id);
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);
@@ -20,7 +20,7 @@ const createTwintIntent = async (req, res, next) => {
     const orderId = parseInt(req.params.orderId);
     if (!orderId) return next(new AppError('orderId invalide.', 400));
 
-    const result = await paymentService.createTwintIntent(orderId);
+    const result = await paymentService.createTwintIntent(orderId, req.user.id);
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);

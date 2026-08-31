@@ -120,6 +120,13 @@ describe('payment.service — createCardIntent()', () => {
     const result = await paymentService.createCardIntent(1);
     expect(result.clientSecret).toBe('cs_aw');
   });
+
+  test('scope la commande sur userId (findById reçoit orderId + userId)', async () => {
+    orderRepository.findById.mockResolvedValue(null);
+
+    await expect(paymentService.createCardIntent(42, 10)).rejects.toMatchObject({ statusCode: 404 });
+    expect(orderRepository.findById).toHaveBeenCalledWith(42, 10);
+  });
 });
 
 // ── createTwintIntent() ───────────────────────────────────────────────────────
@@ -180,6 +187,13 @@ describe('payment.service — createTwintIntent()', () => {
     await paymentService.createTwintIntent(1);
 
     expect(paymentRepository.updateStatusByOrder).toHaveBeenCalledWith(1, 'twint', 'pending', 'pi_new');
+  });
+
+  test('scope la commande sur userId (findById reçoit orderId + userId)', async () => {
+    orderRepository.findById.mockResolvedValue(null);
+
+    await expect(paymentService.createTwintIntent(42, 10)).rejects.toMatchObject({ statusCode: 404 });
+    expect(orderRepository.findById).toHaveBeenCalledWith(42, 10);
   });
 });
 

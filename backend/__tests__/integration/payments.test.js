@@ -109,6 +109,21 @@ describe('Paiement — Stripe', () => {
     expect(res.body.success).toBe(false);
   });
 
+  test('POST /payments/card/:id — un client ne peut pas payer la commande d\'un autre (IDOR)', async () => {
+    if (!stripeConfigured || !orderId) return;
+
+    // `orderId` appartient à `token`. Un autre compte tente de créer le PaymentIntent.
+    const autreToken = await registerAndLogin();
+
+    const res = await request(app)
+      .post(`/api/v1/payments/card/${orderId}`)
+      .set('Authorization', `Bearer ${autreToken}`);
+
+    // La commande n'est pas la sienne → 404 (scoping sur user_id), jamais 200
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+  });
+
   test('POST /payments/twint/:id — crée un PaymentIntent Twint (sans QR)', async () => {
     if (!stripeConfigured || !orderId) return;
 

@@ -10,11 +10,13 @@ const env               = require('../config/env');
 
 // ─────────────────────────────────────────────────────────────
 // Carte — crée un PaymentIntent Stripe et retourne le client_secret
+// `userId` : scope la commande à son propriétaire (un client ne peut pas
+// initier le paiement de la commande d'un autre — 404 sinon).
 // ─────────────────────────────────────────────────────────────
-const createCardIntent = async (orderId) => {
+const createCardIntent = async (orderId, userId) => {
   if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
 
-  const order = await orderRepository.findById(orderId);
+  const order = await orderRepository.findById(orderId, userId);
   if (!order) throw new AppError('Commande introuvable.', 404);
 
   if (!['pending', 'awaiting_payment'].includes(order.status)) {
@@ -50,11 +52,12 @@ const createCardIntent = async (orderId) => {
 // ─────────────────────────────────────────────────────────────
 // Twint (sans QR) — crée un PaymentIntent Stripe et retourne le client_secret
 // Le front confirme via Stripe.js : redirection vers l'app Twint, pas de QR affiché
+// `userId` : scope la commande à son propriétaire (404 si ce n'est pas la sienne).
 // ─────────────────────────────────────────────────────────────
-const createTwintIntent = async (orderId) => {
+const createTwintIntent = async (orderId, userId) => {
   if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
 
-  const order = await orderRepository.findById(orderId);
+  const order = await orderRepository.findById(orderId, userId);
   if (!order) throw new AppError('Commande introuvable.', 404);
 
   if (!['pending', 'awaiting_payment'].includes(order.status)) {
