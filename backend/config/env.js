@@ -29,6 +29,9 @@ module.exports = {
   qrInvoiceAddress: process.env.QR_INVOICE_ADDRESS ?? process.env.SHOP_ADDRESS ?? 'Rue de la Boutique 1',
   qrInvoiceZip:     process.env.QR_INVOICE_ZIP     ?? process.env.SHOP_ZIP     ?? '1200',
   qrInvoiceCity:    process.env.QR_INVOICE_CITY    ?? process.env.SHOP_CITY    ?? 'Genève',
+  /* N° TVA / IDE du vendeur (CHE-XXX.XXX.XXX TVA) — obligatoire sur la facture dès
+     l'assujettissement (LTVA art. 26). null tant que la boutique n'est pas assujettie. */
+  qrInvoiceVatNumber: process.env.QR_INVOICE_VAT_NUMBER ?? null,
   /* Délai de paiement de la facture (jours) */
   invoiceDueDays:   parseInt(process.env.INVOICE_DUE_DAYS || '30', 10),
 
