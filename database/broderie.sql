@@ -41,6 +41,7 @@ DROP TABLE IF EXISTS shipping_zones;
 DROP TABLE IF EXISTS order_status_history;
 DROP TABLE IF EXISTS order_items;
 DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS stripe_webhook_events;
 DROP TABLE IF EXISTS payments;
 DROP TABLE IF EXISTS cart_items;
 DROP TABLE IF EXISTS carts;
@@ -476,6 +477,14 @@ CREATE TABLE payments (
   INDEX idx_payments_status (status),
   INDEX idx_payments_provider_id (provider_payment_id),
   CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Idempotence des webhooks Stripe — un event retenté ne doit être traité qu'une fois
+CREATE TABLE stripe_webhook_events (
+  event_id     VARCHAR(255) NOT NULL,
+  type         VARCHAR(100) NOT NULL,
+  processed_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (event_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================

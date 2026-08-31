@@ -107,27 +107,45 @@ const handleWebhook = async (rawBody, signature) => {
     throw new AppError(`Signature webhook invalide : ${err.message}`, 400);
   }
 
+  // Idempotence : Stripe retente les webhooks non acquittés. INSERT IGNORE sur la
+  // clé primaire event_id — si l'event a déjà été traité, on sort (200) sans rien refaire.
+  const [dedup] = await pool.execute(
+    `INSERT IGNORE INTO stripe_webhook_events (event_id, type) VALUES (?, ?)`,
+    [event.id, event.type]
+  );
+  if (dedup.affectedRows === 0) {
+    console.warn('[Stripe] Webhook déjà traité, ignoré :', event.id);
+    return;
+  }
+
   if (event.type === 'payment_intent.succeeded') {
     const intent  = event.data.object;
     const orderId = parseInt(intent.metadata?.order_id);
     if (!orderId) return;
 
+    const method = intent.payment_method_types?.includes('card') ? 'card' : 'twint';
+    let statusChanged = false;
+
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
 
-      await connection.execute(
+      const [upd] = await connection.execute(
         `UPDATE orders SET status = 'paid' WHERE id = ? AND status != 'paid'`,
         [orderId]
       );
-      await connection.execute(
-        `INSERT INTO order_status_history (order_id, status, note, created_by)
-         VALUES (?, 'paid', 'Paiement Stripe confirmé', NULL)`,
-        [orderId]
-      );
+      statusChanged = upd.affectedRows > 0;
 
-      // Mise à jour du paiement — dans la même transaction pour cohérence
-      const method = intent.payment_method_types?.includes('card') ? 'card' : 'twint';
+      // Historique seulement si le statut a réellement changé (double garde-fou
+      // en plus de l'idempotence sur event_id)
+      if (statusChanged) {
+        await connection.execute(
+          `INSERT INTO order_status_history (order_id, status, note, created_by)
+           VALUES (?, 'paid', 'Paiement Stripe confirmé', NULL)`,
+          [orderId]
+        );
+      }
+
       await connection.execute(
         `UPDATE payments SET status = 'succeeded', provider_payment_id = ?
          WHERE order_id = ? AND method = ?`,
@@ -142,16 +160,15 @@ const handleWebhook = async (rawBody, signature) => {
       connection.release();
     }
 
-    // Fidélité — non bloquant
-    const order = await orderRepository.findById(orderId);
-    if (order) {
-      userRepository.findById(order.user_id).then(async (user) => {
-        if (!user) return;
-
-        loyaltyService.processOrderEarning(order.user_id, orderId, order.total).catch((err) => {
-          console.error('[Fidélité] Crédit points échoué :', err.message);
-        });
-      }).catch(() => {});
+    // Crédit des points de fidélité — hors transaction (processOrderEarning gère
+    // ses propres transactions internes), et SEULEMENT si la commande vient de
+    // passer à "paid". Combiné à l'idempotence sur event_id, garantit un crédit unique.
+    if (statusChanged) {
+      const order = await orderRepository.findById(orderId);
+      if (order) {
+        await loyaltyService.processOrderEarning(order.user_id, orderId, order.total)
+          .catch((err) => console.error('[Fidélité] Crédit points échoué :', err.message));
+      }
     }
   }
 
