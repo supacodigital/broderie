@@ -155,3 +155,22 @@ describe('review.repository — remove()', () => {
     expect(await repo.remove(999)).toBe(false);
   });
 });
+
+// ── hasPurchased() ────────────────────────────────────────────────────────────
+
+describe('review.repository — hasPurchased()', () => {
+  test('retourne true si une commande "achetée" contient le produit', async () => {
+    pool.execute.mockResolvedValue([[{ 1: 1 }]]);
+    const ok = await repo.hasPurchased(3, 10);
+    expect(ok).toBe(true);
+    expect(pool.execute).toHaveBeenCalledWith(
+      expect.stringMatching(/order_items[\s\S]*o\.status IN \('paid', 'processing', 'shipped', 'delivered'\)/),
+      [10, 3]
+    );
+  });
+
+  test('retourne false si aucune commande éligible', async () => {
+    pool.execute.mockResolvedValue([[]]);
+    expect(await repo.hasPurchased(3, 10)).toBe(false);
+  });
+});

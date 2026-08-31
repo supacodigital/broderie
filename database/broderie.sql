@@ -595,8 +595,8 @@ CREATE TABLE reviews (
   is_approved TINYINT(1)   NOT NULL DEFAULT 0,
   created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  UNIQUE KEY uq_reviews_user_product (user_id, product_id),  -- un seul avis par client et par produit
   INDEX idx_reviews_product (product_id),
-  INDEX idx_reviews_user (user_id),
   INDEX idx_reviews_approved (is_approved),
   CONSTRAINT fk_reviews_user    FOREIGN KEY (user_id)   REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT fk_reviews_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE

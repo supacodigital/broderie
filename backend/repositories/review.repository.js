@@ -81,6 +81,22 @@ const findAll = async ({ page = 1, limit = 20, approved = null }) => {
   return { rows, total };
 };
 
+// Vrai si l'utilisateur a une commande contenant ce produit à un statut « acheté »
+// (paiement encaissé ou commande en cours de traitement / expédiée / livrée).
+const hasPurchased = async (userId, productId) => {
+  const [rows] = await pool.execute(
+    `SELECT 1
+     FROM order_items oi
+     INNER JOIN orders o ON o.id = oi.order_id
+     WHERE oi.product_id = ?
+       AND o.user_id = ?
+       AND o.status IN ('paid', 'processing', 'shipped', 'delivered')
+     LIMIT 1`,
+    [productId, userId]
+  );
+  return rows.length > 0;
+};
+
 // Création d'un avis (client)
 const create = async ({ userId, productId, rating, title, body }) => {
   const [result] = await pool.execute(
@@ -108,4 +124,4 @@ const remove = async (id) => {
   return result.affectedRows > 0;
 };
 
-module.exports = { findApprovedByProduct, findApproved, findAll, create, approve, remove };
+module.exports = { findApprovedByProduct, findApproved, findAll, hasPurchased, create, approve, remove };
