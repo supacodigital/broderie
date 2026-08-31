@@ -3,6 +3,7 @@ const router  = express.Router();
 const crypto  = require('crypto');
 const { z }   = require('zod');
 const { pool } = require('../config/db');
+const env = require('../config/env');
 const { optionalAuth } = require('../middlewares/optionalAuth');
 
 // Schéma d'entrée — `accepted` est le cœur de la preuve de consentement (accepté vs refusé)
@@ -21,10 +22,11 @@ router.post('/', optionalAuth, async (req, res) => {
   const { type, accepted, version } = parsed.data;
 
   try {
-    /* IP hachée en SHA-256 — jamais stockée en clair (LPD). `req.ip` respecte `trust proxy`
-       en production ; en dev il vaut l'IP réelle de la connexion. */
+    /* IP hachée en HMAC-SHA-256 avec un poivre serveur — jamais stockée en clair (LPD).
+       Un SHA-256 nu d'IPv4 serait réversible par force brute ; le HMAC l'empêche.
+       `req.ip` respecte `trust proxy` en production. */
     const rawIp  = req.ip || req.socket.remoteAddress || '';
-    const ipHash = crypto.createHash('sha256').update(rawIp).digest('hex');
+    const ipHash = crypto.createHmac('sha256', env.consentIpPepper).update(rawIp).digest('hex');
 
     const userId    = req.user?.id ?? null;
     const sessionId = req.cookies?.cartSession ?? null;
