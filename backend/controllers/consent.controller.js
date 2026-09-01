@@ -1,20 +1,9 @@
-const { z } = require('zod');
 const consentService = require('../services/consent.service');
 
-// `accepted` est le cœur de la preuve de consentement (accepté vs refusé)
-const consentSchema = z.object({
-  type:     z.enum(['cookies']).default('cookies'),
-  accepted: z.boolean(),
-  version:  z.string().min(1).max(20).default('1.0'),
-});
-
-// POST /api/v1/consent — journalise le choix de consentement cookies (LPD art. 6)
+// POST /api/v1/consent — journalise le choix de consentement cookies (LPD art. 6).
+// req.body est déjà validé/normalisé par le middleware validate (routes/consent.routes.js).
 const create = async (req, res) => {
-  const parsed = consentSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ success: false, message: 'Données de consentement invalides.' });
-  }
-  const { type, accepted, version } = parsed.data;
+  const { type, accepted, version } = req.body;
 
   await consentService.record({
     userId:    req.user?.id ?? null,
