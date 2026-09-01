@@ -135,17 +135,24 @@ garde-fou `app.js` (B8) vérifie juste qu'aucun n'est un placeholder / trop cour
 
 ---
 
+## Finitions (post-sprints) ✅
+
+| # | Correctif | Commit |
+|---|-----------|--------|
+| B6 UI | UI « Mes données » — export + suppression compte | `d5b97caf` |
+| M7 | Upload durci — magic bytes, anti-bombe 24 Mpx, strip EXIF, `files:1` | `82f2f45b` |
+| M10 | Injection formule CSV — `utils/csv.utils.js` + export newsletter | `504325d6` |
+| Basse | `generateQrReference` → `crypto.randomBytes` ; `ß` → `ss` locale DE | `f2a32be2` |
+| Basse | `storage.deleteLocal` des 3 variantes au delete image ; Google `email_verified` requis | `412ee60b` |
+| Tests | Fiabilise orders/admin/shipping/mfa (cassés sur `main`) — **892/892 vert** | `b75f3b1b` |
+
 ## Reste de l'audit (non traité)
 
 Voir [AUDIT-2026-08-31.md](AUDIT-2026-08-31.md) §🟡 Moyenne et §🟢 Basse.
-Les findings M restants (l'audit en listait 18, 5 sont faits) sont mineurs :
+Findings M restants, tous mineurs :
 - M2 cache de la recherche `search()`, M3 index supplémentaires reviews,
-  M6 bons de fidélité au checkout, M7 upload magic-bytes + EXIF, M9 pagination
-  `supplier.findByIdWithProducts`, M10 injection formule CSV newsletter,
+  M6 bons de fidélité au checkout, M9 pagination `supplier.findByIdWithProducts`,
   M12 rate-limit en staging, M14 partage frontend/admin, M15-M18.
-- **Basse** : `generateQrReference` → crypto.randomBytes, Google OAuth
-  `email_verified`, `storage.deleteLocal` au remplacement d'image, `ß` locale DE,
-  dashboard `MONTH()/YEAR()`, `manualChunks` vendor, docs périmées, ESLint backend,
-  `coverageThreshold` Jest.
-- **Frontend** : UI « Mes données » (les endpoints B6 existent, rien ne les appelle),
-  extension des tests Vitest (Cart, Checkout, formulaires auth complets).
+- **Basse** : dashboard `MONTH()/YEAR()`, `manualChunks` vendor, docs périmées,
+  ESLint backend, `coverageThreshold` Jest.
+- **Frontend** : extension des tests Vitest (Cart, Checkout, formulaires auth complets).
