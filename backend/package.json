@@ -7,7 +7,9 @@
     "dev": "nodemon app.js",
     "test": "jest --runInBand --forceExit",
     "test:watch": "jest --watch --runInBand",
-    "test:coverage": "jest --coverage --runInBand --forceExit"
+    "test:coverage": "jest --coverage --runInBand --forceExit",
+    "db:migrate": "node ../database/migrate.js",
+    "db:migrate:status": "node ../database/migrate.js --status"
   },
   "keywords": [],
   "author": "",
