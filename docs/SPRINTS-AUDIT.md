@@ -2,10 +2,15 @@
 
 Branche : `fix/audit-sprint-1` · Audit complet : [AUDIT-2026-08-31.md](AUDIT-2026-08-31.md)
 
-**19 commits, ~71 fichiers, +4100 / -337.**
-Tests backend : baseline 735 verts → **817 verts** (+82). Les 22 échecs restants sont
-**pré-existants sur `main`** (suites unit admin/supplier/category + intégration
-orders/admin/mfa/shipping désynchronisées du code — hors périmètre de ces sprints).
+**27 commits, ~115 fichiers, +5900 / -1600.**
+Tests backend : baseline 735 verts / 22 échecs → **860 verts / 9 échecs**.
+**Toute la suite unitaire (741 tests, 63 suites) est verte** — les 12 échecs unit
+baseline ont été éliminés en réparant les tests désynchronisés du code.
+Les 9 échecs restants sont **3 suites d'intégration pré-existantes** (`admin`,
+`orders`, `shipping`) qui dépendent de données de test jamais seedées dans la base
+locale (`shipping.test.js` attend des tranches `9.90/12.90` absentes du seed
+officiel, `orders.test.js` un `taxRateId: 1` inexistant en local) — **vérifié
+neutre vis-à-vis des changements** : avec les bonnes données, ces suites passent.
 Tests frontend : 0 → **20** (Vitest + Testing Library mis en place).
 
 ---
@@ -38,6 +43,29 @@ Tests frontend : 0 → **20** (Vitest + Testing Library mis en place).
 | H11 | Email vérifié requis pour commander / laisser un avis | `6a808152` |
 | H12 | Outillage Vitest + Testing Library sur la boutique | `f4001ffa` |
 
+## Sprint 3 — dette structurelle ✅
+
+| # | Sujet | Commit |
+|---|-------|--------|
+| H9 | Runner de migrations + table de tracking (sans dépendance) | `ab407176` |
+| H7 | Tout le SQL passe par les repositories (7 requêtes égarées rapatriées) | `d1419e04` |
+| H10 | Couche service pour l'admin catalogue + contact ; controllers ~10 l./handler | `790a0e5d` |
+| M1 | COUNT de pagination simplifié (plus de jointure traductions sans recherche) | `c82eb594` |
+| M4 | Cache TVA / frais de port branché (TTL 24 h, invalidation) | `c82eb594` |
+| M5 | Coupon TOCTOU : re-check de la limite sous verrou FOR UPDATE | `ae28ae22` |
+| M11 | Middleware validate.js (Zod centralisé) — newsletter, consent | `5f8e12a6` |
+| M13 | Environnement validé par schéma Zod dans config/env.js (+ env.db) | `713ff3f8` |
+
+### Runner de migrations (H9)
+```bash
+cd backend
+npm run db:migrate:status      # liste appliquées / en attente
+npm run db:migrate             # applique les migrations en attente
+node ../database/migrate.js --baseline   # 1re fois sur une base déjà à jour
+```
+Voir `database/README.md`. En staging/prod : `NODE_ENV=production node ../database/migrate.js --baseline`
+une fois, puis `npm run db:migrate` à chaque déploiement.
+
 ---
 
 ## Migrations à passer (staging → prod, après backup)
@@ -59,6 +87,9 @@ Toutes idempotentes (gardes `information_schema`), rejouables sans erreur.
 Après le passage de la #7 en prod avec des données réelles, contrôler :
 `SELECT COUNT(*) FROM products WHERE rating_count > 0;` doit correspondre au nombre
 de produits ayant au moins un avis approuvé.
+
+> Depuis le Sprint 3, ces migrations se passent via `npm run db:migrate` (backend/) —
+> plus besoin de les exécuter à la main. Faire `--baseline` la 1re fois sur une base déjà à jour.
 
 ---
 
@@ -104,10 +135,17 @@ garde-fou `app.js` (B8) vérifie juste qu'aucun n'est un placeholder / trop cour
 
 ---
 
-## Reste de l'audit (non traité — sprints suivants)
+## Reste de l'audit (non traité)
 
-Voir [AUDIT-2026-08-31.md](AUDIT-2026-08-31.md) §🟡 Moyenne et §🟢 Basse :
-- **Sprint 3 (structurel)** : H7 (SQL hors repositories), H9 (outil de migrations),
-  H10 (couche service admin), M1-M18.
-- **Continu** : docs (BACKEND.md, claude_task.md, CLAUDE.md §2), ESLint backend,
-  `coverageThreshold` Jest, UI « Mes données », extension des tests frontend.
+Voir [AUDIT-2026-08-31.md](AUDIT-2026-08-31.md) §🟡 Moyenne et §🟢 Basse.
+Les findings M restants (l'audit en listait 18, 5 sont faits) sont mineurs :
+- M2 cache de la recherche `search()`, M3 index supplémentaires reviews,
+  M6 bons de fidélité au checkout, M7 upload magic-bytes + EXIF, M9 pagination
+  `supplier.findByIdWithProducts`, M10 injection formule CSV newsletter,
+  M12 rate-limit en staging, M14 partage frontend/admin, M15-M18.
+- **Basse** : `generateQrReference` → crypto.randomBytes, Google OAuth
+  `email_verified`, `storage.deleteLocal` au remplacement d'image, `ß` locale DE,
+  dashboard `MONTH()/YEAR()`, `manualChunks` vendor, docs périmées, ESLint backend,
+  `coverageThreshold` Jest.
+- **Frontend** : UI « Mes données » (les endpoints B6 existent, rien ne les appelle),
+  extension des tests Vitest (Cart, Checkout, formulaires auth complets).
