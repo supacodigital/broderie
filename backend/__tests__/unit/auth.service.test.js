@@ -349,6 +349,7 @@ function setupGoogleClient(payloadOverride = {}) {
   const payload = {
     sub: 'google_uid_123',
     email: 'google@broderie.ch',
+    email_verified: true,
     given_name: 'Élodie',
     family_name: 'Google',
     picture: 'https://avatar.url/pic.jpg',
@@ -429,5 +430,13 @@ describe('auth.service — loginWithGoogle()', () => {
     userRepository.findByEmail.mockResolvedValue(makeUser({ deleted_at: new Date() }));
 
     await expect(authService.loginWithGoogle('valid_id_token')).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  test('lève 403 si l\'adresse Google n\'est pas vérifiée', async () => {
+    setupGoogleClient({ email_verified: false });
+
+    await expect(authService.loginWithGoogle('valid_id_token')).rejects.toMatchObject({ statusCode: 403 });
+    expect(userRepository.findByGoogleId).not.toHaveBeenCalled();
+    expect(userRepository.create).not.toHaveBeenCalled();
   });
 });

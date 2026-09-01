@@ -7,9 +7,14 @@ jest.mock('../../config/db', () => ({
     getConnection: jest.fn(),
   },
 }));
+jest.mock('../../config/storage', () => ({
+  saveBuffer:  jest.fn(),
+  deleteLocal: jest.fn(),
+}));
 
-const { pool } = require('../../config/db');
-const repo     = require('../../repositories/product.admin.repository');
+const { pool }  = require('../../config/db');
+const storage   = require('../../config/storage');
+const repo      = require('../../repositories/product.admin.repository');
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -156,14 +161,20 @@ describe('product.admin.repository — addImage()', () => {
 // ── removeImage() ─────────────────────────────────────────────────────────────
 
 describe('product.admin.repository — removeImage()', () => {
-  test('retourne true si image supprimée', async () => {
-    pool.execute.mockResolvedValue([{ affectedRows: 1 }]);
+  test('retourne true et supprime les fichiers disque des 3 variantes', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[{ url: '/uploads/products/u-large.webp', url_thumbnail: '/uploads/products/u-thumbnail.webp', url_medium: '/uploads/products/u-medium.webp', url_large: '/uploads/products/u-large.webp' }]])
+      .mockResolvedValueOnce([{ affectedRows: 1 }]);
     expect(await repo.removeImage(3, 1)).toBe(true);
+    expect(storage.deleteLocal).toHaveBeenCalledWith('/uploads/products/u-thumbnail.webp');
+    expect(storage.deleteLocal).toHaveBeenCalledWith('/uploads/products/u-medium.webp');
+    expect(storage.deleteLocal).toHaveBeenCalledWith('/uploads/products/u-large.webp');
   });
 
-  test('retourne false si image inexistante ou mauvais productId', async () => {
-    pool.execute.mockResolvedValue([{ affectedRows: 0 }]);
+  test('retourne false si image inexistante ou mauvais productId — aucun fichier touché', async () => {
+    pool.execute.mockResolvedValueOnce([[]]);
     expect(await repo.removeImage(99, 1)).toBe(false);
+    expect(storage.deleteLocal).not.toHaveBeenCalled();
   });
 });
 

@@ -180,10 +180,17 @@ const loginWithGoogle = async (idToken) => {
     throw new AppError('Token Google invalide ou expiré.', 401);
   }
 
-  const { sub: googleId, email, given_name: firstName, family_name: lastName, picture: avatarUrl } = payload;
+  const { sub: googleId, email, email_verified: emailVerified, given_name: firstName, family_name: lastName, picture: avatarUrl } = payload;
 
   if (!email) {
     throw new AppError('Impossible de récupérer l\'email depuis le compte Google.', 400);
+  }
+
+  // Google peut renvoyer une adresse non vérifiée (domaine Workspace non validé).
+  // Sans cette garde, un tiers pourrait se lier à un compte existant via une
+  // adresse qu'il ne contrôle pas.
+  if (emailVerified !== true) {
+    throw new AppError('Votre adresse Google n\'est pas vérifiée. Vérifiez-la auprès de Google puis réessayez.', 403);
   }
 
   // Cas 1 — compte déjà lié à ce google_id
