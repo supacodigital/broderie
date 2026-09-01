@@ -9,6 +9,27 @@ const TIERS = [
   { min: 2.0,  max: 4.999, price: 12.90 },
 ];
 
+// Aligne shipping_rates de la base de test sur les tranches attendues ci-dessus —
+// le seed broderie.sql peut porter d'autres montants selon l'environnement.
+beforeAll(async () => {
+  const { pool } = require('../../config/db');
+  const [[zone]] = await pool.execute('SELECT id FROM shipping_zones LIMIT 1');
+  const zoneId = zone?.id;
+  if (!zoneId) return;
+  await pool.execute('DELETE FROM shipping_rates WHERE zone_id = ?', [zoneId]);
+  for (const t of [
+    { name: 'Tranche 1', min: 0,     max: 0.499,  price: 8.50 },
+    { name: 'Tranche 2', min: 0.5,   max: 1.999,  price: 9.90 },
+    { name: 'Tranche 3', min: 2.0,   max: 4.999,  price: 12.90 },
+    { name: 'Tranche 4', min: 5.0,   max: 30.0,   price: 18.00 },
+  ]) {
+    await pool.execute(
+      'INSERT INTO shipping_rates (zone_id, name, min_weight, max_weight, price_chf, estimated_days) VALUES (?, ?, ?, ?, ?, ?)',
+      [zoneId, t.name, t.min, t.max, t.price, '1-2']
+    );
+  }
+});
+
 describe('Frais de port — GET /api/v1/shipping/rates', () => {
   test('retourne la structure complète avec carrier et estimated_days', async () => {
     const res = await request(app)

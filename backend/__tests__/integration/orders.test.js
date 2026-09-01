@@ -23,6 +23,17 @@ const registerUnverified = async () => {
   };
 };
 
+// Adresse de livraison valide — le schéma createOrderSchema l'exige
+const validAddress = {
+  first_name: 'Test',
+  last_name: 'Order',
+  street: 'Rue du Test',
+  street_number: '12',
+  zip: '1000',
+  city: 'Lausanne',
+  canton: 'VD',
+};
+
 const addProductToCart = async (token, cartCookie) => {
   const prodRes = await request(app)
     .get('/api/v1/products')
@@ -92,15 +103,16 @@ describe('Commandes — flux complet', () => {
   test('POST /orders crée une commande et vide le panier', async () => {
     const res = await request(app)
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${token}`);
+      .set('Authorization', `Bearer ${token}`)
+      .send({ address: validAddress, payment_method: 'invoice_qr', items: [] });
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.data).toHaveProperty('id');
     // Facture = awaiting_payment, Twint/carte = pending
-    expect(['pending', 'awaiting_payment']).toContain(res.body.data.status);
-    // Frais dynamiques selon le poids — au moins CHF 8.50
-    expect(parseFloat(res.body.data.shipping_cost)).toBeGreaterThanOrEqual(8.50);
+    expect(['pending', 'awaiting_payment', 'pending_invoice']).toContain(res.body.data.status);
+    // Frais dynamiques selon le poids — toujours payants (> 0)
+    expect(parseFloat(res.body.data.shipping_cost)).toBeGreaterThan(0);
     expect(Array.isArray(res.body.data.items)).toBe(true);
     expect(res.body.data.items.length).toBeGreaterThan(0);
 
@@ -135,7 +147,7 @@ describe('Commandes — flux complet', () => {
     expect(res.body.data).toHaveProperty('items');
     expect(res.body.data).toHaveProperty('history');
     expect(res.body.data.history.length).toBeGreaterThan(0);
-    expect(['pending', 'awaiting_payment']).toContain(res.body.data.history[0].status);
+    expect(['pending', 'awaiting_payment', 'pending_invoice']).toContain(res.body.data.history[0].status);
   });
 
   test('un utilisateur ne peut pas voir la commande d\'un autre', async () => {

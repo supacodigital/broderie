@@ -89,6 +89,14 @@ describe('Admin — contrôle d\'accès', () => {
 
 describe('Admin — Produits', () => {
   let createdProductId = null;
+  let taxRateId = null;
+
+  beforeAll(async () => {
+    // Récupère un tax_rate_id réel — les ids ne sont pas garantis à 1 selon le seed
+    const { pool } = require('../../config/db');
+    const [[tr]] = await pool.execute('SELECT id FROM tax_rates WHERE category = ? LIMIT 1', ['standard']);
+    taxRateId = tr?.id ?? 1;
+  });
 
   test('GET /admin/products retourne une liste paginée', async () => {
     const adminToken = await getAdminToken();
@@ -117,7 +125,7 @@ describe('Admin — Produits', () => {
       .send({
         slug:        `test-jest-${Date.now()}`,
         priceChf:    29.90,
-        taxRateId:   1,
+        taxRateId,
         categoryId,
         sku:         `TST-${Date.now()}`,
         stock:       10,
@@ -163,7 +171,7 @@ describe('Admin — Produits', () => {
         categoryId,
         slug:      `test-jest-updated-${createdProductId}`,
         priceChf:  34.90,
-        taxRateId: 1,
+        taxRateId,
         sku:       `TST-UPD-${createdProductId}`,
         stock:     8,
         weightKg:  0.2,
