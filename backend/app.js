@@ -6,48 +6,10 @@ if (process.env.NODE_ENV === 'production') {
 }
 require('dotenv').config(); // complète les variables non déjà définies (ne les écrase pas)
 
-/* Validation des variables obligatoires au démarrage — fail-fast avant d'accepter du trafic */
-const REQUIRED_ENV = [
-  'JWT_ACCESS_SECRET',
-  'JWT_REFRESH_SECRET',
-  'JWT_MFA_PENDING_SECRET',
-  'MFA_ENCRYPTION_KEY',
-  'CONSENT_IP_PEPPER',
-  'DB_HOST',
-  'DB_NAME',
-  'DB_USER',
-  'DB_PASSWORD',
-];
-const missingEnv = REQUIRED_ENV.filter(k => !process.env[k]);
-if (missingEnv.length > 0) {
-  console.error(`[ERREUR DÉMARRAGE] Variables d'environnement manquantes : ${missingEnv.join(', ')}`);
-  process.exit(1);
-}
-
-/* MFA_ENCRYPTION_KEY doit faire exactement 32 bytes (64 caractères hex) pour AES-256-GCM —
-   échec explicite au démarrage plutôt qu'une erreur de chiffrement silencieuse en production. */
-if (!/^[0-9a-fA-F]{64}$/.test(process.env.MFA_ENCRYPTION_KEY)) {
-  console.error('[ERREUR DÉMARRAGE] MFA_ENCRYPTION_KEY doit être une chaîne hexadécimale de 64 caractères (32 bytes). Générer avec : node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
-  process.exit(1);
-}
-
-/* Les secrets JWT ne doivent jamais rester sur une valeur placeholder (.env.example),
-   être trop courts, ni être identiques entre eux — un .env mal copié en production
-   permettrait sinon de forger un access token admin. */
-const PLACEHOLDER_RE = /change_me|__GENERER__|__A_DEFINIR__/i;
-const STRONG_SECRETS = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'JWT_MFA_PENDING_SECRET', 'CONSENT_IP_PEPPER'];
-for (const key of STRONG_SECRETS) {
-  const value = process.env[key] || '';
-  if (PLACEHOLDER_RE.test(value) || value.length < 32) {
-    console.error(`[ERREUR DÉMARRAGE] ${key} invalide (valeur placeholder ou < 32 caractères). Générer avec : openssl rand -base64 48`);
-    process.exit(1);
-  }
-}
-const JWT_SECRETS = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'JWT_MFA_PENDING_SECRET'];
-if (new Set(JWT_SECRETS.map((k) => process.env[k])).size !== JWT_SECRETS.length) {
-  console.error('[ERREUR DÉMARRAGE] JWT_ACCESS_SECRET, JWT_REFRESH_SECRET et JWT_MFA_PENDING_SECRET doivent être distincts.');
-  process.exit(1);
-}
+/* Validation complète de l'environnement (schéma Zod) — fail-fast avec process.exit(1)
+   si une variable manque, est mal formée ou est un secret faible/placeholder.
+   Le simple require suffit : env.js valide au chargement. */
+require('./config/env');
 
 const express = require('express');
 const helmet = require('helmet');

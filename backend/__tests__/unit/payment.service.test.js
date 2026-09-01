@@ -10,6 +10,7 @@ jest.mock('../../config/stripe', () => ({
 jest.mock('../../repositories/payment.repository');
 jest.mock('../../repositories/order.repository');
 jest.mock('../../services/loyalty.service');
+jest.mock('../../config/db', () => ({ pool: {} }));
 jest.mock('../../config/env', () => ({
   stripeWebhookSecret: 'whsec_test',
   clientUrl: 'http://localhost:5173',
