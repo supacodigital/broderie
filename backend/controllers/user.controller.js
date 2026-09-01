@@ -26,8 +26,17 @@ const getMe = async (req, res, next) => {
   try {
     const user = await userRepository.findById(req.user.id);
     if (!user) return next(new AppError('Utilisateur introuvable.', 404));
-    /* Expose emailVerified (booléen) en plus des données brutes — cohérent avec /auth */
-    res.json({ success: true, data: { ...user, emailVerified: !!user.email_verified_at } });
+    const withPwd = await userRepository.findByIdWithPassword(req.user.id);
+    /* emailVerified (booléen) + hasPassword (compte classique vs Google) —
+       ce dernier sert au front pour la suppression de compte (mdp vs confirmation). */
+    res.json({
+      success: true,
+      data: {
+        ...user,
+        emailVerified: !!user.email_verified_at,
+        hasPassword: !!withPwd?.password_hash,
+      },
+    });
   } catch (error) {
     next(error);
   }

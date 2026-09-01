@@ -52,16 +52,31 @@ function makeRes() {
 // ── getMe() ───────────────────────────────────────────────────────────────────
 
 describe('user.controller — getMe()', () => {
-  test('retourne le profil de l\'utilisateur', async () => {
+  test('retourne le profil + emailVerified + hasPassword', async () => {
     const user = { id: 1, email: 'a@b.ch', first_name: 'Marie' };
     userRepository.findById.mockResolvedValue(user);
+    userRepository.findByIdWithPassword.mockResolvedValue({ id: 1, password_hash: '$2b$12$h' });
 
     const req = { user: { id: 1 } };
     const res = makeRes();
-    const next = jest.fn();
+    await getMe(req, res, jest.fn());
 
-    await getMe(req, res, next);
-    expect(res.json).toHaveBeenCalledWith({ success: true, data: { ...user, emailVerified: false } });
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      data: { ...user, emailVerified: false, hasPassword: true },
+    });
+  });
+
+  test('hasPassword = false pour un compte Google (pas de password_hash)', async () => {
+    userRepository.findById.mockResolvedValue({ id: 2, email: 'g@b.ch' });
+    userRepository.findByIdWithPassword.mockResolvedValue({ id: 2, password_hash: null });
+
+    const res = makeRes();
+    await getMe({ user: { id: 2 } }, res, jest.fn());
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ hasPassword: false }),
+    }));
   });
 
   test('retourne 404 si utilisateur introuvable', async () => {
