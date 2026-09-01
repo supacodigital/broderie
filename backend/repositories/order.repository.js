@@ -1,4 +1,5 @@
 const { pool } = require('../config/db');
+const { AppError } = require('../middlewares/errorHandler');
 
 // Création d'une commande — transaction atomique (stock + commande + items + coupon + paiement)
 const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, billingAddress = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null, locale = 'fr' }) => {
@@ -110,8 +111,20 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
       [orderId, total, paymentMethod]
     );
 
-    // Incrémentation du coupon — dans la même transaction
+    // Incrémentation du coupon — dans la même transaction, avec re-vérification
+    // de la limite d'usage sous verrou (le used_count validé plus tôt hors
+    // transaction peut avoir été consommé entre-temps par une commande concurrente).
     if (couponId) {
+      const [[coupon]] = await connection.execute(
+        `SELECT usage_limit, used_count FROM coupons WHERE id = ? FOR UPDATE`,
+        [couponId]
+      );
+      if (!coupon) {
+        throw new AppError('Le code promo n\'est plus valide.', 409);
+      }
+      if (coupon.usage_limit !== null && coupon.used_count >= coupon.usage_limit) {
+        throw new AppError('Ce code promo a atteint sa limite d\'utilisation.', 409);
+      }
       await connection.execute(
         `UPDATE coupons SET used_count = used_count + 1 WHERE id = ?`,
         [couponId]
