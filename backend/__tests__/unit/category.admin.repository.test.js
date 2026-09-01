@@ -141,14 +141,19 @@ describe('category.admin.repository — update()', () => {
 // ── remove() ─────────────────────────────────────────────────────────────────
 
 describe('category.admin.repository — remove()', () => {
-  test('lève une erreur si des produits sont liés', async () => {
-    pool.execute.mockResolvedValue([[{ total: 3 }]]);
-
-    await expect(repo.remove(1))
-      .rejects.toThrow(/3 produit/);
+  test('lève une erreur si des sous-catégories sont rattachées', async () => {
+    pool.execute.mockResolvedValueOnce([[{ total: 2 }]]); // 1er check : sous-catégories
+    await expect(repo.remove(1)).rejects.toThrow(/2 sous-catégorie/);
   });
 
-  test('supprime la catégorie et ses traductions si aucun produit lié', async () => {
+  test('lève une erreur si des produits sont liés', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[{ total: 0 }]])  // sous-catégories : ok
+      .mockResolvedValueOnce([[{ total: 3 }]]); // produits liés
+    await expect(repo.remove(1)).rejects.toThrow(/3 produit/);
+  });
+
+  test('supprime la catégorie et ses traductions si rien n\'est lié', async () => {
     pool.execute.mockResolvedValue([[{ total: 0 }]]);
     const conn = makeConn([[[], []], [[], []]]);
     pool.getConnection.mockResolvedValue(conn);

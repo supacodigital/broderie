@@ -108,14 +108,23 @@ describe('supplier.repository — update()', () => {
 // ── remove() ────────────────────────────────────────────────────────────────
 
 describe('supplier.repository — remove()', () => {
-  test('retourne true si supprimé', async () => {
-    pool.execute.mockResolvedValue([{ affectedRows: 1 }]);
+  test('retourne true si supprimé (aucun produit lié)', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[{ total: 0 }]])   // SELECT COUNT produits liés
+      .mockResolvedValueOnce([{ affectedRows: 1 }]); // DELETE
     expect(await repo.remove(1)).toBe(true);
   });
 
   test('retourne false si introuvable', async () => {
-    pool.execute.mockResolvedValue([{ affectedRows: 0 }]);
+    pool.execute
+      .mockResolvedValueOnce([[{ total: 0 }]])
+      .mockResolvedValueOnce([{ affectedRows: 0 }]);
     expect(await repo.remove(99)).toBe(false);
+  });
+
+  test('lève une erreur si des produits sont encore liés', async () => {
+    pool.execute.mockResolvedValueOnce([[{ total: 4 }]]);
+    await expect(repo.remove(1)).rejects.toThrow(/4 produit/);
   });
 });
 

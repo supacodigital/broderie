@@ -659,6 +659,24 @@ async function sendMfaRecoveryCodesRegenerated(user) {
   });
 }
 
+// Message du formulaire de contact — envoyé à l'adresse de contact de la boutique,
+// avec replyTo = l'email du visiteur pour répondre directement.
+async function sendContactMessage({ name, email, subject, message }) {
+  const safeName    = escapeHtml(name);
+  const safeSubject = escapeHtml(subject);
+  const safeMessage = escapeHtml(message).replace(/\n/g, '<br>');
+
+  await transporter.sendMail({
+    // Pas de donnée utilisateur dans `from` (risque d'injection d'en-tête) — nom fixe
+    from:    FROM,
+    replyTo: email,
+    to:      env.mailContact,
+    subject: `[Contact] ${safeSubject}`,
+    text:    `De : ${name} <${email}>\n\n${message}`,
+    html:    `<p><strong>De :</strong> ${safeName} &lt;${escapeHtml(email)}&gt;</p><p>${safeMessage}</p>`,
+  });
+}
+
 module.exports = {
   sendWelcome,
   sendOrderConfirmation,
@@ -669,4 +687,5 @@ module.exports = {
   sendEmailVerification,
   sendMfaRecoveryCodesLow,
   sendMfaRecoveryCodesRegenerated,
+  sendContactMessage,
 };

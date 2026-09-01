@@ -34,13 +34,14 @@ describe('product.admin.repository — create()', () => {
       [{ insertId: 10 }, []],  // INSERT products
       [[], []],                // INSERT translation fr
       [[], []],                // INSERT translation de
+      [[], []],                // syncTags (DELETE product_tags même sans tags)
     ]);
     pool.getConnection.mockResolvedValue(conn);
 
     const id = await repo.create({
       categoryId: 1, supplierId: 2, slug: 'fil-dmc-rouge',
       priceChf: 4.90, taxRateId: 1, stock: 50, weightKg: 0.1,
-      isFeatured: false, badge: null,
+      isFeatured: false, badge: null, tagIds: [],
       translations: {
         fr: { name: 'Fil DMC Rouge', description: 'Fil rouge', slug: 'fil-dmc-rouge' },
         de: { name: 'DMC Faden Rot',  description: null,        slug: 'dmc-faden-rot' },
@@ -48,7 +49,8 @@ describe('product.admin.repository — create()', () => {
     });
 
     expect(id).toBe(10);
-    expect(conn.execute).toHaveBeenCalledTimes(3);
+    // 1 INSERT products + 2 INSERT translations + 1 syncTags
+    expect(conn.execute).toHaveBeenCalledTimes(4);
     expect(conn.commit).toHaveBeenCalled();
   });
 
