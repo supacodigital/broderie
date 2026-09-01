@@ -2,16 +2,13 @@
 
 Branche : `fix/audit-sprint-1` · Audit complet : [AUDIT-2026-08-31.md](AUDIT-2026-08-31.md)
 
-**27 commits, ~115 fichiers, +5900 / -1600.**
-Tests backend : baseline 735 verts / 22 échecs → **860 verts / 9 échecs**.
-**Toute la suite unitaire (741 tests, 63 suites) est verte** — les 12 échecs unit
-baseline ont été éliminés en réparant les tests désynchronisés du code.
-Les 9 échecs restants sont **3 suites d'intégration pré-existantes** (`admin`,
-`orders`, `shipping`) qui dépendent de données de test jamais seedées dans la base
-locale (`shipping.test.js` attend des tranches `9.90/12.90` absentes du seed
-officiel, `orders.test.js` un `taxRateId: 1` inexistant en local) — **vérifié
-neutre vis-à-vis des changements** : avec les bonnes données, ces suites passent.
-Tests frontend : 0 → **20** (Vitest + Testing Library mis en place).
+**~35 commits, ~120 fichiers.**
+Tests backend : baseline 735 verts / 22 échecs → **892 verts / 0 échec** (79 suites).
+Les échecs d'intégration résiduels (`admin`, `orders`, `shipping`, `mfa`) étaient
+**pré-existants, cassés sur `main`** : schéma checkout durci sans mise à jour des
+tests, `taxRateId` codé en dur, seed de tranches divergent, timeout bcrypt.
+Tous fiabilisés (commit `b75f3b1b`).
+Tests frontend : 0 → **20** (Vitest + Testing Library).
 
 ---
 
@@ -118,9 +115,6 @@ garde-fou `app.js` (B8) vérifie juste qu'aucun n'est un placeholder / trop cour
 
 ## Frontend — travail restant (hors sprints)
 
-- **B6** : les endpoints `GET /users/me/export` et `DELETE /users/me` existent, **aucune UI
-  ne les appelle**. À ajouter : page « Mes données » dans l'espace compte (bouton télécharger
-  + bouton supprimer avec ré-saisie du mot de passe).
 - **H12** : la base de tests est posée (20 tests). À étendre selon CLAUDE.md §11 :
   Cart, Checkout, RegisterForm/LoginForm complets, ReviewsSection.
 
