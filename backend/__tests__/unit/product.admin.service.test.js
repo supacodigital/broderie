@@ -75,7 +75,14 @@ describe('product.admin.service — addImage()', () => {
     await expect(service.addImage(1, null)).rejects.toMatchObject({ statusCode: 400 });
   });
 
+  test('404 si le produit n\'existe pas', async () => {
+    repo.findByIdAdmin.mockResolvedValue(null);
+    await expect(service.addImage(999, { buffer: Buffer.from('x') })).rejects.toMatchObject({ statusCode: 404 });
+    expect(processImage).not.toHaveBeenCalled();
+  });
+
   test('convertit via sharp et enregistre', async () => {
+    repo.findByIdAdmin.mockResolvedValue({ id: 1 });
     processImage.mockResolvedValue({ urls: { thumbnail: 't', medium: 'm', large: 'l' } });
     repo.addImage.mockResolvedValue(3);
     const res = await service.addImage(1, { buffer: Buffer.from('x') }, { isPrimary: true });

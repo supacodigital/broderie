@@ -115,6 +115,10 @@ const remove = async (id) => {
 const addImage = async (productId, file, { isPrimary = false, alt = null, sortOrder = 0 } = {}) => {
   if (!file) throw new AppError('Aucun fichier reçu.', 400);
 
+  // Vérifier l'existence du produit AVANT de générer 3 fichiers qui seraient orphelins
+  const product = await productAdminRepository.findByIdAdmin(productId, 'fr');
+  if (!product) throw new AppError('Produit introuvable.', 404);
+
   const { urls } = await processImage(file.buffer);
   const imageId = await productAdminRepository.addImage({
     productId,
