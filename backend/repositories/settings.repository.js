@@ -1,10 +1,14 @@
 const { pool } = require('../config/db');
+const { cache, keys, TTL } = require('../config/cache');
 
-/* ── Taux TVA ── */
+/* ── Taux TVA (cache 24 h — données quasi statiques, sur le chemin critique du checkout) ── */
 const findAllTaxRates = async () => {
+  const cached = cache.get(keys.taxRates());
+  if (cached) return cached;
   const [rows] = await pool.execute(
     `SELECT id, name, rate, category, is_default FROM tax_rates ORDER BY id ASC`
   );
+  cache.set(keys.taxRates(), rows, TTL.TAX_RATES);
   return rows;
 };
 
@@ -13,10 +17,13 @@ const updateTaxRate = async (id, { rate }) => {
     `UPDATE tax_rates SET rate = ? WHERE id = ?`,
     [rate, id]
   );
+  cache.del(keys.taxRates());
 };
 
-/* ── Frais de port ── */
+/* ── Frais de port (cache 24 h) ── */
 const findAllShippingRates = async () => {
+  const cached = cache.get(keys.shippingRates());
+  if (cached) return cached;
   const [rows] = await pool.query(
     `SELECT sr.id, sr.zone_id, sr.name, sr.min_weight, sr.max_weight,
             sr.price_chf, sr.estimated_days, sz.name AS zone_name, sz.carrier
@@ -24,6 +31,7 @@ const findAllShippingRates = async () => {
      INNER JOIN shipping_zones sz ON sz.id = sr.zone_id
      ORDER BY sr.min_weight ASC`
   );
+  cache.set(keys.shippingRates(), rows, TTL.SHIPPING);
   return rows;
 };
 
@@ -35,6 +43,7 @@ const updateShippingRate = async (id, { priceChf, estimatedDays }) => {
   if (fields.length === 0) return;
   params.push(id);
   await pool.execute(`UPDATE shipping_rates SET ${fields.join(', ')} WHERE id = ?`, params);
+  cache.del(keys.shippingRates());
 };
 
 /* ── Paramètres boutique (clé/valeur) ── */

@@ -96,16 +96,29 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
   const sortOrder = filters.featured ? 'ASC' : (order === 'asc' ? 'ASC' : 'DESC');
   const offset = (page - 1) * limit;
 
-  // Requête de comptage
-  const [countRows] = await pool.execute(
-    `SELECT COUNT(*) AS total
-     FROM products p
-     LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
-     LEFT JOIN product_translations pt_fr ON pt_fr.product_id = p.id AND pt_fr.locale = 'fr'
-     WHERE ${conditions.join(' AND ')} AND (pt.name IS NOT NULL OR pt_fr.name IS NOT NULL)`,
-    [locale, ...params]
-  );
-  const total = countRows[0].total;
+  // Requête de comptage. Tout produit a toujours une traduction FR (translations.fr
+  // obligatoire à la création), donc pour un COUNT sans recherche on n'a besoin ni de
+  // joindre les traductions ni de la garde IS NOT NULL — l'optimiseur utilise
+  // directement l'index sur products. La recherche (filters.q) contient un MATCH sur
+  // pt/pt_fr → là on garde les deux jointures.
+  let total;
+  if (filters.q) {
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total
+       FROM products p
+       LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
+       LEFT JOIN product_translations pt_fr ON pt_fr.product_id = p.id AND pt_fr.locale = 'fr'
+       WHERE ${conditions.join(' AND ')} AND (pt.name IS NOT NULL OR pt_fr.name IS NOT NULL)`,
+      [locale, ...params]
+    );
+    total = countRows[0].total;
+  } else {
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM products p WHERE ${conditions.join(' AND ')}`,
+      [...params]
+    );
+    total = countRows[0].total;
+  }
 
   const [rows] = await pool.query(
     `SELECT ${PRODUCT_COLUMNS}
@@ -226,14 +239,11 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
   const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
   const offset = (page - 1) * limit;
 
+  // Tout produit a une traduction FR → pas besoin de joindre les traductions pour le COUNT
   const [countRows] = await pool.execute(
-    `SELECT COUNT(*) AS total
-     FROM products p
-     LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
-     LEFT JOIN product_translations pt_fr ON pt_fr.product_id = p.id AND pt_fr.locale = 'fr'
-     WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.category_id = ?
-       AND (pt.name IS NOT NULL OR pt_fr.name IS NOT NULL)`,
-    [locale, categoryId]
+    `SELECT COUNT(*) AS total FROM products p
+     WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.category_id = ?`,
+    [categoryId]
   );
   const total = countRows[0].total;
 

@@ -29,8 +29,9 @@ describe('product.repository — findAll()', () => {
     const result = await repo.findAll({ locale: 'fr' });
     expect(result.total).toBe(2);
     expect(result.rows).toHaveLength(2);
+    // COUNT simplifié (sans jointure traduction) quand il n'y a pas de recherche
     expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining('is_active = 1'), expect.arrayContaining(['fr'])
+      expect.stringMatching(/SELECT COUNT\(\*\)[\s\S]*is_active = 1/), []
     );
   });
 
@@ -219,9 +220,10 @@ describe('product.repository — findByCategoryId()', () => {
     const result = await repo.findByCategoryId({ categoryId: 2, locale: 'fr' });
     expect(result.total).toBe(3);
     expect(result.rows).toHaveLength(3);
+    // COUNT simplifié : juste le category_id, sans jointure traduction
     expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining('p.category_id = ?'),
-      expect.arrayContaining(['fr', 2])
+      expect.stringMatching(/SELECT COUNT\(\*\)[\s\S]*p\.category_id = \?/),
+      [2]
     );
   });
 
