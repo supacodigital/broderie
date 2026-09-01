@@ -101,14 +101,16 @@ const schema = baseSchema
     { message: 'QR_INVOICE_IBAN est encore l\'IBAN de test — configurer le vrai IBAN en production' }
   );
 
-// En environnement de test, les fichiers de test mockent config/env quand ils en
-// ont besoin ; on ne veut pas faire échouer le chargement d'un module qui require
-// env transitivement. On applique donc juste les valeurs par défaut (partial parse)
-// sans exiger les secrets.
-const isTest = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined;
+// Le mode « indulgent » (parse partiel, pas de secrets exigés) sert UNIQUEMENT à
+// ne pas faire échouer le chargement d'un module qui require env transitivement
+// depuis la suite de tests. Il n'est actif que si NODE_ENV vaut littéralement 'test'
+// ET que Jest tourne (JEST_WORKER_ID) — jamais en staging/production, où la
+// validation stricte + process.exit(1) s'appliquent toujours.
+const NODE_ENV = process.env.NODE_ENV;
+const isJestTest = NODE_ENV === 'test' && process.env.JEST_WORKER_ID !== undefined;
 
 let e;
-if (isTest) {
+if (isJestTest) {
   e = baseSchema.partial().safeParse(process.env).data ?? {};
 } else {
   const parsed = schema.safeParse(process.env);

@@ -6,6 +6,20 @@ if (process.env.NODE_ENV === 'production') {
 }
 require('dotenv').config(); // complète les variables non déjà définies (ne les écrase pas)
 
+/* Filet de sécurité indépendant de config/env : quand on démarre le serveur
+   directement (`node app.js` — jamais le cas sous Jest, qui importe app via require),
+   les secrets doivent être présents et non-placeholder, quel que soit NODE_ENV.
+   Empêche un démarrage prod avec NODE_ENV forcé à 'test'. env.js fait la validation
+   complète (formats, distinction, etc.) juste après. */
+if (require.main === module) {
+  for (const key of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'JWT_MFA_PENDING_SECRET', 'MFA_ENCRYPTION_KEY', 'CONSENT_IP_PEPPER', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD']) {
+    if (!process.env[key] || /change_me|__GENERER__|__A_DEFINIR__/i.test(process.env[key])) {
+      console.error(`[ERREUR DÉMARRAGE] ${key} manquant ou placeholder — le serveur ne démarre pas.`);
+      process.exit(1);
+    }
+  }
+}
+
 /* Validation complète de l'environnement (schéma Zod) — fail-fast avec process.exit(1)
    si une variable manque, est mal formée ou est un secret faible/placeholder.
    Le simple require suffit : env.js valide au chargement. */
