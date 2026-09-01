@@ -81,6 +81,22 @@ const findAll = async ({ page = 1, limit = 20, approved = null }) => {
   return { rows, total };
 };
 
+// Vrai si l'utilisateur a une commande contenant ce produit à un statut « acheté »
+// (paiement encaissé ou commande en cours de traitement / expédiée / livrée).
+const hasPurchased = async (userId, productId) => {
+  const [rows] = await pool.execute(
+    `SELECT 1
+     FROM order_items oi
+     INNER JOIN orders o ON o.id = oi.order_id
+     WHERE oi.product_id = ?
+       AND o.user_id = ?
+       AND o.status IN ('paid', 'processing', 'shipped', 'delivered')
+     LIMIT 1`,
+    [productId, userId]
+  );
+  return rows.length > 0;
+};
+
 // Création d'un avis (client)
 const create = async ({ userId, productId, rating, title, body }) => {
   const [result] = await pool.execute(
@@ -91,21 +107,48 @@ const create = async ({ userId, productId, rating, title, body }) => {
   return result.insertId;
 };
 
-// Approbation d'un avis
-const approve = async (id) => {
+// Tous les avis d'un utilisateur — pour l'export LPD
+const findByUserId = async (userId) => {
+  const [rows] = await pool.execute(
+    `SELECT id, product_id, rating, title, body, is_approved, created_at
+     FROM reviews
+     WHERE user_id = ?
+     ORDER BY created_at DESC`,
+    [userId]
+  );
+  return rows;
+};
+
+// Recalcule les colonnes dénormalisées products.rating_avg / rating_count
+// depuis les avis approuvés du produit. Appelé après toute mutation d'avis.
+const recomputeProductRating = async (productId) => {
   await pool.execute(
-    `UPDATE reviews SET is_approved = 1 WHERE id = ?`,
-    [id]
+    `UPDATE products p
+     SET p.rating_avg = COALESCE(
+           (SELECT ROUND(AVG(rating), 1) FROM reviews WHERE product_id = ? AND is_approved = 1), 0),
+         p.rating_count = (
+           SELECT COUNT(*) FROM reviews WHERE product_id = ? AND is_approved = 1)
+     WHERE p.id = ?`,
+    [productId, productId, productId]
   );
 };
 
-// Suppression d'un avis
+// Approbation d'un avis — met à jour la note dénormalisée du produit
+const approve = async (id) => {
+  const [[row]] = await pool.execute(`SELECT product_id FROM reviews WHERE id = ?`, [id]);
+  await pool.execute(`UPDATE reviews SET is_approved = 1 WHERE id = ?`, [id]);
+  if (row) await recomputeProductRating(row.product_id);
+};
+
+// Suppression d'un avis — met à jour la note dénormalisée du produit
 const remove = async (id) => {
-  const [result] = await pool.execute(
-    `DELETE FROM reviews WHERE id = ?`,
-    [id]
-  );
+  const [[row]] = await pool.execute(`SELECT product_id FROM reviews WHERE id = ?`, [id]);
+  const [result] = await pool.execute(`DELETE FROM reviews WHERE id = ?`, [id]);
+  if (row && result.affectedRows > 0) await recomputeProductRating(row.product_id);
   return result.affectedRows > 0;
 };
 
-module.exports = { findApprovedByProduct, findApproved, findAll, create, approve, remove };
+module.exports = {
+  findApprovedByProduct, findApproved, findAll, findByUserId, hasPurchased,
+  create, approve, remove, recomputeProductRating,
+};

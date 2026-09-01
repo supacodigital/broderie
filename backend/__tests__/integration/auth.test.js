@@ -110,3 +110,43 @@ describe('Auth — POST /api/v1/auth/logout', () => {
     expect(res.body.success).toBe(true);
   });
 });
+
+describe('Auth — invalidation de session au changement de mot de passe (H1)', () => {
+  const { pool } = require('../../config/db');
+
+  test('un ancien refresh token est rejeté (401) après changement de mot de passe', async () => {
+    const email = `h1.jest.${Date.now()}@broderie-test.ch`;
+    const password = 'H1Jest1234!';
+    await request(app).post('/api/v1/auth/register')
+      .send({ email, password, firstName: 'H1', lastName: 'Jest' });
+
+    const login = await request(app).post('/api/v1/auth/login').send({ email, password });
+    const oldRefresh = login.headers['set-cookie']?.find((c) => c.startsWith('refreshToken'));
+    const accessToken = login.body.data.accessToken;
+
+    // L'ancien refresh fonctionne AVANT
+    const before = await request(app).post('/api/v1/auth/refresh-token').set('Cookie', oldRefresh);
+    expect(before.status).toBe(200);
+
+    // Changement de mot de passe
+    const change = await request(app)
+      .put('/api/v1/users/me/password')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ current_password: password, new_password: 'H1NewPass1!' });
+    expect(change.status).toBe(200);
+    // La réponse fournit un access token frais + un nouveau cookie refresh
+    expect(change.body.data.accessToken).toBeDefined();
+    const newRefresh = change.headers['set-cookie']?.find((c) => c.startsWith('refreshToken'));
+    expect(newRefresh).toBeDefined();
+
+    // L'ANCIEN refresh est désormais rejeté
+    const after = await request(app).post('/api/v1/auth/refresh-token').set('Cookie', oldRefresh);
+    expect(after.status).toBe(401);
+
+    // Le NOUVEAU refresh fonctionne
+    const withNew = await request(app).post('/api/v1/auth/refresh-token').set('Cookie', newRefresh);
+    expect(withNew.status).toBe(200);
+
+    await pool.execute('DELETE FROM users WHERE email = ?', [email]);
+  });
+});

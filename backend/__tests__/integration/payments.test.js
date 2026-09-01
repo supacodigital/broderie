@@ -1,22 +1,13 @@
 require('dotenv').config();
 const request = require('supertest');
 const app = require('../../app');
+const { registerVerifiedUser } = require('../helpers/auth.helper');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const registerAndLogin = async () => {
-  const email    = `pay.jest.${Date.now()}@broderie-test.ch`;
-  const password = 'PayJest1234!';
-
-  await request(app)
-    .post('/api/v1/auth/register')
-    .send({ email, password, firstName: 'Pay', lastName: 'Jest' });
-
-  const loginRes = await request(app)
-    .post('/api/v1/auth/login')
-    .send({ email, password });
-
-  return loginRes.body.data.accessToken;
+  const { token } = await registerVerifiedUser('pay.jest');
+  return token;
 };
 
 const createOrderWithMethod = async (token, method = 'twint') => {
@@ -105,6 +96,21 @@ describe('Paiement — Stripe', () => {
       .post('/api/v1/payments/card/999999')
       .set('Authorization', `Bearer ${token}`);
 
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('POST /payments/card/:id — un client ne peut pas payer la commande d\'un autre (IDOR)', async () => {
+    if (!stripeConfigured || !orderId) return;
+
+    // `orderId` appartient à `token`. Un autre compte tente de créer le PaymentIntent.
+    const autreToken = await registerAndLogin();
+
+    const res = await request(app)
+      .post(`/api/v1/payments/card/${orderId}`)
+      .set('Authorization', `Bearer ${autreToken}`);
+
+    // La commande n'est pas la sienne → 404 (scoping sur user_id), jamais 200
     expect(res.status).toBe(404);
     expect(res.body.success).toBe(false);
   });

@@ -1,4 +1,5 @@
 const { pool } = require('../config/db');
+const { AppError } = require('../middlewares/errorHandler');
 
 // Création d'une commande — transaction atomique (stock + commande + items + coupon + paiement)
 const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, billingAddress = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null, locale = 'fr' }) => {
@@ -110,8 +111,20 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
       [orderId, total, paymentMethod]
     );
 
-    // Incrémentation du coupon — dans la même transaction
+    // Incrémentation du coupon — dans la même transaction, avec re-vérification
+    // de la limite d'usage sous verrou (le used_count validé plus tôt hors
+    // transaction peut avoir été consommé entre-temps par une commande concurrente).
     if (couponId) {
+      const [[coupon]] = await connection.execute(
+        `SELECT usage_limit, used_count FROM coupons WHERE id = ? FOR UPDATE`,
+        [couponId]
+      );
+      if (!coupon) {
+        throw new AppError('Le code promo n\'est plus valide.', 409);
+      }
+      if (coupon.usage_limit !== null && coupon.used_count >= coupon.usage_limit) {
+        throw new AppError('Ce code promo a atteint sa limite d\'utilisation.', 409);
+      }
       await connection.execute(
         `UPDATE coupons SET used_count = used_count + 1 WHERE id = ?`,
         [couponId]
@@ -132,8 +145,13 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
 const findByUserId = async (userId, { page = 1, limit = 20 }) => {
   const offset = (page - 1) * limit;
 
+  // Jointure users + filtre deleted_at : un compte anonymisé (droit LPD) ne doit plus
+  // lister ses commandes, même avec un access token encore valide ~15 min.
   const [countRows] = await pool.execute(
-    `SELECT COUNT(*) AS total FROM orders WHERE user_id = ?`,
+    `SELECT COUNT(*) AS total
+     FROM orders o
+     INNER JOIN users u ON u.id = o.user_id
+     WHERE o.user_id = ? AND u.deleted_at IS NULL`,
     [userId]
   );
   const total = countRows[0].total;
@@ -143,8 +161,9 @@ const findByUserId = async (userId, { page = 1, limit = 20 }) => {
             o.created_at, o.updated_at,
             COUNT(oi.id) AS items_count
      FROM orders o
+     INNER JOIN users u ON u.id = o.user_id
      LEFT JOIN order_items oi ON oi.order_id = o.id
-     WHERE o.user_id = ?
+     WHERE o.user_id = ? AND u.deleted_at IS NULL
      GROUP BY o.id
      ORDER BY o.created_at DESC
      LIMIT ? OFFSET ?`,
@@ -154,14 +173,74 @@ const findByUserId = async (userId, { page = 1, limit = 20 }) => {
   return { rows, total };
 };
 
+// Toutes les commandes d'un utilisateur avec leurs articles et leur historique —
+// sans pagination, pour l'export RGPD/LPD des données personnelles.
+const findAllByUserIdWithItems = async (userId) => {
+  const [orders] = await pool.execute(
+    `SELECT o.id, o.status, o.subtotal, o.discount, o.coupon_code,
+            o.shipping_cost, o.tax_amount, o.total, o.qr_reference,
+            o.created_at, o.updated_at,
+            o.shipping_first_name, o.shipping_last_name, o.shipping_street, o.shipping_street_number,
+            o.shipping_city, o.shipping_zip, o.shipping_country, o.shipping_canton,
+            o.billing_first_name, o.billing_last_name, o.billing_street, o.billing_street_number,
+            o.billing_city, o.billing_zip, o.billing_country, o.billing_canton
+     FROM orders o
+     WHERE o.user_id = ?
+     ORDER BY o.created_at ASC`,
+    [userId]
+  );
+  if (orders.length === 0) return [];
+
+  const ids = orders.map((o) => o.id);
+  const [items] = await pool.query(
+    `SELECT oi.order_id, oi.product_id, oi.quantity, oi.unit_price, oi.tax_rate_snapshot,
+            oi.product_snapshot_json
+     FROM order_items oi
+     WHERE oi.order_id IN (?)`,
+    [ids]
+  );
+  const [history] = await pool.query(
+    `SELECT order_id, status, note, created_at
+     FROM order_status_history
+     WHERE order_id IN (?)
+     ORDER BY created_at ASC`,
+    [ids]
+  );
+
+  return orders.map((o) => ({
+    ...o,
+    items: items
+      .filter((i) => i.order_id === o.id)
+      .map((i) => {
+        const snap = typeof i.product_snapshot_json === 'string'
+          ? JSON.parse(i.product_snapshot_json)
+          : (i.product_snapshot_json || {});
+        return {
+          product_id: i.product_id,
+          quantity: i.quantity,
+          unit_price: i.unit_price,
+          tax_rate_snapshot: i.tax_rate_snapshot,
+          product_name: snap.name ?? null,
+          sku: snap.sku ?? null,
+        };
+      }),
+    status_history: history
+      .filter((h) => h.order_id === o.id)
+      .map((h) => ({ status: h.status, note: h.note, created_at: h.created_at })),
+  }));
+};
+
 // Détail d'une commande avec ses articles
 const findById = async (orderId, userId = null) => {
   const conditions = ['o.id = ?'];
   const params = [orderId];
 
-  // Un client ne peut voir que ses propres commandes — un admin peut tout voir
+  // Un client ne peut voir que ses propres commandes — un admin peut tout voir.
+  // En contexte client on exige aussi un compte non anonymisé (droit LPD) ;
+  // l'admin (userId absent) doit continuer à voir les commandes des comptes supprimés.
   if (userId) {
     conditions.push('o.user_id = ?');
+    conditions.push('u.deleted_at IS NULL');
     params.push(userId);
   }
 
@@ -274,4 +353,95 @@ const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order =
   return { rows, total };
 };
 
-module.exports = { createOrder, findByUserId, findById, findAllAdmin };
+// Change le statut d'une commande + trace dans l'historique — transaction atomique.
+// Retourne false si la commande n'existe pas.
+const updateStatusWithHistory = async (orderId, status, note, createdBy) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [[existing]] = await connection.execute(
+      `SELECT id FROM orders WHERE id = ? LIMIT 1`,
+      [orderId]
+    );
+    if (!existing) {
+      await connection.rollback();
+      return false;
+    }
+
+    await connection.execute(`UPDATE orders SET status = ? WHERE id = ?`, [status, orderId]);
+    await connection.execute(
+      `INSERT INTO order_status_history (order_id, status, note, created_by)
+       VALUES (?, ?, ?, ?)`,
+      [orderId, status, note || null, createdBy ?? null]
+    );
+
+    await connection.commit();
+    return true;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
+// Enregistre le numéro de suivi + les infos d'étiquette d'une commande
+const saveShippingLabel = async (orderId, { trackingNumber, labelUrl = null, labelId = null }) => {
+  const [result] = await pool.execute(
+    `UPDATE orders SET tracking_number = ?, label_url = ?, label_id = ? WHERE id = ?`,
+    [trackingNumber, labelUrl, labelId, orderId]
+  );
+  return result.affectedRows > 0;
+};
+
+// Met à jour uniquement le numéro de suivi (saisie manuelle admin)
+const updateTrackingNumber = async (orderId, trackingNumber) => {
+  const [result] = await pool.execute(
+    `UPDATE orders SET tracking_number = ? WHERE id = ?`,
+    [trackingNumber, orderId]
+  );
+  return result.affectedRows > 0;
+};
+
+// Passe une commande à "paid" si elle ne l'est pas déjà + met à jour le paiement.
+// Utilisé par le webhook Stripe. Retourne { statusChanged }.
+const markPaidFromWebhook = async (orderId, providerPaymentId, method) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [upd] = await connection.execute(
+      `UPDATE orders SET status = 'paid' WHERE id = ? AND status != 'paid'`,
+      [orderId]
+    );
+    const statusChanged = upd.affectedRows > 0;
+
+    if (statusChanged) {
+      await connection.execute(
+        `INSERT INTO order_status_history (order_id, status, note, created_by)
+         VALUES (?, 'paid', 'Paiement Stripe confirmé', NULL)`,
+        [orderId]
+      );
+    }
+
+    await connection.execute(
+      `UPDATE payments SET status = 'succeeded', provider_payment_id = ?
+       WHERE order_id = ? AND method = ?`,
+      [providerPaymentId, orderId, method]
+    );
+
+    await connection.commit();
+    return { statusChanged };
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
+module.exports = {
+  createOrder, findByUserId, findAllByUserIdWithItems, findById, findAllAdmin,
+  updateStatusWithHistory, saveShippingLabel, updateTrackingNumber, markPaidFromWebhook,
+};

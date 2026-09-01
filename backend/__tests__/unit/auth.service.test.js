@@ -201,14 +201,29 @@ describe('auth.service — login()', () => {
 
 describe('auth.service — refreshToken()', () => {
   test('retourne nouveaux tokens si refresh token valide', async () => {
-    jwt.verify.mockReturnValue({ id: 1 });
-    userRepository.findById.mockResolvedValue(makeUser());
+    jwt.verify.mockReturnValue({ id: 1, tv: 0 });
+    userRepository.findById.mockResolvedValue(makeUser({ token_version: 0 }));
     jwt.sign.mockReturnValueOnce('new_access').mockReturnValueOnce('new_refresh');
 
     const result = await authService.refreshToken('valid_refresh_token');
 
     expect(result.accessToken).toBe('new_access');
     expect(result.refreshToken).toBe('new_refresh');
+  });
+
+  test('tolère un token sans claim tv (émis avant la fonctionnalité) si token_version == 0', async () => {
+    jwt.verify.mockReturnValue({ id: 1 }); // pas de tv
+    userRepository.findById.mockResolvedValue(makeUser({ token_version: 0 }));
+    jwt.sign.mockReturnValueOnce('a').mockReturnValueOnce('r');
+
+    await expect(authService.refreshToken('legacy_token')).resolves.toBeDefined();
+  });
+
+  test('lève 401 si token_version obsolète (mot de passe changé depuis)', async () => {
+    jwt.verify.mockReturnValue({ id: 1, tv: 2 });
+    userRepository.findById.mockResolvedValue(makeUser({ token_version: 3 }));
+
+    await expect(authService.refreshToken('stale_token')).rejects.toMatchObject({ statusCode: 401 });
   });
 
   test('lève 401 si token manquant', async () => {
@@ -334,6 +349,7 @@ function setupGoogleClient(payloadOverride = {}) {
   const payload = {
     sub: 'google_uid_123',
     email: 'google@broderie.ch',
+    email_verified: true,
     given_name: 'Élodie',
     family_name: 'Google',
     picture: 'https://avatar.url/pic.jpg',
@@ -414,5 +430,13 @@ describe('auth.service — loginWithGoogle()', () => {
     userRepository.findByEmail.mockResolvedValue(makeUser({ deleted_at: new Date() }));
 
     await expect(authService.loginWithGoogle('valid_id_token')).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  test('lève 403 si l\'adresse Google n\'est pas vérifiée', async () => {
+    setupGoogleClient({ email_verified: false });
+
+    await expect(authService.loginWithGoogle('valid_id_token')).rejects.toMatchObject({ statusCode: 403 });
+    expect(userRepository.findByGoogleId).not.toHaveBeenCalled();
+    expect(userRepository.create).not.toHaveBeenCalled();
   });
 });

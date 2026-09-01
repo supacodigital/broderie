@@ -1,6 +1,9 @@
 const bcrypt = require('bcrypt');
 const { z } = require('zod');
 const userRepository = require('../repositories/user.repository');
+const userService = require('../services/user.service');
+const authService = require('../services/auth.service');
+const env = require('../config/env');
 const { AppError } = require('../middlewares/errorHandler');
 
 // Cantons suisses officiels (2 lettres)
@@ -23,8 +26,17 @@ const getMe = async (req, res, next) => {
   try {
     const user = await userRepository.findById(req.user.id);
     if (!user) return next(new AppError('Utilisateur introuvable.', 404));
-    /* Expose emailVerified (booléen) en plus des données brutes — cohérent avec /auth */
-    res.json({ success: true, data: { ...user, emailVerified: !!user.email_verified_at } });
+    const withPwd = await userRepository.findByIdWithPassword(req.user.id);
+    /* emailVerified (booléen) + hasPassword (compte classique vs Google) —
+       ce dernier sert au front pour la suppression de compte (mdp vs confirmation). */
+    res.json({
+      success: true,
+      data: {
+        ...user,
+        emailVerified: !!user.email_verified_at,
+        hasPassword: !!withPwd?.password_hash,
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -137,12 +149,61 @@ const changePassword = async (req, res, next) => {
     if (!valid) return next(new AppError('Mot de passe actuel incorrect.', 401));
 
     const hash = await bcrypt.hash(new_password, 12);
-    await userRepository.updatePassword(req.user.id, hash);
+    await userRepository.updatePassword(req.user.id, hash); // incrémente token_version
 
-    res.json({ success: true, message: 'Mot de passe modifié avec succès.' });
+    // token_version a changé → le refresh token courant est désormais invalide.
+    // On réémet un couple frais pour ne pas déconnecter l'utilisateur qui vient
+    // légitimement de changer son mot de passe.
+    const fresh = await userRepository.findById(req.user.id);
+    const accessToken = authService.generateAccessToken(fresh);
+    const refreshToken = authService.generateRefreshToken(fresh);
+    res.cookie('refreshToken', refreshToken, authService.refreshCookieOptions());
+
+    res.json({
+      success: true,
+      message: 'Mot de passe modifié avec succès.',
+      data: { accessToken },
+    });
   } catch (error) {
     next(error);
   }
 };
 
-module.exports = { getMe, updateMe, getAddresses, createAddress, updateAddress, deleteAddress, changePassword };
+// Export des données personnelles (LPD art. 25) — téléchargement JSON
+const exportMyData = async (req, res, next) => {
+  try {
+    const data = await userService.exportUserData(req.user.id);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="mes-donnees-${req.user.id}-${dateStr}.json"`);
+    res.send(JSON.stringify(data, null, 2));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Suppression / anonymisation du compte (LPD art. 32)
+const deleteMyAccount = async (req, res, next) => {
+  try {
+    const { password, confirm } = req.body || {};
+    await userService.deleteAccount(req.user.id, { password, confirm });
+
+    // Révoque la session : le cookie refresh est effacé, l'access token restant
+    // (~15 min) ne verra plus le compte (findById filtre deleted_at).
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure:   env.nodeEnv === 'production',
+      sameSite: env.nodeEnv === 'production' ? 'Strict' : 'Lax',
+      path:     '/api/v1/auth',
+    });
+
+    res.json({ success: true, message: 'Votre compte et vos données personnelles ont été supprimés.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  getMe, updateMe, getAddresses, createAddress, updateAddress, deleteAddress, changePassword,
+  exportMyData, deleteMyAccount,
+};

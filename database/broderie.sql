@@ -41,6 +41,7 @@ DROP TABLE IF EXISTS shipping_zones;
 DROP TABLE IF EXISTS order_status_history;
 DROP TABLE IF EXISTS order_items;
 DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS stripe_webhook_events;
 DROP TABLE IF EXISTS payments;
 DROP TABLE IF EXISTS cart_items;
 DROP TABLE IF EXISTS carts;
@@ -71,6 +72,8 @@ CREATE TABLE users (
   google_id     VARCHAR(255)    NULL DEFAULT NULL,
   avatar_url    VARCHAR(500)    NULL DEFAULT NULL,
   is_active     TINYINT(1)      NOT NULL DEFAULT 1,
+  -- Incrémenté à chaque changement de mot de passe → invalide les refresh tokens antérieurs
+  token_version INT UNSIGNED     NOT NULL DEFAULT 0,
   -- Vérification email (double opt-in non bloquant) — NULL = non vérifié
   email_verified_at    DATETIME    NULL DEFAULT NULL,
   verify_token_hash    VARCHAR(64) NULL DEFAULT NULL,
@@ -243,6 +246,9 @@ CREATE TABLE products (
   weight_kg         DECIMAL(8, 3)  NULL DEFAULT NULL,
   is_active         TINYINT(1)     NOT NULL DEFAULT 1,
   is_featured       TINYINT(1)     NOT NULL DEFAULT 0,
+  -- Note moyenne dénormalisée (recalculée à l'approbation/suppression d'un avis) — évite un GROUP BY sur les listes catalogue
+  rating_avg        DECIMAL(2, 1)  NOT NULL DEFAULT 0,
+  rating_count      INT UNSIGNED   NOT NULL DEFAULT 0,
   featured_order    INT UNSIGNED   NULL DEFAULT NULL,   -- Position dans la vitrine home bento (0 = grande carte) — NULL tant que non ordonné manuellement
   is_made_to_order  TINYINT(1)     NOT NULL DEFAULT 0,  -- Produit sur commande : commande possible sans stock (délai 3 à 4 semaines)
   badge             ENUM('nouveaute','promo','coup_de_coeur','exclusif') NULL DEFAULT NULL,
@@ -262,6 +268,8 @@ CREATE TABLE products (
   INDEX idx_products_active_cat  (is_active, category_id),           -- filtre catégorie actif
   INDEX idx_products_active_feat (is_active, is_featured),           -- page accueil / featured
   INDEX idx_products_active_price(is_active, price_chf),             -- tri par prix
+  INDEX idx_products_active_rating(is_active, rating_avg),           -- tri par note
+  INDEX idx_products_active_created(is_active, created_at),          -- tri catalogue par défaut
   INDEX idx_products_stock       (is_active, stock),                 -- filtre in_stock
   CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL,
   CONSTRAINT fk_products_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers (id) ON DELETE SET NULL,
@@ -476,6 +484,14 @@ CREATE TABLE payments (
   CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Idempotence des webhooks Stripe — un event retenté ne doit être traité qu'une fois
+CREATE TABLE stripe_webhook_events (
+  event_id     VARCHAR(255) NOT NULL,
+  type         VARCHAR(100) NOT NULL,
+  processed_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (event_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================================
 -- LIVRAISON
 -- ============================================================
@@ -595,8 +611,8 @@ CREATE TABLE reviews (
   is_approved TINYINT(1)   NOT NULL DEFAULT 0,
   created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  UNIQUE KEY uq_reviews_user_product (user_id, product_id),  -- un seul avis par client et par produit
   INDEX idx_reviews_product (product_id),
-  INDEX idx_reviews_user (user_id),
   INDEX idx_reviews_approved (is_approved),
   CONSTRAINT fk_reviews_user    FOREIGN KEY (user_id)   REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT fk_reviews_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
@@ -638,8 +654,9 @@ CREATE TABLE newsletter_subscribers (
 CREATE TABLE consent_logs (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id     INT UNSIGNED NULL DEFAULT NULL,
-  session_id  VARCHAR(255) NOT NULL,
+  session_id  VARCHAR(255) NULL DEFAULT NULL,   -- NULL possible : consentement donné avant tout panier
   type        VARCHAR(50)  NOT NULL,
+  accepted    TINYINT(1)   NOT NULL DEFAULT 1,  -- 0 = refusé, 1 = accepté
   version     VARCHAR(20)  NOT NULL,
   ip_hash     CHAR(64)     NOT NULL,
   accepted_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -914,35 +931,35 @@ INSERT INTO suppliers (id, name, is_active) VALUES
 ALTER TABLE suppliers AUTO_INCREMENT = 100;
 
 INSERT INTO products (id, category_id, supplier_id, slug, price_chf, tax_rate_id, sku, stock, weight_kg, is_active) VALUES
-  (100, 107, 1, 'caron-echevette-waterlilies', 8.11, 3, 'CAWL', 115, 0.010, 1),
-  (101, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-ancolie-des-jardins', 2.59, 3, 'COL4500', 7, 0.010, 1),
-  (102, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-fleurs-des-champs', 2.59, 3, 'COL4501', 5, 0.010, 1),
-  (103, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-camelia', 2.59, 3, 'COL4502', 6, 0.010, 1),
-  (104, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-glycine', 2.59, 3, 'COL4503', 7, 0.010, 1),
-  (105, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-hortensia', 2.59, 3, 'COL4504', 5, 0.010, 1),
-  (106, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-bruyeres', 2.59, 3, 'COL4505', 0, 0.010, 1),
-  (107, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-primavera', 2.59, 3, 'COL4506', 7, 0.010, 1),
-  (108, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-bougainvillier', 2.59, 3, 'COL4507', 7, 0.010, 1),
-  (109, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-campagne-givree', 2.59, 3, 'COL4508', 6, 0.010, 1),
-  (110, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-cote-de-granit', 2.59, 3, 'COL4509', 8, 0.010, 1),
-  (111, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-erable', 2.59, 3, 'COL4510', 7, 0.010, 1),
-  (112, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-ete-indien', 2.59, 3, 'COL4511', 7, 0.010, 1),
-  (113, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-states', 2.59, 3, 'COL4512', 7, 0.010, 1),
-  (114, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-londres', 2.59, 3, 'COL4513', 7, 0.010, 1),
-  (115, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-venise', 2.59, 3, 'COL4514', 7, 0.010, 1),
-  (116, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-paris', 2.59, 3, 'COL4515', 11, 0.010, 1),
-  (117, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-foret-noire', 2.59, 3, 'COL4516', 6, 0.010, 1),
-  (118, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-lutins', 2.59, 3, 'COL4517', 6, 0.010, 1),
-  (119, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-cottage', 2.59, 3, 'COL4518', 5, 0.010, 1),
-  (120, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-jingle-bells', 2.59, 3, 'COL4519', 7, 0.010, 1),
-  (121, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-conte-de-noel', 2.59, 3, 'COL4520', 5, 0.010, 1),
-  (122, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-grands-espaces', 2.59, 3, 'COL4521', 7, 0.010, 1),
-  (123, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-nuit-canadienne', 2.59, 3, 'COL4522', 7, 0.010, 1),
-  (124, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-vent-du-nord', 2.59, 3, 'COL4523', 6, 0.010, 1),
-  (125, 107, 3, 'madeira-bobine-neon-orange', 5.95, 3, 'N949', 2, 0.010, 1),
-  (126, 107, 3, 'madeira-bobine-neon-rose', 5.95, 3, 'N950', 1, 0.010, 1),
-  (127, 107, 3, 'madeira-bobine-neon-rouge-orange', 5.95, 3, 'N951', 2, 0.010, 1),
-  (128, 107, 3, 'madeira-bobine-neon-vert', 5.95, 3, 'N948', 2, 0.010, 1);
+  (100, 107, 1, 'caron-echevette-waterlilies', 8.11, 1, 'CAWL', 115, 0.010, 1),
+  (101, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-ancolie-des-jardins', 2.59, 1, 'COL4500', 7, 0.010, 1),
+  (102, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-fleurs-des-champs', 2.59, 1, 'COL4501', 5, 0.010, 1),
+  (103, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-camelia', 2.59, 1, 'COL4502', 6, 0.010, 1),
+  (104, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-glycine', 2.59, 1, 'COL4503', 7, 0.010, 1),
+  (105, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-hortensia', 2.59, 1, 'COL4504', 5, 0.010, 1),
+  (106, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-bruyeres', 2.59, 1, 'COL4505', 0, 0.010, 1),
+  (107, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-primavera', 2.59, 1, 'COL4506', 7, 0.010, 1),
+  (108, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-bougainvillier', 2.59, 1, 'COL4507', 7, 0.010, 1),
+  (109, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-campagne-givree', 2.59, 1, 'COL4508', 6, 0.010, 1),
+  (110, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-cote-de-granit', 2.59, 1, 'COL4509', 8, 0.010, 1),
+  (111, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-erable', 2.59, 1, 'COL4510', 7, 0.010, 1),
+  (112, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-ete-indien', 2.59, 1, 'COL4511', 7, 0.010, 1),
+  (113, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-states', 2.59, 1, 'COL4512', 7, 0.010, 1),
+  (114, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-londres', 2.59, 1, 'COL4513', 7, 0.010, 1),
+  (115, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-venise', 2.59, 1, 'COL4514', 7, 0.010, 1),
+  (116, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-paris', 2.59, 1, 'COL4515', 11, 0.010, 1),
+  (117, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-foret-noire', 2.59, 1, 'COL4516', 6, 0.010, 1),
+  (118, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-lutins', 2.59, 1, 'COL4517', 6, 0.010, 1),
+  (119, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-cottage', 2.59, 1, 'COL4518', 5, 0.010, 1),
+  (120, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-jingle-bells', 2.59, 1, 'COL4519', 7, 0.010, 1),
+  (121, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-conte-de-noel', 2.59, 1, 'COL4520', 5, 0.010, 1),
+  (122, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-grands-espaces', 2.59, 1, 'COL4521', 7, 0.010, 1),
+  (123, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-nuit-canadienne', 2.59, 1, 'COL4522', 7, 0.010, 1),
+  (124, 106, 2, 'dmc-coloris-art-517-echevette-6-metres-vent-du-nord', 2.59, 1, 'COL4523', 6, 0.010, 1),
+  (125, 107, 3, 'madeira-bobine-neon-orange', 5.95, 1, 'N949', 2, 0.010, 1),
+  (126, 107, 3, 'madeira-bobine-neon-rose', 5.95, 1, 'N950', 1, 0.010, 1),
+  (127, 107, 3, 'madeira-bobine-neon-rouge-orange', 5.95, 1, 'N951', 2, 0.010, 1),
+  (128, 107, 3, 'madeira-bobine-neon-vert', 5.95, 1, 'N948', 2, 0.010, 1);
 
 INSERT INTO product_translations (product_id, locale, name, description, slug) VALUES
   (100, 'fr', 'Caron, échevette Waterlilies', 'Echevette de 5.5m en soie, mettre sous remarque dans la commandele le numéro désiré.', 'caron-echevette-waterlilies'),
@@ -989,51 +1006,51 @@ INSERT INTO suppliers (id, name, made_to_order_delay_min_weeks, made_to_order_de
   (4, 'Lanarte', 3, 4, 1);
 
 INSERT INTO products (id, category_id, supplier_id, slug, price_chf, compare_price_chf, tax_rate_id, sku, stock, weight_kg, is_made_to_order, length_cm, width_cm, is_active) VALUES
-  (200, 101, 4, 'lanarte-fruits-and-flowers-pruneau', 22.16, NULL, 3, '34278', 0, 0.300, 1, 14.0, 14.0, 1),
-  (201, 101, 4, 'lanarte-kit-chataigner-seconde-main-non-deballe', 47.24, NULL, 3, '34264', 0, 0.300, 1, 29.0, 22.0, 1),
-  (202, 101, 4, 'lanarte-oak-kit-chene-seconde-main-non-deballe', 47.24, NULL, 3, '34265', 0, 0.300, 1, 29.0, 22.0, 1),
-  (203, 101, 4, 'lanarte-kit-cerisier-seconde-main-non-deballe', 47.24, NULL, 3, '34266', 0, 0.300, 1, 29.0, 22.0, 1),
-  (204, 101, 4, 'lanarte-flowers-strawberries', 84.86, NULL, 3, '34193', 0, 0.300, 1, NULL, NULL, 1),
-  (205, 101, 4, 'lanarte-flowers-asparagus', 94.59, NULL, 3, '34192', 0, 0.300, 1, NULL, NULL, 1),
-  (206, 101, 4, 'lanarte-kit-4-saisons', 91.34, NULL, 3, 'LA0007961', 0, 0.300, 1, 63.0, 52.0, 1),
-  (207, 101, 4, 'lanarte-kit-panier-de-fruits', 56.75, NULL, 3, 'LA0007960', 0, 0.300, 1, 29.0, 39.0, 1),
-  (208, 101, 4, 'lanarte-your-favorites-char-fleuri', 21.08, NULL, 3, '34164', 0, 0.300, 1, 12.0, 17.0, 1),
-  (209, 101, 4, 'lanarte-your-favorites-arbuste-boule', 21.62, NULL, 3, '34166', 0, 0.300, 1, NULL, NULL, 1),
-  (210, 101, 4, 'lanarte-your-favorites-fraises-et-papillon', 21.62, NULL, 3, '34177', 0, 0.300, 1, 17.0, 12.0, 1),
-  (211, 101, 4, 'lanarte-bavette-blanche', 17.19, NULL, 3, '25121', 0, 0.300, 1, NULL, NULL, 1),
-  (212, 101, 4, 'lanarte-catalogue-n-15', 2.97, NULL, 3, 'N15', 0, 0.300, 1, NULL, NULL, 1),
-  (213, 101, 4, 'lanarte-cadre-en-bois-naturel-14-x-14', 18.59, NULL, 3, '70772', 0, 0.300, 1, NULL, NULL, 1),
-  (214, 101, 4, 'lanarte-cadre-your-favorites-rose-12-x-17', 14.27, NULL, 3, '70751', 0, 0.300, 1, NULL, NULL, 1),
-  (215, 101, 4, 'lanarte-cadre-your-favorites-saumon-12-x-17', 14.27, NULL, 3, '70753', 0, 0.300, 1, NULL, NULL, 1),
-  (216, 101, 4, 'lanarte-kit-family-tree-bears-arbre-genealogique', 41.08, NULL, 3, '15526', 0, 0.300, 1, 22.0, 29.0, 1),
-  (217, 101, 4, 'lanarte-birth-tile-robert', 30.27, NULL, 3, '15525', 0, 0.300, 1, 15.0, 20.0, 1),
-  (218, 101, 4, 'lanarte-ours-et-lapins-lapins-aida', 18.92, NULL, 3, '15530A', 0, 0.300, 1, NULL, NULL, 1),
-  (219, 101, 4, 'lanarte-flowers-facade-canevas-peint', 78.91, NULL, 3, '42060', 0, 0.300, 1, NULL, NULL, 1),
-  (220, 101, 4, 'lanarte-cadre-bois-naturel-pour-abc-nounours', 15.57, NULL, 3, '70771', 0, 0.300, 1, NULL, NULL, 1),
-  (221, 101, 4, 'lanarte-pump-with-watering-can-canevas-peint-sans-coton', 44.32, NULL, 3, '41058', 0, 0.300, 1, 29.0, 22.0, 1),
-  (222, 101, 4, 'lanarte-birth-sampler', 35.67, NULL, 3, '15514', 0, 0.300, 1, NULL, NULL, 1),
-  (223, 101, 4, 'lanarte-birth-banner', 38.92, NULL, 3, '15516', 0, 0.300, 1, NULL, NULL, 1),
-  (224, 101, 4, 'lanarte-birth-document-bears', 47.56, NULL, 3, '15520', 0, 0.300, 1, NULL, NULL, 1),
-  (225, 101, 4, 'lanarte-birth-tile-bears', 22.21, NULL, 3, '15521', 0, 0.300, 1, NULL, NULL, 1),
-  (226, 101, 4, 'lanarte-rose-canevas-peint', 78.91, NULL, 3, '42045', 0, 0.300, 1, NULL, NULL, 1),
-  (227, 101, 4, 'lanarte-bears-with-hat-canevas-peint', 78.91, NULL, 3, '42050', 0, 0.300, 1, NULL, NULL, 1),
-  (228, 101, 4, 'lanarte-new-romantics-2-ours', 10.81, NULL, 3, '34118', 0, 0.300, 1, 6.0, 8.0, 1),
-  (229, 101, 4, 'lanarte-cadre-bois-naturel-new-romantics', 10.81, NULL, 3, '70776', 0, 0.300, 1, NULL, NULL, 1),
-  (230, 101, 4, 'sweatshirt-ravel', 21.62, NULL, 3, '48', 0, 0.300, 1, NULL, NULL, 1),
-  (231, 101, 4, 'lanarte-alphabet-ours-lettre-q', 17.3, NULL, 3, '34250', 0, 0.300, 1, 14.0, 12.0, 1),
-  (232, 101, 4, 'sweatshirt-ravel-carton-de-36-pieces-assorties', 505.91, NULL, 3, '50', 0, 0.300, 1, NULL, NULL, 1),
-  (233, 101, 4, 'sweatshirt-ravel-carton-de-18-pieces-assorties', 252.95, NULL, 3, '51', 0, 0.300, 1, NULL, NULL, 1),
-  (234, 101, 4, 'lanarte-zoo-rabbits-aida', 70.27, 78.0, 3, '15528A', 0, 0.300, 1, 37.0, 62.0, 1),
-  (235, 101, 4, 'lanarte-clown-flower-aida', 32.43, NULL, 3, '15533A', 0, 0.300, 1, 20.0, 15.0, 1),
-  (236, 101, 4, 'lanarte-collage-bird-s-nest-m-b-epuise', 94.59, NULL, 3, '34283', 0, 0.300, 1, 44.0, 34.0, 0), -- épuisé, désactivé
-  (237, 101, 4, 'lanarte-blue-sampler-small', 64.86, NULL, 3, '34293', 0, 0.300, 1, 37.0, 32.0, 1),
-  (238, 101, 4, 'lanarte-arrosoir-et-tournesol', 19.46, NULL, 3, '34296', 0, 0.300, 1, 14.0, 14.0, 1),
-  (239, 101, 4, 'lanarte-sunflower-pumpkin-14-x-14', 21.19, NULL, 3, '34297', 0, 0.300, 1, 14.0, 14.0, 1),
-  (240, 101, 4, 'lanarte-hortensias-et-chapeau', 81.08, NULL, 3, '34302', 0, 0.300, 1, 34.0, 44.0, 1),
-  (241, 101, 4, 'lanarte-collage-cats', 94.59, NULL, 3, '34303', 0, 0.300, 1, 38.0, 46.0, 1),
-  (242, 101, 4, 'lanarte-field-flowers-coraline', 94.59, NULL, 3, '34304', 0, 0.300, 1, 43.0, 37.0, 1),
-  (243, 101, 4, 'lanarte-two-hydrangea-s-aida', 44.86, NULL, 3, '34306A', 0, 0.300, 1, 22.0, 29.0, 1),
-  (244, 101, 4, 'lanarte-panier-de-prunes', 48.64, NULL, 3, '34307', 0, 0.300, 1, 22.0, 30.0, 1);
+  (200, 101, 4, 'lanarte-fruits-and-flowers-pruneau', 22.16, NULL, 1, '34278', 0, 0.300, 1, 14.0, 14.0, 1),
+  (201, 101, 4, 'lanarte-kit-chataigner-seconde-main-non-deballe', 47.24, NULL, 1, '34264', 0, 0.300, 1, 29.0, 22.0, 1),
+  (202, 101, 4, 'lanarte-oak-kit-chene-seconde-main-non-deballe', 47.24, NULL, 1, '34265', 0, 0.300, 1, 29.0, 22.0, 1),
+  (203, 101, 4, 'lanarte-kit-cerisier-seconde-main-non-deballe', 47.24, NULL, 1, '34266', 0, 0.300, 1, 29.0, 22.0, 1),
+  (204, 101, 4, 'lanarte-flowers-strawberries', 84.86, NULL, 1, '34193', 0, 0.300, 1, NULL, NULL, 1),
+  (205, 101, 4, 'lanarte-flowers-asparagus', 94.59, NULL, 1, '34192', 0, 0.300, 1, NULL, NULL, 1),
+  (206, 101, 4, 'lanarte-kit-4-saisons', 91.34, NULL, 1, 'LA0007961', 0, 0.300, 1, 63.0, 52.0, 1),
+  (207, 101, 4, 'lanarte-kit-panier-de-fruits', 56.75, NULL, 1, 'LA0007960', 0, 0.300, 1, 29.0, 39.0, 1),
+  (208, 101, 4, 'lanarte-your-favorites-char-fleuri', 21.08, NULL, 1, '34164', 0, 0.300, 1, 12.0, 17.0, 1),
+  (209, 101, 4, 'lanarte-your-favorites-arbuste-boule', 21.62, NULL, 1, '34166', 0, 0.300, 1, NULL, NULL, 1),
+  (210, 101, 4, 'lanarte-your-favorites-fraises-et-papillon', 21.62, NULL, 1, '34177', 0, 0.300, 1, 17.0, 12.0, 1),
+  (211, 101, 4, 'lanarte-bavette-blanche', 17.19, NULL, 1, '25121', 0, 0.300, 1, NULL, NULL, 1),
+  (212, 101, 4, 'lanarte-catalogue-n-15', 2.97, NULL, 1, 'N15', 0, 0.300, 1, NULL, NULL, 1),
+  (213, 101, 4, 'lanarte-cadre-en-bois-naturel-14-x-14', 18.59, NULL, 1, '70772', 0, 0.300, 1, NULL, NULL, 1),
+  (214, 101, 4, 'lanarte-cadre-your-favorites-rose-12-x-17', 14.27, NULL, 1, '70751', 0, 0.300, 1, NULL, NULL, 1),
+  (215, 101, 4, 'lanarte-cadre-your-favorites-saumon-12-x-17', 14.27, NULL, 1, '70753', 0, 0.300, 1, NULL, NULL, 1),
+  (216, 101, 4, 'lanarte-kit-family-tree-bears-arbre-genealogique', 41.08, NULL, 1, '15526', 0, 0.300, 1, 22.0, 29.0, 1),
+  (217, 101, 4, 'lanarte-birth-tile-robert', 30.27, NULL, 1, '15525', 0, 0.300, 1, 15.0, 20.0, 1),
+  (218, 101, 4, 'lanarte-ours-et-lapins-lapins-aida', 18.92, NULL, 1, '15530A', 0, 0.300, 1, NULL, NULL, 1),
+  (219, 101, 4, 'lanarte-flowers-facade-canevas-peint', 78.91, NULL, 1, '42060', 0, 0.300, 1, NULL, NULL, 1),
+  (220, 101, 4, 'lanarte-cadre-bois-naturel-pour-abc-nounours', 15.57, NULL, 1, '70771', 0, 0.300, 1, NULL, NULL, 1),
+  (221, 101, 4, 'lanarte-pump-with-watering-can-canevas-peint-sans-coton', 44.32, NULL, 1, '41058', 0, 0.300, 1, 29.0, 22.0, 1),
+  (222, 101, 4, 'lanarte-birth-sampler', 35.67, NULL, 1, '15514', 0, 0.300, 1, NULL, NULL, 1),
+  (223, 101, 4, 'lanarte-birth-banner', 38.92, NULL, 1, '15516', 0, 0.300, 1, NULL, NULL, 1),
+  (224, 101, 4, 'lanarte-birth-document-bears', 47.56, NULL, 1, '15520', 0, 0.300, 1, NULL, NULL, 1),
+  (225, 101, 4, 'lanarte-birth-tile-bears', 22.21, NULL, 1, '15521', 0, 0.300, 1, NULL, NULL, 1),
+  (226, 101, 4, 'lanarte-rose-canevas-peint', 78.91, NULL, 1, '42045', 0, 0.300, 1, NULL, NULL, 1),
+  (227, 101, 4, 'lanarte-bears-with-hat-canevas-peint', 78.91, NULL, 1, '42050', 0, 0.300, 1, NULL, NULL, 1),
+  (228, 101, 4, 'lanarte-new-romantics-2-ours', 10.81, NULL, 1, '34118', 0, 0.300, 1, 6.0, 8.0, 1),
+  (229, 101, 4, 'lanarte-cadre-bois-naturel-new-romantics', 10.81, NULL, 1, '70776', 0, 0.300, 1, NULL, NULL, 1),
+  (230, 101, 4, 'sweatshirt-ravel', 21.62, NULL, 1, '48', 0, 0.300, 1, NULL, NULL, 1),
+  (231, 101, 4, 'lanarte-alphabet-ours-lettre-q', 17.3, NULL, 1, '34250', 0, 0.300, 1, 14.0, 12.0, 1),
+  (232, 101, 4, 'sweatshirt-ravel-carton-de-36-pieces-assorties', 505.91, NULL, 1, '50', 0, 0.300, 1, NULL, NULL, 1),
+  (233, 101, 4, 'sweatshirt-ravel-carton-de-18-pieces-assorties', 252.95, NULL, 1, '51', 0, 0.300, 1, NULL, NULL, 1),
+  (234, 101, 4, 'lanarte-zoo-rabbits-aida', 70.27, 78.0, 1, '15528A', 0, 0.300, 1, 37.0, 62.0, 1),
+  (235, 101, 4, 'lanarte-clown-flower-aida', 32.43, NULL, 1, '15533A', 0, 0.300, 1, 20.0, 15.0, 1),
+  (236, 101, 4, 'lanarte-collage-bird-s-nest-m-b-epuise', 94.59, NULL, 1, '34283', 0, 0.300, 1, 44.0, 34.0, 0), -- épuisé, désactivé
+  (237, 101, 4, 'lanarte-blue-sampler-small', 64.86, NULL, 1, '34293', 0, 0.300, 1, 37.0, 32.0, 1),
+  (238, 101, 4, 'lanarte-arrosoir-et-tournesol', 19.46, NULL, 1, '34296', 0, 0.300, 1, 14.0, 14.0, 1),
+  (239, 101, 4, 'lanarte-sunflower-pumpkin-14-x-14', 21.19, NULL, 1, '34297', 0, 0.300, 1, 14.0, 14.0, 1),
+  (240, 101, 4, 'lanarte-hortensias-et-chapeau', 81.08, NULL, 1, '34302', 0, 0.300, 1, 34.0, 44.0, 1),
+  (241, 101, 4, 'lanarte-collage-cats', 94.59, NULL, 1, '34303', 0, 0.300, 1, 38.0, 46.0, 1),
+  (242, 101, 4, 'lanarte-field-flowers-coraline', 94.59, NULL, 1, '34304', 0, 0.300, 1, 43.0, 37.0, 1),
+  (243, 101, 4, 'lanarte-two-hydrangea-s-aida', 44.86, NULL, 1, '34306A', 0, 0.300, 1, 22.0, 29.0, 1),
+  (244, 101, 4, 'lanarte-panier-de-prunes', 48.64, NULL, 1, '34307', 0, 0.300, 1, 22.0, 30.0, 1);
 
 INSERT INTO product_translations (product_id, locale, name, description, slug) VALUES
   (200, 'fr', 'Lanarte, Fruits and Flowers , pruneau', NULL, 'lanarte-fruits-and-flowers-pruneau'),

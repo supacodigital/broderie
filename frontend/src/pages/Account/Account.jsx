@@ -7,11 +7,12 @@ import { z } from 'zod'
 import {
   User, Package, MapPin, Heart, LogOut, ChevronRight,
   Check, AlertCircle, Plus, Pencil, Trash2, Star, X, Gift, Copy, Eye, EyeOff,
+  Download, ShieldAlert,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useWishlist } from '../../contexts/WishlistContext.jsx'
 import { getMyOrders } from '../../services/orders.service.js'
-import { updateProfile, updatePassword } from '../../services/profile.service.js'
+import { updateProfile, updatePassword, downloadMyData, deleteMyAccount } from '../../services/profile.service.js'
 import { getAddresses, createAddress, updateAddress, deleteAddress } from '../../services/addresses.service.js'
 import { getLoyaltyAccount, getLoyaltyRewards } from '../../services/loyalty.service.js'
 import { getWishlist } from '../../services/wishlist.service.js'
@@ -231,6 +232,122 @@ function PasswordForm() {
   )
 }
 
+/* ── Section « Mes données » — export + suppression de compte (LPD) ── */
+function DataPrivacySection({ user }) {
+  const { logout } = useAuth()
+  const navigate = useNavigate()
+  const hasPassword = user?.hasPassword !== false // par défaut on suppose un compte classique
+
+  const [downloading, setDownloading] = useState(false)
+  const [dlErr, setDlErr] = useState('')
+  const [showDelete, setShowDelete] = useState(false)
+  const [pwd, setPwd] = useState('')
+  const [confirmWord, setConfirmWord] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [delErr, setDelErr] = useState('')
+
+  const handleDownload = async () => {
+    setDlErr('')
+    setDownloading(true)
+    try {
+      await downloadMyData()
+    } catch {
+      setDlErr('Le téléchargement a échoué. Veuillez réessayer.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const handleDelete = async (e) => {
+    e.preventDefault()
+    setDelErr('')
+    setDeleting(true)
+    try {
+      await deleteMyAccount(
+        hasPassword ? { password: pwd } : { confirm: confirmWord.trim().toUpperCase() },
+      )
+      await logout()
+      navigate('/', { replace: true })
+    } catch (err) {
+      setDelErr(err.response?.data?.message ?? 'La suppression a échoué. Veuillez réessayer.')
+      setDeleting(false)
+    }
+  }
+
+  const canDelete = hasPassword ? pwd.length > 0 : confirmWord.trim().toUpperCase() === 'SUPPRIMER'
+
+  return (
+    <>
+      <h3 className={s.subTitle}>Mes données personnelles</h3>
+      <p className={s.fieldHint}>
+        Conformément à la loi suisse sur la protection des données, vous pouvez
+        télécharger l'ensemble de vos données ou supprimer votre compte.
+      </p>
+
+      {dlErr && <div className={s.alertError} role="alert"><AlertCircle size={15} /> {dlErr}</div>}
+
+      <div className={s.formActions}>
+        <button type="button" className={s.btnSecondary} onClick={handleDownload} disabled={downloading}>
+          <Download size={15} /> {downloading ? 'Préparation…' : 'Télécharger mes données'}
+        </button>
+      </div>
+
+      <div className={s.formActions} style={{ marginTop: 4 }}>
+        <button type="button" className={s.btnOutline} onClick={() => setShowDelete(true)}
+          style={{ color: '#b91c1c', borderColor: '#fca5a5' }}>
+          <ShieldAlert size={15} /> Supprimer mon compte
+        </button>
+      </div>
+
+      {showDelete && (
+        <div className={s.modalOverlay} role="dialog" aria-modal="true"
+          onClick={() => !deleting && setShowDelete(false)}>
+          <div className={s.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 className={s.modalTitle}>Supprimer votre compte</h3>
+            <p className={s.fieldHint}>
+              Cette action est <strong>définitive</strong>. Vos données personnelles
+              (profil, adresses, favoris, avis) seront supprimées. Vos commandes sont
+              conservées de façon anonymisée pour des raisons comptables (obligation légale).
+            </p>
+
+            {delErr && <div className={s.alertError} role="alert"><AlertCircle size={15} /> {delErr}</div>}
+
+            <form onSubmit={handleDelete} noValidate className={s.form}>
+              {hasPassword ? (
+                <div className={s.field}>
+                  <label htmlFor="del-pwd" className={s.label}>
+                    Confirmez avec votre mot de passe <span className={s.requiredMark} aria-hidden="true">*</span>
+                  </label>
+                  <input id="del-pwd" type="password" autoComplete="current-password" className={s.input}
+                    value={pwd} onChange={(e) => setPwd(e.target.value)} aria-required="true" />
+                </div>
+              ) : (
+                <div className={s.field}>
+                  <label htmlFor="del-confirm" className={s.label}>
+                    Tapez <strong>SUPPRIMER</strong> pour confirmer <span className={s.requiredMark} aria-hidden="true">*</span>
+                  </label>
+                  <input id="del-confirm" type="text" autoComplete="off" className={s.input}
+                    value={confirmWord} onChange={(e) => setConfirmWord(e.target.value)} aria-required="true" />
+                </div>
+              )}
+
+              <div className={s.formActions}>
+                <button type="button" className={s.btnSecondary} onClick={() => setShowDelete(false)} disabled={deleting}>
+                  Annuler
+                </button>
+                <button type="submit" className={s.btnPrimary} disabled={!canDelete || deleting}
+                  style={{ background: '#b91c1c' }}>
+                  {deleting ? 'Suppression…' : 'Supprimer définitivement'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 /* ── Onglet Profil ── */
 function TabProfile({ user, onSaved }) {
   const { t } = useTranslation()
@@ -314,6 +431,10 @@ function TabProfile({ user, onSaved }) {
       <hr className={s.sectionDivider} />
 
       <PasswordForm />
+
+      <hr className={s.sectionDivider} />
+
+      <DataPrivacySection user={user} />
     </section>
   )
 }

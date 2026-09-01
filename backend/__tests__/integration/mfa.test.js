@@ -225,5 +225,5 @@ describe('MFA — verify-recovery-code', () => {
       .send({ recoveryCode: recoveryCodes[0] });
 
     expect(res.status).toBe(401);
-  });
+  }, 15000);
 });

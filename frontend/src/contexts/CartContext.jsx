@@ -6,10 +6,10 @@ import { useAuth } from './AuthContext.jsx'
 import { useToastShortcuts } from '../hooks/useToastShortcuts.jsx'
 
 /* ── État initial ── */
-const INITIAL = { items: [], loading: false, error: null }
+export const INITIAL = { items: [], loading: false, error: null }
 
 /* ── Reducer ── */
-function cartReducer(state, action) {
+export function cartReducer(state, action) {
   switch (action.type) {
     case 'SET_LOADING': return { ...state, loading: action.payload }
     case 'SET_ERROR':   return { ...state, error: action.payload, loading: false }
@@ -145,7 +145,7 @@ export function useCart() {
 }
 
 /* ── Utilitaire : fusionne ou ajoute un item dans la liste ── */
-function mergeOrAdd(items, newItem) {
+export function mergeOrAdd(items, newItem) {
   const existing = items.find(
     i => i.product_id === newItem.product_id && i.variant_id === newItem.variant_id,
   )

@@ -1,4 +1,5 @@
 const newsletterRepository = require('../../repositories/newsletter.repository');
+const { buildCsv } = require('../../utils/csv.utils');
 
 const getAll = async (req, res, next) => {
   try {
@@ -38,19 +39,21 @@ const exportCsv = async (req, res, next) => {
     const active = req.query.active;
     const { rows } = await newsletterRepository.findAll({ page: 1, limit: 100000, search, active });
 
-    const header = 'id,email,locale,actif,inscrit_le,desabonne_le\n';
-    const body   = rows.map(r => [
+    // Chaque valeur est neutralisée (anti-injection de formule + échappement) par buildCsv —
+    // l'email d'un abonné est une entrée utilisateur, ne jamais l'écrire brut dans un CSV.
+    const headers = ['id', 'email', 'locale', 'actif', 'inscrit_le', 'desabonne_le'];
+    const csvRows = rows.map((r) => [
       r.id,
       r.email,
       r.locale ?? '',
       r.is_active ? 'oui' : 'non',
       r.subscribed_at   ? new Date(r.subscribed_at).toISOString().slice(0, 10)   : '',
       r.unsubscribed_at ? new Date(r.unsubscribed_at).toISOString().slice(0, 10) : '',
-    ].join(',')).join('\n');
+    ]);
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="newsletter.csv"');
-    res.send('﻿' + header + body); // BOM UTF-8 pour Excel
+    res.send(buildCsv(headers, csvRows));
   } catch (error) {
     next(error);
   }

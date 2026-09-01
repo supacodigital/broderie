@@ -10,6 +10,9 @@ router.use(requireAuth);
 router.get('/me', userController.getMe);
 router.put('/me', userController.updateMe);
 router.put('/me/password', userController.changePassword);
+// Droits LPD — export des données personnelles et suppression du compte
+router.get('/me/export', userController.exportMyData);
+router.delete('/me', userController.deleteMyAccount);
 router.get('/me/addresses', userController.getAddresses);
 router.post('/me/addresses', userController.createAddress);
 router.put('/me/addresses/:id', userController.updateAddress);

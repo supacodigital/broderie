@@ -1,6 +1,5 @@
 const orderRepository   = require('../../repositories/order.repository');
 const userRepository    = require('../../repositories/user.repository');
-const { pool }          = require('../../config/db');
 const { AppError }      = require('../../middlewares/errorHandler');
 const emailService      = require('../../services/email.service');
 const shippingService   = require('../../services/shipping.service');
@@ -45,41 +44,16 @@ const getById = async (req, res, next) => {
 };
 
 const updateStatus = async (req, res, next) => {
-  const connection = await pool.getConnection();
   try {
     const orderId = parseInt(req.params.id);
     const { status, note } = req.body;
 
     if (!VALID_STATUSES.includes(status)) {
-      connection.release();
       return next(new AppError(`Statut invalide. Valeurs acceptées : ${VALID_STATUSES.join(', ')}`, 400));
     }
 
-    await connection.beginTransaction();
-
-    const [existing] = await connection.execute(
-      `SELECT id FROM orders WHERE id = ? LIMIT 1`,
-      [orderId]
-    );
-    if (!existing[0]) {
-      await connection.rollback();
-      connection.release();
-      return next(new AppError('Commande introuvable.', 404));
-    }
-
-    // Mise à jour du statut + historique dans la même transaction
-    await connection.execute(
-      `UPDATE orders SET status = ? WHERE id = ?`,
-      [status, orderId]
-    );
-    await connection.execute(
-      `INSERT INTO order_status_history (order_id, status, note, created_by)
-       VALUES (?, ?, ?, ?)`,
-      [orderId, status, note || null, req.user.id]
-    );
-
-    await connection.commit();
-    connection.release();
+    const ok = await orderRepository.updateStatusWithHistory(orderId, status, note, req.user.id);
+    if (!ok) return next(new AppError('Commande introuvable.', 404));
 
     const order = await orderRepository.findById(orderId);
 
@@ -122,8 +96,6 @@ const updateStatus = async (req, res, next) => {
 
     res.json({ success: true, data: order });
   } catch (error) {
-    await connection.rollback();
-    connection.release();
     next(error);
   }
 };

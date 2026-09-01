@@ -1,20 +1,20 @@
 const stripe            = require('../config/stripe');
 const paymentRepository = require('../repositories/payment.repository');
 const orderRepository   = require('../repositories/order.repository');
-const userRepository    = require('../repositories/user.repository');
 const loyaltyService    = require('./loyalty.service');
-const { pool }          = require('../config/db');
 const { AppError }      = require('../middlewares/errorHandler');
 const { roundCHF }      = require('../utils/chf.utils');
 const env               = require('../config/env');
 
 // ─────────────────────────────────────────────────────────────
 // Carte — crée un PaymentIntent Stripe et retourne le client_secret
+// `userId` : scope la commande à son propriétaire (un client ne peut pas
+// initier le paiement de la commande d'un autre — 404 sinon).
 // ─────────────────────────────────────────────────────────────
-const createCardIntent = async (orderId) => {
+const createCardIntent = async (orderId, userId) => {
   if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
 
-  const order = await orderRepository.findById(orderId);
+  const order = await orderRepository.findById(orderId, userId);
   if (!order) throw new AppError('Commande introuvable.', 404);
 
   if (!['pending', 'awaiting_payment'].includes(order.status)) {
@@ -50,11 +50,12 @@ const createCardIntent = async (orderId) => {
 // ─────────────────────────────────────────────────────────────
 // Twint (sans QR) — crée un PaymentIntent Stripe et retourne le client_secret
 // Le front confirme via Stripe.js : redirection vers l'app Twint, pas de QR affiché
+// `userId` : scope la commande à son propriétaire (404 si ce n'est pas la sienne).
 // ─────────────────────────────────────────────────────────────
-const createTwintIntent = async (orderId) => {
+const createTwintIntent = async (orderId, userId) => {
   if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
 
-  const order = await orderRepository.findById(orderId);
+  const order = await orderRepository.findById(orderId, userId);
   if (!order) throw new AppError('Commande introuvable.', 404);
 
   if (!['pending', 'awaiting_payment'].includes(order.status)) {
@@ -104,51 +105,33 @@ const handleWebhook = async (rawBody, signature) => {
     throw new AppError(`Signature webhook invalide : ${err.message}`, 400);
   }
 
+  // Idempotence : Stripe retente les webhooks non acquittés — si l'event a déjà
+  // été traité, on sort (200) sans rien refaire.
+  const isNew = await paymentRepository.registerWebhookEvent(event.id, event.type);
+  if (!isNew) {
+    console.warn('[Stripe] Webhook déjà traité, ignoré :', event.id);
+    return;
+  }
+
   if (event.type === 'payment_intent.succeeded') {
     const intent  = event.data.object;
     const orderId = parseInt(intent.metadata?.order_id);
     if (!orderId) return;
 
-    const connection = await pool.getConnection();
-    try {
-      await connection.beginTransaction();
+    const method = intent.payment_method_types?.includes('card') ? 'card' : 'twint';
 
-      await connection.execute(
-        `UPDATE orders SET status = 'paid' WHERE id = ? AND status != 'paid'`,
-        [orderId]
-      );
-      await connection.execute(
-        `INSERT INTO order_status_history (order_id, status, note, created_by)
-         VALUES (?, 'paid', 'Paiement Stripe confirmé', NULL)`,
-        [orderId]
-      );
+    // Transaction : passage à "paid" + historique + mise à jour du paiement
+    const { statusChanged } = await orderRepository.markPaidFromWebhook(orderId, intent.id, method);
 
-      // Mise à jour du paiement — dans la même transaction pour cohérence
-      const method = intent.payment_method_types?.includes('card') ? 'card' : 'twint';
-      await connection.execute(
-        `UPDATE payments SET status = 'succeeded', provider_payment_id = ?
-         WHERE order_id = ? AND method = ?`,
-        [intent.id, orderId, method]
-      );
-
-      await connection.commit();
-    } catch (err) {
-      await connection.rollback();
-      throw err;
-    } finally {
-      connection.release();
-    }
-
-    // Fidélité — non bloquant
-    const order = await orderRepository.findById(orderId);
-    if (order) {
-      userRepository.findById(order.user_id).then(async (user) => {
-        if (!user) return;
-
-        loyaltyService.processOrderEarning(order.user_id, orderId, order.total).catch((err) => {
-          console.error('[Fidélité] Crédit points échoué :', err.message);
-        });
-      }).catch(() => {});
+    // Crédit des points de fidélité — hors transaction (processOrderEarning gère
+    // ses propres transactions internes), et SEULEMENT si la commande vient de
+    // passer à "paid". Combiné à l'idempotence sur event_id, garantit un crédit unique.
+    if (statusChanged) {
+      const order = await orderRepository.findById(orderId);
+      if (order) {
+        await loyaltyService.processOrderEarning(order.user_id, orderId, order.total)
+          .catch((err) => console.error('[Fidélité] Crédit points échoué :', err.message));
+      }
     }
   }
 

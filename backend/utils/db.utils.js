@@ -11,6 +11,7 @@ const DUPLICATE_MESSAGES = {
   uq_coupons_code:         'Ce code promo est déjà utilisé.',
   uq_users_email:          'Cette adresse email est déjà utilisée.',
   uq_newsletter_email:     'Cette adresse email est déjà inscrite à la newsletter.',
+  uq_reviews_user_product: 'Vous avez déjà laissé un avis pour ce produit.',
 };
 
 const FK_MESSAGES = {

@@ -6,29 +6,24 @@ if (process.env.NODE_ENV === 'production') {
 }
 require('dotenv').config(); // complète les variables non déjà définies (ne les écrase pas)
 
-/* Validation des variables obligatoires au démarrage — fail-fast avant d'accepter du trafic */
-const REQUIRED_ENV = [
-  'JWT_ACCESS_SECRET',
-  'JWT_REFRESH_SECRET',
-  'JWT_MFA_PENDING_SECRET',
-  'MFA_ENCRYPTION_KEY',
-  'DB_HOST',
-  'DB_NAME',
-  'DB_USER',
-  'DB_PASSWORD',
-];
-const missingEnv = REQUIRED_ENV.filter(k => !process.env[k]);
-if (missingEnv.length > 0) {
-  console.error(`[ERREUR DÉMARRAGE] Variables d'environnement manquantes : ${missingEnv.join(', ')}`);
-  process.exit(1);
+/* Filet de sécurité indépendant de config/env : quand on démarre le serveur
+   directement (`node app.js` — jamais le cas sous Jest, qui importe app via require),
+   les secrets doivent être présents et non-placeholder, quel que soit NODE_ENV.
+   Empêche un démarrage prod avec NODE_ENV forcé à 'test'. env.js fait la validation
+   complète (formats, distinction, etc.) juste après. */
+if (require.main === module) {
+  for (const key of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'JWT_MFA_PENDING_SECRET', 'MFA_ENCRYPTION_KEY', 'CONSENT_IP_PEPPER', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD']) {
+    if (!process.env[key] || /change_me|__GENERER__|__A_DEFINIR__/i.test(process.env[key])) {
+      console.error(`[ERREUR DÉMARRAGE] ${key} manquant ou placeholder — le serveur ne démarre pas.`);
+      process.exit(1);
+    }
+  }
 }
 
-/* MFA_ENCRYPTION_KEY doit faire exactement 32 bytes (64 caractères hex) pour AES-256-GCM —
-   échec explicite au démarrage plutôt qu'une erreur de chiffrement silencieuse en production. */
-if (!/^[0-9a-fA-F]{64}$/.test(process.env.MFA_ENCRYPTION_KEY)) {
-  console.error('[ERREUR DÉMARRAGE] MFA_ENCRYPTION_KEY doit être une chaîne hexadécimale de 64 caractères (32 bytes). Générer avec : node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
-  process.exit(1);
-}
+/* Validation complète de l'environnement (schéma Zod) — fail-fast avec process.exit(1)
+   si une variable manque, est mal formée ou est un secret faible/placeholder.
+   Le simple require suffit : env.js valide au chargement. */
+require('./config/env');
 
 const express = require('express');
 const helmet = require('helmet');
@@ -49,19 +44,22 @@ if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
 }
 
-// Sécurité des headers HTTP — CSP assouplie pour les SPA (scripts/styles hachés par Vite)
-// scriptSrc/connectSrc/frameSrc autorisent accounts.google.com : nécessaire au SDK Google
-// Identity Services (bouton « Se connecter avec Google ») chargé dynamiquement côté client.
+// Sécurité des headers HTTP — CSP.
+// - scriptSrc : Vite en build ne produit AUCUN script inline → pas de 'unsafe-inline'
+//   ni 'unsafe-eval'. accounts.google.com / apis.google.com : SDK Google Identity Services.
+// - styleSrc : garde 'unsafe-inline' pour les attributs style={{}} de React + le SDK Google ;
+//   fonts.googleapis.com pour la feuille de styles Google Fonts (@import dans index.css).
+// - fontSrc : fonts.gstatic.com pour les fichiers de police servis par Google Fonts.
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc:     ["'self'"],
-      scriptSrc:      ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com"],
-      styleSrc:       ["'self'", "'unsafe-inline'"],
-      imgSrc:         ["'self'", "data:", "blob:"],
+      scriptSrc:      ["'self'", "https://accounts.google.com", "https://apis.google.com"],
+      styleSrc:       ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
+      imgSrc:         ["'self'", "data:", "blob:", "https://*.googleusercontent.com"],
       connectSrc:     ["'self'", "https://accounts.google.com"],
       frameSrc:       ["https://accounts.google.com"],
-      fontSrc:        ["'self'", "data:"],
+      fontSrc:        ["'self'", "data:", "https://fonts.gstatic.com"],
       objectSrc:      ["'none'"],
       frameAncestors: ["'none'"],
     },

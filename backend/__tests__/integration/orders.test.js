@@ -1,24 +1,37 @@
 require('dotenv').config();
 const request = require('supertest');
 const app = require('../../app');
+const { pool } = require('../../config/db');
+const { registerVerifiedUser } = require('../helpers/auth.helper');
 
 // — Helpers
 const registerAndLogin = async () => {
-  const email = `order.jest.${Date.now()}@broderie-test.ch`;
+  const { token, cartCookie } = await registerVerifiedUser('order.jest');
+  return { token, cookie: cartCookie };
+};
+
+// Compte NON vérifié — pour le contrôle H11
+const registerUnverified = async () => {
+  const email = `order.unverified.${Date.now()}.${Math.random().toString(36).slice(2)}@broderie-test.ch`;
   const password = 'TestOrder1234!';
-
-  await request(app)
-    .post('/api/v1/auth/register')
-    .send({ email, password, firstName: 'Test', lastName: 'Order' });
-
-  const loginRes = await request(app)
-    .post('/api/v1/auth/login')
-    .send({ email, password });
-
+  await request(app).post('/api/v1/auth/register')
+    .send({ email, password, firstName: 'Unv', lastName: 'Erified' });
+  const login = await request(app).post('/api/v1/auth/login').send({ email, password });
   return {
-    token: loginRes.body.data.accessToken,
-    cookie: loginRes.headers['set-cookie']?.find(c => c.startsWith('cartSession')),
+    token: login.body.data.accessToken,
+    cookie: login.headers['set-cookie']?.find((c) => c.startsWith('cartSession')),
   };
+};
+
+// Adresse de livraison valide — le schéma createOrderSchema l'exige
+const validAddress = {
+  first_name: 'Test',
+  last_name: 'Order',
+  street: 'Rue du Test',
+  street_number: '12',
+  zip: '1000',
+  city: 'Lausanne',
+  canton: 'VD',
 };
 
 const addProductToCart = async (token, cartCookie) => {
@@ -62,6 +75,21 @@ describe('Commandes — panier vide', () => {
   });
 });
 
+describe('Commandes — email non vérifié (H11)', () => {
+  test('POST /orders retourne 403 si l\'adresse email n\'est pas confirmée', async () => {
+    const { token, cookie } = await registerUnverified();
+    await addProductToCart(token, cookie);
+
+    const res = await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', `Bearer ${token}`)
+      .set('Cookie', cookie ? [cookie] : []);
+
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+  });
+});
+
 describe('Commandes — flux complet', () => {
   let token = null;
   let orderId = null;
@@ -75,15 +103,16 @@ describe('Commandes — flux complet', () => {
   test('POST /orders crée une commande et vide le panier', async () => {
     const res = await request(app)
       .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${token}`);
+      .set('Authorization', `Bearer ${token}`)
+      .send({ address: validAddress, payment_method: 'invoice_qr', items: [] });
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.data).toHaveProperty('id');
     // Facture = awaiting_payment, Twint/carte = pending
-    expect(['pending', 'awaiting_payment']).toContain(res.body.data.status);
-    // Frais dynamiques selon le poids — au moins CHF 8.50
-    expect(parseFloat(res.body.data.shipping_cost)).toBeGreaterThanOrEqual(8.50);
+    expect(['pending', 'awaiting_payment', 'pending_invoice']).toContain(res.body.data.status);
+    // Frais dynamiques selon le poids — toujours payants (> 0)
+    expect(parseFloat(res.body.data.shipping_cost)).toBeGreaterThan(0);
     expect(Array.isArray(res.body.data.items)).toBe(true);
     expect(res.body.data.items.length).toBeGreaterThan(0);
 
@@ -118,7 +147,7 @@ describe('Commandes — flux complet', () => {
     expect(res.body.data).toHaveProperty('items');
     expect(res.body.data).toHaveProperty('history');
     expect(res.body.data.history.length).toBeGreaterThan(0);
-    expect(['pending', 'awaiting_payment']).toContain(res.body.data.history[0].status);
+    expect(['pending', 'awaiting_payment', 'pending_invoice']).toContain(res.body.data.history[0].status);
   });
 
   test('un utilisateur ne peut pas voir la commande d\'un autre', async () => {

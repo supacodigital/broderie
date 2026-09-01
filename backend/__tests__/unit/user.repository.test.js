@@ -163,13 +163,13 @@ describe('user.repository — findByResetToken()', () => {
 // ── updatePassword() ──────────────────────────────────────────────────────────
 
 describe('user.repository — updatePassword()', () => {
-  test('met à jour le hash et invalide le token', async () => {
+  test('met à jour le hash, invalide le token et incrémente token_version', async () => {
     pool.execute.mockResolvedValue([{}]);
     await userRepository.updatePassword(1, '$2b$12$newhash');
-    expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining('reset_token_hash = NULL'),
-      ['$2b$12$newhash', 1]
-    );
+    const sql = pool.execute.mock.calls[0][0];
+    expect(sql).toMatch(/reset_token_hash = NULL/);
+    expect(sql).toMatch(/token_version = token_version \+ 1/);
+    expect(pool.execute.mock.calls[0][1]).toEqual(['$2b$12$newhash', 1]);
   });
 });
 
@@ -340,5 +340,90 @@ describe('user.repository — findByIdWithPassword()', () => {
   test('retourne null si introuvable', async () => {
     pool.execute.mockResolvedValue([[]]);
     expect(await userRepository.findByIdWithPassword(99)).toBeNull();
+  });
+});
+
+// ── findByIdRaw() ─────────────────────────────────────────────────────────────
+
+describe('user.repository — findByIdRaw()', () => {
+  test('retourne le profil complet, filtre deleted_at', async () => {
+    pool.execute.mockResolvedValue([[{ id: 1, email: 'j@b.ch', google_id: null, created_at: 'x' }]]);
+    const r = await userRepository.findByIdRaw(1);
+    expect(r.email).toBe('j@b.ch');
+    expect(pool.execute).toHaveBeenCalledWith(
+      expect.stringContaining('deleted_at IS NULL'), [1]
+    );
+  });
+
+  test('retourne null si introuvable', async () => {
+    pool.execute.mockResolvedValue([[]]);
+    expect(await userRepository.findByIdRaw(99)).toBeNull();
+  });
+});
+
+// ── anonymizeUser() ──────────────────────────────────────────────────────────
+
+describe('user.repository — anonymizeUser()', () => {
+  test('anonymise, commit et release ; email de la forme deleted+{id}+{ts}@anonymized.local', async () => {
+    const conn = makeConnection();
+    conn.execute.mockImplementation((sql) => {
+      if (/SELECT id, email, deleted_at FROM users/.test(sql)) {
+        return Promise.resolve([[{ id: 1, email: 'julie@b.ch', deleted_at: null }]]);
+      }
+      if (/SELECT DISTINCT product_id FROM reviews/.test(sql)) {
+        return Promise.resolve([[{ product_id: 3 }]]); // un produit noté
+      }
+      return Promise.resolve([{ affectedRows: 1 }]);
+    });
+    pool.getConnection.mockResolvedValue(conn);
+
+    const res = await userRepository.anonymizeUser(1);
+
+    expect(res).toEqual({ anonymized: true, email: 'julie@b.ch' });
+    expect(conn.commit).toHaveBeenCalled();
+    expect(conn.release).toHaveBeenCalled();
+
+    const calls = conn.execute.mock.calls.map((c) => c[0]);
+    expect(calls.some((sql) => /UPDATE users SET/.test(sql))).toBe(true);
+    expect(calls.some((sql) => /UPDATE orders SET/.test(sql))).toBe(true);
+    expect(calls.some((sql) => /DELETE FROM addresses/.test(sql))).toBe(true);
+    expect(calls.some((sql) => /DELETE FROM loyalty_accounts/.test(sql))).toBe(true);
+    expect(calls.some((sql) => /consent_logs\s+SET user_id = NULL/.test(sql))).toBe(true);
+
+    const usersUpdate = conn.execute.mock.calls.find((c) => /UPDATE users SET/.test(c[0]));
+    expect(usersUpdate[1][0]).toMatch(/^deleted\+1\+\d+@anonymized\.local$/);
+  });
+
+  test('rollback + { alreadyDeleted } si le compte est déjà supprimé', async () => {
+    const conn = makeConnection();
+    conn.execute.mockResolvedValueOnce([[{ id: 1, email: 'x@b.ch', deleted_at: new Date() }]]);
+    pool.getConnection.mockResolvedValue(conn);
+
+    const res = await userRepository.anonymizeUser(1);
+    expect(res).toEqual({ alreadyDeleted: true });
+    expect(conn.rollback).toHaveBeenCalled();
+    expect(conn.commit).not.toHaveBeenCalled();
+  });
+
+  test('rollback + { notFound } si le compte n\'existe pas', async () => {
+    const conn = makeConnection();
+    conn.execute.mockResolvedValueOnce([[]]);
+    pool.getConnection.mockResolvedValue(conn);
+
+    const res = await userRepository.anonymizeUser(999);
+    expect(res).toEqual({ notFound: true });
+    expect(conn.rollback).toHaveBeenCalled();
+  });
+
+  test('rollback + rethrow si une requête échoue', async () => {
+    const conn = makeConnection();
+    conn.execute
+      .mockResolvedValueOnce([[{ id: 1, email: 'x@b.ch', deleted_at: null }]])
+      .mockRejectedValueOnce(new Error('SQL down'));
+    pool.getConnection.mockResolvedValue(conn);
+
+    await expect(userRepository.anonymizeUser(1)).rejects.toThrow('SQL down');
+    expect(conn.rollback).toHaveBeenCalled();
+    expect(conn.release).toHaveBeenCalled();
   });
 });

@@ -3,6 +3,7 @@
 jest.mock('../../repositories/review.repository', () => ({
   findApprovedByProduct: jest.fn(),
   findApproved:          jest.fn(),
+  hasPurchased:          jest.fn(),
   create:                jest.fn(),
 }));
 
@@ -67,7 +68,8 @@ describe('review.controller — getByProduct()', () => {
 // ── create() ──────────────────────────────────────────────────────────────────
 
 describe('review.controller — create()', () => {
-  test('crée un avis et retourne 201', async () => {
+  test('crée un avis et retourne 201 (acheteur du produit)', async () => {
+    reviewRepository.hasPurchased.mockResolvedValue(true);
     reviewRepository.create.mockResolvedValue();
     const req = {
       params: { id: '10' },
@@ -78,6 +80,7 @@ describe('review.controller — create()', () => {
     const next = jest.fn();
 
     await create(req, res, next);
+    expect(reviewRepository.hasPurchased).toHaveBeenCalledWith(3, 10);
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     expect(reviewRepository.create).toHaveBeenCalledWith({
@@ -85,31 +88,68 @@ describe('review.controller — create()', () => {
     });
   });
 
+  test('retourne 403 si l\'utilisateur n\'a pas acheté le produit', async () => {
+    reviewRepository.hasPurchased.mockResolvedValue(false);
+    const req = { params: { id: '10' }, body: { rating: 5 }, user: { id: 7 } };
+    const res = makeRes();
+    const next = jest.fn();
+    await create(req, res, next);
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 403 }));
+    expect(reviewRepository.create).not.toHaveBeenCalled();
+  });
+
   test('retourne 400 si rating absent', async () => {
     const req = { params: { id: '10' }, body: {}, user: { id: 1 } };
     const res = makeRes();
     const next = jest.fn();
     await create(req, res, next);
-    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(reviewRepository.hasPurchased).not.toHaveBeenCalled();
   });
 
   test('retourne 400 si rating < 1', async () => {
     const req = { params: { id: '10' }, body: { rating: 0 }, user: { id: 1 } };
     const res = makeRes();
-    const next = jest.fn();
-    await create(req, res, next);
-    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
+    await create(req, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(400);
   });
 
   test('retourne 400 si rating > 5', async () => {
     const req = { params: { id: '10' }, body: { rating: 6 }, user: { id: 1 } };
     const res = makeRes();
-    const next = jest.fn();
-    await create(req, res, next);
-    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
+    await create(req, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(400);
   });
 
-  test('appelle next en cas d\'erreur', async () => {
+  test('retourne 400 si rating non entier', async () => {
+    const req = { params: { id: '10' }, body: { rating: 4.5 }, user: { id: 1 } };
+    const res = makeRes();
+    await create(req, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  test('retourne 400 si body dépasse 1000 caractères', async () => {
+    const req = { params: { id: '10' }, body: { rating: 5, body: 'x'.repeat(1001) }, user: { id: 1 } };
+    const res = makeRes();
+    await create(req, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  test('convertit un doublon (ER_DUP_ENTRY) en 409', async () => {
+    reviewRepository.hasPurchased.mockResolvedValue(true);
+    const dup = new Error('dup');
+    dup.code = 'ER_DUP_ENTRY';
+    dup.sqlMessage = "Duplicate entry '3-10' for key 'uq_reviews_user_product'";
+    reviewRepository.create.mockRejectedValue(dup);
+    const req = { params: { id: '10' }, body: { rating: 3 }, user: { id: 3 } };
+    const res = makeRes();
+    const next = jest.fn();
+    await create(req, res, next);
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 409 }));
+  });
+
+  test('appelle next en cas d\'erreur générique', async () => {
+    reviewRepository.hasPurchased.mockResolvedValue(true);
     reviewRepository.create.mockRejectedValue(new Error('DB'));
     const req = { params: { id: '10' }, body: { rating: 3 }, user: { id: 1 } };
     const res = makeRes();

@@ -19,10 +19,12 @@ const generateAccessToken = (user) => {
   );
 };
 
-// Génération d'un refresh token JWT (longue durée — cookie httpOnly)
+// Génération d'un refresh token JWT (longue durée — cookie httpOnly).
+// Le claim `tv` fige le token_version du compte : un changement de mot de passe
+// l'incrémente en base, rendant tous les refresh tokens antérieurs invalides.
 const generateRefreshToken = (user) => {
   return jwt.sign(
-    { id: user.id },
+    { id: user.id, tv: user.token_version ?? 0 },
     env.jwtRefreshSecret,
     { expiresIn: env.jwtRefreshExpiresIn }
   );
@@ -178,10 +180,17 @@ const loginWithGoogle = async (idToken) => {
     throw new AppError('Token Google invalide ou expiré.', 401);
   }
 
-  const { sub: googleId, email, given_name: firstName, family_name: lastName, picture: avatarUrl } = payload;
+  const { sub: googleId, email, email_verified: emailVerified, given_name: firstName, family_name: lastName, picture: avatarUrl } = payload;
 
   if (!email) {
     throw new AppError('Impossible de récupérer l\'email depuis le compte Google.', 400);
+  }
+
+  // Google peut renvoyer une adresse non vérifiée (domaine Workspace non validé).
+  // Sans cette garde, un tiers pourrait se lier à un compte existant via une
+  // adresse qu'il ne contrôle pas.
+  if (emailVerified !== true) {
+    throw new AppError('Votre adresse Google n\'est pas vérifiée. Vérifiez-la auprès de Google puis réessayez.', 403);
   }
 
   // Cas 1 — compte déjà lié à ce google_id
@@ -244,6 +253,13 @@ const refreshToken = async (token) => {
   const user = await userRepository.findById(payload.id);
   if (!user || !user.is_active) {
     throw new AppError('Utilisateur introuvable ou inactif.', 401);
+  }
+
+  // Le token_version du token doit correspondre à celui du compte — sinon le mot
+  // de passe a changé depuis l'émission (tokens antérieurs révoqués).
+  // `tv` absent = token émis avant cette fonctionnalité → toléré une fois (== 0).
+  if ((payload.tv ?? 0) !== user.token_version) {
+    throw new AppError('Session expirée. Veuillez vous reconnecter.', 401);
   }
 
   const accessToken = generateAccessToken(user);

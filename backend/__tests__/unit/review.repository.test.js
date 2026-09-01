@@ -133,25 +133,68 @@ describe('review.repository — create()', () => {
 // ── approve() ────────────────────────────────────────────────────────────────
 
 describe('review.repository — approve()', () => {
-  test('passe is_approved à 1', async () => {
-    pool.execute.mockResolvedValue([{}]);
+  test('passe is_approved à 1 puis recalcule la note du produit', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[{ product_id: 42 }]]) // SELECT product_id
+      .mockResolvedValueOnce([{}])                    // UPDATE reviews
+      .mockResolvedValueOnce([{}]);                   // UPDATE products (recompute)
     await repo.approve(5);
-    expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining('SET is_approved = 1'), [5]
-    );
+
+    const calls = pool.execute.mock.calls.map((c) => c[0]);
+    expect(calls.some((sql) => /SET is_approved = 1/.test(sql))).toBe(true);
+    expect(calls.some((sql) => /UPDATE products p[\s\S]*rating_avg/.test(sql))).toBe(true);
   });
 });
 
 // ── remove() ─────────────────────────────────────────────────────────────────
 
 describe('review.repository — remove()', () => {
-  test('supprime et retourne true si avis trouvé', async () => {
-    pool.execute.mockResolvedValue([{ affectedRows: 1 }]);
+  test('supprime, retourne true et recalcule la note du produit', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[{ product_id: 42 }]])  // SELECT product_id
+      .mockResolvedValueOnce([{ affectedRows: 1 }])   // DELETE
+      .mockResolvedValueOnce([{}]);                   // UPDATE products (recompute)
     expect(await repo.remove(3)).toBe(true);
+    const calls = pool.execute.mock.calls.map((c) => c[0]);
+    expect(calls.some((sql) => /UPDATE products p[\s\S]*rating_avg/.test(sql))).toBe(true);
   });
 
-  test('retourne false si avis inexistant', async () => {
-    pool.execute.mockResolvedValue([{ affectedRows: 0 }]);
+  test('retourne false si avis inexistant (pas de recompute)', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[]])                    // SELECT product_id → rien
+      .mockResolvedValueOnce([{ affectedRows: 0 }]);  // DELETE
     expect(await repo.remove(999)).toBe(false);
+  });
+});
+
+// ── recomputeProductRating() ─────────────────────────────────────────────────
+
+describe('review.repository — recomputeProductRating()', () => {
+  test('met à jour rating_avg et rating_count depuis les avis approuvés', async () => {
+    pool.execute.mockResolvedValue([{}]);
+    await repo.recomputeProductRating(7);
+    expect(pool.execute).toHaveBeenCalledWith(
+      expect.stringMatching(/UPDATE products p[\s\S]*rating_avg[\s\S]*rating_count/),
+      [7, 7, 7]
+    );
+  });
+});
+
+// ── hasPurchased() ────────────────────────────────────────────────────────────
+
+describe('review.repository — hasPurchased()', () => {
+  test('retourne true si une commande "achetée" contient le produit', async () => {
+    pool.execute.mockResolvedValue([[{ 1: 1 }]]);
+    const ok = await repo.hasPurchased(3, 10);
+    expect(ok).toBe(true);
+    expect(pool.execute).toHaveBeenCalledWith(
+      expect.stringMatching(/order_items[\s\S]*o\.status IN \('paid', 'processing', 'shipped', 'delivered'\)/),
+      [10, 3]
+    );
+  });
+
+  test('retourne false si aucune commande éligible', async () => {
+    pool.execute.mockResolvedValue([[]]);
+    expect(await repo.hasPurchased(3, 10)).toBe(false);
   });
 });

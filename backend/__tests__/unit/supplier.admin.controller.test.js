@@ -103,19 +103,18 @@ describe('supplier.admin.controller — create()', () => {
   test('retourne 400 si le nom est absent', async () => {
     const req = { body: { email: 'anchor@test.com' } };
     const res = makeRes();
-    const next = jest.fn();
-    await controller.create(req, res, next);
+    await controller.create(req, res, jest.fn());
 
-    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: false }));
   });
 
   test('retourne 400 si le nom est une chaîne vide', async () => {
     const req = { body: { name: '' } };
     const res = makeRes();
-    const next = jest.fn();
-    await controller.create(req, res, next);
+    await controller.create(req, res, jest.fn());
 
-    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
+    expect(res.status).toHaveBeenCalledWith(400);
   });
 });
 

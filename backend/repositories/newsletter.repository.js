@@ -66,6 +66,18 @@ const findAll = async ({ page = 1, limit = 20, search = '', active }) => {
   return { rows, total };
 };
 
+// État d'abonnement d'une adresse — pour l'export LPD
+const findByEmail = async (email) => {
+  const [rows] = await pool.execute(
+    `SELECT email, locale, is_active, subscribed_at, unsubscribed_at
+     FROM newsletter_subscribers
+     WHERE email = ?
+     LIMIT 1`,
+    [email]
+  );
+  return rows[0] || null;
+};
+
 // Désabonnement manuel par l'admin (soft delete)
 const unsubscribeById = async (id) => {
   const [result] = await pool.execute(
@@ -75,4 +87,4 @@ const unsubscribeById = async (id) => {
   return result.affectedRows > 0;
 };
 
-module.exports = { subscribe, unsubscribe, findAll, unsubscribeById };
+module.exports = { subscribe, unsubscribe, findAll, findByEmail, unsubscribeById };

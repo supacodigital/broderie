@@ -1,4 +1,18 @@
 const { pool } = require('../config/db');
+const storage = require('../config/storage');
+
+// Supprime du disque les 3 variantes d'une ligne product_images (best-effort — un
+// fichier absent ne doit jamais faire échouer la suppression en base).
+const deleteImageFiles = (row) => {
+  if (!row) return;
+  for (const url of [row.url, row.url_thumbnail, row.url_medium, row.url_large]) {
+    try {
+      storage.deleteLocal(url);
+    } catch (error) {
+      console.error('[product.images] suppression fichier échouée', { url, message: error.message });
+    }
+  }
+};
 
 // Remplace l'ensemble des tags liés à un produit par tagIds (liste d'id)
 const syncTags = async (connection, productId, tagIds) => {
@@ -110,12 +124,19 @@ const addImage = async ({ productId, url, urlThumbnail, urlMedium, urlLarge, alt
   return result.insertId;
 };
 
-// Suppression d'une image
+// Suppression d'une image — retire aussi les fichiers du disque
 const removeImage = async (imageId, productId) => {
+  const [[row]] = await pool.execute(
+    `SELECT url, url_thumbnail, url_medium, url_large FROM product_images WHERE id = ? AND product_id = ?`,
+    [imageId, productId]
+  );
+  if (!row) return false;
+
   const [result] = await pool.execute(
     `DELETE FROM product_images WHERE id = ? AND product_id = ?`,
     [imageId, productId]
   );
+  if (result.affectedRows > 0) deleteImageFiles(row);
   return result.affectedRows > 0;
 };
 

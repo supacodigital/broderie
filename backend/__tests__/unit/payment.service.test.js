@@ -9,10 +9,8 @@ jest.mock('../../config/stripe', () => ({
 
 jest.mock('../../repositories/payment.repository');
 jest.mock('../../repositories/order.repository');
-jest.mock('../../repositories/user.repository');
-jest.mock('../../services/email.service');
 jest.mock('../../services/loyalty.service');
-jest.mock('../../config/db', () => ({ pool: { getConnection: jest.fn() } }));
+jest.mock('../../config/db', () => ({ pool: {} }));
 jest.mock('../../config/env', () => ({
   stripeWebhookSecret: 'whsec_test',
   clientUrl: 'http://localhost:5173',
@@ -22,9 +20,7 @@ jest.mock('../../config/env', () => ({
 const stripe            = require('../../config/stripe');
 const paymentRepository = require('../../repositories/payment.repository');
 const orderRepository   = require('../../repositories/order.repository');
-const userRepository    = require('../../repositories/user.repository');
 const loyaltyService    = require('../../services/loyalty.service');
-const { pool }          = require('../../config/db');
 const paymentService    = require('../../services/payment.service');
 
 beforeEach(() => jest.clearAllMocks());
@@ -41,19 +37,6 @@ function makeOrder(overrides = {}) {
   };
 }
 
-function makeUser(overrides = {}) {
-  return { id: 10, email: 'client@broderie.ch', first_name: 'Julie', ...overrides };
-}
-
-function makeConnection() {
-  return {
-    beginTransaction: jest.fn().mockResolvedValue(),
-    execute: jest.fn().mockResolvedValue([{ affectedRows: 1 }]),
-    commit: jest.fn().mockResolvedValue(),
-    rollback: jest.fn().mockResolvedValue(),
-    release: jest.fn(),
-  };
-}
 
 // ── createCardIntent() ────────────────────────────────────────────────────────
 
@@ -120,6 +103,13 @@ describe('payment.service — createCardIntent()', () => {
     const result = await paymentService.createCardIntent(1);
     expect(result.clientSecret).toBe('cs_aw');
   });
+
+  test('scope la commande sur userId (findById reçoit orderId + userId)', async () => {
+    orderRepository.findById.mockResolvedValue(null);
+
+    await expect(paymentService.createCardIntent(42, 10)).rejects.toMatchObject({ statusCode: 404 });
+    expect(orderRepository.findById).toHaveBeenCalledWith(42, 10);
+  });
 });
 
 // ── createTwintIntent() ───────────────────────────────────────────────────────
@@ -181,94 +171,99 @@ describe('payment.service — createTwintIntent()', () => {
 
     expect(paymentRepository.updateStatusByOrder).toHaveBeenCalledWith(1, 'twint', 'pending', 'pi_new');
   });
+
+  test('scope la commande sur userId (findById reçoit orderId + userId)', async () => {
+    orderRepository.findById.mockResolvedValue(null);
+
+    await expect(paymentService.createTwintIntent(42, 10)).rejects.toMatchObject({ statusCode: 404 });
+    expect(orderRepository.findById).toHaveBeenCalledWith(42, 10);
+  });
 });
 
 // ── handleWebhook() ───────────────────────────────────────────────────────────
 
+const mockEvent = (obj) => {
+  stripe.webhooks = {
+    constructEvent: jest.fn().mockReturnValue({
+      id: obj.id ?? `evt_${Math.random().toString(36).slice(2)}`,
+      type: obj.type,
+      data: { object: obj.data },
+    }),
+  };
+};
+
 describe('payment.service — handleWebhook()', () => {
+  beforeEach(() => {
+    // event nouveau par défaut
+    paymentRepository.registerWebhookEvent.mockResolvedValue(true);
+    orderRepository.markPaidFromWebhook.mockResolvedValue({ statusChanged: true });
+  });
+
   test('lève 400 si signature invalide', async () => {
     stripe.webhooks = {
       constructEvent: jest.fn().mockImplementation(() => { throw new Error('bad sig'); }),
     };
-
     await expect(paymentService.handleWebhook('raw', 'bad')).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  test('ignore les événements inconnus sans erreur', async () => {
-    stripe.webhooks = {
-      constructEvent: jest.fn().mockReturnValue({ type: 'customer.created', data: { object: {} } }),
-    };
+  test('ignore un event déjà traité (registerWebhookEvent → false)', async () => {
+    paymentRepository.registerWebhookEvent.mockResolvedValue(false);
+    mockEvent({ id: 'evt_dup', type: 'payment_intent.succeeded',
+      data: { id: 'pi_x', metadata: { order_id: '1' }, payment_method_types: ['card'] } });
 
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(orderRepository.markPaidFromWebhook).not.toHaveBeenCalled();
+  });
+
+  test('ignore les événements inconnus sans erreur', async () => {
+    mockEvent({ type: 'customer.created', data: {} });
     await expect(paymentService.handleWebhook('raw', 'sig')).resolves.toBeUndefined();
   });
 
-  test('met à jour la commande en "paid" pour payment_intent.succeeded', async () => {
-    const conn = makeConnection();
-    pool.getConnection = jest.fn().mockResolvedValue(conn);
-
-    stripe.webhooks = {
-      constructEvent: jest.fn().mockReturnValue({
-        type: 'payment_intent.succeeded',
-        data: {
-          object: {
-            id: 'pi_ok',
-            metadata: { order_id: '1' },
-            payment_method_types: ['card'],
-          },
-        },
-      }),
-    };
-
+  test('marque la commande payée pour payment_intent.succeeded', async () => {
+    mockEvent({ type: 'payment_intent.succeeded',
+      data: { id: 'pi_ok', metadata: { order_id: '1' }, payment_method_types: ['card'] } });
     orderRepository.findById.mockResolvedValue(makeOrder({ status: 'paid' }));
-    userRepository.findById.mockResolvedValue(makeUser());
     loyaltyService.processOrderEarning.mockResolvedValue();
 
     await paymentService.handleWebhook('raw', 'sig');
 
-    expect(conn.execute).toHaveBeenCalledWith(
-      expect.stringContaining("SET status = 'paid'"),
-      [1]
-    );
-    expect(conn.commit).toHaveBeenCalled();
-    expect(conn.release).toHaveBeenCalled();
+    expect(orderRepository.markPaidFromWebhook).toHaveBeenCalledWith(1, 'pi_ok', 'card');
   });
 
-  test('rollback si erreur dans la transaction', async () => {
-    const conn = makeConnection();
-    conn.execute.mockRejectedValueOnce(new Error('SQL error'));
-    pool.getConnection = jest.fn().mockResolvedValue(conn);
+  test('ne crédite PAS la fidélité si le statut n\'a pas changé (retry / déjà payée)', async () => {
+    orderRepository.markPaidFromWebhook.mockResolvedValue({ statusChanged: false });
+    mockEvent({ type: 'payment_intent.succeeded',
+      data: { id: 'pi_again', metadata: { order_id: '1' }, payment_method_types: ['card'] } });
 
-    stripe.webhooks = {
-      constructEvent: jest.fn().mockReturnValue({
-        type: 'payment_intent.succeeded',
-        data: {
-          object: {
-            id: 'pi_fail',
-            metadata: { order_id: '1' },
-            payment_method_types: ['twint'],
-          },
-        },
-      }),
-    };
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(loyaltyService.processOrderEarning).not.toHaveBeenCalled();
+  });
+
+  test('crédite la fidélité une fois si le statut passe à paid', async () => {
+    mockEvent({ type: 'payment_intent.succeeded',
+      data: { id: 'pi_new', metadata: { order_id: '1' }, payment_method_types: ['card'] } });
+    orderRepository.findById.mockResolvedValue(makeOrder({ user_id: 10, total: '58.40', status: 'paid' }));
+    loyaltyService.processOrderEarning.mockResolvedValue();
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(loyaltyService.processOrderEarning).toHaveBeenCalledWith(10, 1, '58.40');
+  });
+
+  test('propage l\'erreur si markPaidFromWebhook échoue', async () => {
+    orderRepository.markPaidFromWebhook.mockRejectedValue(new Error('SQL error'));
+    mockEvent({ type: 'payment_intent.succeeded',
+      data: { id: 'pi_fail', metadata: { order_id: '1' }, payment_method_types: ['twint'] } });
 
     await expect(paymentService.handleWebhook('raw', 'sig')).rejects.toThrow('SQL error');
-    expect(conn.rollback).toHaveBeenCalled();
-    expect(conn.release).toHaveBeenCalled();
   });
 
   test('met à jour le statut en "failed" pour payment_intent.payment_failed', async () => {
-    stripe.webhooks = {
-      constructEvent: jest.fn().mockReturnValue({
-        type: 'payment_intent.payment_failed',
-        data: {
-          object: {
-            id: 'pi_fail',
-            metadata: { order_id: '2' },
-            payment_method_types: ['twint'],
-          },
-        },
-      }),
-    };
+    mockEvent({ type: 'payment_intent.payment_failed',
+      data: { id: 'pi_fail', metadata: { order_id: '2' }, payment_method_types: ['twint'] } });
     paymentRepository.updateStatusByOrder.mockResolvedValue();
 
     await paymentService.handleWebhook('raw', 'sig');
@@ -277,42 +272,10 @@ describe('payment.service — handleWebhook()', () => {
   });
 
   test('ignore payment_intent.succeeded sans order_id dans metadata', async () => {
-    stripe.webhooks = {
-      constructEvent: jest.fn().mockReturnValue({
-        type: 'payment_intent.succeeded',
-        data: { object: { id: 'pi_no_order', metadata: {}, payment_method_types: ['card'] } },
-      }),
-    };
-
-    await expect(paymentService.handleWebhook('raw', 'sig')).resolves.toBeUndefined();
-    expect(pool.getConnection).not.toHaveBeenCalled();
-  });
-
-  test('détermine la méthode "twint" depuis payment_method_types', async () => {
-    const conn = makeConnection();
-    pool.getConnection = jest.fn().mockResolvedValue(conn);
-
-    stripe.webhooks = {
-      constructEvent: jest.fn().mockReturnValue({
-        type: 'payment_intent.succeeded',
-        data: {
-          object: {
-            id: 'pi_twint_ok',
-            metadata: { order_id: '3' },
-            payment_method_types: ['twint'],
-          },
-        },
-      }),
-    };
-
-    orderRepository.findById.mockResolvedValue(makeOrder({ id: 3, status: 'paid' }));
-    userRepository.findById.mockResolvedValue(makeUser());
-    loyaltyService.processOrderEarning.mockResolvedValue();
+    mockEvent({ type: 'payment_intent.succeeded',
+      data: { id: 'pi_no_order', metadata: {}, payment_method_types: ['card'] } });
 
     await paymentService.handleWebhook('raw', 'sig');
-
-    // La 3ème execute est la mise à jour du paiement avec method='twint'
-    const thirdCall = conn.execute.mock.calls[2];
-    expect(thirdCall[1]).toContain('twint');
+    expect(orderRepository.markPaidFromWebhook).not.toHaveBeenCalled();
   });
 });

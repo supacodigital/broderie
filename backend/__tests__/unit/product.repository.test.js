@@ -29,8 +29,9 @@ describe('product.repository — findAll()', () => {
     const result = await repo.findAll({ locale: 'fr' });
     expect(result.total).toBe(2);
     expect(result.rows).toHaveLength(2);
+    // COUNT simplifié (sans jointure traduction) quand il n'y a pas de recherche
     expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining('is_active = 1'), expect.arrayContaining(['fr'])
+      expect.stringMatching(/SELECT COUNT\(\*\)[\s\S]*is_active = 1/), []
     );
   });
 
@@ -99,13 +100,24 @@ describe('product.repository — findAll()', () => {
     expect(countQuery).not.toContain('p.badge = ?');
   });
 
-  test('applique le filtre minRating', async () => {
+  test('applique le filtre minRating sur la colonne dénormalisée', async () => {
     pool.execute.mockResolvedValue([[{ total: 0 }]]);
     pool.query.mockResolvedValue([[]]);
 
     await repo.findAll({ locale: 'fr', minRating: 4 });
     const countQuery = pool.execute.mock.calls[0][0];
-    expect(countQuery).toContain('COALESCE');
+    expect(countQuery).toContain('p.rating_avg >= ?');
+  });
+
+  test('la liste ne joint plus reviews ni ne GROUP BY', async () => {
+    pool.execute.mockResolvedValue([[{ total: 0 }]]);
+    pool.query.mockResolvedValue([[]]);
+
+    await repo.findAll({ locale: 'fr' });
+    const listQuery = pool.query.mock.calls[0][0];
+    expect(listQuery).not.toMatch(/JOIN reviews/);
+    expect(listQuery).not.toMatch(/GROUP BY/);
+    expect(listQuery).toMatch(/p\.rating_avg AS avg_rating/);
   });
 
   test('applique le filtre q (recherche FULLTEXT)', async () => {
@@ -157,6 +169,19 @@ describe('product.repository — findBySlug()', () => {
     expect(result.id).toBe(1);
     expect(result.images).toHaveLength(1);
   });
+
+  test('sélectionne url_medium et url_large pour le srcset de la galerie', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[fakeProduct]])
+      .mockResolvedValueOnce([fakeImages])
+      .mockResolvedValueOnce([fakeVariants]);
+
+    await repo.findBySlug('fil-dmc-rouge', 'fr');
+    // 2e appel = requête images
+    const imagesSql = pool.execute.mock.calls[1][0];
+    expect(imagesSql).toMatch(/url_medium/);
+    expect(imagesSql).toMatch(/url_large/);
+  });
 });
 
 // ── search() ──────────────────────────────────────────────────────────────────
@@ -195,9 +220,10 @@ describe('product.repository — findByCategoryId()', () => {
     const result = await repo.findByCategoryId({ categoryId: 2, locale: 'fr' });
     expect(result.total).toBe(3);
     expect(result.rows).toHaveLength(3);
+    // COUNT simplifié : juste le category_id, sans jointure traduction
     expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining('p.category_id = ?'),
-      expect.arrayContaining(['fr', 2])
+      expect.stringMatching(/SELECT COUNT\(\*\)[\s\S]*p\.category_id = \?/),
+      [2]
     );
   });
 

@@ -1,8 +1,11 @@
 const PDFDocument       = require('pdfkit');
 const orderRepository   = require('../../repositories/order.repository');
 const shippingService   = require('../../services/shipping.service');
-const { pool }          = require('../../config/db');
 const { AppError }      = require('../../middlewares/errorHandler');
+
+// Préfixes autorisés pour label_url avant tout res.redirect — évite un open redirect
+// piloté par le contenu de orders.label_url.
+const SAFE_LABEL_URL = /^https:\/\/(www\.)?post\.ch\//i;
 
 /**
  * Génère manuellement une étiquette La Poste CH pour une commande.
@@ -89,8 +92,11 @@ const downloadLabel = async (req, res, next) => {
       return res.send(pdfBuffer);
     }
 
-    /* Repli — URL externe (ancien format ou lien de suivi) */
-    res.redirect(order.label_url);
+    /* Repli — URL externe (ancien format ou lien de suivi Post.ch uniquement) */
+    if (order.label_url && SAFE_LABEL_URL.test(order.label_url)) {
+      return res.redirect(order.label_url);
+    }
+    return next(new AppError('Format d\'étiquette non pris en charge.', 400));
   } catch (error) {
     next(error);
   }
@@ -108,14 +114,11 @@ const updateTracking = async (req, res, next) => {
       return next(new AppError('Le numéro de suivi est requis.', 400));
     }
 
-    const [result] = await pool.execute(
-      `UPDATE orders SET tracking_number = ? WHERE id = ?`,
-      [tracking_number.trim(), orderId]
-    );
+    const trimmed = tracking_number.trim();
+    const ok = await orderRepository.updateTrackingNumber(orderId, trimmed);
+    if (!ok) return next(new AppError('Commande introuvable.', 404));
 
-    if (result.affectedRows === 0) return next(new AppError('Commande introuvable.', 404));
-
-    res.json({ success: true, data: { tracking_number: tracking_number.trim() } });
+    res.json({ success: true, data: { tracking_number: trimmed } });
   } catch (error) {
     next(error);
   }

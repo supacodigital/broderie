@@ -1,21 +1,57 @@
 const path             = require('path');
+const crypto           = require('crypto');
 const PDFDocument     = require('pdfkit');
 const { SwissQRBill } = require('swissqrbill/pdf');
 const { roundCHF }    = require('../utils/chf.utils');
+const { ventilateTVAByRate } = require('../utils/tva.utils');
 const env             = require('../config/env');
 const emailService    = require('./email.service');
 const { AppError }    = require('../middlewares/errorHandler');
 
 const LOGO_PATH = path.join(__dirname, '../assets/logo.png');
 
+// IBAN de test public (UBS) livré par défaut — refuser d'émettre une facture avec lui en production
+const TEST_IBAN = 'CH9300762011623852957';
+
+// Ventile la TVA de la commande par taux et réconcilie la somme avec order.tax_amount
+// (l'agrégation par taux ne redonne pas au centime le cumul ligne-à-ligne d'order.service).
+// L'écart résiduel (≤ 0.05 par taux) est imputé sur la part à la plus grande base.
+const computeTaxBreakdown = (order) => {
+  const items      = order.items || [];
+  if (items.length === 0) return [];
+
+  const subStored     = roundCHF(parseFloat(order.subtotal));
+  const discount      = order.discount ? roundCHF(parseFloat(order.discount)) : 0;
+  const discountRatio = discount > 0 && subStored + discount > 0
+    ? subStored / (subStored + discount)
+    : 1;
+
+  const parts     = ventilateTVAByRate(items, discountRatio);
+  const taxAmount = roundCHF(parseFloat(order.tax_amount));
+  const sommeVent = roundCHF(parts.reduce((s, p) => s + p.tvaAmount, 0));
+  const ecart     = roundCHF(taxAmount - sommeVent);
+
+  if (ecart !== 0 && parts.length > 0) {
+    if (Math.abs(ecart) > 0.10) {
+      console.warn('[invoice] écart de ventilation TVA anormal', { orderId: order.id, ecart });
+    }
+    const biggest = parts.reduce((a, b) => (b.baseTTC > a.baseTTC ? b : a));
+    biggest.tvaAmount = roundCHF(biggest.tvaAmount + ecart);
+  }
+
+  return parts;
+};
+
 // ─────────────────────────────────────────────────────────────
 // Référence de paiement interne — figée sur la commande facture QR
 // Sert au rapprochement manuel du paiement reçu (l'admin marque « payé »)
 // Format : APC + horodatage base36 + suffixe aléatoire (max 27 caractères)
+// Suffixe tiré de crypto.randomBytes — Math.random() est prévisible et deux
+// commandes de la même milliseconde pourraient collisionner.
 // ─────────────────────────────────────────────────────────────
 const generateQrReference = () => {
   const ts   = Date.now().toString(36).toUpperCase();
-  const rand = Math.floor(Math.random() * 1e6).toString(36).toUpperCase().padStart(4, '0');
+  const rand = crypto.randomBytes(4).toString('hex').toUpperCase();
   return `APC${ts}${rand}`;
 };
 
@@ -92,6 +128,11 @@ const PAGE_BOTTOM    = 792 - PAGE_MARGIN; // A4 = 842pt de haut, marge basse ide
 const generateInvoicePDF = ({ order, user }) => {
   return new Promise((resolve, reject) => {
     try {
+      // Garde-fou : ne jamais émettre une facture avec l'IBAN de test en production
+      if (env.nodeEnv === 'production' && env.qrInvoiceIban === TEST_IBAN) {
+        throw new AppError('IBAN de facturation non configuré (IBAN de test détecté en production).', 500);
+      }
+
       const doc = new PDFDocument({ margin: PAGE_MARGIN, size: 'A4' });
       const chunks = [];
 
@@ -108,6 +149,11 @@ const generateInvoicePDF = ({ order, user }) => {
 
       doc.fontSize(9).fillColor(muted).font('Helvetica')
          .text(`${env.qrInvoiceAddress} · ${env.qrInvoiceZip} ${env.qrInvoiceCity}`, PAGE_MARGIN, 96);
+
+      // N° TVA du vendeur — imprimé seulement si la boutique est assujettie (LTVA art. 26)
+      if (env.qrInvoiceVatNumber) {
+        doc.text(env.qrInvoiceVatNumber, PAGE_MARGIN, 108);
+      }
 
       doc.fontSize(24).fillColor(dark).font('Helvetica-Bold')
          .text('FACTURE', 350, 46, { align: 'right', width: 195 });
@@ -159,6 +205,10 @@ const generateInvoicePDF = ({ order, user }) => {
       let y = drawTableHeader(220);
       const items = order.items || [];
 
+      // Nombre de lignes de TVA qui seront affichées sous les totaux — sert à
+      // réserver assez de place au-dessus du bulletin QR (une ligne = 18pt).
+      const taxLineCount = Math.max(1, computeTaxBreakdown(order).length);
+
       items.forEach((item, idx) => {
         const snapshot = typeof item.product_snapshot_json === 'string'
           ? JSON.parse(item.product_snapshot_json)
@@ -173,7 +223,8 @@ const generateInvoicePDF = ({ order, user }) => {
         // Saut de page si la ligne dépasserait la zone réservée au bulletin QR
         // (uniquement sur la dernière page — les pages intermédiaires vont jusqu'au bas)
         const isLastItem = idx === items.length - 1;
-        const reserved = isLastItem ? QR_BILL_HEIGHT + 90 : 40;
+        // +18pt par ligne de TVA au-delà de la première (base = 90 pour 1 ligne)
+        const reserved = isLastItem ? QR_BILL_HEIGHT + 90 + (taxLineCount - 1) * 18 : 40;
         if (y + rowHeight > PAGE_BOTTOM - reserved) {
           doc.addPage();
           y = drawTableHeader(PAGE_MARGIN);
@@ -220,8 +271,19 @@ const generateInvoicePDF = ({ order, user }) => {
 
       rowTotals('Sous-total', `CHF ${subtotal.toFixed(2)}`);
       rowTotals('Frais de livraison', `CHF ${shipping.toFixed(2)}`);
-      const blendedRate = subtotal > 0 ? ((taxAmount / subtotal) * 100).toFixed(1) : '8.1';
-      rowTotals(`TVA incluse (${blendedRate}%)`, `CHF ${taxAmount.toFixed(2)}`);
+
+      // TVA détaillée par taux (LTVA art. 26). Les frais de port ne portent pas de TVA
+      // dans ce modèle (order.tax_amount est calculé sur les seuls articles) — les
+      // inclure impliquerait un changement dans order.service et une migration.
+      const taxParts = computeTaxBreakdown(order);
+      if (taxParts.length > 0) {
+        for (const part of taxParts) {
+          rowTotals(`TVA ${part.ratePercent.toFixed(2)} % incluse`, `CHF ${part.tvaAmount.toFixed(2)}`);
+        }
+      } else {
+        // Repli : commande sans lignes détaillées
+        rowTotals('TVA incluse', `CHF ${taxAmount.toFixed(2)}`);
+      }
 
       doc.rect(totalsLeft, ty - 2, totalsWidth, 26).fillColor(roseLight).fill();
       doc.fontSize(11).font('Helvetica-Bold').fillColor(rose)
@@ -268,6 +330,7 @@ module.exports = {
   generateInvoicePDF,
   generateQrReference,
   computeDueDate,
+  computeTaxBreakdown,
   sendInvoiceEmail,
   getInvoicePdf,
 };
