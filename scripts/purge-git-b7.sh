@@ -11,11 +11,17 @@
 # Usage :
 #   1. git-filter-repo doit être installé : brew install git-filter-repo
 #   2. Depuis la racine du repo, sur une copie propre (working tree clean) :
-#        bash scripts/purge-git-b7.sh
+#        bash scripts/purge-git-b7.sh [chemin/vers/replacements.txt]
+#      L'argument optionnel est un fichier au format `git filter-repo --replace-text`
+#      (une règle par ligne : `valeur==>REMPLACEMENT`). Il sert à effacer des
+#      fragments de secrets qui traîneraient AILLEURS que dans les .env supprimés
+#      (ex. cités dans un ancien commit de doc). Ce fichier NE DOIT PAS être versionné.
 #   3. Le script s'arrête AVANT le push forcé : relire, puis pousser à la main
 #      (les commandes exactes sont affichées à la fin).
 #
 set -euo pipefail
+
+REPLACE_TEXT_FILE="${1:-}"
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
@@ -42,6 +48,14 @@ CURRENT_BRANCH="$(git branch --show-current)"
 REMOTE_URL="$(git remote get-url origin 2>/dev/null || true)"
 [ -n "$REMOTE_URL" ] || die "Pas de remote 'origin' configuré."
 echo "  remote origin : $REMOTE_URL"
+
+if [ -n "$REPLACE_TEXT_FILE" ]; then
+  [ -f "$REPLACE_TEXT_FILE" ] || die "Fichier --replace-text introuvable : $REPLACE_TEXT_FILE"
+  case "$REPLACE_TEXT_FILE" in
+    "$REPO_ROOT"/*) die "Le fichier de remplacements est DANS le repo ($REPLACE_TEXT_FILE) — le déplacer dehors, il ne doit pas être versionné." ;;
+  esac
+  echo "  replace-text  : $REPLACE_TEXT_FILE ($(grep -c '==>' "$REPLACE_TEXT_FILE") règle(s))"
+fi
 
 # Vérifie que les secrets ont bien été roulés : la clé Stripe test de l'historique
 # ne doit plus être active (on ne peut pas le tester ici — simple rappel).
@@ -87,11 +101,14 @@ fi
 
 # ── Purge ───────────────────────────────────────────────────────────────────
 step "git filter-repo — réécriture de l'historique"
-git filter-repo \
-  --path backend/.env \
-  --path frontend/.env \
-  --path e2e/.env.test \
-  --invert-paths --force
+FR_ARGS=(
+  --path backend/.env
+  --path frontend/.env
+  --path e2e/.env.test
+  --invert-paths
+)
+[ -n "$REPLACE_TEXT_FILE" ] && FR_ARGS+=(--replace-text "$REPLACE_TEXT_FILE")
+git filter-repo "${FR_ARGS[@]}" --force
 
 # filter-repo supprime le remote par sécurité — on le remet
 git remote add origin "$REMOTE_URL"
