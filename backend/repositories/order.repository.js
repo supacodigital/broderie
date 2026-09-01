@@ -340,4 +340,95 @@ const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order =
   return { rows, total };
 };
 
-module.exports = { createOrder, findByUserId, findAllByUserIdWithItems, findById, findAllAdmin };
+// Change le statut d'une commande + trace dans l'historique — transaction atomique.
+// Retourne false si la commande n'existe pas.
+const updateStatusWithHistory = async (orderId, status, note, createdBy) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [[existing]] = await connection.execute(
+      `SELECT id FROM orders WHERE id = ? LIMIT 1`,
+      [orderId]
+    );
+    if (!existing) {
+      await connection.rollback();
+      return false;
+    }
+
+    await connection.execute(`UPDATE orders SET status = ? WHERE id = ?`, [status, orderId]);
+    await connection.execute(
+      `INSERT INTO order_status_history (order_id, status, note, created_by)
+       VALUES (?, ?, ?, ?)`,
+      [orderId, status, note || null, createdBy ?? null]
+    );
+
+    await connection.commit();
+    return true;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
+// Enregistre le numéro de suivi + les infos d'étiquette d'une commande
+const saveShippingLabel = async (orderId, { trackingNumber, labelUrl = null, labelId = null }) => {
+  const [result] = await pool.execute(
+    `UPDATE orders SET tracking_number = ?, label_url = ?, label_id = ? WHERE id = ?`,
+    [trackingNumber, labelUrl, labelId, orderId]
+  );
+  return result.affectedRows > 0;
+};
+
+// Met à jour uniquement le numéro de suivi (saisie manuelle admin)
+const updateTrackingNumber = async (orderId, trackingNumber) => {
+  const [result] = await pool.execute(
+    `UPDATE orders SET tracking_number = ? WHERE id = ?`,
+    [trackingNumber, orderId]
+  );
+  return result.affectedRows > 0;
+};
+
+// Passe une commande à "paid" si elle ne l'est pas déjà + met à jour le paiement.
+// Utilisé par le webhook Stripe. Retourne { statusChanged }.
+const markPaidFromWebhook = async (orderId, providerPaymentId, method) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [upd] = await connection.execute(
+      `UPDATE orders SET status = 'paid' WHERE id = ? AND status != 'paid'`,
+      [orderId]
+    );
+    const statusChanged = upd.affectedRows > 0;
+
+    if (statusChanged) {
+      await connection.execute(
+        `INSERT INTO order_status_history (order_id, status, note, created_by)
+         VALUES (?, 'paid', 'Paiement Stripe confirmé', NULL)`,
+        [orderId]
+      );
+    }
+
+    await connection.execute(
+      `UPDATE payments SET status = 'succeeded', provider_payment_id = ?
+       WHERE order_id = ? AND method = ?`,
+      [providerPaymentId, orderId, method]
+    );
+
+    await connection.commit();
+    return { statusChanged };
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
+module.exports = {
+  createOrder, findByUserId, findAllByUserIdWithItems, findById, findAllAdmin,
+  updateStatusWithHistory, saveShippingLabel, updateTrackingNumber, markPaidFromWebhook,
+};

@@ -1,9 +1,7 @@
 const stripe            = require('../config/stripe');
 const paymentRepository = require('../repositories/payment.repository');
 const orderRepository   = require('../repositories/order.repository');
-const userRepository    = require('../repositories/user.repository');
 const loyaltyService    = require('./loyalty.service');
-const { pool }          = require('../config/db');
 const { AppError }      = require('../middlewares/errorHandler');
 const { roundCHF }      = require('../utils/chf.utils');
 const env               = require('../config/env');
@@ -107,13 +105,10 @@ const handleWebhook = async (rawBody, signature) => {
     throw new AppError(`Signature webhook invalide : ${err.message}`, 400);
   }
 
-  // Idempotence : Stripe retente les webhooks non acquittés. INSERT IGNORE sur la
-  // clé primaire event_id — si l'event a déjà été traité, on sort (200) sans rien refaire.
-  const [dedup] = await pool.execute(
-    `INSERT IGNORE INTO stripe_webhook_events (event_id, type) VALUES (?, ?)`,
-    [event.id, event.type]
-  );
-  if (dedup.affectedRows === 0) {
+  // Idempotence : Stripe retente les webhooks non acquittés — si l'event a déjà
+  // été traité, on sort (200) sans rien refaire.
+  const isNew = await paymentRepository.registerWebhookEvent(event.id, event.type);
+  if (!isNew) {
     console.warn('[Stripe] Webhook déjà traité, ignoré :', event.id);
     return;
   }
@@ -124,41 +119,9 @@ const handleWebhook = async (rawBody, signature) => {
     if (!orderId) return;
 
     const method = intent.payment_method_types?.includes('card') ? 'card' : 'twint';
-    let statusChanged = false;
 
-    const connection = await pool.getConnection();
-    try {
-      await connection.beginTransaction();
-
-      const [upd] = await connection.execute(
-        `UPDATE orders SET status = 'paid' WHERE id = ? AND status != 'paid'`,
-        [orderId]
-      );
-      statusChanged = upd.affectedRows > 0;
-
-      // Historique seulement si le statut a réellement changé (double garde-fou
-      // en plus de l'idempotence sur event_id)
-      if (statusChanged) {
-        await connection.execute(
-          `INSERT INTO order_status_history (order_id, status, note, created_by)
-           VALUES (?, 'paid', 'Paiement Stripe confirmé', NULL)`,
-          [orderId]
-        );
-      }
-
-      await connection.execute(
-        `UPDATE payments SET status = 'succeeded', provider_payment_id = ?
-         WHERE order_id = ? AND method = ?`,
-        [intent.id, orderId, method]
-      );
-
-      await connection.commit();
-    } catch (err) {
-      await connection.rollback();
-      throw err;
-    } finally {
-      connection.release();
-    }
+    // Transaction : passage à "paid" + historique + mise à jour du paiement
+    const { statusChanged } = await orderRepository.markPaidFromWebhook(orderId, intent.id, method);
 
     // Crédit des points de fidélité — hors transaction (processOrderEarning gère
     // ses propres transactions internes), et SEULEMENT si la commande vient de

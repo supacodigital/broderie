@@ -29,4 +29,14 @@ const findByOrderId = async (orderId) => {
   return rows[0] || null;
 };
 
-module.exports = { create, updateStatusByOrder, findByOrderId };
+// Enregistre un event webhook Stripe pour l'idempotence.
+// Retourne true si c'est un event nouveau, false s'il a déjà été traité.
+const registerWebhookEvent = async (eventId, type) => {
+  const [result] = await pool.execute(
+    `INSERT IGNORE INTO stripe_webhook_events (event_id, type) VALUES (?, ?)`,
+    [eventId, type]
+  );
+  return result.affectedRows > 0;
+};
+
+module.exports = { create, updateStatusByOrder, findByOrderId, registerWebhookEvent };

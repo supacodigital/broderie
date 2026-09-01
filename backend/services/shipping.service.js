@@ -1,5 +1,5 @@
-const { pool }         = require('../config/db');
 const { AppError }     = require('../middlewares/errorHandler');
+const orderRepository  = require('../repositories/order.repository');
 const swissPost        = require('../config/swissPost');
 const swissPostClient  = require('../config/swissPostClient');
 const env              = require('../config/env');
@@ -170,11 +170,11 @@ const generateLabel = async (orderId, order) => {
 
   const label = await createLabel({ order, address })
 
-  /* Sauvegarde atomique des trois champs */
-  await pool.execute(
-    `UPDATE orders SET tracking_number = ?, label_url = ?, label_id = ? WHERE id = ?`,
-    [label.trackingNumber, label.labelUrl, label.labelId, orderId]
-  )
+  await orderRepository.saveShippingLabel(orderId, {
+    trackingNumber: label.trackingNumber,
+    labelUrl:       label.labelUrl,
+    labelId:        label.labelId,
+  })
 
   return label
 }

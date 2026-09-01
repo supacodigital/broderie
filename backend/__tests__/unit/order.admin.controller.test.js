@@ -3,16 +3,11 @@
 jest.mock('../../repositories/order.repository', () => ({
   findAllAdmin: jest.fn(),
   findById:     jest.fn(),
+  updateStatusWithHistory: jest.fn(),
 }));
 
 jest.mock('../../repositories/user.repository', () => ({
   findById: jest.fn(),
-}));
-
-jest.mock('../../config/db', () => ({
-  pool: {
-    getConnection: jest.fn(),
-  },
 }));
 
 jest.mock('../../services/email.service', () => ({
@@ -34,7 +29,6 @@ jest.mock('../../services/invoice.service', () => ({
 
 const orderRepository = require('../../repositories/order.repository');
 const userRepository  = require('../../repositories/user.repository');
-const { pool }        = require('../../config/db');
 const emailService    = require('../../services/email.service');
 const shippingService = require('../../services/shipping.service');
 const loyaltyService  = require('../../services/loyalty.service');
@@ -52,14 +46,6 @@ const makeRes = () => {
   return res;
 };
 
-/* Connexion mock réutilisable */
-const makeConn = () => ({
-  beginTransaction: jest.fn().mockResolvedValue(),
-  execute:          jest.fn(),
-  commit:           jest.fn().mockResolvedValue(),
-  rollback:         jest.fn().mockResolvedValue(),
-  release:          jest.fn(),
-});
 
 const fakeOrder = {
   id: 42,
@@ -141,29 +127,19 @@ describe('order.admin.controller — getById()', () => {
 
 describe('order.admin.controller — updateStatus()', () => {
   test('met à jour le statut et retourne la commande mise à jour', async () => {
-    const conn = makeConn();
-    conn.execute
-      .mockResolvedValueOnce([[{ id: 42 }]])  // SELECT existing
-      .mockResolvedValueOnce([{}])             // UPDATE orders
-      .mockResolvedValueOnce([{}]);            // INSERT history
-    pool.getConnection.mockResolvedValue(conn);
+    orderRepository.updateStatusWithHistory.mockResolvedValue(true);
     orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'paid' });
     userRepository.findById.mockResolvedValue(fakeUser);
 
     const req = { params: { id: '42' }, body: { status: 'paid', note: 'Paiement reçu' }, user: { id: 1 } };
     const res = makeRes();
-    const next = jest.fn();
+    await controller.updateStatus(req, res, jest.fn());
 
-    await controller.updateStatus(req, res, next);
-
-    expect(conn.commit).toHaveBeenCalled();
+    expect(orderRepository.updateStatusWithHistory).toHaveBeenCalledWith(42, 'paid', 'Paiement reçu', 1);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
   });
 
-  test('retourne 400 si statut invalide', async () => {
-    const conn = makeConn();
-    pool.getConnection.mockResolvedValue(conn);
-
+  test('retourne 400 si statut invalide, sans toucher au repo', async () => {
     const req = { params: { id: '42' }, body: { status: 'invalid_status' }, user: { id: 1 } };
     const res = makeRes();
     const next = jest.fn();
@@ -171,13 +147,11 @@ describe('order.admin.controller — updateStatus()', () => {
     await controller.updateStatus(req, res, next);
 
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
-    expect(conn.release).toHaveBeenCalled();
+    expect(orderRepository.updateStatusWithHistory).not.toHaveBeenCalled();
   });
 
-  test('retourne 404 si commande introuvable (SELECT retourne vide)', async () => {
-    const conn = makeConn();
-    conn.execute.mockResolvedValueOnce([[]]); // SELECT renvoie [] — pas de commande
-    pool.getConnection.mockResolvedValue(conn);
+  test('retourne 404 si le repo signale une commande introuvable', async () => {
+    orderRepository.updateStatusWithHistory.mockResolvedValue(false);
 
     const req = { params: { id: '999' }, body: { status: 'paid' }, user: { id: 1 } };
     const res = makeRes();
@@ -185,14 +159,11 @@ describe('order.admin.controller — updateStatus()', () => {
 
     await controller.updateStatus(req, res, next);
 
-    expect(conn.rollback).toHaveBeenCalled();
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 404 }));
   });
 
-  test('rollback + propage l\'erreur en cas d\'exception DB', async () => {
-    const conn = makeConn();
-    conn.execute.mockRejectedValueOnce(new Error('DB crash'));
-    pool.getConnection.mockResolvedValue(conn);
+  test('propage l\'erreur du repo', async () => {
+    orderRepository.updateStatusWithHistory.mockRejectedValue(new Error('DB crash'));
 
     const req = { params: { id: '1' }, body: { status: 'paid' }, user: { id: 1 } };
     const res = makeRes();
@@ -200,64 +171,44 @@ describe('order.admin.controller — updateStatus()', () => {
 
     await controller.updateStatus(req, res, next);
 
-    expect(conn.rollback).toHaveBeenCalled();
     expect(next).toHaveBeenCalledWith(expect.any(Error));
   });
 
   test('envoie email sendOrderShipped quand statut = shipped', async () => {
-    const conn = makeConn();
-    conn.execute
-      .mockResolvedValueOnce([[{ id: 42 }]])
-      .mockResolvedValueOnce([{}])
-      .mockResolvedValueOnce([{}]);
-    pool.getConnection.mockResolvedValue(conn);
-    orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'shipped', street: 'Rue 1' });
+    orderRepository.updateStatusWithHistory.mockResolvedValue(true);
+    orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'shipped', shipping_street: 'Rue 1' });
     userRepository.findById.mockResolvedValue(fakeUser);
     shippingService.generateLabel.mockResolvedValue({ trackingNumber: '99.00.111111.11111111' });
 
     const req = { params: { id: '42' }, body: { status: 'shipped' }, user: { id: 1 } };
     const res = makeRes();
     await controller.updateStatus(req, res, jest.fn());
-
-    // Attendre la promesse async non bloquante
     await new Promise(resolve => setTimeout(resolve, 50));
 
     expect(emailService.sendOrderShipped).toHaveBeenCalled();
   });
 
   test('débite la fidélité pour statut "cancelled" (commande déjà payée)', async () => {
-    const conn = makeConn();
-    conn.execute
-      .mockResolvedValueOnce([[{ id: 1 }]])
-      .mockResolvedValueOnce([{}])
-      .mockResolvedValueOnce([{}]);
-    pool.getConnection.mockResolvedValue(conn);
+    orderRepository.updateStatusWithHistory.mockResolvedValue(true);
     orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'paid' });
     userRepository.findById.mockResolvedValue(fakeUser);
 
     const req = { params: { id: '1' }, body: { status: 'cancelled' }, user: { id: 1 } };
     const res = makeRes();
     await controller.updateStatus(req, res, jest.fn());
-
     await new Promise(resolve => setTimeout(resolve, 50));
 
     expect(loyaltyService.processRefund).toHaveBeenCalled();
   });
 
   test('débite la fidélité pour statut "refunded"', async () => {
-    const conn = makeConn();
-    conn.execute
-      .mockResolvedValueOnce([[{ id: 1 }]])
-      .mockResolvedValueOnce([{}])
-      .mockResolvedValueOnce([{}]);
-    pool.getConnection.mockResolvedValue(conn);
+    orderRepository.updateStatusWithHistory.mockResolvedValue(true);
     orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'delivered' });
     userRepository.findById.mockResolvedValue(fakeUser);
 
     const req = { params: { id: '1' }, body: { status: 'refunded' }, user: { id: 1 } };
     const res = makeRes();
     await controller.updateStatus(req, res, jest.fn());
-
     await new Promise(resolve => setTimeout(resolve, 50));
 
     expect(loyaltyService.processRefund).toHaveBeenCalled();

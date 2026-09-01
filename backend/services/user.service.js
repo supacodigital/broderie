@@ -1,11 +1,11 @@
 const bcrypt = require('bcrypt');
-const { pool } = require('../config/db');
 const userRepository       = require('../repositories/user.repository');
 const orderRepository      = require('../repositories/order.repository');
 const reviewRepository     = require('../repositories/review.repository');
 const loyaltyRepository    = require('../repositories/loyalty.repository');
 const wishlistRepository   = require('../repositories/wishlist.repository');
 const newsletterRepository = require('../repositories/newsletter.repository');
+const consentRepository    = require('../repositories/consent.repository');
 const { AppError } = require('../middlewares/errorHandler');
 
 // ─────────────────────────────────────────────────────────────
@@ -15,7 +15,7 @@ const exportUserData = async (userId) => {
   const profile = await userRepository.findByIdRaw(userId);
   if (!profile) throw new AppError('Compte introuvable.', 404);
 
-  const [addresses, orders, reviews, loyaltyAccount, loyaltyRewards, loyaltyTransactions, wishlist, newsletter] =
+  const [addresses, orders, reviews, loyaltyAccount, loyaltyRewards, loyaltyTransactions, wishlist, newsletter, consentLogs] =
     await Promise.all([
       userRepository.findAddresses(userId),
       orderRepository.findAllByUserIdWithItems(userId),
@@ -25,13 +25,8 @@ const exportUserData = async (userId) => {
       loyaltyRepository.findTransactions(userId),
       wishlistRepository.findByUser(userId),
       newsletterRepository.findByEmail(profile.email),
+      consentRepository.findByUserId(userId), // ip_hash exclu
     ]);
-
-  // consent_logs — sans ip_hash (donnée technique, déjà pseudonymisée)
-  const [consentLogs] = await pool.execute(
-    `SELECT type, accepted, version, accepted_at FROM consent_logs WHERE user_id = ? ORDER BY accepted_at ASC`,
-    [userId]
-  );
 
   return {
     export_metadata: {
