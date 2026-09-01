@@ -1,6 +1,6 @@
 // Tests unitaires invoice.service — génération PDF facture
 
-const { generateInvoicePDF, computeTaxBreakdown } = require('../../services/invoice.service');
+const { generateInvoicePDF, computeTaxBreakdown, generateQrReference } = require('../../services/invoice.service');
 const { roundCHF } = require('../../utils/chf.utils');
 
 function makeOrder(overrides = {}) {
@@ -24,6 +24,19 @@ function makeUser(overrides = {}) {
     ...overrides,
   };
 }
+
+describe('invoice.service — generateQrReference()', () => {
+  test('préfixe APC et tient dans VARCHAR(27)', () => {
+    const ref = generateQrReference();
+    expect(ref).toMatch(/^APC[0-9A-Z]+$/);
+    expect(ref.length).toBeLessThanOrEqual(27);
+  });
+
+  test('produit des références uniques (source crypto)', () => {
+    const refs = new Set(Array.from({ length: 500 }, () => generateQrReference()));
+    expect(refs.size).toBe(500);
+  });
+});
 
 describe('invoice.service — generateInvoicePDF()', () => {
   test('retourne un Buffer non vide', async () => {

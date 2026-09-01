@@ -1,4 +1,5 @@
 const path             = require('path');
+const crypto           = require('crypto');
 const PDFDocument     = require('pdfkit');
 const { SwissQRBill } = require('swissqrbill/pdf');
 const { roundCHF }    = require('../utils/chf.utils');
@@ -45,10 +46,12 @@ const computeTaxBreakdown = (order) => {
 // Référence de paiement interne — figée sur la commande facture QR
 // Sert au rapprochement manuel du paiement reçu (l'admin marque « payé »)
 // Format : APC + horodatage base36 + suffixe aléatoire (max 27 caractères)
+// Suffixe tiré de crypto.randomBytes — Math.random() est prévisible et deux
+// commandes de la même milliseconde pourraient collisionner.
 // ─────────────────────────────────────────────────────────────
 const generateQrReference = () => {
   const ts   = Date.now().toString(36).toUpperCase();
-  const rand = Math.floor(Math.random() * 1e6).toString(36).toUpperCase().padStart(4, '0');
+  const rand = crypto.randomBytes(4).toString('hex').toUpperCase();
   return `APC${ts}${rand}`;
 };
 
