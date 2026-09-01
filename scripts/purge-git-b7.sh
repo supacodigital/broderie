@@ -68,6 +68,23 @@ for f in backend/.env frontend/.env e2e/.env.test; do
   echo "  $f : $n commit(s)"
 done
 
+# On capture les valeurs sensibles depuis le .env historique AVANT de le purger,
+# pour pouvoir vérifier après coup qu'elles ont bien disparu. Ces variables ne
+# sont jamais écrites sur disque et meurent avec le process.
+INITIAL_ENV_COMMIT="$(git log --all --diff-filter=A --format=%H -- backend/.env | tail -1)"
+SECRET_NEEDLES=()
+if [ -n "$INITIAL_ENV_COMMIT" ]; then
+  while IFS= read -r line; do
+    case "$line" in
+      STRIPE_SECRET_KEY=*|STRIPE_WEBHOOK_SECRET=*|MAIL_USER=*|MAIL_PASSWORD=*|JWT_ACCESS_SECRET=*|JWT_REFRESH_SECRET=*|SHIPENGINE_API_KEY=*|STORAGE_ACCESS_KEY=*|STORAGE_SECRET_KEY=*)
+        val="${line#*=}"
+        [ "${#val}" -ge 8 ] && SECRET_NEEDLES+=("$val")
+        ;;
+    esac
+  done < <(git show "$INITIAL_ENV_COMMIT:backend/.env" 2>/dev/null || true)
+  echo "  ${#SECRET_NEEDLES[@]} valeur(s) sensible(s) mémorisée(s) pour vérification post-purge"
+fi
+
 # ── Purge ───────────────────────────────────────────────────────────────────
 step "git filter-repo — réécriture de l'historique"
 git filter-repo \
@@ -89,10 +106,17 @@ for f in backend/.env frontend/.env e2e/.env.test; do
     echo "  ${GREEN}✓ $f absent de tout l'historique${NC}"
   fi
 done
-if git log --all -S "sk_test_51TUXLl" --oneline | grep -q .; then
-  echo "  ${RED}✗ La clé Stripe test est encore trouvable dans un diff${NC}"; FAIL=1
+# Aucune des valeurs sensibles mémorisées ne doit plus apparaître dans un diff
+if [ "${#SECRET_NEEDLES[@]}" -gt 0 ]; then
+  leaked=0
+  for needle in "${SECRET_NEEDLES[@]}"; do
+    if git log --all -S "$needle" --oneline | grep -q .; then
+      echo "  ${RED}✗ Une valeur sensible est encore trouvable dans l'historique${NC}"; leaked=1; FAIL=1
+    fi
+  done
+  [ "$leaked" -eq 0 ] && echo "  ${GREEN}✓ Aucune valeur sensible du .env initial dans les diffs${NC}"
 else
-  echo "  ${GREEN}✓ Clé Stripe test absente des diffs${NC}"
+  echo "  ${YEL}⚠  Impossible de mémoriser les valeurs sensibles — vérifier à la main${NC}"
 fi
 [ "$FAIL" -eq 0 ] || die "Vérifications échouées — NE PAS pousser. Restaurer depuis $BACKUP."
 

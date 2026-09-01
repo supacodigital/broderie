@@ -9,17 +9,20 @@
 
 Le commit initial `0e3e7626` (jamais réécrit) versionne `backend/.env` et `frontend/.env` :
 
-| Secret | Valeur exposée | Criticité |
-|--------|----------------|-----------|
-| `STRIPE_SECRET_KEY` | `sk_test_51TUXLl…` (clé **test** réelle, 107 car.) | 🟠 permet des appels API sur le compte Stripe test |
-| `STRIPE_WEBHOOK_SECRET` | `whsec_…` | 🟡 |
-| `MAIL_USER` / `MAIL_PASSWORD` | identifiants Mailtrap **sandbox** réels (`97c2facfe48c02` / `6fcbccd9e422fb`) | 🟡 boîte de test uniquement |
-| `DB_PASSWORD` | `root` | 🟢 (local) |
-| `VITE_STRIPE_PUBLIC_KEY` | `pk_test_51TUXLl…` | 🟢 (clé publique) |
+| Secret | Nature | Criticité |
+|--------|--------|-----------|
+| `STRIPE_SECRET_KEY` | clé Stripe **test** (préfixe `sk_test_`) | 🟠 appels API sur le compte Stripe test |
+| `STRIPE_WEBHOOK_SECRET` | secret webhook Stripe (préfixe `whsec_`) | 🟡 |
+| `MAIL_USER` / `MAIL_PASSWORD` | identifiants SMTP Mailtrap **sandbox** | 🟡 boîte de test uniquement |
+| `DB_PASSWORD` | mot de passe MySQL local | 🟢 (local) |
+| `VITE_STRIPE_PUBLIC_KEY` | clé publique Stripe test | 🟢 (publique par nature) |
 
-`e2e/.env.test` était **tracké** (commit `741347e5`) avec `TEST_ADMIN_EMAIL=admin@broderie.ch` /
-`TEST_ADMIN_PASSWORD=Test1234!`. → déjà retiré du tracking dans le commit B7 de cette branche
-(`git rm --cached`), un `e2e/.env.test.example` neutralisé le remplace. Reste à le purger de l'historique.
+Valeurs volontairement non reproduites ici. Pour retrouver ce qui était exposé :
+`git show 0e3e7626:backend/.env` (avant la purge).
+
+`e2e/.env.test` était **tracké** (commit `741347e5`) avec un compte admin de test.
+→ déjà retiré du tracking dans le commit B7 (`git rm --cached`), remplacé par
+`e2e/.env.test.example` neutralisé. Reste à le purger de l'historique.
 
 Fichiers concernés dans l'historique : `backend/.env`, `frontend/.env`, `e2e/.env.test`
 (commits `0e3e7626`, `6813157b`, `741347e5`).
@@ -94,9 +97,16 @@ git remote add origin https://github.com/supacodigital/broderie.git
 git log --all --full-history --oneline -- backend/.env frontend/.env e2e/.env.test
 # → doit ne rien afficher
 
-git log --all -S "sk_test_51TUXLl" --oneline
-# → doit ne rien afficher
+# Reprendre chaque valeur secrète depuis le .env d'origine (avant purge, via le
+# backup) et vérifier qu'aucune n'apparaît plus dans un diff :
+git log --all -S "<coller ici la STRIPE_SECRET_KEY d'origine>" --oneline
+git log --all -S "<coller ici le MAIL_PASSWORD d'origine>" --oneline
+# → doivent ne rien afficher
 ```
+
+> Le script `scripts/purge-git-b7.sh` fait cette vérification automatiquement :
+> il lit les valeurs depuis le commit initial *avant* la purge, les garde en
+> mémoire, et confirme après coup qu'elles ont disparu.
 
 ---
 
