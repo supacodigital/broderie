@@ -57,3 +57,10 @@ docs/client/
 
 # Exports volumineux — pas versionnés (source externe, régénérables)
 database/products_webdesigner.csv
+
+# Backups SQL (pré-migration / pré-import) — locaux, régénérables
+database/backups/
+
+# Données brutes transmises par la cliente (export logiciel métier) — hors dépôt
+# Source de l'import catalogue (database/import-catalog.js) — voir docs/IMPORT-CATALOGUE.md
+donnéesclient/

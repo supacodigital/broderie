@@ -7,6 +7,9 @@
 | `broderie.sql` | **Schéma de référence complet** + données de seed. Un déploiement *from scratch* exécute ce seul fichier — il reflète toujours l'état actuel, migrations incluses. |
 | `migrations/*.sql` | Modifications incrémentales à appliquer sur une base **déjà déployée**. Nommées `AAAA-MM-JJ_slug.sql`, appliquées dans l'ordre alphabétique. |
 | `migrate.js` | Runner de migrations (sans dépendance, sans ORM). |
+| `import-catalog.js` | Import du catalogue de la cliente (`donnéesclient/*.xlsx`) dans `products`. UPSERT sur `products.external_ref` → rejouable sans doublon. Voir [`docs/IMPORT-CATALOGUE.md`](../docs/IMPORT-CATALOGUE.md). |
+| `catalog-category-map.js` | Correspondance marque (Gamme) → catégorie, utilisée par l'import. À faire valider par la cliente. |
+| `lib/xlsx-reader.js` | Lecteur `.xlsx` minimal sans dépendance (utilisé par `import-catalog.js`). |
 
 > ⚠️ `broderie.sql` et `migrations/` doivent rester cohérents : toute migration doit
 > aussi être répercutée dans `broderie.sql` pour que le chemin *from scratch* ne diverge pas.
@@ -28,6 +31,24 @@ cd backend
 npm run db:migrate:status   # liste appliquées ✅ / en attente ⬜
 npm run db:migrate          # applique les migrations en attente (transaction par migration)
 ```
+
+## Import du catalogue cliente
+
+Toujours lancé **depuis `backend/`**, après les migrations additives
+(`2026-09-02_products_import_fields.sql`, `2026-09-03_users_reset_token.sql`).
+Les 3 `.xlsx` doivent être dans `donnéesclient/` (hors dépôt Git). `broderie.sql` ne
+seede **aucun produit** — le catalogue vient uniquement de cet import.
+
+```bash
+cd backend
+
+npm run import:catalog -- --dry-run          # rapport complet, n'écrit rien (à relire d'abord)
+npm run import:catalog                        # exécute l'import (UPSERT sur external_ref)
+npm run import:catalog -- --status            # compte les produits déjà importés
+npm run import:catalog -- --with-theme-tags   # crée aussi ~4000 tags "thème" (désactivé par défaut)
+```
+
+Détail complet, matrice de mapping et checklist : [`docs/IMPORT-CATALOGUE.md`](../docs/IMPORT-CATALOGUE.md).
 
 Options directes :
 
