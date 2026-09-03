@@ -69,4 +69,5 @@ database/backups/
 
 # Données brutes transmises par la cliente (export logiciel métier) — hors dépôt
 # Source de l'import catalogue (database/import-catalog.js) — voir docs/IMPORT-CATALOGUE.md
+donnees-client/
 donnéesclient/

@@ -2,7 +2,7 @@
 /* ============================================================
  * Import du catalogue de la cliente dans la table products.
  *
- * Source : donnéesclient/  (export du logiciel métier de la cliente)
+ * Source : donnees-client/  (export du logiciel métier de la cliente)
  *   - V_ArticleC_INT.xlsx : articles retenus (déjà filtrés côté cliente)
  *   - Gamme.xlsx          : table des gammes (= marques)
  *   - CRFournisseur.xlsx  : liaison article ↔ fournisseur(s)  [NON UTILISÉ ICI —
@@ -51,7 +51,7 @@ const DRY_RUN = has('--dry-run');
 const STATUS_ONLY = has('--status');
 const WITH_THEME_TAGS = has('--with-theme-tags');
 
-const DATA_DIR = path.join(__dirname, '../donnéesclient');
+const DATA_DIR = path.join(__dirname, '../donnees-client');
 const BATCH_SIZE = 500; // règle projet : import en batch de 500, jamais ligne par ligne
 
 // ── Helpers de conversion ──────────────────────────────────
@@ -212,7 +212,7 @@ async function main() {
   // Vérif présence des fichiers
   const articlesPath = path.join(DATA_DIR, 'V_ArticleC_INT.xlsx');
   if (!fs.existsSync(articlesPath)) {
-    throw new Error(`Fichier introuvable : ${articlesPath}\nPlacez l'export de la cliente dans donnéesclient/`);
+    throw new Error(`Fichier introuvable : ${articlesPath}\nPlacez l'export de la cliente dans donnees-client/`);
   }
 
   const connection = await mysql.createConnection({

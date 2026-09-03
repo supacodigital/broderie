@@ -2,7 +2,7 @@
 
 **Projet : Au Point-Compté** — E-commerce broderie 🇨🇭
 **Rédigé le : 2 septembre 2026**
-**Source des données : `donnéesclient/` (transmis par la cliente le 1er septembre 2026)**
+**Source des données : `donnees-client/` (transmis par la cliente le 1er septembre 2026)**
 
 > Ce document décrit **comment intégrer le catalogue de la cliente** (export de son
 > ancien logiciel de gestion) dans la base du projet, **sans rien refaire de ce qui
@@ -69,7 +69,7 @@ Fichiers créés (tout le reste est réutilisé) :
 | `database/import-catalog.js` | Script d'import (filtrage, mapping, UPSERT, tags, rapport, garde-fous slug **et SKU**) |
 | `backend/package.json` | Script npm `import:catalog` ajouté |
 | `database/broderie.sql` | Colonnes `external_ref` / `ean` + `reset_token_*` répercutées ; **seed produit/fournisseur de démo retiré** (§3.3) |
-| `.gitignore` | `donnéesclient/` et `database/backups/` exclus du dépôt |
+| `.gitignore` | `donnees-client/` et `database/backups/` exclus du dépôt |
 
 ### 3.1 — Migrations additives
 
@@ -319,7 +319,7 @@ Ce point **ne bloque pas** l'import du catalogue.
 ### En local / staging (obligatoire d'abord)
 
 ```bash
-# 1. Placer les 3 .xlsx de la cliente dans donnéesclient/ (à la racine du projet)
+# 1. Placer les 3 .xlsx de la cliente dans donnees-client/ (à la racine du projet)
 
 # 2. Backup de la base (chemin MAMP local : /Applications/MAMP/Library/bin/mysql80/bin/)
 mysqldump --single-transaction --routines --triggers broderie \
@@ -390,7 +390,7 @@ Rejouer simplement `npm run import:catalog`. Grâce à `external_ref` :
 - [x] `database/migrations/2026-09-03_users_reset_token.sql` — bug de schéma préexistant (§3.4)
 - [x] `backend/package.json` — script `import:catalog`
 - [x] `database/broderie.sql` — `external_ref` / `ean` / `reset_token_*` répercutés + **seed produit de démo retiré** (§3.3)
-- [x] `.gitignore` — `donnéesclient/` + `database/backups/` exclus
+- [x] `.gitignore` — `donnees-client/` + `database/backups/` exclus
 
 **Exécution — local (fait le 3 sept. 2026) :**
 - [x] Base locale rechargée de zéro (`broderie.sql` + `--baseline` + migrations)
