@@ -53,6 +53,9 @@ DROP TABLE IF EXISTS suppliers;
 DROP TABLE IF EXISTS category_translations;
 DROP TABLE IF EXISTS categories;
 DROP TABLE IF EXISTS tax_rates;
+DROP TABLE IF EXISTS settings;
+DROP TABLE IF EXISTS user_mfa_recovery_codes;
+DROP TABLE IF EXISTS user_mfa;
 DROP TABLE IF EXISTS addresses;
 DROP TABLE IF EXISTS users;
 
