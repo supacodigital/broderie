@@ -44,7 +44,6 @@ export default function AuthLayout() {
           {/* Contenu connexion */}
           <div className={`${s.asideContent} ${isRegister ? s.asideHidden : ''}`} aria-hidden={isRegister}>
             <span className={s.asideLogo}>Au Point-Compté</span>
-            <p className={s.asideTagline}>{t('auth.aside.tagline')}</p>
             <p className={s.asideSubtext}>{t('auth.aside.subtext')}</p>
 
             <ul className={s.asidePerks} role="list">

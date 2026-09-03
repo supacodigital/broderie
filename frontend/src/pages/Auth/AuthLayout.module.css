@@ -63,9 +63,11 @@
   align-items: center;
   padding: 48px 44px;
   box-sizing: border-box;
-  color: #fff;
+  color: var(--text-dark);
   overflow: hidden;
-  background: linear-gradient(150deg, var(--rose-light) 0%, var(--rose) 55%, var(--rose-dark) 100%);
+  /* Photo login.png en fond, sans voile — cadrée à gauche : la zone rose
+     calme de l'image passe derrière le texte, les écheveaux restent sur le bord */
+  background: url('/login.webp') 15% center / cover no-repeat;
   /* Au repos (connexion) : panneau à droite */
   transform: translateX(100%);
   border-radius: 28px 0 0 28px;
@@ -79,20 +81,15 @@
   border-radius: 0 28px 28px 0;
 }
 
-/* Halo décoratif subtil */
-.aside::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 80% 0%, rgba(255, 255, 255, 0.18), transparent 55%);
-  pointer-events: none;
-}
 
-/* Les deux contenus du panneau sont superposés ; on fond entre les deux */
+/* Les deux contenus du panneau sont superposés ; on fond entre les deux.
+   Largeur limitée pour que le texte reste sur la zone rose calme de la photo,
+   sans déborder sous les écheveaux du bord droit. */
 .asideContent {
   position: absolute;
   left: 0;
   right: 0;
+  max-width: 340px;
   padding: 0 44px;
   transition: opacity 0.35s var(--ease-slide), transform 0.45s var(--ease-slide);
 }
@@ -107,9 +104,10 @@
 .asideLogo {
   font-family: 'Playfair Display', serif;
   font-size: 24px;
-  color: #fff;
+  color: var(--rose-dark);
   display: block;
   margin-bottom: 28px;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 .asideTagline {
@@ -118,14 +116,17 @@
   font-weight: 700;
   line-height: 1.25;
   margin: 0 0 16px;
+  color: var(--text-dark);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 .asideSubtext {
   font-family: 'Montserrat', sans-serif;
   font-size: 14px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--text);
   margin: 0 0 32px;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 .asidePerks {
@@ -143,7 +144,9 @@
   gap: 12px;
   font-family: 'Montserrat', sans-serif;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--text-dark);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 .asidePerkIcon {
@@ -154,7 +157,7 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--rose);
   color: #fff;
 }
 
@@ -166,15 +169,16 @@
   gap: 8px;
   font-family: 'Montserrat', sans-serif;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 .asideSwitchBtn {
   padding: 9px 20px;
-  border: 1.5px solid rgba(255, 255, 255, 0.8);
+  border: 1.5px solid var(--rose);
   border-radius: 24px;
-  background: transparent;
-  color: #fff;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--rose-dark);
   font-family: 'Montserrat', sans-serif;
   font-size: 13px;
   font-weight: 600;
@@ -184,8 +188,8 @@
 }
 
 .asideSwitchBtn:hover {
-  background: #fff;
-  color: var(--rose);
+  background: var(--rose);
+  color: #fff;
 }
 
 .asideSwitchBtn:active {

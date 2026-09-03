@@ -318,6 +318,33 @@
   flex-direction: column;
 }
 
+/* Bouton « Voir plus / Voir moins » sous la liste des thèmes */
+.showMoreBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rose);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.showMoreBtn:hover { color: var(--rose-dark); }
+
+.showMoreChevron {
+  transition: transform 0.2s;
+}
+
+.showMoreChevronOpen {
+  transform: rotate(180deg);
+}
+
 /* ── Checkbox ── */
 .checkRow {
   display: flex;

@@ -155,7 +155,6 @@ app.use('/api/v1/loyalty', require('./routes/loyalty.routes'));
 app.use('/api/v1/products/:id/reviews', require('./routes/reviews.routes'));
 app.use('/api/v1/newsletter', require('./routes/newsletter.routes'));
 app.use('/api/v1/legal',     require('./routes/legal.routes'));
-app.use('/api/v1/contact',   require('./routes/contact.routes'));
 app.use('/api/v1/consent',   require('./routes/consent.routes'));
 
 // Avis approuvés récents — page d'accueil
@@ -201,7 +200,6 @@ const ROUTES = [
   { path: '/api/v1/reviews',           label: 'Avis'         },
   { path: '/api/v1/newsletter',        label: 'Newsletter'   },
   { path: '/api/v1/legal',             label: 'Légal'        },
-  { path: '/api/v1/contact',           label: 'Contact'      },
   { path: '/api/v1/consent',           label: 'Consentement' },
 ];
 

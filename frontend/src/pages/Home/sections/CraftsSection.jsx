@@ -10,7 +10,7 @@ export default function CraftsSection() {
     <section className={s.section} id="savoir-faire" aria-label="Notre savoir-faire">
       <div className={s.visual} aria-hidden="true">
         <img
-          src="/histoire.webp"
+          src="/coeur-fils.webp"
           alt=""
           className={s.visualImg}
           width="800"
@@ -30,7 +30,7 @@ export default function CraftsSection() {
           ))}
         </ul>
 
-        <Link to="/contact" className={s.btnPrimary}>
+        <Link to="/notre-histoire" className={s.btnPrimary}>
           {t('crafts.cta')}
         </Link>
       </div>

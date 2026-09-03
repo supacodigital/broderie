@@ -12,7 +12,6 @@
     "promos": "Aktionen",
     "about": "Unsere Geschichte",
     "aboutSub": "Julie & Au Point-Compté",
-    "contact": "Kontakt",
     "search": "Suchen",
     "account": "Mein Konto",
     "wishlist": "Meine Favoriten",
@@ -133,7 +132,6 @@
     "helpLinks": {
       "account": "Mein Konto",
       "tracking": "Bestellverfolgung",
-      "faq": "FAQ",
       "cgv": "AGB",
       "legal": "Impressum"
     },
@@ -355,7 +353,6 @@
     "cgvLink": "Allgemeinen Geschäftsbedingungen",
     "orContinueWith": "oder weiter mit",
     "aside": {
-      "tagline": "Stickerei und Kreuzstich, auf Schweizer Art.",
       "subtext": "Finden Sie Ihre Bestellungen, Favoriten und Ihr Treueprogramm an einem Ort.",
       "perk1": "Sorgfältige Lieferung in die ganze Schweiz",
       "perk2": "Sichere Zahlung — Twint & Karte",
@@ -412,6 +409,8 @@
     "allProducts": "Alle Produkte",
     "filters": "Filter",
     "clearFilters": "Alle löschen",
+    "showMore": "Mehr anzeigen",
+    "showLess": "Weniger anzeigen",
     "category": "Kategorie",
     "allCategories": "Alle Kategorien",
     "price": "Preis",
@@ -443,8 +442,6 @@
     "catalogueDesc": "Entdecken Sie unseren Katalog mit Sticksets, Garnen, Stoffen und Zubehör. Preise in CHF, schnelle Lieferung in der Schweiz.",
     "aboutTitle": "Unsere Geschichte",
     "aboutDesc": "Die Geschichte von Au Point-Compté und Julie — Leidenschaft für Stickerei seit 1987 in der Westschweiz.",
-    "contactTitle": "Kontakt",
-    "contactDesc": "Eine Frage? Kontaktieren Sie das Team von Au Point-Compté. Beratung und Service in der Schweiz.",
     "cartTitle": "Mein Warenkorb",
     "cartDesc": "Übersicht Ihres Warenkorbs vor der Bestellung.",
     "cgvTitle": "Allgemeine Geschäftsbedingungen",

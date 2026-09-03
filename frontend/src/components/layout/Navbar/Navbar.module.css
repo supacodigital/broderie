@@ -29,16 +29,31 @@
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--rose-border);
   padding: 0 48px;
-  height: 72px;
+  height: var(--nav-h);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  transition: box-shadow 0.3s;
+  transition: background 0.3s ease, backdrop-filter 0.3s ease,
+              border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .navbarScrolled {
   box-shadow: 0 2px 20px rgba(219, 39, 119, 0.06);
+}
+
+/* ── ÉTAT OVERLAY — navbar transparente par-dessus le hero (accueil, non scrollée) ──
+   Le hero est clair : on garde les couleurs normales (logo rose, liens foncés),
+   seul le fond devient transparent. */
+.navbarOverlay {
+  background: transparent;
+  backdrop-filter: none;
+  border-bottom-color: transparent;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navbar { transition: none; }
 }
 
 /* ── LOGO ────────────────────────────────────────────── */
@@ -62,8 +77,9 @@
   align-items: center;
   gap: 32px;
   list-style: none;
+  /* Poussés à droite, contre le bloc d'actions */
   flex: 1;
-  justify-content: center;
+  justify-content: flex-end;
 }
 
 .links a {
@@ -91,13 +107,11 @@
   transition: width 0.25s ease;
 }
 
-.links a:hover,
-.linkActive {
-  color: var(--rose) !important;
+.links a:hover {
+  color: var(--rose);
 }
 
-.links a:hover::after,
-.linkActive::after {
+.links a:hover::after {
   width: 100%;
 }
 

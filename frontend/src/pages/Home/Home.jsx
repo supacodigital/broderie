@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import Seo                       from '../../components/seo/Seo.jsx'
+import CategoryNav               from '../../components/layout/Navbar/CategoryNav.jsx'
 import HeroSection               from './sections/HeroSection.jsx'
 import AdvantagesSection         from './sections/AdvantagesSection.jsx'
 import FeaturedProductsSection   from './sections/FeaturedProductsSection.jsx'
@@ -13,6 +14,7 @@ export default function Home() {
     <>
       <Seo title={t('seo.homeTitle')} description={t('seo.homeDesc')} />
       <HeroSection />
+      <CategoryNav />
       <FeaturedProductsSection />
       <CraftsSection />
       <AdvantagesSection />

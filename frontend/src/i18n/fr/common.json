@@ -12,7 +12,6 @@
     "promos": "Promotions",
     "about": "Notre histoire",
     "aboutSub": "Julie & Au Point-Compté",
-    "contact": "Contact",
     "search": "Rechercher",
     "account": "Mon compte",
     "wishlist": "Mes favoris",
@@ -133,7 +132,6 @@
     "helpLinks": {
       "account": "Mon compte",
       "tracking": "Suivi de commande",
-      "faq": "FAQ",
       "cgv": "CGV",
       "legal": "Mentions légales"
     },
@@ -355,7 +353,6 @@
     "cgvLink": "Conditions Générales de Vente",
     "orContinueWith": "ou continuer avec",
     "aside": {
-      "tagline": "Broderie et point de croix, à la suisse.",
       "subtext": "Retrouvez vos commandes, vos favoris et votre programme de fidélité en un seul endroit.",
       "perk1": "Livraison soignée dans toute la Suisse",
       "perk2": "Paiement sécurisé — Twint & carte",
@@ -412,6 +409,8 @@
     "allProducts": "Tous les produits",
     "filters": "Filtres",
     "clearFilters": "Tout effacer",
+    "showMore": "Voir plus",
+    "showLess": "Voir moins",
     "category": "Catégorie",
     "allCategories": "Toutes les catégories",
     "price": "Prix",
@@ -443,8 +442,6 @@
     "catalogueDesc": "Découvrez notre catalogue de kits de broderie, fils, toiles et accessoires. Prix en CHF, livraison rapide en Suisse.",
     "aboutTitle": "Notre histoire",
     "aboutDesc": "L'histoire d'Au Point-Compté et de Julie — passion de la broderie depuis 1987 en Suisse romande.",
-    "contactTitle": "Contact",
-    "contactDesc": "Une question ? Contactez l'équipe d'Au Point-Compté. Conseil et service en Suisse.",
     "cartTitle": "Mon panier",
     "cartDesc": "Récapitulatif de votre panier avant commande.",
     "cgvTitle": "Conditions générales de vente",

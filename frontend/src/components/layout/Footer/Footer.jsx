@@ -94,9 +94,6 @@ export default function Footer() {
               </Link>
             </li>
             <li>
-              <Link to="/contact">{t("footer.helpLinks.faq")}</Link>
-            </li>
-            <li>
               <Link to="/cgv">{t("footer.helpLinks.cgv")}</Link>
             </li>
             <li>

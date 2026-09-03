@@ -105,6 +105,15 @@ export default function FilterPanel({ filters, onChange, categories = [], tags =
     return Object.fromEntries(activeAncestorIds.map(id => [id, true]))
   })
 
+  /* Liste des thèmes repliée à la moitié par défaut — dépliée au clic sur le chevron */
+  const [tagsExpanded, setTagsExpanded] = useState(false)
+  const tagsHalfCount = Math.ceil(tags.length / 2)
+  /* On garde toujours visible le thème actif même s'il est dans la seconde moitié */
+  const activeTagInHidden = !tagsExpanded
+    && tags.slice(tagsHalfCount).some(tag => tag.slug === filters.tag)
+  const visibleTags = (tagsExpanded || activeTagInHidden) ? tags : tags.slice(0, tagsHalfCount)
+  const canCollapseTags = tags.length > 4
+
   /* Si la catégorie active change (ex: navigation depuis la navbar), on déplie toute sa
      branche sans jamais replier une section déjà ouverte par l'utilisateur */
   useEffect(() => {
@@ -199,7 +208,7 @@ export default function FilterPanel({ filters, onChange, categories = [], tags =
           <div className={s.group}>
             <p className={s.groupTitle}>Thème</p>
             <div className={s.tagCheckList}>
-              {tags.map(tag => (
+              {visibleTags.map(tag => (
                 <label key={tag.id} className={s.checkRow}>
                   <input
                     type="checkbox"
@@ -211,6 +220,21 @@ export default function FilterPanel({ filters, onChange, categories = [], tags =
                 </label>
               ))}
             </div>
+            {canCollapseTags && (
+              <button
+                type="button"
+                className={s.showMoreBtn}
+                onClick={() => setTagsExpanded(v => !v)}
+                aria-expanded={tagsExpanded}
+              >
+                {tagsExpanded ? t('catalogue.showLess') : t('catalogue.showMore')}
+                <ChevronDown
+                  size={14}
+                  className={`${s.showMoreChevron} ${tagsExpanded ? s.showMoreChevronOpen : ''}`}
+                  aria-hidden="true"
+                />
+              </button>
+            )}
           </div>
         )}
 

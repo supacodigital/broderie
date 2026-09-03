@@ -21,6 +21,7 @@
   --shadow-sm:   0 2px 8px rgba(219,39,119,0.08);
   --shadow-md:   0 8px 32px rgba(219,39,119,0.13);
   --shadow-lg:   0 20px 60px rgba(219,39,119,0.18);
+  --nav-h:       72px;
 }
 
 html { scroll-behavior: smooth; }

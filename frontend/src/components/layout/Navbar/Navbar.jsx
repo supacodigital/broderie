@@ -30,9 +30,14 @@ export default function Navbar() {
 
   useEffect(() => {
     function onScroll() { setScrolled(window.scrollY > 8) }
+    onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  /* Sur la page d'accueil, la navbar est transparente par-dessus le hero
+     tant qu'on n'a pas scrollé ; elle reprend son fond opaque au scroll. */
+  const overlay = location.pathname === '/' && !scrolled
 
   /* Bloque le scroll body quand menu mobile ouvert */
   useEffect(() => {
@@ -60,7 +65,7 @@ export default function Navbar() {
     <>
       {/* ── Navbar principale ── */}
       <nav
-        className={`${s.navbar} ${scrolled ? s.navbarScrolled : ''}`}
+        className={`${s.navbar} ${scrolled ? s.navbarScrolled : ''} ${overlay ? s.navbarOverlay : ''}`}
         aria-label="Navigation principale"
       >
         {/* Logo */}
@@ -74,27 +79,16 @@ export default function Navbar() {
           />
         </Link>
 
-        {/* Liens principaux — desktop uniquement */}
+        {/* Liens principaux — desktop uniquement. Pas d'état actif : simples liens. */}
         <ul className={s.links} role="list">
           <li>
-            <NavLink to="/catalogue" className={({ isActive }) => isActive ? s.linkActive : ''}>
-              {t('nav.collections')}
-            </NavLink>
+            <Link to="/catalogue">{t('nav.collections')}</Link>
           </li>
           <li>
-            <NavLink to="/catalogue?badge=nouveaute" className={({ isActive }) => isActive ? s.linkActive : ''}>
-              {t('nav.newArrivals')}
-            </NavLink>
+            <Link to="/catalogue?badge=nouveaute">{t('nav.newArrivals')}</Link>
           </li>
           <li>
-            <NavLink to="/notre-histoire" className={({ isActive }) => isActive ? s.linkActive : ''}>
-              {t('nav.about')}
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/contact" className={({ isActive }) => isActive ? s.linkActive : ''}>
-              {t('nav.contact')}
-            </NavLink>
+            <Link to="/notre-histoire">{t('nav.about')}</Link>
           </li>
         </ul>
 
@@ -225,14 +219,6 @@ export default function Navbar() {
             <span className={s.mobileLinkContent}>
               <span className={s.mobileLinkText}>{t('nav.about')}</span>
               <span className={s.mobileLinkSub}>{t('nav.aboutSub')}</span>
-            </span>
-            <ChevronRight size={18} className={s.mobileLinkArrow} />
-          </NavLink>
-
-          <NavLink to="/contact" className={({ isActive }) => `${s.mobileLink} ${isActive ? s.mobileLinkActive : ''}`} onClick={closeMenu}>
-            <span className={s.mobileLinkContent}>
-              <span className={s.mobileLinkText}>{t('nav.contact')}</span>
-              <span className={s.mobileLinkSub}>Nous écrire</span>
             </span>
             <ChevronRight size={18} className={s.mobileLinkArrow} />
           </NavLink>

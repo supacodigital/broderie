@@ -18,7 +18,6 @@ const ForgotPassword   = lazy(() => import('./pages/ForgotPassword/ForgotPasswor
 const VerifyEmail      = lazy(() => import('./pages/VerifyEmail/VerifyEmail.jsx'))
 const ResetPassword  = lazy(() => import('./pages/ResetPassword/ResetPassword.jsx'))
 const OrderDetail    = lazy(() => import('./pages/OrderDetail/OrderDetail.jsx'))
-const Contact        = lazy(() => import('./pages/Contact/Contact.jsx'))
 const NotreHistoire  = lazy(() => import('./pages/NotreHistoire/NotreHistoire.jsx'))
 
 /* Fallback pendant le chargement des chunks */
@@ -70,7 +69,6 @@ export const router = createBrowserRouter([
       { path: '/mot-de-passe-oublie',           element: <S><ForgotPassword /></S> },
       { path: '/reinitialiser-mot-de-passe',    element: <S><ResetPassword /></S> },
       { path: '/verifier-email',                element: <S><VerifyEmail /></S> },
-      { path: '/contact',                       element: <S><Contact /></S> },
       { path: '/notre-histoire',                element: <S><NotreHistoire /></S> },
 
       /* Routes protégées — nécessitent une authentification */

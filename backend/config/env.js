@@ -65,7 +65,6 @@ const baseSchema = z.object({
 
   // ── Emails ──
   MAIL_FROM:    z.string().optional(),
-  MAIL_CONTACT: z.string().optional(),
 
   // ── Environnement ──
   NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
@@ -178,7 +177,6 @@ module.exports = {
 
   /* Emails */
   mailFrom:    e.MAIL_FROM,
-  mailContact: e.MAIL_CONTACT ?? e.MAIL_FROM,
 
   /* Environnement */
   nodeEnv: e.NODE_ENV,

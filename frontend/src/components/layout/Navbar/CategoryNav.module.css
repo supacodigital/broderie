@@ -1,7 +1,9 @@
 /* ── BARRE CATÉGORIES ─────────────────────────────────── */
 .bar {
-  position: relative;
-  z-index: 1;
+  /* Collée juste sous la Navbar — z-index sous celui de la Navbar (100) */
+  position: sticky;
+  top: var(--nav-h, 72px);
+  z-index: 99;
   background: #fff;
   border-bottom: 1px solid var(--rose-border);
   overflow: visible;

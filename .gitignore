@@ -42,6 +42,12 @@ coverage/
 */coverage/
 .playwright-mcp/
 
+# Captures d'écran de session (revue visuelle) — jamais versionnées
+/[0-9][0-9]-*.png
+
+# Sources d'images non optimisées — seules les .webp de public/ sont servies
+frontend/src/assets/*.png
+
 # Stripe CLI
 .stripe/
 
