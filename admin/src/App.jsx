@@ -81,7 +81,6 @@ export default function App() {
             <Route path="fournisseurs/:id"     element={<SupplierForm />} />
             <Route path="fidelite"   element={<Loyalty />} />
             <Route path="categories" element={<Categories />} />
-            <Route path="tags"       element={<Navigate to="/categories" replace />} />
             <Route path="coupons"    element={<Coupons />} />
             <Route path="parametres"  element={<Settings />} />
             <Route path="newsletter"  element={<Newsletter />} />

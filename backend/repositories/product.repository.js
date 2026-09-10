@@ -6,7 +6,7 @@ const { pool } = require('../config/db');
 // tenues à jour à l'approbation/suppression d'un avis — pas de jointure reviews ni de GROUP BY.
 const PRODUCT_COLUMNS = `
   p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
-  p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.featured_order, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.created_at,
+  p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.featured_order, p.is_made_to_order, p.badge, p.brand, p.category_id, p.supplier_id, p.created_at,
   COALESCE(pt.name, pt_fr.name) AS name,
   COALESCE(pt.description, pt_fr.description) AS description,
   COALESCE(ct.name, ct_fr.name) AS category_name,
@@ -65,10 +65,10 @@ const buildFilters = (filters) => {
     conditions.push('p.rating_avg >= ?');
     params.push(parseFloat(filters.minRating));
   }
-  if (filters.tagId) {
-    // Filtre par tag via la table de liaison product_tags (index idx_product_tags_tag existant)
-    conditions.push('p.id IN (SELECT pt2.product_id FROM product_tags pt2 WHERE pt2.tag_id = ?)');
-    params.push(filters.tagId);
+  if (filters.brand) {
+    // Filtre par marque / éditeur — correspondance exacte (index idx_products_active_brand)
+    conditions.push('p.brand = ?');
+    params.push(filters.brand);
   }
 
   return { conditions, params };
@@ -143,7 +143,7 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
 const findById = async (id, locale = 'fr') => {
   const [rows] = await pool.execute(
     `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
-            p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.created_at,
+            p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.badge, p.brand, p.category_id, p.supplier_id, p.created_at,
             COALESCE(pt.name, pt_fr.name) AS name,
             COALESCE(pt.description, pt_fr.description) AS description,
             COALESCE(ct.name, ct_fr.name) AS category_name,
@@ -271,7 +271,7 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
 const findBySlug = async (slug, locale = 'fr') => {
   const [rows] = await pool.execute(
     `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
-            p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.created_at,
+            p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.badge, p.brand, p.category_id, p.supplier_id, p.created_at,
             COALESCE(pt.name, pt_fr.name) AS name,
             COALESCE(pt.description, pt_fr.description) AS description,
             COALESCE(ct.name, ct_fr.name) AS category_name,
@@ -317,4 +317,16 @@ const findBySlug = async (slug, locale = 'fr') => {
   return { ...rows[0], images, variants };
 };
 
-module.exports = { findAll, findById, findBySlug, search, findByCategoryId };
+// Liste des marques distinctes présentes au catalogue (produits actifs) —
+// alimente le filtre « Marque » de la boutique. Triée alphabétiquement.
+const findAllBrands = async () => {
+  const [rows] = await pool.execute(
+    `SELECT DISTINCT brand
+     FROM products
+     WHERE is_active = 1 AND deleted_at IS NULL AND brand IS NOT NULL AND brand <> ''
+     ORDER BY brand ASC`
+  );
+  return rows.map((r) => r.brand);
+};
+
+module.exports = { findAll, findById, findBySlug, search, findByCategoryId, findAllBrands };

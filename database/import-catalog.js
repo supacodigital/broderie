@@ -14,16 +14,18 @@
  * back-office. Voir docs/IMPORT-CATALOGUE.md.
  *
  * Anti-doublon : UPSERT sur products.external_ref (= NArticleC). Rejouer
- * l'import met à jour prix / stock / nom FR des articles connus, sans jamais
- * dupliquer ni écraser les champs enrichis à la main (description, poids,
+ * l'import met à jour prix / stock / nom FR / marque des articles connus, sans
+ * jamais dupliquer ni écraser les champs enrichis à la main (description, poids,
  * DE/EN, images, catégorie, is_featured, badge).
+ *
+ * Marque : la « gamme » de l'export (Nom_Gamme = éditeur : Permin, Vervaco…) est
+ * écrite telle quelle dans products.brand. Elle sert aussi au mapping catégorie
+ * (catalog-category-map.js) tant que la cliente n'a pas affiné le rangement.
  *
  * Usage (toujours depuis backend/ — utilise backend/node_modules + backend/.env) :
  *   npm run import:catalog -- --dry-run     # rapport complet, n'écrit rien
  *   npm run import:catalog                  # exécute l'import
  *   npm run import:catalog -- --status      # compte ce qui est déjà importé
- *   npm run import:catalog -- --with-theme-tags   # crée aussi les tags "thème"
- *                                                 # (~4000 tags — désactivé par défaut)
  *
  * Prérequis : migration 2026-09-02_products_import_fields.sql appliquée.
  * ============================================================ */
@@ -49,7 +51,6 @@ const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
 const DRY_RUN = has('--dry-run');
 const STATUS_ONLY = has('--status');
-const WITH_THEME_TAGS = has('--with-theme-tags');
 
 const DATA_DIR = path.join(__dirname, '../donnees-client');
 const BATCH_SIZE = 500; // règle projet : import en batch de 500, jamais ligne par ligne
@@ -156,7 +157,8 @@ const mapArticle = (a, categorySlug, taxRateIdByRate) => {
     is_made_to_order: isMadeToOrder,
     name_fr: cleanStr(a.LArticle) || `Article ${cleanStr(a.NArticleC)}`,
     description_fr: cleanStr(a.RemarqueFr),
-    gamme_name: cleanStr(a.Nom_Gamme),
+    // Marque / éditeur — écrite telle quelle dans products.brand (max 120 car.)
+    brand: cleanStr(a.Nom_Gamme)?.slice(0, 120) ?? null,
   };
 };
 
@@ -187,8 +189,7 @@ const printReport = (report) => {
   console.log(`  « sur commande » (stock 0) .......... ${report.madeToOrder}`);
   console.log(`  avec prix barré (compare_price) .... ${report.withComparePrice}`);
 
-  console.log('\nTags marque à créer / réutiliser ....... ' + report.brandTags);
-  if (WITH_THEME_TAGS) console.log('Tags thème à créer / réutiliser ........ ' + report.themeTags);
+  console.log('\nMarques distinctes (products.brand) .... ' + report.brands);
 
   if (report.slugCollisions > 0)
     console.log(`\nCollisions de slug résolues (suffixe -2, -3…) : ${report.slugCollisions}`);
@@ -305,8 +306,7 @@ async function main() {
       duplicateEan: 0,
       skuConflictForeign: 0, // SKU déjà pris par une fiche créée hors import
       duplicateSkuInExport: 0, // même RefFab sur 2 lignes de l'export
-      brandTags: 0,
-      themeTags: 0,
+      brands: 0,
       inserted: 0,
       updated: 0,
     };
@@ -316,7 +316,6 @@ async function main() {
     const seenEan = new Set();
     const seenSku = new Set();
     const brandNames = new Set();
-    const themeNames = new Set();
 
     for (const a of articles) {
       const { keep, reasons, categorySlug } = classifyArticle(a);
@@ -401,22 +400,12 @@ async function main() {
       if (m.is_made_to_order) report.madeToOrder++;
       if (m.compare_price_chf !== null) report.withComparePrice++;
 
-      if (m.gamme_name) brandNames.add(m.gamme_name);
-      if (WITH_THEME_TAGS) {
-        const themes = cleanStr(a['Thèmes']);
-        if (themes) {
-          for (let t of themes.split(',')) {
-            t = t.trim();
-            if (t.length >= 3 && !/^\d+$/.test(t)) themeNames.add(t);
-          }
-        }
-      }
+      if (m.brand) brandNames.add(m.brand);
 
       mapped.push(m);
     }
 
-    report.brandTags = brandNames.size;
-    report.themeTags = themeNames.size;
+    report.brands = brandNames.size;
 
     // ── DRY-RUN : rapport et sortie ──
     if (DRY_RUN) {
@@ -440,71 +429,17 @@ async function main() {
       for (const r of rows) existingRefs.add(r.external_ref);
     }
 
-    // 1) Tags marque : créer les manquants, récupérer les ids
-    const tagIdByBrand = new Map();
-    for (const brand of brandNames) {
-      const slug = `marque-${slugify(brand)}`.slice(0, 255);
-      const [[existing]] = await connection.query(
-        `SELECT id FROM tags WHERE slug = ? LIMIT 1`,
-        [slug]
-      );
-      let tagId;
-      if (existing) {
-        tagId = existing.id;
-      } else {
-        const [res] = await connection.query(
-          `INSERT INTO tags (slug, sort_order) VALUES (?, 0)`,
-          [slug]
-        );
-        tagId = res.insertId;
-        // Traductions : même libellé dans les 3 locales (nom de marque)
-        await connection.query(
-          `INSERT INTO tag_translations (tag_id, locale, name) VALUES (?, 'fr', ?), (?, 'de', ?), (?, 'en', ?)`,
-          [tagId, brand, tagId, brand, tagId, brand]
-        );
-      }
-      tagIdByBrand.set(brand, tagId);
-    }
-
-    // 2) Tags thème (optionnel)
-    const tagIdByTheme = new Map();
-    if (WITH_THEME_TAGS) {
-      for (const theme of themeNames) {
-        const slug = slugify(theme).slice(0, 255);
-        if (!slug) continue;
-        const [[existing]] = await connection.query(
-          `SELECT id FROM tags WHERE slug = ? LIMIT 1`,
-          [slug]
-        );
-        let tagId;
-        if (existing) {
-          tagId = existing.id;
-        } else {
-          const [res] = await connection.query(
-            `INSERT INTO tags (slug, sort_order) VALUES (?, 0)`,
-            [slug]
-          );
-          tagId = res.insertId;
-          await connection.query(
-            `INSERT INTO tag_translations (tag_id, locale, name) VALUES (?, 'fr', ?), (?, 'de', ?), (?, 'en', ?)`,
-            [tagId, theme, tagId, theme, tagId, theme]
-          );
-        }
-        tagIdByTheme.set(theme, tagId);
-      }
-    }
-
-    // 3) Produits : UPSERT par batch sur external_ref
+    // 1) Produits : UPSERT par batch sur external_ref
     //    On ne touche QUE aux champs "source" : prix, stock, nom FR, sku, ean,
-    //    catégorie, dimensions, is_made_to_order. Les champs enrichis à la main
-    //    (is_featured, featured_order, badge, weight_kg s'il a été complété,
-    //    supplier_id, images, traductions DE/EN) ne sont PAS dans le ON DUPLICATE.
-    //    weight_kg : on l'écrit à la création, mais on ne l'écrase pas si la
-    //    cliente l'a renseigné → COALESCE(nouvelle, existante) via VALUES().
+    //    catégorie, marque, dimensions, is_made_to_order. Les champs enrichis à
+    //    la main (is_featured, featured_order, badge, weight_kg s'il a été
+    //    complété, supplier_id, images, traductions DE/EN) ne sont PAS dans le
+    //    ON DUPLICATE. weight_kg : on l'écrit à la création, mais on ne l'écrase
+    //    pas si la cliente l'a renseigné → COALESCE(nouvelle, existante).
     for (let i = 0; i < mapped.length; i += BATCH_SIZE) {
       const slice = mapped.slice(i, i + BATCH_SIZE);
       const placeholders = slice
-        .map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)')
+        .map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)')
         .join(', ');
       const values = slice.flatMap((m) => [
         m.category_id,
@@ -520,6 +455,7 @@ async function main() {
         m.length_cm,
         m.width_cm,
         m.is_made_to_order,
+        m.brand,
       ]);
 
       // ON DUPLICATE KEY : `products` a 3 clés UNIQUE (external_ref, slug, sku).
@@ -534,7 +470,7 @@ async function main() {
       await connection.query(
         `INSERT INTO products
            (category_id, slug, price_chf, compare_price_chf, tax_rate_id, sku,
-            external_ref, ean, stock, weight_kg, length_cm, width_cm, is_made_to_order, is_active)
+            external_ref, ean, stock, weight_kg, length_cm, width_cm, is_made_to_order, brand, is_active)
          VALUES ${placeholders}
          ON DUPLICATE KEY UPDATE
            external_ref      = VALUES(external_ref),
@@ -548,12 +484,13 @@ async function main() {
            length_cm         = COALESCE(products.length_cm, VALUES(length_cm)),
            width_cm          = COALESCE(products.width_cm, VALUES(width_cm)),
            is_made_to_order  = VALUES(is_made_to_order),
-           category_id       = VALUES(category_id)`,
+           category_id       = VALUES(category_id),
+           brand             = VALUES(brand)`,
         values
       );
     }
 
-    // 4) Récupérer les ids produits par external_ref (pour traductions + tags)
+    // 2) Récupérer les ids produits par external_ref (pour les traductions FR)
     const refs = mapped.map((m) => m.external_ref);
     const idByRef = new Map();
     for (let i = 0; i < refs.length; i += BATCH_SIZE) {
@@ -565,7 +502,7 @@ async function main() {
       for (const r of rows) idByRef.set(r.external_ref, r.id);
     }
 
-    // 5) Traductions FR : INSERT ... ON DUPLICATE (ne crée jamais de ligne DE/EN)
+    // 3) Traductions FR : INSERT ... ON DUPLICATE (ne crée jamais de ligne DE/EN)
     for (let i = 0; i < mapped.length; i += BATCH_SIZE) {
       const slice = mapped.slice(i, i + BATCH_SIZE).filter((m) => idByRef.has(m.external_ref));
       if (slice.length === 0) continue;
@@ -587,50 +524,6 @@ async function main() {
       );
     }
 
-    // 6) Liaison product_tags (marque + thèmes) — ajout only (INSERT IGNORE).
-    //    Si un article change de gamme entre deux imports, l'ancien tag marque
-    //    reste lié — cas rare, la cliente peut le retirer dans le ProductForm.
-    const tagLinks = [];
-    for (const m of mapped) {
-      const productId = idByRef.get(m.external_ref);
-      if (!productId) continue;
-      if (m.gamme_name && tagIdByBrand.has(m.gamme_name)) {
-        tagLinks.push([productId, tagIdByBrand.get(m.gamme_name)]);
-      }
-    }
-    if (WITH_THEME_TAGS) {
-      for (const a of articles) {
-        const ref = cleanStr(a.NArticleC);
-        const productId = idByRef.get(ref);
-        if (!productId) continue;
-        const themes = cleanStr(a['Thèmes']);
-        if (!themes) continue;
-        for (let t of themes.split(',')) {
-          t = t.trim();
-          if (t.length >= 3 && !/^\d+$/.test(t) && tagIdByTheme.has(t)) {
-            tagLinks.push([productId, tagIdByTheme.get(t)]);
-          }
-        }
-      }
-    }
-    // product_tags a PRIMARY KEY (product_id, tag_id) → INSERT IGNORE est idempotent,
-    // y compris sur un ré-import. On déduplique quand même en JS pour alléger la requête.
-    const seenLink = new Set();
-    const uniqueLinks = tagLinks.filter(([p, t]) => {
-      const k = `${p}:${t}`;
-      if (seenLink.has(k)) return false;
-      seenLink.add(k);
-      return true;
-    });
-    for (let i = 0; i < uniqueLinks.length; i += BATCH_SIZE) {
-      const slice = uniqueLinks.slice(i, i + BATCH_SIZE);
-      const placeholders = slice.map(() => '(?, ?)').join(', ');
-      await connection.query(
-        `INSERT IGNORE INTO product_tags (product_id, tag_id) VALUES ${placeholders}`,
-        slice.flat()
-      );
-    }
-
     await connection.commit();
 
     // Comptage créés / mis à jour à partir de la photo initiale
@@ -643,7 +536,6 @@ async function main() {
     console.log('  Sur MySQL :');
     console.log('    ANALYZE TABLE products;');
     console.log('    ANALYZE TABLE product_translations;');
-    console.log('    ANALYZE TABLE product_tags;');
     console.log('  Puis vérifier le catalogue et la recherche sur le site.\n');
   } catch (error) {
     try {

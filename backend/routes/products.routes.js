@@ -4,6 +4,7 @@ const productController = require('../controllers/product.controller');
 
 // IMPORTANT : routes statiques avant les routes dynamiques pour éviter les conflits
 router.get('/search', productController.search);
+router.get('/brands', productController.getBrands);
 router.get('/', productController.getAll);
 // Dispatch : id numérique → getById, sinon slug → getBySlug
 router.get('/:identifier', (req, res, next) => {

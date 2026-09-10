@@ -11,7 +11,6 @@ const customerController = require('../controllers/admin/customer.controller');
 const loyaltyAdminController = require('../controllers/admin/loyalty.controller');
 const productAdminController = require('../controllers/admin/product.controller');
 const categoryAdminController = require('../controllers/admin/category.controller');
-const tagAdminController = require('../controllers/admin/tag.controller');
 const couponController          = require('../controllers/admin/coupon.controller');
 const newsletterAdminController = require('../controllers/admin/newsletter.controller');
 const settingsController        = require('../controllers/admin/settings.controller');
@@ -42,13 +41,6 @@ router.post('/categories', categoryAdminController.create);
 router.get('/categories/:id', categoryAdminController.getById);
 router.put('/categories/:id', categoryAdminController.update);
 router.delete('/categories/:id', categoryAdminController.remove);
-
-// Tags (thèmes transversaux)
-router.get('/tags', tagAdminController.getAll);
-router.post('/tags', tagAdminController.create);
-router.get('/tags/:id', tagAdminController.getById);
-router.put('/tags/:id', tagAdminController.update);
-router.delete('/tags/:id', tagAdminController.remove);
 
 // Fournisseurs
 router.get('/suppliers', supplierController.getAll);

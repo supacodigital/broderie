@@ -27,6 +27,7 @@ const buildListFilters = (query) => ({
   order: query.order === 'asc' ? 'asc' : 'desc',
   categoryId: query.category_id ? parseInt(query.category_id) : null,
   supplierId: query.supplier_id ? parseInt(query.supplier_id) : null,
+  brand:      query.brand || null,
   minPrice:   query.min_price ? parseFloat(query.min_price) : null,
   maxPrice:   query.max_price ? parseFloat(query.max_price) : null,
   inStock:    query.in_stock === 'true',

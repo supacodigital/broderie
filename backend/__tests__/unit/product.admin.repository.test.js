@@ -39,14 +39,13 @@ describe('product.admin.repository — create()', () => {
       [{ insertId: 10 }, []],  // INSERT products
       [[], []],                // INSERT translation fr
       [[], []],                // INSERT translation de
-      [[], []],                // syncTags (DELETE product_tags même sans tags)
     ]);
     pool.getConnection.mockResolvedValue(conn);
 
     const id = await repo.create({
       categoryId: 1, supplierId: 2, slug: 'fil-dmc-rouge',
       priceChf: 4.90, taxRateId: 1, stock: 50, weightKg: 0.1,
-      isFeatured: false, badge: null, tagIds: [],
+      isFeatured: false, badge: null, brand: 'DMC',
       translations: {
         fr: { name: 'Fil DMC Rouge', description: 'Fil rouge', slug: 'fil-dmc-rouge' },
         de: { name: 'DMC Faden Rot',  description: null,        slug: 'dmc-faden-rot' },
@@ -54,8 +53,8 @@ describe('product.admin.repository — create()', () => {
     });
 
     expect(id).toBe(10);
-    // 1 INSERT products + 2 INSERT translations + 1 syncTags
-    expect(conn.execute).toHaveBeenCalledTimes(4);
+    // 1 INSERT products + 2 INSERT translations
+    expect(conn.execute).toHaveBeenCalledTimes(3);
     expect(conn.commit).toHaveBeenCalled();
   });
 
@@ -275,6 +274,18 @@ describe('product.admin.repository — findAllAdmin()', () => {
     await repo.findAllAdmin({ lowStock: true });
     const countQuery = pool.query.mock.calls[0][0];
     expect(countQuery).toContain('p.stock <= 5');
+  });
+
+  test('applique le filtre brand', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 1 }]])
+      .mockResolvedValueOnce([[{ id: 1 }]]);
+
+    await repo.findAllAdmin({ brand: 'Vervaco' });
+    const countQuery = pool.query.mock.calls[0][0];
+    const countParams = pool.query.mock.calls[0][1];
+    expect(countQuery).toContain('p.brand = ?');
+    expect(countParams).toContain('Vervaco');
   });
 
   test('applique tous les filtres combinés', async () => {

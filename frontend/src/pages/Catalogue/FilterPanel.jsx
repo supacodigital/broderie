@@ -86,7 +86,7 @@ function CategoryNode({ node, depth, activeSlug, openParents, onToggle, onSelect
   )
 }
 
-export default function FilterPanel({ filters, onChange, categories = [], tags = [], onClose, mobileOpen }) {
+export default function FilterPanel({ filters, onChange, categories = [], brands = [], onClose, mobileOpen }) {
   const { t } = useTranslation()
 
   const tree = useMemo(() => buildTree(categories), [categories])
@@ -105,14 +105,14 @@ export default function FilterPanel({ filters, onChange, categories = [], tags =
     return Object.fromEntries(activeAncestorIds.map(id => [id, true]))
   })
 
-  /* Liste des thèmes repliée à la moitié par défaut — dépliée au clic sur le chevron */
-  const [tagsExpanded, setTagsExpanded] = useState(false)
-  const tagsHalfCount = Math.ceil(tags.length / 2)
-  /* On garde toujours visible le thème actif même s'il est dans la seconde moitié */
-  const activeTagInHidden = !tagsExpanded
-    && tags.slice(tagsHalfCount).some(tag => tag.slug === filters.tag)
-  const visibleTags = (tagsExpanded || activeTagInHidden) ? tags : tags.slice(0, tagsHalfCount)
-  const canCollapseTags = tags.length > 4
+  /* Liste des marques repliée à la moitié par défaut — dépliée au clic sur le chevron */
+  const [brandsExpanded, setBrandsExpanded] = useState(false)
+  const brandsHalfCount = Math.ceil(brands.length / 2)
+  /* On garde toujours visible la marque active même si elle est dans la seconde moitié */
+  const activeBrandInHidden = !brandsExpanded
+    && brands.slice(brandsHalfCount).some(b => b === filters.brand)
+  const visibleBrands = (brandsExpanded || activeBrandInHidden) ? brands : brands.slice(0, brandsHalfCount)
+  const canCollapseBrands = brands.length > 4
 
   /* Si la catégorie active change (ex: navigation depuis la navbar), on déplie toute sa
      branche sans jamais replier une section déjà ouverte par l'utilisateur */
@@ -148,7 +148,7 @@ export default function FilterPanel({ filters, onChange, categories = [], tags =
     set('min_rating', filters.min_rating === value ? undefined : value)
   }
 
-  const hasActive = filters.category || filters.tag || filters.min_price || filters.max_price
+  const hasActive = filters.category || filters.brand || filters.min_price || filters.max_price
     || filters.in_stock || filters.made_to_order || filters.badge || filters.min_rating
 
   return (
@@ -203,34 +203,34 @@ export default function FilterPanel({ filters, onChange, categories = [], tags =
           </ul>
         </div>
 
-        {/* ── Tags / thèmes — sélection unique, alignée sur le filtre ?tag=slug de l'API ── */}
-        {tags.length > 0 && (
+        {/* ── Marques — sélection unique, alignée sur le filtre ?brand=nom de l'API ── */}
+        {brands.length > 0 && (
           <div className={s.group}>
-            <p className={s.groupTitle}>Thème</p>
+            <p className={s.groupTitle}>Marque</p>
             <div className={s.tagCheckList}>
-              {visibleTags.map(tag => (
-                <label key={tag.id} className={s.checkRow}>
+              {visibleBrands.map(brand => (
+                <label key={brand} className={s.checkRow}>
                   <input
                     type="checkbox"
                     className={s.checkbox}
-                    checked={filters.tag === tag.slug}
-                    onChange={() => set('tag', filters.tag === tag.slug ? undefined : tag.slug)}
+                    checked={filters.brand === brand}
+                    onChange={() => set('brand', filters.brand === brand ? undefined : brand)}
                   />
-                  <span>{tag.name}</span>
+                  <span>{brand}</span>
                 </label>
               ))}
             </div>
-            {canCollapseTags && (
+            {canCollapseBrands && (
               <button
                 type="button"
                 className={s.showMoreBtn}
-                onClick={() => setTagsExpanded(v => !v)}
-                aria-expanded={tagsExpanded}
+                onClick={() => setBrandsExpanded(v => !v)}
+                aria-expanded={brandsExpanded}
               >
-                {tagsExpanded ? t('catalogue.showLess') : t('catalogue.showMore')}
+                {brandsExpanded ? t('catalogue.showLess') : t('catalogue.showMore')}
                 <ChevronDown
                   size={14}
-                  className={`${s.showMoreChevron} ${tagsExpanded ? s.showMoreChevronOpen : ''}`}
+                  className={`${s.showMoreChevron} ${brandsExpanded ? s.showMoreChevronOpen : ''}`}
                   aria-hidden="true"
                 />
               </button>

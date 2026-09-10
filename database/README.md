@@ -45,7 +45,6 @@ cd backend
 npm run import:catalog -- --dry-run          # rapport complet, n'écrit rien (à relire d'abord)
 npm run import:catalog                        # exécute l'import (UPSERT sur external_ref)
 npm run import:catalog -- --status            # compte les produits déjà importés
-npm run import:catalog -- --with-theme-tags   # crée aussi ~4000 tags "thème" (désactivé par défaut)
 ```
 
 Détail complet, matrice de mapping et checklist : [`docs/IMPORT-CATALOGUE.md`](../docs/IMPORT-CATALOGUE.md).

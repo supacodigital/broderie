@@ -14,29 +14,20 @@ const deleteImageFiles = (row) => {
   }
 };
 
-// Remplace l'ensemble des tags liés à un produit par tagIds (liste d'id)
-const syncTags = async (connection, productId, tagIds) => {
-  await connection.execute(`DELETE FROM product_tags WHERE product_id = ?`, [productId]);
-  if (!tagIds || tagIds.length === 0) return;
-
-  const values = tagIds.map((tagId) => [productId, tagId]);
-  await connection.query(`INSERT INTO product_tags (product_id, tag_id) VALUES ?`, [values]);
-};
-
 // Création d'un produit avec ses traductions — transaction atomique
-const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, badge, translations, tagIds }) => {
+const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, badge, brand, translations }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
     const [result] = await connection.execute(
-      `INSERT INTO products (category_id, supplier_id, slug, price_chf, compare_price_chf, tax_rate_id, sku, stock, weight_kg, length_cm, width_cm, is_featured, is_made_to_order, badge, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, taxRateId, sku || null, stock || 0, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null]
+      `INSERT INTO products (category_id, supplier_id, slug, price_chf, compare_price_chf, tax_rate_id, sku, stock, weight_kg, length_cm, width_cm, is_featured, is_made_to_order, badge, brand, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, taxRateId, sku || null, stock || 0, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, brand || null]
     );
     const productId = result.insertId;
 
-    // Insertion des traductions FR/DE/EN
+    // Insertion des traductions
     for (const [locale, trans] of Object.entries(translations)) {
       await connection.execute(
         `INSERT INTO product_translations (product_id, locale, name, description, slug)
@@ -44,8 +35,6 @@ const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf,
         [productId, locale, trans.name, trans.description || null, trans.slug || slug]
       );
     }
-
-    await syncTags(connection, productId, tagIds);
 
     await connection.commit();
     return productId;
@@ -58,7 +47,7 @@ const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf,
 };
 
 // Mise à jour d'un produit avec ses traductions
-const update = async (id, { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, isActive, badge, translations, tagIds }) => {
+const update = async (id, { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, isActive, badge, brand, translations }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -66,13 +55,13 @@ const update = async (id, { categoryId, supplierId, slug, priceChf, comparePrice
     /* slug non modifiable en édition — on ne le met à jour que s'il est fourni */
     const slugClause = slug ? 'slug = ?,' : '';
     const baseParams = slug
-      ? [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, isActive ? 1 : 0, id]
-      : [categoryId, supplierId || null,       priceChf, comparePriceChf || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, isActive ? 1 : 0, id];
+      ? [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, brand || null, isActive ? 1 : 0, id]
+      : [categoryId, supplierId || null,       priceChf, comparePriceChf || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, brand || null, isActive ? 1 : 0, id];
 
     await connection.execute(
       `UPDATE products SET category_id = ?, supplier_id = ?, ${slugClause} price_chf = ?,
        compare_price_chf = ?, tax_rate_id = ?, sku = ?, stock = ?, weight_kg = ?, length_cm = ?, width_cm = ?,
-       is_featured = ?, is_made_to_order = ?, badge = ?, is_active = ? WHERE id = ?`,
+       is_featured = ?, is_made_to_order = ?, badge = ?, brand = ?, is_active = ? WHERE id = ?`,
       baseParams
     );
 
@@ -85,10 +74,6 @@ const update = async (id, { categoryId, supplierId, slug, priceChf, comparePrice
           [id, locale, trans.name, trans.description || null, trans.slug || slug || null]
         );
       }
-    }
-
-    if (tagIds !== undefined) {
-      await syncTags(connection, id, tagIds);
     }
 
     await connection.commit();
@@ -173,7 +158,7 @@ const setPrimaryImage = async (imageId, productId) => {
 const findByIdAdmin = async (id, locale = 'fr') => {
   const [rows] = await pool.execute(
     `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
-            p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.is_active, p.badge, p.category_id, p.supplier_id,
+            p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.is_active, p.badge, p.brand, p.category_id, p.supplier_id,
             p.tax_rate_id, p.created_at,
             pt.name, pt.description,
             tr.rate AS tax_rate, tr.name AS tax_name
@@ -195,15 +180,7 @@ const findByIdAdmin = async (id, locale = 'fr') => {
     [id]
   );
 
-  const [tags] = await pool.execute(
-    `SELECT t.id, t.slug
-     FROM product_tags pt
-     INNER JOIN tags t ON t.id = pt.tag_id
-     WHERE pt.product_id = ?`,
-    [id]
-  );
-
-  return { ...rows[0], description_fr: rows[0].description, images, tags };
+  return { ...rows[0], description_fr: rows[0].description, images };
 };
 
 const ALLOWED_SORT_ADMIN = {
@@ -216,7 +193,7 @@ const ALLOWED_SORT_ADMIN = {
 // Liste admin — inclut produits inactifs et soft-deleted visibles, filtres étendus
 const findAllAdmin = async ({
   page = 1, limit = 20, search = '',
-  categoryId = null, supplierId = null,
+  categoryId = null, supplierId = null, brand = null,
   minPrice = null, maxPrice = null,
   inStock = false, lowStock = false,
   isActive = null, isFeatured = null,
@@ -234,8 +211,12 @@ const findAllAdmin = async ({
   let where = 'WHERE p.deleted_at IS NULL';
 
   if (search) {
-    where += ' AND (pt.name LIKE ? OR p.sku LIKE ? OR sup.name LIKE ?)';
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    where += ' AND (pt.name LIKE ? OR p.sku LIKE ? OR sup.name LIKE ? OR p.brand LIKE ?)';
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+  }
+  if (brand) {
+    where += ' AND p.brand = ?';
+    params.push(brand);
   }
   if (categoryId) {
     /* Inclut la catégorie choisie ET toute sa descendance (hiérarchie à 3 niveaux max) */
@@ -285,7 +266,7 @@ const findAllAdmin = async ({
 
   const [rows] = await pool.query(
     `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.length_cm, p.width_cm,
-            p.is_active, p.is_featured, p.is_made_to_order, p.badge, p.category_id, p.supplier_id, p.tax_rate_id, p.created_at,
+            p.is_active, p.is_featured, p.is_made_to_order, p.badge, p.brand, p.category_id, p.supplier_id, p.tax_rate_id, p.created_at,
             pt.name, pt.description AS description_fr,
             ct.name AS category_name,
             sup.name AS supplier_name,

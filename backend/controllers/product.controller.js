@@ -40,4 +40,14 @@ const search = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, getBySlug, search };
+// Liste des marques / éditeurs présents au catalogue — alimente le filtre boutique
+const getBrands = async (req, res, next) => {
+  try {
+    const data = await productService.getBrands();
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getAll, getById, getBySlug, search, getBrands };

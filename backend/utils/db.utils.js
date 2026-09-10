@@ -7,7 +7,6 @@ const DUPLICATE_MESSAGES = {
   uq_products_sku:         'Cette référence (SKU) est déjà utilisée par un autre produit.',
   uq_prod_trans_slug_locale: 'Ce slug est déjà utilisé pour cette langue.',
   uq_categories_slug:      'Ce slug est déjà utilisé par une autre catégorie.',
-  uq_tags_slug:            'Ce slug est déjà utilisé par un autre tag.',
   uq_coupons_code:         'Ce code promo est déjà utilisé.',
   uq_users_email:          'Cette adresse email est déjà utilisée.',
   uq_newsletter_email:     'Cette adresse email est déjà inscrite à la newsletter.',
@@ -19,7 +18,6 @@ const FK_MESSAGES = {
   fk_products_supplier: 'Le fournisseur sélectionné est introuvable.',
   fk_products_tax:      'Le taux de TVA sélectionné est introuvable.',
   fk_categories_parent: 'La catégorie parente sélectionnée est introuvable.',
-  fk_product_tags_tag:  "Un des tags sélectionnés est introuvable.",
 };
 
 // Convertit une erreur MySQL connue (doublon, clé étrangère invalide) en AppError lisible.

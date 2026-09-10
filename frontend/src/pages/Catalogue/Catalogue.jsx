@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, ArrowUp } from 'lucide-react'
-import { getProducts, getCategories } from '../../services/products.service.js'
-import { getTags } from '../../services/tags.service.js'
+import { getProducts, getCategories, getBrands } from '../../services/products.service.js'
 import { normalizeLocale } from '../../utils/locale.js'
 import { useWishlist } from '../../contexts/WishlistContext.jsx'
 import ProductCard            from '../../components/ui/ProductCard/ProductCard.jsx'
@@ -16,7 +15,7 @@ import Seo                    from '../../components/seo/Seo.jsx'
 import s from './Catalogue.module.css'
 
 /* ── Chips filtres actifs ── */
-function ActiveFilters({ filters, categories, tags, onChange }) {
+function ActiveFilters({ filters, categories, onChange }) {
   const { t } = useTranslation()
   const chips = []
 
@@ -28,12 +27,11 @@ function ActiveFilters({ filters, categories, tags, onChange }) {
       clear: () => onChange({ ...filters, category: '', page: 1 }),
     })
   }
-  if (filters.tag) {
-    const tag = tags.find(t => t.slug === filters.tag)
+  if (filters.brand) {
     chips.push({
-      key:   'tag',
-      label: tag?.name ?? filters.tag,
-      clear: () => onChange({ ...filters, tag: undefined, page: 1 }),
+      key:   'brand',
+      label: filters.brand,
+      clear: () => onChange({ ...filters, brand: undefined, page: 1 }),
     })
   }
   if (filters.q) {
@@ -139,7 +137,7 @@ export default function Catalogue() {
 
   const [products,    setProducts]    = useState([])
   const [categories,  setCategories]  = useState([])
-  const [tags,        setTags]        = useState([])
+  const [brands,      setBrands]      = useState([])
   const [pagination,  setPagination]  = useState({ page: 1, totalPages: 1, total: 0 })
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState(false)
@@ -161,7 +159,7 @@ export default function Catalogue() {
     page:     1,
     limit:    20,
     category: categorySlug ?? searchParams.get('category') ?? '',
-    tag:      searchParams.get('tag')       ?? undefined,
+    brand:    searchParams.get('brand')     ?? undefined,
     q:        searchParams.get('q')         ?? undefined,
     min_price:searchParams.get('min_price') ?? undefined,
     max_price:searchParams.get('max_price') ?? undefined,
@@ -183,7 +181,7 @@ export default function Catalogue() {
     setFilters(f => ({
       ...f,
       page:       1,
-      tag:        searchParams.get('tag')         ?? undefined,
+      brand:      searchParams.get('brand')       ?? undefined,
       q:          searchParams.get('q')          ?? undefined,
       min_price:  searchParams.get('min_price')  ?? undefined,
       max_price:  searchParams.get('max_price')  ?? undefined,
@@ -201,8 +199,8 @@ export default function Catalogue() {
     getCategories(normalizeLocale(i18n.language))
       .then(d => setCategories(d.data ?? []))
       .catch(() => {})
-    getTags(normalizeLocale(i18n.language))
-      .then(d => setTags(d.data ?? []))
+    getBrands()
+      .then(setBrands)
       .catch(() => {})
   }, [i18n.language])
 
@@ -294,7 +292,7 @@ export default function Catalogue() {
           filters={filters}
           onChange={handleFiltersChange}
           categories={categories}
-          tags={tags}
+          brands={brands}
           mobileOpen={filtersOpen}
           onClose={() => setFiltersOpen(false)}
         />
@@ -314,7 +312,6 @@ export default function Catalogue() {
           <ActiveFilters
             filters={filters}
             categories={categories}
-            tags={tags}
             onChange={handleFiltersChange}
           />
 

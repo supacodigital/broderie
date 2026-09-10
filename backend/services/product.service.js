@@ -1,6 +1,5 @@
 const productRepository = require('../repositories/product.repository');
 const categoryRepository = require('../repositories/category.repository');
-const tagRepository = require('../repositories/tag.repository');
 const { cache, TTL, keys } = require('../config/cache');
 const { AppError } = require('../middlewares/errorHandler');
 const { normalizeLocale } = require('../utils/locale.utils');
@@ -18,7 +17,7 @@ const getAll = async (query) => {
   const filters = {
     ...(query.q?.trim().length >= 2 && { q: query.q.trim() }),
     ...(query.category && { categorySlug: query.category }),
-    ...(query.tag && { tagSlug: query.tag }),
+    ...(query.brand && { brand: query.brand }),
     ...(query.min_price !== undefined && { minPrice: parseFloat(query.min_price) }),
     ...(query.max_price !== undefined && { maxPrice: parseFloat(query.max_price) }),
     ...(query.in_stock === 'true' && { inStock: true }),
@@ -38,15 +37,6 @@ const getAll = async (query) => {
     const grandchildren = allCats.filter(c => children.includes(c.parent_id)).map(c => c.id);
     filters.categoryIds = [category.id, ...children, ...grandchildren];
     delete filters.categorySlug;
-  }
-
-  // Résolution du slug tag en id pour la requête SQL
-  if (filters.tagSlug) {
-    const allTags = await tagRepository.findAll(locale);
-    const tag = allTags.find(t => t.slug === filters.tagSlug);
-    if (!tag) throw new AppError('Tag introuvable.', 404);
-    filters.tagId = tag.id;
-    delete filters.tagSlug;
   }
 
   const filterKey = JSON.stringify({ ...filters, sort, order });
@@ -142,4 +132,15 @@ const getByCategorySlug = async (slug, query) => {
   };
 };
 
-module.exports = { getAll, getById, getBySlug, search, getByCategorySlug };
+// Liste des marques du catalogue — pour le filtre boutique. Mise en cache (TTL catégories).
+const getBrands = async () => {
+  const cacheKey = keys.brands();
+  const cached = cache.get(cacheKey);
+  if (cached) return cached;
+
+  const brands = await productRepository.findAllBrands();
+  cache.set(cacheKey, brands, TTL.CATEGORIES);
+  return brands;
+};
+
+module.exports = { getAll, getById, getBySlug, search, getByCategorySlug, getBrands };

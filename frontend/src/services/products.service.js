@@ -15,3 +15,9 @@ export function searchProducts(q, params = {}) {
 export function getCategories(locale = 'fr') {
   return api.get('/categories', { params: { locale } }).then(r => r.data)
 }
+
+// Marques / éditeurs présents au catalogue — pour le filtre boutique.
+// Renvoie un tableau de chaînes (ex. ['Bothy Threads', 'DMC Art.117', …]).
+export function getBrands() {
+  return api.get('/products/brands').then(r => r.data?.data ?? [])
+}

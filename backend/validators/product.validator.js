@@ -21,7 +21,7 @@ const productCreateSchema = z.object({
   isFeatured:      z.boolean().optional().default(false),
   isMadeToOrder:   z.boolean().optional().default(false),
   badge:           z.string().max(50).optional().nullable(),
-  tagIds:          z.array(z.number().int().positive()).optional().default([]),
+  brand:           z.string().max(120).optional().nullable(),
   translations: z.object({
     fr: translationSchema,
     de: translationSchema.optional(),

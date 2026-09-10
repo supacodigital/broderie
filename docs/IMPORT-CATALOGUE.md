@@ -41,10 +41,10 @@ refondre.** On réutilise :
 |---|---|---|
 | Table `products` + `product_translations` (FR/DE/EN) | `database/broderie.sql` | cible principale — **plus aucun produit seedé** (voir §3.3) |
 | Table `suppliers` + `products.supplier_id` | `database/broderie.sql` | **laissée vide** (fichier fournisseurs absent ; seed de démo retiré — §3.3) |
-| Table `tags` + `tag_translations` + `product_tags` | `database/broderie.sql` | reçoit les **marques** (Gamme) et les **thèmes** |
+| Colonne `products.brand` (VARCHAR 120) | `database/broderie.sql` | reçoit la **marque / éditeur** (`Nom_Gamme`) telle quelle |
 | Catégories : 5 racines + 16 sous-catégories **déjà seedées** | `database/broderie.sql` (Kits de Broderie, Fils Coton, Toiles & Supports…) | cible du mapping catégorie |
 | `tax_rates` seedés (8.1 / 2.6 / 3.8) | `database/broderie.sql` | 99,99 % des articles = taux normal 8.1 |
-| CRUD produit admin (form nom/desc **FR+DE+EN**, SKU, poids, dimensions, badge, tags, fournisseur, upload images WebP ×3) | [`admin/src/pages/Products/ProductForm.jsx`](../admin/src/pages/Products/ProductForm.jsx) | la cliente complète ici |
+| CRUD produit admin (form nom/desc **FR+DE+EN**, SKU, marque, poids, dimensions, badge, fournisseur, upload images WebP ×3) | [`admin/src/pages/Products/ProductForm.jsx`](../admin/src/pages/Products/ProductForm.jsx) | la cliente complète ici |
 | Repository d'écriture produit (transaction atomique) | [`backend/repositories/product.admin.repository.js`](../backend/repositories/product.admin.repository.js) | référence pour les requêtes du script |
 | Runner de migrations SQL sans ORM | [`database/migrate.js`](../database/migrate.js) | applique la migration additive |
 | Bloc « optimisation après import en masse » (ANALYZE, rebuild FULLTEXT) | [`database/broderie.sql`](../database/broderie.sql) (fin de fichier) | à exécuter une fois après import |
@@ -66,7 +66,7 @@ Fichiers créés (tout le reste est réutilisé) :
 | `database/migrations/2026-09-03_users_reset_token.sql` | Migration additive : `users.reset_token_hash` + `reset_token_expires` (bug de schéma préexistant révélé au rechargement — voir §3.4) |
 | `database/lib/xlsx-reader.js` | Lecteur `.xlsx` minimal sans dépendance |
 | `database/catalog-category-map.js` | Correspondance marque (Gamme) → catégorie + gammes exclues |
-| `database/import-catalog.js` | Script d'import (filtrage, mapping, UPSERT, tags, rapport, garde-fous slug **et SKU**) |
+| `database/import-catalog.js` | Script d'import (filtrage, mapping, UPSERT, marque, rapport, garde-fous slug **et SKU**) |
 | `backend/package.json` | Script npm `import:catalog` ajouté |
 | `database/broderie.sql` | Colonnes `external_ref` / `ean` + `reset_token_*` répercutées ; **seed produit/fournisseur de démo retiré** (§3.3) |
 | `.gitignore` | `donnees-client/` et `database/backups/` exclus du dépôt |
@@ -90,8 +90,12 @@ idempotentes, `PREPARE`/`EXECUTE`, staging puis prod après backup).
 | `reset_token_hash` | `VARCHAR(64) NULL` | Jeton SHA-256 hex de réinitialisation de mot de passe (déjà utilisé par le code, jamais versionné). |
 | `reset_token_expires` | `DATETIME NULL` | Échéance du jeton ci-dessus. |
 
-> **Pas de nouvelle table, pas de colonne `brand`.** Les marques passent par `tags`
-> (le filtre catalogue par tag est déjà codé : `product.repository.js` → `filters.tagId`).
+**`2026-09-10_products_brand_drop_tags.sql`**
+
+| Changement | Rôle |
+|---|---|
+| `products.brand` `VARCHAR(120) NULL` + `INDEX idx_products_active_brand (is_active, brand)` | Marque / éditeur, écrite à l'import depuis `Nom_Gamme`. Filtre catalogue = `WHERE brand = ?`. |
+| `DROP TABLE product_tags, tag_translations, tags` | Le système de tags est retiré (page admin, routes, service). La migration reporte d'abord la 1re marque de chaque produit taggé dans `products.brand`. |
 
 **Optionnel (hors périmètre, à voir plus tard) :** exposer `ean` dans le `ProductForm`
 admin. Non bloquant — la colonne est alimentée par l'import.
@@ -107,13 +111,7 @@ maison dans `database/lib/xlsx-reader.js` ; `mysql2`/`dotenv` empruntés à
 npm run import:catalog -- --dry-run          # rapport complet, n'écrit rien
 npm run import:catalog                        # exécute l'import (UPSERT sur external_ref)
 npm run import:catalog -- --status            # compte les produits déjà importés
-npm run import:catalog -- --with-theme-tags   # crée aussi ~4000 tags "thème" (OFF par défaut)
 ```
-
-> **Tags thème désactivés par défaut :** la colonne `Thèmes` contient ~4000 mots-clés
-> distincts en vrac — les créer tous saturerait la page Tags de l'admin. Par défaut
-> l'import ne crée que les **~80 tags de marque**. La cliente peut lancer une fois avec
-> `--with-theme-tags` si elle veut le filtrage thématique complet.
 
 **Étapes internes :**
 
@@ -130,13 +128,8 @@ npm run import:catalog -- --with-theme-tags   # crée aussi ~4000 tags "thème" 
 3. **Mapping** vers `products` (voir §4).
 4. **Traductions** : `product_translations` locale `fr` uniquement (nom = `LArticle`,
    description = `RemarqueFr`). **Aucune ligne DE/EN créée** — la cliente les ajoutera.
-5. **Tags** :
-   - **Par défaut** : 1 tag `marque-<slug>` par gamme (ex. `marque-lanarte`), libellé
-     identique en fr/de/en (nom de marque). ~80 tags.
-   - **Avec `--with-theme-tags`** : tags depuis `Thèmes` (CSV nettoyé : trim,
-     dédoublonnage, on ignore les fragments purement numériques et ceux < 3 caractères).
-     ~4000 tags — désactivé par défaut.
-   - liaison via `product_tags` (PK `(product_id, tag_id)` → `INSERT IGNORE` idempotent).
+5. **Marque** : `Nom_Gamme` écrit tel quel dans `products.brand` (tronqué à 120 car.).
+   ~74 marques distinctes sur le catalogue actuel. Sert aussi au mapping catégorie.
 6. **Catégorie** : `products.category_id` résolu via `database/catalog-category-map.js`
    (voir §5). Défaut si marque non mappée : `kits-de-broderie` (~80 articles concernés).
 7. **Garde-fous d'unicité** — `products` a **3 clés UNIQUE** : `external_ref`, `slug`, `sku`.
@@ -155,16 +148,16 @@ npm run import:catalog -- --with-theme-tags   # crée aussi ~4000 tags "thème" 
 8. **UPSERT** : `INSERT ... ON DUPLICATE KEY UPDATE`. Un article déjà importé est
    **mis à jour**, jamais dupliqué. Sur un ré-import :
    - **rafraîchi** : `external_ref`, `price_chf`, `compare_price_chf`, `stock`, `sku`,
-     `tax_rate_id`, `is_made_to_order`, `category_id`, `name` FR
+     `tax_rate_id`, `is_made_to_order`, `category_id`, `brand`, `name` FR
    - **préservé si déjà rempli** (`COALESCE(existant, nouveau)`) : `weight_kg`, `ean`,
      `length_cm`, `width_cm`, `description` FR
    - **jamais touché** : `is_featured`, `featured_order`, `badge`, `supplier_id`, images,
      traductions DE/EN, `slug` (l'URL d'un produit déjà en ligne ne change pas)
 9. **Batch de 500** (`INSERT INTO ... VALUES (...), (...), ...`) — jamais ligne par ligne.
-10. **Transaction unique** : tout l'import (tags + produits + traductions + liaisons) est
-    dans une seule transaction — rollback complet en cas d'erreur.
+10. **Transaction unique** : tout l'import (produits + traductions) est dans une seule
+    transaction — rollback complet en cas d'erreur.
 11. **Post-import** (affiché en fin de script, à lancer à la main sur MySQL) :
-    `ANALYZE TABLE products; ANALYZE TABLE product_translations; ANALYZE TABLE product_tags;`
+    `ANALYZE TABLE products; ANALYZE TABLE product_translations;`
 
 ### 3.3 — Seed produit de `broderie.sql` retiré
 
@@ -228,8 +221,8 @@ un déploiement from scratch — corrigé au passage.
 | `RemarqueFr` | `product_translations.description` (fr) | trim | `NULL` → **cliente complète** |
 | `RemarqueEn` | *(rien)* | vide à 100 % dans la source | **cliente crée la trad EN** |
 | `EAN` | `products.ean` | trim ; 2e occurrence d'un même code → `NULL` (6 cas) | `NULL` |
-| `Nom_Gamme` | tag `marque-<slug>` via `product_tags` + `products.category_id` (via `catalog-category-map.js`) | — | catégorie défaut |
-| `Thèmes` | tags via `product_tags` **si `--with-theme-tags`** | split `,` + nettoyage | aucun tag |
+| `Nom_Gamme` | `products.brand` (tel quel, tronqué 120) + `products.category_id` (via `catalog-category-map.js`) | trim | catégorie défaut |
+| `Thèmes` | *(rien)* | — | — |
 | `Actif` | filtre d'inclusion (pas stocké) — `is_active` = 1 pour tous les importés | `true` → retenu | exclu si `false` |
 | `pu_*`, `IdTrame`, `IdArtist`, `BestSeller`, `PageCatAct`, `Année`, dates, `NCollection`… | *(rien pour l'instant)* | métadonnées métier sans cible actuelle | — |
 

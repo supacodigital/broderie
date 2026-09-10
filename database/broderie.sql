@@ -28,9 +28,6 @@ DROP TABLE IF EXISTS newsletter_subscribers;
 DROP TABLE IF EXISTS wishlists;
 DROP TABLE IF EXISTS consent_logs;
 DROP TABLE IF EXISTS reviews;
-DROP TABLE IF EXISTS product_tags;
-DROP TABLE IF EXISTS tag_translations;
-DROP TABLE IF EXISTS tags;
 DROP TABLE IF EXISTS loyalty_transactions;
 DROP TABLE IF EXISTS loyalty_rewards;
 DROP TABLE IF EXISTS loyalty_accounts;
@@ -250,6 +247,7 @@ CREATE TABLE products (
   sku               VARCHAR(100)   NULL DEFAULT NULL,
   external_ref      VARCHAR(32)    NULL DEFAULT NULL,  -- NArticleC de l'export cliente — clé d'UPSERT de l'import catalogue (database/import-catalog.js)
   ean               VARCHAR(20)    NULL DEFAULT NULL,  -- code-barres EAN (rempli sur ~28 % du catalogue importé)
+  brand             VARCHAR(120)   NULL DEFAULT NULL,  -- marque / éditeur (ex. « Permin of Copenhagen ») — rempli à l'import depuis Nom_Gamme de l'export cliente
   stock             INT            NOT NULL DEFAULT 0,
   weight_kg         DECIMAL(8, 3)  NULL DEFAULT NULL,
   is_active         TINYINT(1)     NOT NULL DEFAULT 1,
@@ -274,6 +272,7 @@ CREATE TABLE products (
   INDEX idx_products_supplier    (supplier_id),
   INDEX idx_products_deleted     (deleted_at),
   INDEX idx_products_ean         (ean),
+  INDEX idx_products_active_brand(is_active, brand),                -- filtre catalogue par marque
   -- Index composites pour les requêtes de catalogue les plus fréquentes
   INDEX idx_products_active_cat  (is_active, category_id),           -- filtre catégorie actif
   INDEX idx_products_active_feat (is_active, is_featured),           -- page accueil / featured
@@ -333,39 +332,6 @@ CREATE TABLE product_variants (
   PRIMARY KEY (id),
   INDEX idx_prod_variants_product (product_id),
   CONSTRAINT fk_prod_variants_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ============================================================
--- TAGS (thèmes transversaux — ex: Noël, Animaux, Fleurs & Jardin)
--- Indépendants de la hiérarchie categories : un produit garde sa
--- catégorie (arbre à 3 niveaux max) ET peut porter plusieurs tags.
--- ============================================================
-CREATE TABLE tags (
-  id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  slug       VARCHAR(255) NOT NULL,
-  sort_order INT UNSIGNED NOT NULL DEFAULT 0,
-  PRIMARY KEY (id),
-  UNIQUE KEY uq_tags_slug (slug)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE tag_translations (
-  id     INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  tag_id INT UNSIGNED NOT NULL,
-  locale ENUM('fr', 'de', 'en') NOT NULL,
-  name   VARCHAR(255) NOT NULL,
-  PRIMARY KEY (id),
-  UNIQUE KEY uq_tag_trans_locale (tag_id, locale),
-  INDEX idx_tag_trans_tag (tag_id),
-  CONSTRAINT fk_tag_trans_tag FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE product_tags (
-  product_id INT UNSIGNED NOT NULL,
-  tag_id     INT UNSIGNED NOT NULL,
-  PRIMARY KEY (product_id, tag_id),
-  INDEX idx_product_tags_tag (tag_id),
-  CONSTRAINT fk_product_tags_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE CASCADE,
-  CONSTRAINT fk_product_tags_tag     FOREIGN KEY (tag_id)     REFERENCES tags (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
@@ -704,8 +670,6 @@ INSERT INTO shipping_rates (zone_id, name, min_weight, max_weight, price_chf, es
 -- ============================================================
 
 -- Niveau 1 — catégories parentes (id 1-5)
--- Note : le bloc « Thème » de categorie.md n'est PAS une catégorie boutique —
--- il est modélisé uniquement via les tags transversaux ci-dessous.
 INSERT INTO categories (id, parent_id, slug, sort_order) VALUES
   (1, NULL, 'broderie',            1),
   (2, NULL, 'fils-a-broder',       2),
@@ -904,29 +868,6 @@ UPDATE category_translations SET description = 'Des kits complets de broderie pe
 
 -- Auto-increment repositionné après les id explicites ci-dessus
 ALTER TABLE categories AUTO_INCREMENT = 2000;
-
--- ============================================================
--- DONNÉES DE RÉFÉRENCE — TAGS (thèmes transversaux, many-to-many)
--- Le bloc « Thème » de categorie.md n'est pas une catégorie : un
--- produit peut cumuler plusieurs thèmes en plus de sa catégorie.
--- ============================================================
-INSERT INTO tags (id, slug, sort_order) VALUES
-  (1, 'noel',            1),
-  (2, 'animaux',         2),
-  (3, 'fleurs-et-jardin', 3),
-  (4, 'bebe-et-enfants', 4),
-  (5, 'cuisine-et-maison', 5),
-  (6, 'nature-et-mer',   6);
-
-INSERT INTO tag_translations (tag_id, locale, name) VALUES
-  (1, 'fr', 'Noël'),
-  (2, 'fr', 'Animaux'),
-  (3, 'fr', 'Fleurs & Jardin'),
-  (4, 'fr', 'Bébé & Enfants'),
-  (5, 'fr', 'Cuisine & Maison'),
-  (6, 'fr', 'Nature & Mer');
-
-ALTER TABLE tags AUTO_INCREMENT = 100;
 
 -- ============================================================
 -- CATALOGUE PRODUITS — ALIMENTÉ PAR L'IMPORT, PAS PAR CE SEED

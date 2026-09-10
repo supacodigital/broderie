@@ -15,7 +15,6 @@ vi.mock('../../services/products.service.js', () => ({
 vi.mock('../../services/categories.service.js', () => ({ getCategories: vi.fn() }))
 vi.mock('../../services/suppliers.service.js', () => ({ getSuppliers: vi.fn() }))
 vi.mock('../../services/settings.service.js', () => ({ getTaxRates: vi.fn() }))
-vi.mock('../../services/tags.service.js', () => ({ getTags: vi.fn() }))
 
 const toastSuccess = vi.fn()
 vi.mock('../../contexts/ToastContext.jsx', () => ({
@@ -26,7 +25,6 @@ import { getProductById, createProduct, updateProduct } from '../../services/pro
 import { getCategories } from '../../services/categories.service.js'
 import { getSuppliers } from '../../services/suppliers.service.js'
 import { getTaxRates } from '../../services/settings.service.js'
-import { getTags } from '../../services/tags.service.js'
 
 const TAX_RATES = [{ id: 1, name: 'Taux normal', rate: 8.1, is_default: 1 }]
 
@@ -54,7 +52,6 @@ beforeEach(() => {
   getCategories.mockResolvedValue([{ id: 1, parent_id: null, slug: 'kits', translations: { fr: { name: 'Kits' } } }])
   getSuppliers.mockResolvedValue({ data: [] })
   getTaxRates.mockResolvedValue(TAX_RATES)
-  getTags.mockResolvedValue([])
 })
 
 describe('ProductForm — champ Prix de vente', () => {
@@ -184,7 +181,6 @@ describe('ProductForm — édition d\'un produit avec réduction existante', () 
       category_id: 1,
       tax_rate_id: 1,
       images: [],
-      tags: [],
     })
 
     renderForm({ id: 7 })
@@ -206,7 +202,6 @@ describe('ProductForm — édition d\'un produit avec réduction existante', () 
       category_id: 1,
       tax_rate_id: 1,
       images: [],
-      tags: [],
     })
 
     renderForm({ id: 8 })

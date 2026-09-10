@@ -13,7 +13,6 @@ import {
 import { getCategories } from '../../services/categories.service.js'
 import { getSuppliers } from '../../services/suppliers.service.js'
 import { getTaxRates } from '../../services/settings.service.js'
-import { getTags } from '../../services/tags.service.js'
 import { useToast } from '../../contexts/ToastContext.jsx'
 import { roundCHF } from '../../utils/chf.js'
 import s from './ProductForm.module.css'
@@ -33,6 +32,7 @@ const schema = z.object({
   isMadeToOrder:    z.boolean().optional(),
   isActive:         z.boolean().optional(),
   badge:            z.string().optional(),
+  brand:            z.string().max(120).optional(),
   description:      z.string().optional(),
   nameDe:           z.string().optional(),
   descriptionDe:    z.string().optional(),
@@ -203,8 +203,6 @@ export default function ProductForm() {
   const [categories, setCategories] = useState([])
   const [suppliers,  setSuppliers]  = useState([])
   const [taxRates,   setTaxRates]   = useState([])
-  const [tags,       setTags]       = useState([])
-  const [selectedTagIds, setSelectedTagIds] = useState([])
   const [images,     setImages]     = useState([])
   const [imgLoading, setImgLoading] = useState(false)
   const [saved,      setSaved]      = useState(false)
@@ -279,8 +277,6 @@ export default function ProductForm() {
         { id: 3, name: 'Taux hôtelier', rate: 3.8 },
       ])
     })
-
-    getTags().then(setTags).catch(() => {})
   }, [])
 
   /* Taux TVA fixé automatiquement (toujours 8.1% pour ce catalogue) — appliqué
@@ -330,6 +326,7 @@ export default function ProductForm() {
           isMadeToOrder:   !!res.is_made_to_order,
           isActive:        !!res.is_active,
           badge:           res.badge ?? '',
+          brand:           res.brand ?? '',
           description:     res.description_fr ?? '',
           nameDe:          res.translations?.de?.name ?? '',
           descriptionDe:   res.translations?.de?.description ?? '',
@@ -338,20 +335,12 @@ export default function ProductForm() {
         })
         const imgs = (res?.images ?? []).map(img => ({ ...img, isPrimary: !!img.is_primary }))
         setImages(imgs)
-        setSelectedTagIds((res?.tags ?? []).map(t => t.id))
       })
       .catch(() => setApiError('Impossible de charger ce produit.'))
       .finally(() => { setLoading(false); setImgLoading(false) })
   }, [isEdit, id, reset])
 
   const goBack = () => navigate('/produits')
-
-  /* Coche / décoche un tag dans la sélection multiple */
-  const toggleTag = (tagId) => {
-    setSelectedTagIds(prev =>
-      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
-    )
-  }
 
   const onSubmit = async (data) => {
     setApiError('')
@@ -383,7 +372,7 @@ export default function ProductForm() {
         isMadeToOrder:   !!data.isMadeToOrder,
         isActive:        !!data.isActive,
         badge:           data.badge || null,
-        tagIds:          selectedTagIds,
+        brand:           data.brand?.trim() || null,
         translations: {
           fr: { name: data.name, description: data.description ?? '' },
           ...(data.nameDe ? { de: { name: data.nameDe, description: data.descriptionDe ?? '' } } : {}),
@@ -486,6 +475,17 @@ export default function ProductForm() {
                 {errors.sku && <span className={s.err}>{errors.sku.message}</span>}
               </div>
 
+              <div className={s.field}>
+                <label className={s.label} htmlFor="brand">Marque / éditeur</label>
+                <input
+                  id="brand"
+                  className={`${s.input} ${errors.brand ? s.inputError : ''}`}
+                  placeholder="Ex. Permin of Copenhagen"
+                  {...register('brand')}
+                />
+                {errors.brand && <span className={s.err}>{errors.brand.message}</span>}
+              </div>
+
               <div className={`${s.field} ${s.fieldFull}`}>
                 <label className={s.label} htmlFor="description">Description (FR)</label>
                 <textarea
@@ -550,30 +550,6 @@ export default function ProductForm() {
                 </p>
               )}
             </div>
-          </section>
-
-          {/* Tags / thèmes */}
-          <section className={s.section}>
-            <h2 className={s.sectionTitle}>Tags / thèmes</h2>
-            {tags.length === 0 ? (
-              <p className={s.tagEmpty}>Aucun tag disponible — créez-en depuis l'onglet Tags.</p>
-            ) : (
-              <div className={s.tagList}>
-                {tags.map(tag => {
-                  const checked = selectedTagIds.includes(tag.id)
-                  return (
-                    <label key={tag.id} className={`${s.tagChip} ${checked ? s.tagChipActive : ''}`}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleTag(tag.id)}
-                      />
-                      {tag.translations?.fr?.name ?? tag.slug}
-                    </label>
-                  )
-                })}
-              </div>
-            )}
           </section>
 
           {/* Prix & stock */}
