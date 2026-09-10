@@ -41,8 +41,7 @@ const exportUserData = async (userId) => {
       last_name: profile.last_name,
       locale: profile.locale,
       role: profile.role,
-      account_type: profile.google_id ? 'google' : 'password',
-      avatar_url: profile.avatar_url,
+      account_type: 'password',
       email_verified_at: profile.email_verified_at,
       created_at: profile.created_at,
     },
@@ -73,7 +72,7 @@ const deleteAccount = async (userId, { password, confirm } = {}) => {
   if (!account) throw new AppError('Compte introuvable.', 404);
 
   // Ré-authentification : mot de passe pour un compte classique, phrase de
-  // confirmation explicite pour un compte Google (sans mot de passe).
+  // confirmation explicite pour un compte sans mot de passe défini (cas résiduel).
   if (account.password_hash) {
     if (!password) throw new AppError('Mot de passe requis pour supprimer le compte.', 400);
     const ok = await bcrypt.compare(password, account.password_hash);

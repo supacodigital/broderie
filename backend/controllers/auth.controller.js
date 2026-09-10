@@ -2,10 +2,6 @@ const { z }              = require('zod');
 const authService        = require('../services/auth.service');
 const { AppError }       = require('../middlewares/errorHandler'); const env                = require('../config/env');
 
-const googleVerifySchema = z.object({
-  idToken: z.string().min(1),
-});
-
 const LOCALES = ['fr', 'de', 'en'];
 
 // Au moins 5 caractères, une majuscule, un chiffre et un symbole — appliqué
@@ -193,38 +189,6 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
-const googleVerify = async (req, res, next) => {
-  try {
-    const parsed = googleVerifySchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'idToken manquant ou invalide.' });
-    }
-
-    const { user, accessToken, refreshToken } = await authService.loginWithGoogle(parsed.data.idToken);
-
-    res.cookie('refreshToken', refreshToken, authService.refreshCookieOptions());
-
-    res.json({
-      success: true,
-      data: {
-        accessToken,
-        user: {
-          id:        user.id,
-          email:     user.email,
-          firstName: user.first_name,
-          lastName:  user.last_name,
-          role:      user.role,
-          locale:    user.locale,
-          avatarUrl: user.avatar_url ?? null,
-          emailVerified: !!user.email_verified_at,
-        },
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 // Confirmation de l'email via le lien reçu (token en query)
 const verifyEmail = async (req, res, next) => {
   try {
@@ -249,4 +213,4 @@ const resendVerification = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, logout, refreshToken, forgotPassword, resetPassword, googleVerify, verifyEmail, resendVerification };
+module.exports = { register, login, logout, refreshToken, forgotPassword, resetPassword, verifyEmail, resendVerification };

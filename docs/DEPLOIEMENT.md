@@ -133,7 +133,6 @@ nano frontend/.env.production
 ```ini
 VITE_API_URL=https://179.237.87.29/api/v1
 VITE_STRIPE_PUBLIC_KEY=pk_test_...        # mode test tant qu'on est en recette
-VITE_GOOGLE_CLIENT_ID=...
 ```
 
 ```bash
@@ -149,8 +148,6 @@ VITE_SHOP_URL=https://179.237.87.29       # lien « Voir la boutique »
 Générer les secrets JWT : `openssl rand -base64 64` (deux fois).
 
 > ⚠️ Ne jamais committer ces fichiers (déjà dans `.gitignore`).
-> ⚠️ **Google OAuth** : ajouter `https://179.237.87.29` aux *Authorized JavaScript origins*
-> dans la console Google Cloud, sinon le bouton « Se connecter avec Google » échoue sur l'IP.
 
 La liste complète des variables figure dans les `*.env.example` de chaque dossier.
 
@@ -330,8 +327,7 @@ curl -k https://179.237.87.29/health      # -k : ignore le cert auto-signé
 
 9. **Stripe** → recréer le webhook sur `https://broderie.ch/api/v1/payments/webhook`, passer en clés
    **live** (`pk_live_`/`sk_live_`), rebuilder le front si la clé publique change, mettre `whsec_` live.
-10. **Google OAuth** → ajouter `https://broderie.ch` aux *Authorized JavaScript origins*.
-11. **Swiss Post** → vérifier les clés API live le cas échéant (voir `claude_task.md` §6).
+10. **Swiss Post** → vérifier les clés API live le cas échéant (voir `claude_task.md` §6).
 
 ### Étape F — Vérifs post-bascule
 

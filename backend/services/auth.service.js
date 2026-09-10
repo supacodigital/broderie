@@ -5,7 +5,6 @@ const userRepository = require('../repositories/user.repository');
 const mfaRepository = require('../repositories/mfa.repository');
 const { AppError } = require('../middlewares/errorHandler');
 const emailService = require('./email.service');
-const googleClient = require('../config/google');
 const env = require('../config/env');
 
 const SALT_ROUNDS = 12;
@@ -131,9 +130,9 @@ const login = async ({ email, password }) => {
     throw new AppError('Ce compte a été désactivé. Contactez le support.', 403);
   }
 
-  // Compte Google sans mot de passe — orienter vers la connexion Google
+  // Aucun mot de passe défini (compte historique incomplet) — message générique
   if (!user.password_hash) {
-    throw new AppError('Ce compte utilise la connexion Google. Cliquez sur "Continuer avec Google".', 401);
+    throw new AppError('Email ou mot de passe incorrect.', 401);
   }
 
   const passwordValid = await bcrypt.compare(password, user.password_hash);
@@ -157,82 +156,6 @@ const login = async ({ email, password }) => {
   }
 
   const accessToken = generateAccessToken(user);
-  const refreshToken = generateRefreshToken(user);
-
-  return { user, accessToken, refreshToken };
-};
-
-// Connexion / inscription via Google OAuth — flux frontend-driven (idToken vérifié côté serveur)
-const loginWithGoogle = async (idToken) => {
-  if (!googleClient) {
-    throw new AppError('Connexion Google non configurée.', 503);
-  }
-
-  // Vérification du token Google — lève une erreur si invalide ou expiré
-  let payload;
-  try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken,
-      audience: env.googleClientId,
-    });
-    payload = ticket.getPayload();
-  } catch {
-    throw new AppError('Token Google invalide ou expiré.', 401);
-  }
-
-  const { sub: googleId, email, email_verified: emailVerified, given_name: firstName, family_name: lastName, picture: avatarUrl } = payload;
-
-  if (!email) {
-    throw new AppError('Impossible de récupérer l\'email depuis le compte Google.', 400);
-  }
-
-  // Google peut renvoyer une adresse non vérifiée (domaine Workspace non validé).
-  // Sans cette garde, un tiers pourrait se lier à un compte existant via une
-  // adresse qu'il ne contrôle pas.
-  if (emailVerified !== true) {
-    throw new AppError('Votre adresse Google n\'est pas vérifiée. Vérifiez-la auprès de Google puis réessayez.', 403);
-  }
-
-  // Cas 1 — compte déjà lié à ce google_id
-  let user = await userRepository.findByGoogleId(googleId);
-
-  if (user) {
-    if (!user.is_active) throw new AppError('Ce compte a été désactivé. Contactez le support.', 403);
-    // Mettre à jour l'avatar si changé
-    await userRepository.linkGoogleAccount(user.id, googleId, avatarUrl);
-    user = await userRepository.findById(user.id);
-  } else {
-    // Cas 2 — email existant avec compte classique → liaison automatique
-    const existing = await userRepository.findByEmail(email);
-
-    if (existing) {
-      if (existing.deleted_at) throw new AppError('Ce compte a été supprimé.', 403);
-      if (!existing.is_active) throw new AppError('Ce compte a été désactivé. Contactez le support.', 403);
-      await userRepository.linkGoogleAccount(existing.id, googleId, avatarUrl);
-      user = await userRepository.findById(existing.id);
-    } else {
-      // Cas 3 — nouvel utilisateur → création sans mot de passe
-      // Email auto-vérifié : Google garantit déjà la propriété de l'adresse
-      const userId = await userRepository.create({
-        email,
-        passwordHash: null,
-        firstName:    firstName  || email.split('@')[0],
-        lastName:     lastName   || '',
-        locale:       'fr',
-        googleId,
-        avatarUrl,
-        emailVerified: true,
-      });
-      user = await userRepository.findById(userId);
-
-      // Email de bienvenue — non bloquant
-      emailService.sendWelcome({ user }).catch((err) => {
-        console.error('[Email] Bienvenue Google non envoyé :', err.message);
-      });
-    }
-  }
-
-  const accessToken  = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
 
   return { user, accessToken, refreshToken };
@@ -301,7 +224,7 @@ const resetPassword = async (rawToken, newPassword) => {
 };
 
 module.exports = {
-  register, login, loginWithGoogle, refreshToken, refreshCookieOptions,
+  register, login, refreshToken, refreshCookieOptions,
   forgotPassword, resetPassword, verifyEmail, resendVerification,
   generateAccessToken, generateRefreshToken,
 };

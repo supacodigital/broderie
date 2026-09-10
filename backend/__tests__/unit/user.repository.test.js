@@ -95,17 +95,16 @@ describe('user.repository — create()', () => {
     );
   });
 
-  test('crée un compte Google (passwordHash null)', async () => {
+  test('crée un compte sans mot de passe (passwordHash null)', async () => {
     pool.execute.mockResolvedValue([{ insertId: 7 }]);
     const id = await userRepository.create({
-      email: 'google@broderie.ch', passwordHash: null,
+      email: 'nopwd@broderie.ch', passwordHash: null,
       firstName: 'G', lastName: 'User', locale: 'fr',
-      googleId: 'gid_123', avatarUrl: 'https://avatar.url',
     });
     expect(id).toBe(7);
     expect(pool.execute).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.arrayContaining([null, 'gid_123'])
+      expect.stringContaining('INSERT INTO users'),
+      expect.arrayContaining(['nopwd@broderie.ch', null])
     );
   });
 });
@@ -170,38 +169,6 @@ describe('user.repository — updatePassword()', () => {
     expect(sql).toMatch(/reset_token_hash = NULL/);
     expect(sql).toMatch(/token_version = token_version \+ 1/);
     expect(pool.execute.mock.calls[0][1]).toEqual(['$2b$12$newhash', 1]);
-  });
-});
-
-// ── findByGoogleId() ──────────────────────────────────────────────────────────
-
-describe('user.repository — findByGoogleId()', () => {
-  test('retourne l\'utilisateur par google_id', async () => {
-    pool.execute.mockResolvedValue([[fakeUser]]);
-    const result = await userRepository.findByGoogleId('gid_123');
-    expect(result).toEqual(fakeUser);
-    expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining('WHERE google_id = ?'), ['gid_123']
-    );
-  });
-
-  test('retourne null si introuvable', async () => {
-    pool.execute.mockResolvedValue([[]]);
-    const result = await userRepository.findByGoogleId('inexistant');
-    expect(result).toBeNull();
-  });
-});
-
-// ── linkGoogleAccount() ───────────────────────────────────────────────────────
-
-describe('user.repository — linkGoogleAccount()', () => {
-  test('met à jour google_id et avatar_url', async () => {
-    pool.execute.mockResolvedValue([{}]);
-    await userRepository.linkGoogleAccount(1, 'gid_abc', 'https://pic.url');
-    expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining('SET google_id = ?'),
-      ['gid_abc', 'https://pic.url', 1]
-    );
   });
 });
 
@@ -347,7 +314,7 @@ describe('user.repository — findByIdWithPassword()', () => {
 
 describe('user.repository — findByIdRaw()', () => {
   test('retourne le profil complet, filtre deleted_at', async () => {
-    pool.execute.mockResolvedValue([[{ id: 1, email: 'j@b.ch', google_id: null, created_at: 'x' }]]);
+    pool.execute.mockResolvedValue([[{ id: 1, email: 'j@b.ch', created_at: 'x' }]]);
     const r = await userRepository.findByIdRaw(1);
     expect(r.email).toBe('j@b.ch');
     expect(pool.execute).toHaveBeenCalledWith(

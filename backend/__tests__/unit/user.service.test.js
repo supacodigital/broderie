@@ -41,7 +41,7 @@ describe('user.service — exportUserData()', () => {
   test('assemble le profil et les sections liées', async () => {
     userRepository.findByIdRaw.mockResolvedValue({
       id: 1, email: 'a@b.ch', first_name: 'Marie', last_name: 'D', locale: 'fr',
-      role: 'client', google_id: null, avatar_url: null, email_verified_at: null, created_at: new Date(),
+      role: 'client', email_verified_at: null, created_at: new Date(),
     });
     orderRepository.findAllByUserIdWithItems.mockResolvedValue([{ id: 10, items: [], status_history: [] }]);
     loyaltyRepository.findAccount.mockResolvedValue({ total_spend_chf: '120.00' });
@@ -57,13 +57,13 @@ describe('user.service — exportUserData()', () => {
     expect(data.export_metadata.legal_basis).toMatch(/LPD art\. 25/);
   });
 
-  test('account_type = google si google_id présent', async () => {
+  test('newsletter null si aucune inscription', async () => {
     userRepository.findByIdRaw.mockResolvedValue({
       id: 2, email: 'g@b.ch', first_name: 'G', last_name: 'X', locale: 'fr',
-      role: 'client', google_id: 'goog-123', avatar_url: null, email_verified_at: new Date(), created_at: new Date(),
+      role: 'client', email_verified_at: new Date(), created_at: new Date(),
     });
     const data = await userService.exportUserData(2);
-    expect(data.profile.account_type).toBe('google');
+    expect(data.profile.account_type).toBe('password');
     expect(data.newsletter).toBeNull();
   });
 });
@@ -100,12 +100,12 @@ describe('user.service — deleteAccount()', () => {
     expect(newsletterRepository.unsubscribe).toHaveBeenCalledWith('a@b.ch');
   });
 
-  test('compte Google : 400 si la confirmation n\'est pas exactement SUPPRIMER', async () => {
+  test('compte sans mot de passe : 400 si la confirmation n\'est pas exactement SUPPRIMER', async () => {
     userRepository.findByIdWithPassword.mockResolvedValue({ id: 3, password_hash: null });
     await expect(userService.deleteAccount(3, { confirm: 'oui' })).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  test('compte Google : anonymise si confirm === SUPPRIMER', async () => {
+  test('compte sans mot de passe : anonymise si confirm === SUPPRIMER', async () => {
     userRepository.findByIdWithPassword.mockResolvedValue({ id: 3, password_hash: null });
     userRepository.findByIdRaw.mockResolvedValue({ id: 3, role: 'client' });
     userRepository.anonymizeUser.mockResolvedValue({ anonymized: true, email: 'g@b.ch' });

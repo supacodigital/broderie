@@ -1,7 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
-import { GoogleOAuthProvider } from '@react-oauth/google'
 import { HelmetProvider } from 'react-helmet-async'
 
 /* Initialisation i18n — doit être importé avant les composants */
@@ -20,11 +19,8 @@ const spinStyle = document.createElement('style')
 spinStyle.textContent = '@keyframes spin { to { transform: rotate(360deg); } }'
 document.head.appendChild(spinStyle)
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
-
 createRoot(document.getElementById('root')).render(
   <HelmetProvider>
-  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <AuthProvider>
       {/* ToastProvider au sommet — tout contexte/composant en dessous peut afficher des toasts */}
       <ToastProvider>
@@ -37,6 +33,5 @@ createRoot(document.getElementById('root')).render(
         </CartProvider>
       </ToastProvider>
     </AuthProvider>
-  </GoogleOAuthProvider>
   </HelmetProvider>,
 )

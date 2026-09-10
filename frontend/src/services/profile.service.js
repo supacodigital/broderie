@@ -19,8 +19,8 @@ export async function downloadMyData() {
   URL.revokeObjectURL(url)
 }
 
-/* Supprime / anonymise le compte (LPD art. 32). `credential` = mot de passe
-   (compte classique) ou la chaîne "SUPPRIMER" (compte Google). */
+/* Supprime / anonymise le compte (LPD art. 32). Ré-authentification : mot de passe
+   pour un compte classique, ou la chaîne "SUPPRIMER" si le compte n'en a pas. */
 export async function deleteMyAccount({ password, confirm } = {}) {
   await api.delete('/users/me', { data: { password, confirm } })
   clearAccessToken()

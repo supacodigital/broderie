@@ -67,7 +67,7 @@ describe('user.controller — getMe()', () => {
     });
   });
 
-  test('hasPassword = false pour un compte Google (pas de password_hash)', async () => {
+  test('hasPassword = false quand le compte n\'a pas de password_hash', async () => {
     userRepository.findById.mockResolvedValue({ id: 2, email: 'g@b.ch' });
     userRepository.findByIdWithPassword.mockResolvedValue({ id: 2, password_hash: null });
 
@@ -319,7 +319,7 @@ describe('user.controller — changePassword()', () => {
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 404 }));
   });
 
-  test('retourne 400 si compte Google (pas de password_hash)', async () => {
+  test('retourne 400 si le compte n\'a pas de password_hash', async () => {
     userRepository.findByIdWithPassword.mockResolvedValue({ id: 1, password_hash: null });
     const req = { user: { id: 1 }, body: { current_password: 'old', new_password: 'NewPass1!' } };
     const res = makeRes();

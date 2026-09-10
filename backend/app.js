@@ -46,19 +46,18 @@ if (process.env.NODE_ENV === 'production') {
 
 // Sécurité des headers HTTP — CSP.
 // - scriptSrc : Vite en build ne produit AUCUN script inline → pas de 'unsafe-inline'
-//   ni 'unsafe-eval'. accounts.google.com / apis.google.com : SDK Google Identity Services.
-// - styleSrc : garde 'unsafe-inline' pour les attributs style={{}} de React + le SDK Google ;
+//   ni 'unsafe-eval'.
+// - styleSrc : garde 'unsafe-inline' pour les attributs style={{}} de React ;
 //   fonts.googleapis.com pour la feuille de styles Google Fonts (@import dans index.css).
 // - fontSrc : fonts.gstatic.com pour les fichiers de police servis par Google Fonts.
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc:     ["'self'"],
-      scriptSrc:      ["'self'", "https://accounts.google.com", "https://apis.google.com"],
-      styleSrc:       ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
-      imgSrc:         ["'self'", "data:", "blob:", "https://*.googleusercontent.com"],
-      connectSrc:     ["'self'", "https://accounts.google.com"],
-      frameSrc:       ["https://accounts.google.com"],
+      scriptSrc:      ["'self'"],
+      styleSrc:       ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc:         ["'self'", "data:", "blob:"],
+      connectSrc:     ["'self'"],
       fontSrc:        ["'self'", "data:", "https://fonts.gstatic.com"],
       objectSrc:      ["'none'"],
       frameAncestors: ["'none'"],

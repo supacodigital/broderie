@@ -20,7 +20,6 @@ router.post('/logout',          authController.logout);
 router.post('/refresh-token',   authController.refreshToken);
 router.post('/forgot-password', authLimiter, authController.forgotPassword);
 router.post('/reset-password',  authLimiter, authController.resetPassword);
-router.post('/google/verify',   authLimiter, authController.googleVerify);
 
 // Vérification d'email : confirmation publique (token) + renvoi protégé (connecté)
 router.get('/verify-email',           authController.verifyEmail);

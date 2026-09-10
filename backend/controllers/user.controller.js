@@ -27,8 +27,8 @@ const getMe = async (req, res, next) => {
     const user = await userRepository.findById(req.user.id);
     if (!user) return next(new AppError('Utilisateur introuvable.', 404));
     const withPwd = await userRepository.findByIdWithPassword(req.user.id);
-    /* emailVerified (booléen) + hasPassword (compte classique vs Google) —
-       ce dernier sert au front pour la suppression de compte (mdp vs confirmation). */
+    /* emailVerified (booléen) + hasPassword — hasPassword sert au front pour la
+       suppression de compte (mot de passe vs phrase de confirmation). */
     res.json({
       success: true,
       data: {
@@ -142,7 +142,7 @@ const changePassword = async (req, res, next) => {
     if (!user) return next(new AppError('Utilisateur introuvable.', 404));
 
     if (!user.password_hash) {
-      return next(new AppError('Ce compte utilise la connexion Google. La modification du mot de passe n\'est pas disponible.', 400));
+      return next(new AppError('Aucun mot de passe n\'est défini sur ce compte. Utilisez « mot de passe oublié » pour en créer un.', 400));
     }
 
     const valid = await bcrypt.compare(current_password, user.password_hash);

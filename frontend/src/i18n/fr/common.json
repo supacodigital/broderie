@@ -351,7 +351,6 @@
     "loadingRegister": "Création du compte…",
     "cgvAccept": "J'accepte les",
     "cgvLink": "Conditions Générales de Vente",
-    "orContinueWith": "ou continuer avec",
     "aside": {
       "subtext": "Retrouvez vos commandes, vos favoris et votre programme de fidélité en un seul endroit.",
       "perk1": "Livraison soignée dans toute la Suisse",
@@ -378,8 +377,7 @@
       "cgvRequired": "Vous devez accepter les CGV",
       "invalidCredentials": "Email ou mot de passe incorrect",
       "emailTaken": "Cette adresse email est déjà utilisée",
-      "generic": "Une erreur est survenue. Veuillez réessayer.",
-      "googleFailed": "La connexion avec Google a échoué. Veuillez réessayer."
+      "generic": "Une erreur est survenue. Veuillez réessayer."
     }
   },
   "emailVerify": {

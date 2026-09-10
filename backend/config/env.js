@@ -60,9 +60,6 @@ const baseSchema = z.object({
   PICKUP_CITY:    z.string().optional(),
   PICKUP_HOURS:   z.string().default('Lun–Ven 9h–18h, Sam 9h–16h'),
 
-  // ── Google OAuth ──
-  GOOGLE_CLIENT_ID: z.string().optional(),
-
   // ── Emails ──
   MAIL_FROM:    z.string().optional(),
   // Service email en suspens : à 'false', aucun email n'est réellement envoyé —
@@ -175,9 +172,6 @@ module.exports = {
   pickupZip:     e.PICKUP_ZIP     ?? e.SHOP_ZIP,
   pickupCity:    e.PICKUP_CITY    ?? e.SHOP_CITY,
   pickupHours:   e.PICKUP_HOURS,
-
-  /* Google OAuth */
-  googleClientId: e.GOOGLE_CLIENT_ID ?? null,
 
   /* Emails */
   mailFrom:    e.MAIL_FROM,

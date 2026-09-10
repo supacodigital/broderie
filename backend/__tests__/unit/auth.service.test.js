@@ -3,8 +3,6 @@
 jest.mock('../../repositories/user.repository');
 jest.mock('../../repositories/mfa.repository');
 jest.mock('../../services/email.service');
-// Mock Google client comme objet (jamais null) pour pouvoir surcharger verifyIdToken par test
-jest.mock('../../config/google', () => ({ verifyIdToken: jest.fn() }));
 jest.mock('bcrypt');
 jest.mock('jsonwebtoken');
 
@@ -179,11 +177,11 @@ describe('auth.service — login()', () => {
     ).rejects.toMatchObject({ statusCode: 403 });
   });
 
-  test('lève 401 si compte Google sans mot de passe', async () => {
+  test('lève 401 si le compte n\'a aucun mot de passe défini', async () => {
     userRepository.findByEmail.mockResolvedValue(makeUser({ password_hash: null }));
 
     await expect(
-      authService.login({ email: 'google@broderie.ch', password: 'Test1234!' })
+      authService.login({ email: 'sanspwd@broderie.ch', password: 'Test1234!' })
     ).rejects.toMatchObject({ statusCode: 401 });
   });
 
@@ -339,104 +337,3 @@ describe('auth.service — refreshCookieOptions()', () => {
   });
 });
 
-// ── loginWithGoogle() ─────────────────────────────────────────────────────────
-
-// Le mock jest.mock('../../config/google') retourne undefined par défaut.
-// On charge le module mocké et on le remplace manuellement par un objet avec verifyIdToken.
-const googleModule = require('../../config/google');
-
-function setupGoogleClient(payloadOverride = {}) {
-  const payload = {
-    sub: 'google_uid_123',
-    email: 'google@broderie.ch',
-    email_verified: true,
-    given_name: 'Élodie',
-    family_name: 'Google',
-    picture: 'https://avatar.url/pic.jpg',
-    ...payloadOverride,
-  };
-  const ticket = { getPayload: () => payload };
-  // On écrase la valeur exportée par le mock
-  // jest.mock('../../config/google') retourne un objet vide — on y injecte verifyIdToken
-  Object.assign(googleModule, { verifyIdToken: jest.fn().mockResolvedValue(ticket) });
-  return payload;
-}
-
-describe('auth.service — loginWithGoogle()', () => {
-  test('crée un nouvel utilisateur Google et retourne les tokens', async () => {
-    setupGoogleClient();
-    userRepository.findByGoogleId.mockResolvedValue(null);
-    userRepository.findByEmail.mockResolvedValue(null);
-    userRepository.create.mockResolvedValue(42);
-    userRepository.findById.mockResolvedValue(makeUser({ id: 42, email: 'google@broderie.ch' }));
-    jwt.sign.mockReturnValueOnce('access_g').mockReturnValueOnce('refresh_g');
-    emailService.sendWelcome.mockResolvedValue();
-
-    const result = await authService.loginWithGoogle('valid_id_token');
-
-    expect(userRepository.create).toHaveBeenCalledWith(expect.objectContaining({
-      email: 'google@broderie.ch',
-      passwordHash: null,
-    }));
-    expect(result.accessToken).toBe('access_g');
-    expect(result.refreshToken).toBe('refresh_g');
-  });
-
-  test('lie le compte Google si email déjà existant', async () => {
-    setupGoogleClient();
-    userRepository.findByGoogleId.mockResolvedValue(null);
-    userRepository.findByEmail.mockResolvedValue(makeUser({ id: 5, email: 'google@broderie.ch' }));
-    userRepository.linkGoogleAccount.mockResolvedValue();
-    userRepository.findById.mockResolvedValue(makeUser({ id: 5 }));
-    jwt.sign.mockReturnValue('tok');
-
-    await authService.loginWithGoogle('valid_id_token');
-
-    expect(userRepository.linkGoogleAccount).toHaveBeenCalledWith(5, 'google_uid_123', expect.any(String));
-    expect(userRepository.create).not.toHaveBeenCalled();
-  });
-
-  test('retourne les tokens si google_id déjà connu', async () => {
-    setupGoogleClient();
-    userRepository.findByGoogleId.mockResolvedValue(makeUser({ id: 7 }));
-    userRepository.linkGoogleAccount.mockResolvedValue();
-    userRepository.findById.mockResolvedValue(makeUser({ id: 7 }));
-    jwt.sign.mockReturnValue('tok_existing');
-
-    const result = await authService.loginWithGoogle('valid_id_token');
-
-    expect(result.accessToken).toBe('tok_existing');
-    expect(userRepository.create).not.toHaveBeenCalled();
-  });
-
-  test('lève 401 si token Google invalide', async () => {
-    Object.assign(googleModule, {
-      verifyIdToken: jest.fn().mockRejectedValue(new Error('Token expired')),
-    });
-
-    await expect(authService.loginWithGoogle('bad_token')).rejects.toMatchObject({ statusCode: 401 });
-  });
-
-  test('lève 403 si compte Google existant désactivé', async () => {
-    setupGoogleClient();
-    userRepository.findByGoogleId.mockResolvedValue(makeUser({ id: 9, is_active: 0 }));
-
-    await expect(authService.loginWithGoogle('valid_id_token')).rejects.toMatchObject({ statusCode: 403 });
-  });
-
-  test('lève 403 si compte email existant supprimé (soft delete)', async () => {
-    setupGoogleClient();
-    userRepository.findByGoogleId.mockResolvedValue(null);
-    userRepository.findByEmail.mockResolvedValue(makeUser({ deleted_at: new Date() }));
-
-    await expect(authService.loginWithGoogle('valid_id_token')).rejects.toMatchObject({ statusCode: 403 });
-  });
-
-  test('lève 403 si l\'adresse Google n\'est pas vérifiée', async () => {
-    setupGoogleClient({ email_verified: false });
-
-    await expect(authService.loginWithGoogle('valid_id_token')).rejects.toMatchObject({ statusCode: 403 });
-    expect(userRepository.findByGoogleId).not.toHaveBeenCalled();
-    expect(userRepository.create).not.toHaveBeenCalled();
-  });
-});

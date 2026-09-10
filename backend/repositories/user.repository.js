@@ -24,13 +24,13 @@ const findById = async (id) => {
   return rows[0] || null;
 };
 
-// Création d'un nouvel utilisateur — password_hash nullable pour les comptes Google
-// emailVerified : true pour les comptes Google (email déjà vérifié par Google)
-const create = async ({ email, passwordHash = null, firstName, lastName, locale = 'fr', googleId = null, avatarUrl = null, emailVerified = false }) => {
+// Création d'un nouvel utilisateur.
+// emailVerified : passe email_verified_at à NOW() dès la création si true.
+const create = async ({ email, passwordHash = null, firstName, lastName, locale = 'fr', emailVerified = false }) => {
   const [result] = await pool.execute(
-    `INSERT INTO users (email, password_hash, first_name, last_name, role, locale, google_id, avatar_url, is_active, email_verified_at)
-     VALUES (?, ?, ?, ?, 'client', ?, ?, ?, 1, ?)`,
-    [email, passwordHash, firstName, lastName, locale, googleId, avatarUrl, emailVerified ? new Date() : null]
+    `INSERT INTO users (email, password_hash, first_name, last_name, role, locale, is_active, email_verified_at)
+     VALUES (?, ?, ?, ?, 'client', ?, 1, ?)`,
+    [email, passwordHash, firstName, lastName, locale, emailVerified ? new Date() : null]
   );
   return result.insertId;
 };
@@ -133,26 +133,6 @@ const deleteAddress = async (addressId, userId) => {
   }
 };
 
-// Recherche un utilisateur actif par google_id
-const findByGoogleId = async (googleId) => {
-  const [rows] = await pool.execute(
-    `SELECT id, email, first_name, last_name, role, locale, avatar_url, is_active, deleted_at
-     FROM users
-     WHERE google_id = ? AND deleted_at IS NULL
-     LIMIT 1`,
-    [googleId]
-  );
-  return rows[0] || null;
-};
-
-// Lie un google_id à un compte existant et met à jour l'avatar
-const linkGoogleAccount = async (userId, googleId, avatarUrl) => {
-  await pool.execute(
-    `UPDATE users SET google_id = ?, avatar_url = ? WHERE id = ?`,
-    [googleId, avatarUrl || null, userId]
-  );
-};
-
 // Recherche un utilisateur par id avec son hash de mot de passe — usage interne uniquement (changePassword)
 const findByIdWithPassword = async (id) => {
   const [rows] = await pool.execute(
@@ -165,7 +145,7 @@ const findByIdWithPassword = async (id) => {
 // Profil complet d'un utilisateur (colonnes non exposées par findById) — pour l'export LPD
 const findByIdRaw = async (id) => {
   const [rows] = await pool.execute(
-    `SELECT id, email, first_name, last_name, role, locale, google_id, avatar_url,
+    `SELECT id, email, first_name, last_name, role, locale,
             email_verified_at, created_at
      FROM users
      WHERE id = ? AND deleted_at IS NULL
@@ -212,7 +192,7 @@ const anonymizeUser = async (userId) => {
     await connection.execute(
       `UPDATE users SET
          email = ?, password_hash = NULL, first_name = 'Supprimé', last_name = 'Supprimé',
-         google_id = NULL, avatar_url = NULL, is_active = 0, email_verified_at = NULL,
+         is_active = 0, email_verified_at = NULL,
          verify_token_hash = NULL, verify_token_expires = NULL,
          reset_token_hash = NULL, reset_token_expires = NULL,
          deleted_at = NOW()
@@ -329,7 +309,7 @@ const markEmailVerified = async (userId) => {
 };
 
 module.exports = {
-  findByEmail, findById, findByIdWithPassword, findByIdRaw, findByGoogleId, linkGoogleAccount,
+  findByEmail, findById, findByIdWithPassword, findByIdRaw,
   create, emailExists, update, anonymizeUser,
   findAddresses, createAddress, updateAddress, deleteAddress,
   saveResetToken, findByResetToken, updatePassword,
