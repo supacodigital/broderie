@@ -65,6 +65,10 @@ const baseSchema = z.object({
 
   // ── Emails ──
   MAIL_FROM:    z.string().optional(),
+  // Service email en suspens : à 'false', aucun email n'est réellement envoyé —
+  // les appels sont journalisés et résolus sans erreur (dev / recette / incident
+  // fournisseur SMTP). Défaut : activé.
+  MAIL_ENABLED: z.enum(['true', 'false']).default('true'),
 
   // ── Environnement ──
   NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
@@ -177,6 +181,7 @@ module.exports = {
 
   /* Emails */
   mailFrom:    e.MAIL_FROM,
+  mailEnabled: e.MAIL_ENABLED !== 'false',
 
   /* Environnement */
   nodeEnv: e.NODE_ENV,
