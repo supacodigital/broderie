@@ -23,7 +23,7 @@
 
 .tableHead, .tableRow {
   display: grid;
-  grid-template-columns: 1.8fr 1.2fr 1fr 1fr 80px 60px 72px;
+  grid-template-columns: 2fr 1.4fr 80px 60px 72px;
   gap: 8px;
   padding: 10px 16px;
   align-items: center;
@@ -59,8 +59,6 @@
 .catName { font-weight: 600; color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .catNameChild { font-weight: 400; color: var(--text-muted); }
 .slug { font-size: 12px; color: var(--text-muted); font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.transCell { font-size: 12px; color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.missing { color: #d1d5db; }
 .muted { color: var(--text-muted); font-size: 13px; }
 
 .productCount { font-size: 13px; font-weight: 600; color: var(--text-dark); }
@@ -91,8 +89,6 @@
 
 .sectionLabel { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: -4px; }
 
-/* Grille noms : 3 colonnes */
-.formGrid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 /* Grille paramètres : 2 colonnes */
 .formGrid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 /* Descriptions : empilées, une par ligne (textes longs) */
@@ -116,14 +112,11 @@
 .btnSave:disabled { opacity: .6; cursor: not-allowed; }
 
 @media (max-width: 768px) {
-  .tableHead, .tableRow { grid-template-columns: 1.5fr 1fr 70px 60px; }
-  .tableHead > :nth-child(3),
-  .tableRow  > :nth-child(3),
-  .tableHead > :nth-child(4),
-  .tableRow  > :nth-child(4),
-  .tableHead > :nth-child(6),
-  .tableRow  > :nth-child(6) { display: none; }
+  .tableHead, .tableRow { grid-template-columns: 2fr 70px 60px 72px; }
+  /* Masque « Slug » (2) sur petit écran */
+  .tableHead > :nth-child(2),
+  .tableRow  > :nth-child(2) { display: none; }
 }
 @media (max-width: 640px) {
-  .formGrid3, .formGrid2 { grid-template-columns: 1fr; }
+  .formGrid2 { grid-template-columns: 1fr; }
 }

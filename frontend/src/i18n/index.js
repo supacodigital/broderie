@@ -1,31 +1,20 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
-import LanguageDetector from 'i18next-browser-languagedetector'
 
 import frCommon from './fr/common.json'
-import deCommon from './de/common.json'
-import enCommon from './en/common.json'
 
+/* Site 100 % francophone — marché Suisse romand. i18next est conservé pour
+   la structure des textes (t('clé')) et un éventuel ajout de langue plus tard,
+   mais une seule ressource est chargée et il n'y a pas de détection. */
 i18n
-  .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources: {
       fr: { common: frCommon },
-      de: { common: deCommon },
-      en: { common: enCommon },
     },
-    /* Français par défaut — marché Suisse romand prioritaire */
+    lng: 'fr',
     fallbackLng: 'fr',
     defaultNS: 'common',
-    /* Normalise fr-FR → fr, de-CH → de, etc. */
-    load: 'languageOnly',
-    /* Détection : localStorage → navigator → 'fr' */
-    detection: {
-      order: ['localStorage', 'navigator'],
-      caches: ['localStorage'],
-      lookupLocalStorage: 'i18nextLng',
-    },
     interpolation: {
       escapeValue: false,
     },

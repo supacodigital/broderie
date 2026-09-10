@@ -1,7 +1,6 @@
-const SUPPORTED = ['fr', 'de', 'en']
-
-/* Normalise fr-FR, fr-CH, de-CH… → fr, de, en. Fallback : 'fr' */
-export function normalizeLocale(lang) {
-  const code = (lang || 'fr').split('-')[0].toLowerCase()
-  return SUPPORTED.includes(code) ? code : 'fr'
+/* Site 100 % francophone (marché Suisse romand). Cette fonction est conservée
+   pour ne pas toucher tous ses appelants et rester prête si une langue est
+   ajoutée un jour — elle renvoie toujours 'fr' aujourd'hui. */
+export function normalizeLocale() {
+  return 'fr'
 }

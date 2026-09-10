@@ -222,12 +222,6 @@
   gap: 4px;
 }
 
-/* ── LANGUE — desktop uniquement ─────────────────────── */
-.langDesktop {
-  display: flex;
-  align-items: center;
-}
-
 /* ── BURGER — mobile uniquement ──────────────────────── */
 .burger {
   display: none;
@@ -464,7 +458,6 @@
   .navbar         { padding: 0 16px; height: 72px; }
   .links          { display: none; }
   .accountDesktop { display: none; }
-  .langDesktop    { display: none; }
   .burger         { display: flex; }
 
   /* Resserre les icônes pour loger loupe + favoris + panier + burger */

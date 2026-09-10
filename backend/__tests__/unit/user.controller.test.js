@@ -101,8 +101,8 @@ describe('user.controller — getMe()', () => {
 // ── updateMe() ────────────────────────────────────────────────────────────────
 
 describe('user.controller — updateMe()', () => {
-  test('met à jour le profil avec la locale fournie', async () => {
-    const updated = { id: 1, first_name: 'Marc', locale: 'de' };
+  test('met à jour le profil (locale toujours « fr » — site francophone)', async () => {
+    const updated = { id: 1, first_name: 'Marc', locale: 'fr' };
     userRepository.update.mockResolvedValue(updated);
 
     const req = { user: { id: 1 }, body: { firstName: 'Marc', lastName: 'Dupont', locale: 'de' } };
@@ -110,40 +110,17 @@ describe('user.controller — updateMe()', () => {
     const next = jest.fn();
 
     await updateMe(req, res, next);
-    expect(userRepository.update).toHaveBeenCalledWith(1, { firstName: 'Marc', lastName: 'Dupont', locale: 'de' });
+    expect(userRepository.update).toHaveBeenCalledWith(1, { firstName: 'Marc', lastName: 'Dupont', locale: 'fr' });
     expect(res.json).toHaveBeenCalledWith({ success: true, data: updated });
-  });
-
-  test('récupère la locale existante si non fournie', async () => {
-    userRepository.findById.mockResolvedValue({ locale: 'fr' });
-    userRepository.update.mockResolvedValue({ id: 1, locale: 'fr' });
-
-    const req = { user: { id: 1 }, body: { firstName: 'Marc' } };
-    const res = makeRes();
-    const next = jest.fn();
-
-    await updateMe(req, res, next);
-    expect(userRepository.findById).toHaveBeenCalledWith(1);
-    expect(userRepository.update).toHaveBeenCalledWith(1, expect.objectContaining({ locale: 'fr' }));
-  });
-
-  test('utilise "fr" comme locale par défaut si utilisateur introuvable', async () => {
-    userRepository.findById.mockResolvedValue(null);
-    userRepository.update.mockResolvedValue({ id: 1, locale: 'fr' });
-
-    const req = { user: { id: 1 }, body: {} };
-    const res = makeRes();
-    await updateMe(req, res, jest.fn());
-    expect(userRepository.update).toHaveBeenCalledWith(1, expect.objectContaining({ locale: 'fr' }));
   });
 
   test('accepte snake_case (first_name, last_name)', async () => {
     userRepository.update.mockResolvedValue({});
-    const req = { user: { id: 1 }, body: { first_name: 'Alice', last_name: 'Brown', locale: 'en' } };
+    const req = { user: { id: 1 }, body: { first_name: 'Alice', last_name: 'Brown' } };
     const res = makeRes();
     await updateMe(req, res, jest.fn());
     expect(userRepository.update).toHaveBeenCalledWith(1, {
-      firstName: 'Alice', lastName: 'Brown', locale: 'en',
+      firstName: 'Alice', lastName: 'Brown', locale: 'fr',
     });
   });
 });

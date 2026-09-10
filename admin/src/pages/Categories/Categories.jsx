@@ -13,12 +13,8 @@ const schema = z.object({
   slug:      z.string().min(1, 'Slug requis').regex(/^[a-z0-9-]+$/, 'Minuscules, chiffres et tirets uniquement'),
   parentId:  z.preprocess(v => (v === '' || v == null ? null : Number(v)), z.number().int().nullable().optional()),
   sortOrder: z.coerce.number().int().min(0).optional(),
-  nameFr:    z.string().min(1, 'Nom FR requis'),
-  nameDe:    z.string().optional(),
-  nameEn:    z.string().optional(),
+  nameFr:    z.string().min(1, 'Nom requis'),
   descFr:    z.string().optional(),
-  descDe:    z.string().optional(),
-  descEn:    z.string().optional(),
 })
 
 function toSlug(str) {
@@ -42,11 +38,7 @@ function CategoryModal({ category, categories, onClose, onSaved }) {
       parentId:  category.parent_id    ?? '',
       sortOrder: category.sort_order   ?? 0,
       nameFr:    category.translations?.fr?.name        ?? '',
-      nameDe:    category.translations?.de?.name        ?? '',
-      nameEn:    category.translations?.en?.name        ?? '',
       descFr:    category.translations?.fr?.description ?? '',
-      descDe:    category.translations?.de?.description ?? '',
-      descEn:    category.translations?.en?.description ?? '',
     } : { parentId: '', sortOrder: 0 },
   })
 
@@ -64,8 +56,6 @@ function CategoryModal({ category, categories, onClose, onSaved }) {
       sortOrder: data.sortOrder ?? 0,
       translations: {
         fr: { name: data.nameFr, description: data.descFr || null },
-        ...(data.nameDe ? { de: { name: data.nameDe, description: data.descDe || null } } : {}),
-        ...(data.nameEn ? { en: { name: data.nameEn, description: data.descEn || null } } : {}),
       },
     }
     try {
@@ -152,36 +142,15 @@ function CategoryModal({ category, categories, onClose, onSaved }) {
             <div className={s.apiError}><AlertTriangle size={13} /> {apiError}</div>
           )}
 
-          <p className={s.sectionLabel}>Noms</p>
-          <div className={s.formGrid3}>
+          <div className={s.formGridStack}>
             <div className={s.field}>
-              <label className={s.label}>Nom FR *</label>
+              <label className={s.label}>Nom *</label>
               <input className={`${s.input} ${errors.nameFr ? s.inputError : ''}`} {...register('nameFr')} />
               {errors.nameFr && <span className={s.err}>{errors.nameFr.message}</span>}
             </div>
             <div className={s.field}>
-              <label className={s.label}>Nom DE</label>
-              <input className={s.input} {...register('nameDe')} placeholder="Deutsch" />
-            </div>
-            <div className={s.field}>
-              <label className={s.label}>Nom EN</label>
-              <input className={s.input} {...register('nameEn')} placeholder="English" />
-            </div>
-          </div>
-
-          <p className={s.sectionLabel}>Descriptions</p>
-          <div className={s.formGridStack}>
-            <div className={s.field}>
-              <label className={s.label}>Description FR</label>
+              <label className={s.label}>Description</label>
               <textarea className={`${s.input} ${s.textarea}`} rows={4} {...register('descFr')} />
-            </div>
-            <div className={s.field}>
-              <label className={s.label}>Description DE</label>
-              <textarea className={`${s.input} ${s.textarea}`} rows={4} {...register('descDe')} />
-            </div>
-            <div className={s.field}>
-              <label className={s.label}>Description EN</label>
-              <textarea className={`${s.input} ${s.textarea}`} rows={4} {...register('descEn')} />
             </div>
           </div>
 
@@ -322,9 +291,7 @@ function CategoriesPanel() {
 
   const matchesQuery = (c, q) => (
     c.slug?.toLowerCase().includes(q) ||
-    c.translations?.fr?.name?.toLowerCase().includes(q) ||
-    c.translations?.de?.name?.toLowerCase().includes(q) ||
-    c.translations?.en?.name?.toLowerCase().includes(q)
+    c.translations?.fr?.name?.toLowerCase().includes(q)
   )
 
   const query = search.trim().toLowerCase()
@@ -383,8 +350,6 @@ function CategoriesPanel() {
         <div className={s.tableHead}>
           <span>Catégorie</span>
           <span>Slug</span>
-          <span>DE</span>
-          <span>EN</span>
           <span>Produits</span>
           <span>Ordre</span>
           <span></span>
@@ -405,8 +370,6 @@ function CategoriesPanel() {
             const depth     = depthOf(cat)
             const isChild   = depth > 0
             const nameFr    = cat.translations?.fr?.name ?? cat.slug
-            const nameDe    = cat.translations?.de?.name
-            const nameEn    = cat.translations?.en?.name
             const hasChildren = sorted.some(c => c.parent_id === cat.id)
             const isExpanded  = query ? true : expandedIds.has(cat.id)
             /* Le compte produits est agrégé sur toute la descendance depuis le backend */
@@ -436,8 +399,6 @@ function CategoriesPanel() {
                   <span className={`${s.catName} ${isChild ? s.catNameChild : ''}`}>{nameFr}</span>
                 </div>
                 <span className={s.slug}>{cat.slug}</span>
-                <span className={s.transCell}>{nameDe || <span className={s.missing}>—</span>}</span>
-                <span className={s.transCell}>{nameEn || <span className={s.missing}>—</span>}</span>
                 <span className={s.productCount} data-zero={productCount === 0 ? 'true' : 'false'}>
                   {productCount}
                 </span>

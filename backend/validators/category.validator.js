@@ -25,8 +25,6 @@ const categoryShapeSchema = z.object({
   translations: z
     .object({
       fr: z.object({ name: nameSchema.optional(), description: descriptionSchema.optional() }).partial().optional(),
-      de: z.object({ name: nameSchema.optional(), description: descriptionSchema.optional() }).partial().optional(),
-      en: z.object({ name: nameSchema.optional(), description: descriptionSchema.optional() }).partial().optional(),
     })
     .optional(),
 }).passthrough(); // parentId etc. laissés au controller

@@ -7,7 +7,6 @@ import { useCart } from '../../../contexts/CartContext.jsx'
 import { useCartDrawer } from '../../../contexts/CartDrawerContext.jsx'
 import { useWishlist } from '../../../contexts/WishlistContext.jsx'
 import NavSearch from './NavSearch.jsx'
-import LangSwitcher from './LangSwitcher.jsx'
 import CartDrawer from '../CartDrawer/CartDrawer.jsx'
 import s from './Navbar.module.css'
 
@@ -94,11 +93,6 @@ export default function Navbar() {
 
         {/* Actions */}
         <div className={s.actions}>
-          {/* Sélecteur de langue — desktop */}
-          <div className={s.langDesktop}>
-            <LangSwitcher variant="navbar" />
-          </div>
-
           {/* Loupe — ouvre la recherche globale */}
           <button
             className={`${s.iconBtn} ${searchOpen ? s.iconBtnActive : ''}`}
@@ -261,11 +255,6 @@ export default function Navbar() {
               <User size={18} className={s.mobileLinkArrow} />
             </NavLink>
           )}
-
-          {/* Langue */}
-          <div className={s.mobileDivider} aria-hidden="true" />
-          <p className={s.mobileSectionLabel}>Langue</p>
-          <LangSwitcher variant="mobile" />
         </div>
       </div>
 

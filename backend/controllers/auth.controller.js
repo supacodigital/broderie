@@ -2,8 +2,6 @@ const { z }              = require('zod');
 const authService        = require('../services/auth.service');
 const { AppError }       = require('../middlewares/errorHandler'); const env                = require('../config/env');
 
-const LOCALES = ['fr', 'de', 'en'];
-
 // Au moins 5 caractères, une majuscule, un chiffre et un symbole — appliqué
 // à la création et à la réinitialisation du mot de passe (pas à la connexion,
 // pour ne pas bloquer les comptes créés avant ce renforcement).
@@ -17,7 +15,7 @@ const registerSchema = z.object({
   password:  passwordSchema,
   firstName: z.string().min(1).max(100),
   lastName:  z.string().min(1).max(100),
-  locale:    z.enum(LOCALES).optional().default('fr'),
+  locale:    z.literal('fr').optional().default('fr'),
 });
 
 const loginSchema = z.object({

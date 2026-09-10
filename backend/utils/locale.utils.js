@@ -1,18 +1,10 @@
-const SUPPORTED = ['fr', 'de', 'en'];
+/* Site 100 % francophone (marché Suisse romand). Les fonctions restent en place
+   pour ne pas toucher tous leurs appelants et faciliter un futur ajout de langue,
+   mais elles renvoient toujours 'fr' aujourd'hui. */
+const SUPPORTED = ['fr'];
 
-/* Normalise fr-FR, fr-CH, de-CH… → fr, de, en. Fallback : 'fr' */
-const normalizeLocale = (locale) => {
-  const code = (locale || 'fr').split('-')[0].toLowerCase();
-  return SUPPORTED.includes(code) ? code : 'fr';
-};
+const normalizeLocale = () => 'fr';
 
-/* Déduit la locale d'une requête : compte connecté > ?locale > en-tête Accept-Language > 'fr'.
-   Utilisé pour afficher les traductions produit (panier, commande) dans la langue du client. */
-const localeFromRequest = (req) => {
-  const fromUser   = req.user?.locale;
-  const fromQuery  = req.query?.locale;
-  const fromHeader = req.headers?.['accept-language'];
-  return normalizeLocale(fromUser || fromQuery || fromHeader);
-};
+const localeFromRequest = () => 'fr';
 
-module.exports = { normalizeLocale, localeFromRequest };
+module.exports = { normalizeLocale, localeFromRequest, SUPPORTED };

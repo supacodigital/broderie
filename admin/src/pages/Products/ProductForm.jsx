@@ -34,10 +34,6 @@ const schema = z.object({
   badge:            z.string().optional(),
   brand:            z.string().max(120).optional(),
   description:      z.string().optional(),
-  nameDe:           z.string().optional(),
-  descriptionDe:    z.string().optional(),
-  nameEn:           z.string().optional(),
-  descriptionEn:    z.string().optional(),
 })
 
 // ── Zone de drop d'images ──────────────────────────────────────────────────
@@ -328,10 +324,6 @@ export default function ProductForm() {
           badge:           res.badge ?? '',
           brand:           res.brand ?? '',
           description:     res.description_fr ?? '',
-          nameDe:          res.translations?.de?.name ?? '',
-          descriptionDe:   res.translations?.de?.description ?? '',
-          nameEn:          res.translations?.en?.name ?? '',
-          descriptionEn:   res.translations?.en?.description ?? '',
         })
         const imgs = (res?.images ?? []).map(img => ({ ...img, isPrimary: !!img.is_primary }))
         setImages(imgs)
@@ -375,8 +367,6 @@ export default function ProductForm() {
         brand:           data.brand?.trim() || null,
         translations: {
           fr: { name: data.name, description: data.description ?? '' },
-          ...(data.nameDe ? { de: { name: data.nameDe, description: data.descriptionDe ?? '' } } : {}),
-          ...(data.nameEn ? { en: { name: data.nameEn, description: data.descriptionEn ?? '' } } : {}),
         },
       }
 
@@ -620,28 +610,6 @@ export default function ProductForm() {
             </div>
           </section>
 
-          {/* Traductions */}
-          <section className={s.section}>
-            <h2 className={s.sectionTitle}>Traductions</h2>
-            <div className={s.formGrid}>
-              <div className={s.field}>
-                <label className={s.label} htmlFor="nameDe">Nom (DE)</label>
-                <input id="nameDe" className={s.input} placeholder="Produktname auf Deutsch…" {...register('nameDe')} />
-              </div>
-              <div className={s.field}>
-                <label className={s.label} htmlFor="nameEn">Nom (EN)</label>
-                <input id="nameEn" className={s.input} placeholder="Product name in English…" {...register('nameEn')} />
-              </div>
-              <div className={s.field}>
-                <label className={s.label} htmlFor="descriptionDe">Description (DE)</label>
-                <textarea id="descriptionDe" className={`${s.input} ${s.textarea}`} rows={3} placeholder="Beschreibung auf Deutsch…" {...register('descriptionDe')} />
-              </div>
-              <div className={s.field}>
-                <label className={s.label} htmlFor="descriptionEn">Description (EN)</label>
-                <textarea id="descriptionEn" className={`${s.input} ${s.textarea}`} rows={3} placeholder="Description in English…" {...register('descriptionEn')} />
-              </div>
-            </div>
-          </section>
         </form>
 
         {/* Images */}

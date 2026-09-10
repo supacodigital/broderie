@@ -24,8 +24,6 @@ const productCreateSchema = z.object({
   brand:           z.string().max(120).optional().nullable(),
   translations: z.object({
     fr: translationSchema,
-    de: translationSchema.optional(),
-    en: translationSchema.optional(),
   }),
 });
 

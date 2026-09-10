@@ -47,13 +47,8 @@ const updateMe = async (req, res, next) => {
     /* Accepte camelCase et snake_case pour la compatibilité frontend */
     const firstName = req.body.firstName ?? req.body.first_name;
     const lastName  = req.body.lastName  ?? req.body.last_name;
-    /* Préserver la locale existante si non fournie dans le body */
-    let { locale } = req.body;
-    if (!locale) {
-      const current = await userRepository.findById(req.user.id);
-      locale = current?.locale ?? 'fr';
-    }
-    const user = await userRepository.update(req.user.id, { firstName, lastName, locale });
+    /* Site 100 % francophone — la locale du compte est toujours 'fr' */
+    const user = await userRepository.update(req.user.id, { firstName, lastName, locale: 'fr' });
     res.json({ success: true, data: user });
   } catch (error) {
     next(error);

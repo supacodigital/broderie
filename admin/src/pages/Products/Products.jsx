@@ -356,8 +356,6 @@ export default function Products() {
       badge:           full.badge ?? null,
       translations: {
         fr: { name: full.name, description: full.description_fr ?? '' },
-        ...(full.translations?.de?.name ? { de: { name: full.translations.de.name, description: full.translations.de.description ?? '' } } : {}),
-        ...(full.translations?.en?.name ? { en: { name: full.translations.en.name, description: full.translations.en.description ?? '' } } : {}),
       },
     }
   }, [])
