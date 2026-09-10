@@ -1,6 +1,7 @@
 const { pool } = require('../config/db');
 
-// Recherche un utilisateur par email (incluant les supprimés pour la migration)
+// Recherche un utilisateur par email — inclut les comptes soft-deleted
+// (le champ deleted_at est renvoyé pour que l'appelant décide quoi en faire)
 const findByEmail = async (email) => {
   const [rows] = await pool.execute(
     `SELECT id, email, password_hash, first_name, last_name, role, locale, is_active, email_verified_at, deleted_at

@@ -1,7 +1,7 @@
 # CLAUDE.md — E-Commerce Full-Stack — Marché Suisse 🇨🇭
 
 Stack : React + Vite + CSS Modules | Node.js + Express | MySQL (raw) | Infomaniak
-Marché : **Suisse uniquement** — 1800 clients à migrer depuis l'ancien site
+Marché : **Suisse romande — français uniquement**
 
 ---
 
@@ -13,7 +13,7 @@ Marché : **Suisse uniquement** — 1800 clients à migrer depuis l'ancien site
 - **Styles** : CSS Modules (`.module.css`) — PAS de SCSS, PAS de Tailwind, PAS de styled-components
 - **Icônes** : lucide-react uniquement
 - **HTTP** : Axios uniquement
-- **i18n** : react-i18next — FR par défaut, DE-CH, EN
+- **i18n** : react-i18next — **français uniquement** (lib conservée pour un éventuel ajout de langue, une seule ressource chargée)
 - **Formulaires** : React Hook Form + Zod
 - **Routing** : React Router v6
 - **State global** : Context API — PAS de Redux
@@ -60,10 +60,10 @@ admin/                   # React + Vite (back-office)
     pages/
       Dashboard/         # KPIs : CA, commandes du jour, stock critique
       Products/          # Liste, création, édition, upload images
-      Categories/        # Arborescence catégories + traductions
+      Categories/        # Arborescence catégories
       Suppliers/         # CRUD fournisseurs
       Orders/            # Liste commandes, détail, changement statut, envoi QR Twint
-      Customers/         # Liste clients, détail, import migration
+      Customers/         # Liste clients, détail (lecture seule)
       Reviews/           # Modération avis clients
       Coupons/           # Gestion codes promo
       Settings/          # Config TVA, frais de port, textes légaux
@@ -128,11 +128,10 @@ routes/ → controllers/ → services/ → repositories/
 | Env | Usage | URL type |
 | --- | --- | --- |
 | `development` | Local — `.env.local` | `localhost:5173` / `localhost:3000` |
-| `staging` | Recette — tests avant prod, migration clients | `staging.broderie-domaine.ch` |
+| `staging` | Recette — tests avant prod | `staging.broderie-domaine.ch` |
 | `production` | Site live | `broderie-domaine.ch` |
 
 - Staging = copie exacte de la prod (même stack, même Infomaniak, base de données séparée)
-- Jamais tester la migration des 1800 clients directement en production — staging obligatoire
 - Variables `.env.staging` et `.env.production` distinctes — jamais partager les credentials
 
 **Points d'attention Infomaniak :**
@@ -151,8 +150,8 @@ routes/ → controllers/ → services/ → repositories/
 - `product_snapshot_json` dans `order_items` — état produit figé à l'achat
 - `tax_rate_snapshot` par ligne commande — TVA figée au moment de l'achat
 - Transactions MySQL pour la création de commande (atomique)
-- Index sur : `products.slug`, `products.category_id`, `orders.user_id`, `orders.status`
-- FULLTEXT sur : `product_translations.name`, `product_translations.description` (par locale)
+- Index sur : `products.slug`, `products.category_id`, `products.brand`, `orders.user_id`, `orders.status`
+- FULLTEXT sur : `product_translations.name`, `product_translations.description`
 - `consent_logs` avec IP hashée SHA-256 — jamais stocker l'IP en clair (LPD)
 
 ### Schéma
@@ -166,15 +165,18 @@ addresses (id, user_id, label, street, city, zip, country, canton, is_default)
 tax_rates (id, name, rate, category, is_default)
 -- Données : standard=8.1%, reduced=2.6%, hotel=3.8%
 
--- Catalogue multilingue
+-- Catalogue
 categories (id, parent_id, slug, image_url, sort_order)
 category_translations (id, category_id, locale, name, description)
+          -- locale : 'fr' uniquement (ENUM conservé pour un futur ajout de langue)
 
 products (id, category_id, supplier_id, slug, price_chf, compare_price_chf,
-          tax_rate_id, sku, stock, weight_kg, is_active, is_featured,
+          tax_rate_id, sku, ean, brand, stock, weight_kg, is_active, is_featured,
           deleted_at, created_at, updated_at)
+          -- brand : marque / éditeur (ex. « Permin of Copenhagen »), remplie à l'import
           -- price_eur supprimé : marché CH uniquement
 product_translations (id, product_id, locale, name, description, slug)
+          -- locale : 'fr' uniquement
 product_images (id, product_id, url, alt, sort_order, is_primary)
 product_variants (id, product_id, name, value, price_modifier, stock, sku)
 
@@ -347,18 +349,15 @@ Le système est **entièrement paramétrable depuis le back-office** — aucun c
 - **Frais de port toujours payants** — pas de livraison gratuite, même au-delà d'un seuil
 - Délais : 1-2j CH
 
-### Multilinguisme
+### Langue
 
-| Région         | Langue                  | Part |
-| -------------- | ----------------------- | ---- |
-| Romandie       | Français (FR) — défaut  | ~23% |
-| Deutschschweiz | Allemand DE-CH (pas DE) | ~63% |
-| International  | Anglais (EN)            | —    |
-
-- Dialecte **DE-CH** : pas de `ß`, utiliser `ss`
-- URLs localisées : `/fr/` | `/de/` | `/en/`
-- Templates emails traduits FR / DE / EN
-- Balises `hreflang` sur toutes les pages (SEO multilingue)
+- **Français uniquement** — cible Suisse romande.
+- `react-i18next` est conservé (textes en `t('clé')`, fichier `fr/common.json`) pour
+  permettre l'ajout d'une langue plus tard sans tout réécrire, mais une seule
+  ressource est chargée et il n'y a ni détecteur ni sélecteur de langue.
+- Les colonnes `locale` en base restent `ENUM('fr','de','en')` (aucune migration)
+  mais seul `'fr'` est écrit.
+- Pas de `hreflang`, pas d'URLs localisées, emails en français.
 
 ### LPD — Conformité données
 
@@ -459,9 +458,6 @@ GET    /api/v1/admin/reviews               # liste tous les avis (approuvés + e
 PUT    /api/v1/admin/reviews/:id/approve   # approuver un avis
 DELETE /api/v1/admin/reviews/:id           # supprimer un avis
 
-# Migration clients (admin uniquement)
-POST   /api/v1/admin/migrations/customers
-
 # Fidélité — client
 GET    /api/v1/loyalty/me              # solde, palier actuel, historique points
 GET    /api/v1/loyalty/me/rewards      # bons de réduction disponibles
@@ -476,16 +472,10 @@ GET    /api/v1/admin/loyalty/accounts  # vue globale des comptes fidélité clie
 
 ---
 
-## 7. MIGRATION — 1800 CLIENTS
+## 7. COMPTES CLIENTS
 
-Le client possède **1800 comptes** sur l'ancien site à importer.
-
-- Exporter les données depuis l'ancien site (CSV ou dump SQL)
-- Script de migration : `database/migrate_customers.js`
-- Les mots de passe anciens ne sont pas récupérables → envoyer un email de réinitialisation à chaque client importé
-- Champs à mapper : email, prénom, nom, adresse(s), locale
-- Exécuter la migration **avant** la mise en production
-- Endpoint dédié : `POST /api/v1/admin/migrations/customers` (one-shot, protégé par rôle admin)
+Pas de migration de comptes existants — les clients de l'ancien site se réinscrivent
+eux-mêmes. La page **Customers** de l'admin est en lecture seule (liste + détail).
 
 ---
 
@@ -509,14 +499,14 @@ Le client possède **1800 comptes** sur l'ancien site à importer.
 { "success": false, "message": "Données invalides", "errors": [{ "field": "email", "message": "Format invalide" }] }
 
 // Erreur métier (401, 403, 404, 409)
-{ "success": false, "message": "Message traduit selon la locale" }
+{ "success": false, "message": "Message en français" }
 
 // Erreur serveur (500) — jamais de stack trace en production
 { "success": false, "message": "Une erreur est survenue. Veuillez réessayer." }
 ```
 
 **Règles :**
-- Messages d'erreur traduits FR/DE/EN selon la locale du compte (header `Accept-Language` sinon)
+- Messages d'erreur en français
 - Logger l'erreur complète côté serveur (avec stack trace) — retourner uniquement le message générique au client
 - Ne jamais exposer les détails de l'implémentation (noms de tables, chemins de fichiers, etc.)
 
@@ -538,7 +528,7 @@ Le client possède **1800 comptes** sur l'ancien site à importer.
 
 ## 9. EMAILS TRANSACTIONNELS
 
-Tous les emails traduits **FR / DE / EN** selon la locale du compte client.
+Tous les emails en **français**.
 
 - Confirmation de commande (avec détail TVA suisse)
 - Changement de statut commande
@@ -730,7 +720,7 @@ Projet livré à **100%** — zéro fonctionnalité partielle, zéro bug connu e
 ### Validation des données — exhaustive
 
 - **Toutes** les entrées API validées avec Zod (pas seulement les routes auth)
-- Messages d'erreur explicites et traduits FR/DE/EN
+- Messages d'erreur explicites, en français
 - Codes HTTP stricts : `400` validation, `401` non authentifié, `403` non autorisé, `404` introuvable, `409` conflit, `500` erreur serveur
 - Jamais retourner un stack trace en production — logger côté serveur, message générique côté client
 
@@ -815,7 +805,6 @@ Tout doit être vert avant de mettre en production.
 - [ ] Helmet.js configuré — headers de sécurité vérifiés
 - [ ] CORS configuré sur le domaine de production exact
 - [ ] Logs d'erreur configurés (pas de console.log en production)
-- [ ] Migration 1800 clients testée sur environnement de staging
 
 ### Base de données
 - [ ] `broderie.sql` à jour et exécutable de zéro sans erreur
@@ -830,9 +819,8 @@ Tout doit être vert avant de mettre en production.
 - [ ] Tunnel d'achat complet testé (desktop + mobile)
 - [ ] Paiement Twint QR testé en mode test Stripe
 - [ ] Paiement carte testé en mode test Stripe
-- [ ] Tous les emails transactionnels reçus et vérifiés (FR/DE/EN)
+- [ ] Tous les emails transactionnels reçus et vérifiés (en français)
 - [ ] Pages 404 et erreur 500 personnalisées
-- [ ] Balises `hreflang` présentes sur toutes les pages
 - [ ] Meta title et description renseignés sur chaque page
 - [ ] Lighthouse score ≥ 90 (Performance, Accessibilité, SEO)
 
@@ -842,13 +830,10 @@ Tout doit être vert avant de mettre en production.
 - [ ] Gestion commandes : changement de statut + email automatique
 - [ ] Génération et envoi QR Twint depuis l'admin testé
 - [ ] Modération avis clients fonctionnelle (approbation + suppression)
-- [ ] Import/migration clients testé sur données réelles anonymisées
 - [ ] Rôles admin vérifiés — un client ne peut pas accéder à l'admin
 
 ### Staging (avant passage en prod)
 - [ ] Staging déployé sur Infomaniak avec base de données séparée
-- [ ] Migration 1800 clients validée sur staging — aucune erreur
-- [ ] Email de réinitialisation reçu sur un compte test migré
 - [ ] Tunnel d'achat complet validé sur staging par le client
 
 ### Infomaniak (production)

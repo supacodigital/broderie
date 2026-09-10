@@ -89,9 +89,9 @@ sudo mysql broderie < broderie.sql
 ```
 
 > ℹ️ **Reprise des données de l'ancien site : pas maintenant.** On démarre sur une base neuve
-> (schéma seul, aucune donnée de démo). La reprise des données réelles
-> (produits, clients, commandes) et la migration des 1800 clients se feront **plus tard**, à
-> planifier avant ou pendant la bascule du domaine (§10).
+> (schéma seul, aucune donnée de démo). L'import du catalogue produits (§ IMPORT-CATALOGUE.md)
+> se fait à part. La reprise des comptes clients de l'ancien site est **annulée** — les
+> clients se réinscrivent eux-mêmes.
 
 > 🔒 **Port 3306 jamais exposé** : MySQL écoute sur `localhost` uniquement.
 
@@ -296,14 +296,14 @@ curl -k https://179.237.87.29/health      # -k : ignore le cert auto-signé
 3. **Ajouter le domaine dans Nginx** (`server_name broderie.ch www.broderie.ch;`) en gardant
    provisoirement l'IP. `sudo nginx -t && sudo systemctl reload nginx`.
 
-### Étape B — Reprise des données (à planifier, pas encore tranché)
+### Étape B — Reprise des données
 
-> ⚠️ **Décision en attente.** La reprise des données réelles n'est pas faite au moment du déploiement IP.
-> Avant d'ouvrir le domaine au public, décider et exécuter :
-4. **Reprise BDD** : `mysqldump` de l'ancienne base → import sur Infomaniak (produits, commandes…),
-   **et/ou** migration des 1800 clients (voir `claude_task.md` §7). À tester sur staging d'abord.
-5. **Copier les `uploads/`** (images produit) de l'ancien site vers `backend/uploads/products/`.
-   *(Si on repart sur une base neuve sans reprise, sauter cette étape.)*
+> La reprise des **comptes clients** de l'ancien site est **annulée** — les clients
+> se réinscrivent eux-mêmes. Le **catalogue produits** est importé via le script dédié
+> (`docs/IMPORT-CATALOGUE.md`), à lancer sur staging puis prod.
+4. **Import catalogue** : `npm run import:catalog` (voir `docs/IMPORT-CATALOGUE.md`).
+5. **Copier les `uploads/`** (images produit) de l'ancien site vers `backend/uploads/products/`
+   si des visuels sont récupérables.
 
 ### Étape C — Repointer le DNS
 
@@ -355,8 +355,7 @@ curl https://broderie.ch/health
 |---|---|
 | **Stockage médias** | ✅ Tranché : **disque du VPS** (`backend/uploads/products/`, servi sous `/uploads`). `config/storage.js` écrit sur disque (plus de dépendance S3). ⚠️ Vérifier la taille du disque pour ~14 000 produits × 3 WebP, **inclure `uploads/` dans Swiss Backup**, ne pas l'effacer lors des `git pull`/déploiements. |
 | **Swiss Post API** | Clés `CLIENT_ID/SECRET` après approbation (étiquettes en mock d'ici là) — voir `claude_task.md` §6. |
-| **Migration 1800 clients** | À tester sur staging avant la prod — voir `claude_task.md` §7. |
-| **Emails prod** | `julie@broderie.ch` est hébergé chez un prestataire tiers (Hetzner), pas Infomaniak. Décider la voie SMTP (Brevo recommandé) — voir `claude_task.md` §5. |
+| **Emails prod** | `julie@broderie.ch` est hébergé chez un prestataire tiers (Hetzner), pas Infomaniak. Décider la voie SMTP (Brevo recommandé) — voir `claude_task.md` §5. `MAIL_ENABLED=true` en prod (à `false` = service email en suspens). |
 | **MFA admin** | Deux nouvelles variables obligatoires (`JWT_MFA_PENDING_SECRET`, `MFA_ENCRYPTION_KEY`) — le serveur refuse de démarrer sans elles. Procédure complète : [MFA-PRODUCTION.md](MFA-PRODUCTION.md). |
 
 ---

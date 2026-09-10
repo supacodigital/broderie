@@ -25,8 +25,8 @@ La table des **fournisseurs eux-mêmes** (noms, adresses) **n'a pas été transm
 La reprise des ~1800 comptes clients est **annulée** (décision projet).
 
 **Objectif :** peupler la table `products` avec ces ~15 900 articles, en français,
-avec le maximum d'informations exploitables. Les traductions DE/EN, les images, les
-poids manquants et les catégories fines seront **complétés par la cliente** au fil de
+avec le maximum d'informations exploitables. Les images, les poids manquants et les
+catégories fines seront **complétés par la cliente** au fil de
 l'eau via le back-office admin (CRUD produit déjà livré).
 
 ---
