@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw } from 'lucide-react'
+import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound } from 'lucide-react'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import RecoveryCodesModal from '../Mfa/RecoveryCodesModal.jsx'
-import { mfaGetStatus, mfaRegenerateRecoveryCodes } from '../../services/auth.service.js'
+import { mfaGetStatus, mfaRegenerateRecoveryCodes, updatePassword } from '../../services/auth.service.js'
 import {
   getStoreSettings,
   updateStoreSettings,
@@ -418,6 +418,102 @@ function LegalTab() {
   )
 }
 
+/* ── Changement de mot de passe ── */
+function PasswordSection() {
+  const [values,  setValues]  = useState({ current: '', next: '', confirm: '' })
+  const [saving,  setSaving]  = useState(false)
+  const [status,  setStatus]  = useState(null) // null | 'saved' | 'error'
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const handleChange = (key, val) => setValues(prev => ({ ...prev, [key]: val }))
+
+  const handleSave = async () => {
+    setErrorMsg('')
+    setStatus(null)
+
+    if (!values.current || !values.next) {
+      setErrorMsg('Mot de passe actuel et nouveau mot de passe requis.')
+      return
+    }
+    if (values.next !== values.confirm) {
+      setErrorMsg('Les mots de passe ne correspondent pas.')
+      return
+    }
+    if (values.next.length < 5 || !/[A-Z]/.test(values.next) || !/[^A-Za-z0-9]/.test(values.next)) {
+      setErrorMsg('Le nouveau mot de passe doit contenir au moins 5 caractères, une majuscule et un symbole.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      await updatePassword(values.current, values.next)
+      setValues({ current: '', next: '', confirm: '' })
+      setStatus('saved')
+    } catch (err) {
+      setErrorMsg(err.response?.status === 401
+        ? 'Mot de passe actuel incorrect.'
+        : 'Une erreur est survenue. Veuillez réessayer.')
+      setStatus('error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <SettingsSection
+      title="Mot de passe"
+      desc="Modifiez le mot de passe de votre compte administrateur."
+    >
+      {errorMsg && (
+        <div className={s.taxNote}>
+          <AlertCircle size={13} />
+          {errorMsg}
+        </div>
+      )}
+      <div className={s.formRow}>
+        <div className={s.field}>
+          <label className={s.label}>Mot de passe actuel</label>
+          <input
+            type="password"
+            autoComplete="current-password"
+            className={s.input}
+            value={values.current}
+            onChange={e => handleChange('current', e.target.value)}
+          />
+        </div>
+        <div className={s.field}>
+          <label className={s.label}>Nouveau mot de passe</label>
+          <input
+            type="password"
+            autoComplete="new-password"
+            className={s.input}
+            value={values.next}
+            onChange={e => handleChange('next', e.target.value)}
+          />
+          <p className={s.hint}>Au moins 5 caractères, une majuscule et un symbole.</p>
+        </div>
+        <div className={s.field}>
+          <label className={s.label}>Confirmer le nouveau mot de passe</label>
+          <input
+            type="password"
+            autoComplete="new-password"
+            className={s.input}
+            value={values.confirm}
+            onChange={e => handleChange('confirm', e.target.value)}
+          />
+        </div>
+      </div>
+      <div className={s.formActions}>
+        <SaveFeedback status={status} />
+        <button className={s.btnSave} onClick={handleSave} disabled={saving}>
+          <KeyRound size={14} />
+          {saving ? 'Enregistrement…' : 'Modifier le mot de passe'}
+        </button>
+      </div>
+    </SettingsSection>
+  )
+}
+
 /* ── Onglet Sécurité (MFA) ── */
 function SecurityTab() {
   const [status,        setStatus]        = useState(null)
@@ -456,6 +552,8 @@ function SecurityTab() {
   }
 
   return (
+    <>
+    <PasswordSection />
     <SettingsSection
       title="Double authentification"
       desc="La double authentification (MFA) est obligatoire pour tous les comptes administrateur."
@@ -504,6 +602,7 @@ function SecurityTab() {
         <RecoveryCodesModal codes={newCodes} onContinue={() => { setNewCodes(null); load() }} />
       )}
     </SettingsSection>
+    </>
   )
 }
 

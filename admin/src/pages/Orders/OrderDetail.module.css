@@ -292,6 +292,20 @@
 
 .trackingCurrent svg { color: var(--rose); flex-shrink: 0; }
 
+.trackingLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  color: var(--rose);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.trackingLink:hover { text-decoration: underline; }
+.trackingLink svg { color: var(--rose); }
+
 /* ── Champs ── */
 .input {
   flex: 1;

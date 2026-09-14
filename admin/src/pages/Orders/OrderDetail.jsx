@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, Check, FileText, RefreshCw, Package, Download, Truck, Store,
+  ArrowLeft, Check, FileText, RefreshCw, Package, Download, Truck, Store, QrCode, ExternalLink,
 } from 'lucide-react'
-import { getOrderById, updateOrderStatus, downloadInvoice, generateLabel, downloadLabel, updateTracking } from '../../services/orders.service.js'
+import { getOrderById, updateOrderStatus, downloadInvoice, generateLabel, downloadLabel, updateTracking, sendTwintQr } from '../../services/orders.service.js'
 import { formatCHF } from '../../utils/chf.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
 import s from './OrderDetail.module.css'
@@ -59,6 +59,7 @@ export default function OrderDetail() {
   const [saving,          setSaving]          = useState(false)
   const [markingPaid,     setMarkingPaid]     = useState(false)
   const [markingReady,    setMarkingReady]    = useState(false)
+  const [sendingTwintQr,  setSendingTwintQr]  = useState(false)
   const [generatingLabel, setGeneratingLabel] = useState(false)
   const [trackingInput,   setTrackingInput]   = useState('')
   const [savingTracking,  setSavingTracking]  = useState(false)
@@ -67,6 +68,10 @@ export default function OrderDetail() {
 
   const load = () => {
     setLoading(true)
+    setNote('')
+    setTrackingInput('')
+    setFeedback('')
+    setError('')
     getOrderById(orderId)
       .then(res => {
         setOrder(res)
@@ -132,6 +137,20 @@ export default function OrderDetail() {
       setError('Impossible de marquer la commande comme prête.')
     } finally {
       setMarkingReady(false)
+    }
+  }
+
+  const handleSendTwintQr = async () => {
+    setSendingTwintQr(true)
+    setFeedback('')
+    setError('')
+    try {
+      await sendTwintQr(orderId)
+      setFeedback('QR Twint envoyé par email au client.')
+    } catch (err) {
+      setError(err.response?.data?.message ?? 'Impossible d\'envoyer le QR Twint.')
+    } finally {
+      setSendingTwintQr(false)
     }
   }
 
@@ -206,6 +225,10 @@ export default function OrderDetail() {
 
   const needsPaymentAction = ['pending_invoice', 'pending_pickup', 'ready_for_pickup'].includes(order.status)
   const needsPickupPrep    = order.status === 'pending_pickup'
+  // Twint QR utile tant que la commande n'est pas encore payée (avant même la
+  // facture) — plage plus large que needsPaymentAction, qui cible surtout la
+  // préparation/le retrait.
+  const canSendTwintQr = ['pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup'].includes(order.status)
 
   return (
     <div className={s.page}>
@@ -349,7 +372,7 @@ export default function OrderDetail() {
         <div className={s.rightCol}>
 
           {/* Paiement */}
-          {needsPaymentAction && (
+          {(needsPaymentAction || canSendTwintQr) && (
             <section className={s.card}>
               <div className={s.cardHead}>
                 <h2 className={s.cardTitle}>Paiement</h2>
@@ -366,19 +389,34 @@ export default function OrderDetail() {
                     <p className={s.actionHint}>Envoie un email au client (adresse + horaires).</p>
                   </div>
                 )}
-                <div className={s.actionItem}>
-                  <button className={s.btnDark} onClick={handleMarkAsPaid} disabled={markingPaid}>
-                    {markingPaid
-                      ? <><RefreshCw size={13} className={s.spin} /> Mise à jour…</>
-                      : <><Check size={13} /> Marquer comme payée</>
-                    }
-                  </button>
-                  <p className={s.actionHint}>
-                    {order.status === 'pending_invoice'
-                      ? 'Confirme la réception du paiement de la facture QR.'
-                      : 'Confirme l\'encaissement au comptoir.'}
-                  </p>
-                </div>
+                {needsPaymentAction && (
+                  <div className={s.actionItem}>
+                    <button className={s.btnDark} onClick={handleMarkAsPaid} disabled={markingPaid}>
+                      {markingPaid
+                        ? <><RefreshCw size={13} className={s.spin} /> Mise à jour…</>
+                        : <><Check size={13} /> Marquer comme payée</>
+                      }
+                    </button>
+                    <p className={s.actionHint}>
+                      {order.status === 'pending_invoice'
+                        ? 'Confirme la réception du paiement de la facture QR.'
+                        : 'Confirme l\'encaissement au comptoir.'}
+                    </p>
+                  </div>
+                )}
+                {canSendTwintQr && (
+                  <div className={s.actionItem}>
+                    <button className={s.btnDark} onClick={handleSendTwintQr} disabled={sendingTwintQr}>
+                      {sendingTwintQr
+                        ? <><RefreshCw size={13} className={s.spin} /> Envoi…</>
+                        : <><QrCode size={13} /> Envoyer un QR Twint par email</>
+                      }
+                    </button>
+                    <p className={s.actionHint}>
+                      Génère un QR code de paiement Twint (valable 24h) et l'envoie au client par email.
+                    </p>
+                  </div>
+                )}
               </div>
             </section>
           )}
@@ -407,6 +445,14 @@ export default function OrderDetail() {
                 {order.tracking_number && (
                   <p className={s.trackingCurrent}>
                     <Truck size={12} /> <strong>{order.tracking_number}</strong>
+                    <a
+                      href={`https://www.post.ch/fr/outils/suivi-de-colis?track=${encodeURIComponent(order.tracking_number)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={s.trackingLink}
+                    >
+                      Voir le suivi <ExternalLink size={11} />
+                    </a>
                   </p>
                 )}
               </div>
