@@ -16,10 +16,19 @@
 
 ## Historique
 
-Les migrations `001_*` → `012_*` (mai–juillet 2026) ont été **consolidées dans `broderie.sql`**
-lors du nettoyage `ca261ea9` (juillet 2026) — `broderie.sql` en est le snapshot. Les migrations
-présentes ici partent du **31 juillet 2026**. Pour retrouver une ancienne migration :
-`git show ca261ea9^:database/migrations/00X_*.sql`.
+Deux consolidations successives, même principe à chaque fois : `broderie.sql` absorbe
+les migrations et en devient le snapshot.
+
+- **Juillet 2026** — migrations `001_*` → `012_*` (mai–juillet) consolidées lors du
+  nettoyage `ca261ea9`. Pour en retrouver une : `git show ca261ea9^:database/migrations/00X_*.sql`.
+- **14 septembre 2026** — les 13 migrations du 31 juillet au 10 septembre déplacées dans
+  `migrations/archive/` (voir le README de ce dossier), avant la première mise en production.
+
+Conséquence pratique : `migrations/` est vide, et **`broderie.sql` suffit à monter une base
+complète et à jour**. Plus besoin de `--baseline` après un chargement from scratch — le
+runner affiche directement `0 en attente`.
+
+Les nouvelles évolutions du schéma reprennent le fonctionnement normal décrit ci-dessous.
 
 ## Runner de migrations
 
