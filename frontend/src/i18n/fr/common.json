@@ -377,6 +377,7 @@
       "cgvRequired": "Vous devez accepter les CGV",
       "invalidCredentials": "Email ou mot de passe incorrect",
       "emailTaken": "Cette adresse email est déjà utilisée",
+      "adminAccount": "Ce compte est un compte administrateur. Connectez-vous depuis le back-office.",
       "generic": "Une erreur est survenue. Veuillez réessayer."
     }
   },

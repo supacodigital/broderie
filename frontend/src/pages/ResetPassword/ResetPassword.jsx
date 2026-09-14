@@ -136,7 +136,7 @@ export default function ResetPassword() {
             </div>
 
             {/* Indication de format — toujours visible pour guider la saisie */}
-            <p id="rp-password-hint" className={s.fieldHint}>Au moins 8 caractères.</p>
+            <p id="rp-password-hint" className={s.fieldHint}>Au moins 5 caractères, avec une majuscule, un chiffre et un symbole.</p>
 
             {errors.password && (
               <span id="rp-password-error" className={s.fieldError} role="alert">

@@ -46,7 +46,12 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (credentials) => {
     const data = await apiLogin(credentials)
-    setUser(data.data?.user ?? null)
+    /* Compte admin (MFA requis) : ce site ne gère pas la double authentification —
+       aucun token n'est délivré dans ce cas, donc ne jamais poser `user` (sinon
+       l'interface affiche une session « connectée » fantôme, sans accès réel). */
+    if (!data.data?.mfaRequired) {
+      setUser(data.data?.user ?? null)
+    }
     return data
   }, [])
 

@@ -12,7 +12,7 @@ import s from './AuthForm.module.css'
 function buildSchema(t) {
   return z.object({
     email:    z.string().min(1, t('auth.errors.emailRequired')).email(t('auth.errors.emailInvalid')),
-    password: z.string().min(1, t('auth.errors.passwordRequired')).min(8, t('auth.errors.passwordMin')),
+    password: z.string().min(1, t('auth.errors.passwordRequired')).min(5, t('auth.errors.passwordMin')),
   })
 }
 
@@ -42,7 +42,17 @@ export default function LoginForm() {
   const onSubmit = async (values) => {
     setGlobalError('')
     try {
-      await login(values)
+      const result = await login(values)
+
+      /* Compte admin : le back-office exige la double authentification (MFA), que ce
+         site n'implémente pas — aucun token n'est délivré dans ce cas. Sans ce garde-fou,
+         l'utilisateur se voit affiché comme connecté (données du profil déjà reçues) puis
+         déconnecté au premier appel protégé, sans explication. */
+      if (result?.data?.mfaRequired) {
+        setGlobalError(t('auth.errors.adminAccount'))
+        return
+      }
+
       navigate(from, { replace: true })
     } catch (err) {
       const status = err.response?.status
