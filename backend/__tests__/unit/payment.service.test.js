@@ -39,33 +39,35 @@ function makeOrder(overrides = {}) {
 
 
 // ── createCardIntent() ────────────────────────────────────────────────────────
+// lockOrderForPaymentIntent() remplace findById+vérif statut : verrouille la
+// commande et réserve la ligne payments avant l'appel Stripe (protection contre
+// la double création concurrente de PaymentIntent — double-clic, deux onglets).
 
 describe('payment.service — createCardIntent()', () => {
   test('lève 404 si commande introuvable', async () => {
-    orderRepository.findById.mockResolvedValue(null);
+    orderRepository.lockOrderForPaymentIntent.mockRejectedValue({ statusCode: 404 });
 
     await expect(paymentService.createCardIntent(99)).rejects.toMatchObject({ statusCode: 404 });
   });
 
   test('lève 400 si commande déjà payée', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'paid' }));
+    orderRepository.lockOrderForPaymentIntent.mockRejectedValue({ statusCode: 400 });
 
     await expect(paymentService.createCardIntent(1)).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  test('lève 400 si statut commande invalide (shipped)', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'shipped' }));
+  test('lève 409 si une création de PaymentIntent est déjà en cours (course concurrente)', async () => {
+    orderRepository.lockOrderForPaymentIntent.mockRejectedValue({ statusCode: 409 });
 
-    await expect(paymentService.createCardIntent(1)).rejects.toMatchObject({ statusCode: 400 });
+    await expect(paymentService.createCardIntent(1)).rejects.toMatchObject({ statusCode: 409 });
   });
 
-  test('crée un PaymentIntent et retourne clientSecret + amount (sans paiement existant)', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder());
+  test('crée un PaymentIntent, complète la ligne payments réservée, retourne clientSecret + amount', async () => {
+    orderRepository.lockOrderForPaymentIntent.mockResolvedValue({ order: makeOrder(), paymentId: 5 });
     stripe.paymentIntents = {
       create: jest.fn().mockResolvedValue({ id: 'pi_test', client_secret: 'cs_test' }),
     };
-    paymentRepository.findByOrderId.mockResolvedValue(null);
-    paymentRepository.create.mockResolvedValue();
+    paymentRepository.updateStatusByOrder.mockResolvedValue();
 
     const result = await paymentService.createCardIntent(1);
 
@@ -73,42 +75,38 @@ describe('payment.service — createCardIntent()', () => {
       currency: 'chf',
       payment_method_types: ['card'],
     }));
-    expect(paymentRepository.create).toHaveBeenCalled();
+    expect(paymentRepository.updateStatusByOrder).toHaveBeenCalledWith(1, 'card', 'pending', 'pi_test');
     expect(result.clientSecret).toBe('cs_test');
     expect(result.amount).toBe('58.40');
   });
 
-  test('met à jour le paiement existant au lieu d\'en créer un nouveau', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder());
+  test('libère la réservation (statut failed) si l\'appel Stripe échoue', async () => {
+    orderRepository.lockOrderForPaymentIntent.mockResolvedValue({ order: makeOrder(), paymentId: 5 });
     stripe.paymentIntents = {
-      create: jest.fn().mockResolvedValue({ id: 'pi_test2', client_secret: 'cs_test2' }),
+      create: jest.fn().mockRejectedValue(new Error('Stripe indisponible')),
     };
-    paymentRepository.findByOrderId.mockResolvedValue({ id: 5, status: 'pending' });
     paymentRepository.updateStatusByOrder.mockResolvedValue();
 
-    await paymentService.createCardIntent(1);
-
-    expect(paymentRepository.updateStatusByOrder).toHaveBeenCalledWith(1, 'card', 'pending', 'pi_test2');
-    expect(paymentRepository.create).not.toHaveBeenCalled();
+    await expect(paymentService.createCardIntent(1)).rejects.toThrow('Stripe indisponible');
+    expect(paymentRepository.updateStatusByOrder).toHaveBeenCalledWith(1, 'card', 'failed');
   });
 
   test('fonctionne aussi avec statut awaiting_payment', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'awaiting_payment' }));
+    orderRepository.lockOrderForPaymentIntent.mockResolvedValue({ order: makeOrder({ status: 'awaiting_payment' }), paymentId: 6 });
     stripe.paymentIntents = {
       create: jest.fn().mockResolvedValue({ id: 'pi_aw', client_secret: 'cs_aw' }),
     };
-    paymentRepository.findByOrderId.mockResolvedValue(null);
-    paymentRepository.create.mockResolvedValue();
+    paymentRepository.updateStatusByOrder.mockResolvedValue();
 
     const result = await paymentService.createCardIntent(1);
     expect(result.clientSecret).toBe('cs_aw');
   });
 
-  test('scope la commande sur userId (findById reçoit orderId + userId)', async () => {
-    orderRepository.findById.mockResolvedValue(null);
+  test('scope la commande sur userId (lockOrderForPaymentIntent reçoit orderId + userId + method)', async () => {
+    orderRepository.lockOrderForPaymentIntent.mockRejectedValue({ statusCode: 404 });
 
     await expect(paymentService.createCardIntent(42, 10)).rejects.toMatchObject({ statusCode: 404 });
-    expect(orderRepository.findById).toHaveBeenCalledWith(42, 10);
+    expect(orderRepository.lockOrderForPaymentIntent).toHaveBeenCalledWith(42, 10, 'card');
   });
 });
 
@@ -116,24 +114,29 @@ describe('payment.service — createCardIntent()', () => {
 
 describe('payment.service — createTwintIntent()', () => {
   test('lève 404 si commande introuvable', async () => {
-    orderRepository.findById.mockResolvedValue(null);
+    orderRepository.lockOrderForPaymentIntent.mockRejectedValue({ statusCode: 404 });
 
     await expect(paymentService.createTwintIntent(99)).rejects.toMatchObject({ statusCode: 404 });
   });
 
   test('lève 400 si statut commande invalide', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'shipped' }));
+    orderRepository.lockOrderForPaymentIntent.mockRejectedValue({ statusCode: 400 });
 
     await expect(paymentService.createTwintIntent(1)).rejects.toMatchObject({ statusCode: 400 });
   });
 
+  test('lève 409 si une création de PaymentIntent est déjà en cours (course concurrente)', async () => {
+    orderRepository.lockOrderForPaymentIntent.mockRejectedValue({ statusCode: 409 });
+
+    await expect(paymentService.createTwintIntent(1)).rejects.toMatchObject({ statusCode: 409 });
+  });
+
   test('retourne le client_secret (Twint sans QR — redirection Stripe.js)', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder());
-    paymentRepository.findByOrderId.mockResolvedValue(null);
+    orderRepository.lockOrderForPaymentIntent.mockResolvedValue({ order: makeOrder(), paymentId: 7 });
     stripe.paymentIntents = {
       create: jest.fn().mockResolvedValue({ id: 'pi_twint', client_secret: 'cs_twint' }),
     };
-    paymentRepository.create.mockResolvedValue();
+    paymentRepository.updateStatusByOrder.mockResolvedValue();
 
     const result = await paymentService.createTwintIntent(1);
 
@@ -144,11 +147,10 @@ describe('payment.service — createTwintIntent()', () => {
   });
 
   test('crée le PaymentIntent avec le type twint et l\'order_id en metadata', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder());
-    paymentRepository.findByOrderId.mockResolvedValue(null);
+    orderRepository.lockOrderForPaymentIntent.mockResolvedValue({ order: makeOrder(), paymentId: 8 });
     const create = jest.fn().mockResolvedValue({ id: 'pi_twint', client_secret: 'cs_twint' });
     stripe.paymentIntents = { create };
-    paymentRepository.create.mockResolvedValue();
+    paymentRepository.updateStatusByOrder.mockResolvedValue();
 
     await paymentService.createTwintIntent(1);
 
@@ -159,24 +161,22 @@ describe('payment.service — createTwintIntent()', () => {
     }));
   });
 
-  test('met à jour le paiement existant au lieu d\'en créer un nouveau', async () => {
-    orderRepository.findById.mockResolvedValue(makeOrder());
-    paymentRepository.findByOrderId.mockResolvedValue({ id: 3, provider_payment_id: 'pi_old', status: 'pending' });
+  test('libère la réservation (statut failed) si l\'appel Stripe échoue', async () => {
+    orderRepository.lockOrderForPaymentIntent.mockResolvedValue({ order: makeOrder(), paymentId: 9 });
     stripe.paymentIntents = {
-      create: jest.fn().mockResolvedValue({ id: 'pi_new', client_secret: 'cs_new' }),
+      create: jest.fn().mockRejectedValue(new Error('Stripe indisponible')),
     };
     paymentRepository.updateStatusByOrder.mockResolvedValue();
 
-    await paymentService.createTwintIntent(1);
-
-    expect(paymentRepository.updateStatusByOrder).toHaveBeenCalledWith(1, 'twint', 'pending', 'pi_new');
+    await expect(paymentService.createTwintIntent(1)).rejects.toThrow('Stripe indisponible');
+    expect(paymentRepository.updateStatusByOrder).toHaveBeenCalledWith(1, 'twint', 'failed');
   });
 
-  test('scope la commande sur userId (findById reçoit orderId + userId)', async () => {
-    orderRepository.findById.mockResolvedValue(null);
+  test('scope la commande sur userId (lockOrderForPaymentIntent reçoit orderId + userId + method)', async () => {
+    orderRepository.lockOrderForPaymentIntent.mockRejectedValue({ statusCode: 404 });
 
     await expect(paymentService.createTwintIntent(42, 10)).rejects.toMatchObject({ statusCode: 404 });
-    expect(orderRepository.findById).toHaveBeenCalledWith(42, 10);
+    expect(orderRepository.lockOrderForPaymentIntent).toHaveBeenCalledWith(42, 10, 'twint');
   });
 });
 

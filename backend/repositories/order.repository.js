@@ -443,7 +443,73 @@ const markPaidFromWebhook = async (orderId, providerPaymentId, method) => {
   }
 };
 
+// Verrouille la commande (FOR UPDATE) le temps de vérifier qu'aucune création de
+// PaymentIntent n'est déjà en cours pour cette méthode — ferme la fenêtre de course
+// entre deux appels concurrents à createCardIntent/createTwintIntent (double-clic,
+// deux onglets) qui liraient tous deux un statut "payable" avant que l'un des deux
+// n'ait eu le temps d'écrire quoi que ce soit. Le verrou ne couvre que cette
+// vérification courte, jamais l'appel réseau Stripe qui suit (relâché avant).
+// Fenêtre de "création en cours" : 30s, au-delà on considère l'appel précédent
+// comme abandonné (timeout réseau, onglet fermé) et on autorise un nouvel essai.
+const IN_FLIGHT_WINDOW_SECONDS = 30;
+
+const lockOrderForPaymentIntent = async (orderId, userId, method) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const conditions = ['id = ?'];
+    const params = [orderId];
+    if (userId) {
+      conditions.push('user_id = ?');
+      params.push(userId);
+    }
+
+    const [orders] = await connection.execute(
+      `SELECT id, status, total FROM orders WHERE ${conditions.join(' AND ')} FOR UPDATE`,
+      params
+    );
+    const order = orders[0];
+    if (!order) {
+      throw new AppError('Commande introuvable.', 404);
+    }
+    if (!['pending', 'awaiting_payment'].includes(order.status)) {
+      throw new AppError('Cette commande ne peut pas être payée.', 400);
+    }
+
+    // Une création de PaymentIntent pour cette méthode est déjà en cours (< 30s) —
+    // la requête concurrente s'arrête ici plutôt que de créer un second PaymentIntent.
+    const [inFlight] = await connection.execute(
+      `SELECT id FROM payments
+       WHERE order_id = ? AND method = ? AND status = 'pending'
+         AND created_at > (NOW() - INTERVAL ? SECOND)
+       LIMIT 1`,
+      [orderId, method, IN_FLIGHT_WINDOW_SECONDS]
+    );
+    if (inFlight[0]) {
+      throw new AppError('Une demande de paiement est déjà en cours pour cette commande.', 409);
+    }
+
+    // Réserve la fenêtre : la ligne payments est créée ici (provider_payment_id
+    // encore NULL), avant l'appel Stripe — updateStatusByOrder la complétera ensuite.
+    const [result] = await connection.execute(
+      `INSERT INTO payments (order_id, provider, amount, currency, method, status)
+       VALUES (?, 'stripe', ?, 'CHF', ?, 'pending')`,
+      [orderId, order.total ?? 0, method]
+    );
+
+    await connection.commit();
+    return { order, paymentId: result.insertId };
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
   createOrder, findByUserId, findAllByUserIdWithItems, findById, findAllAdmin,
   updateStatusWithHistory, saveShippingLabel, updateTrackingNumber, markPaidFromWebhook,
+  lockOrderForPaymentIntent,
 };

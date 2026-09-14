@@ -15,35 +15,30 @@ const env               = require('../config/env');
 const createCardIntent = async (orderId, userId) => {
   if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
 
-  const order = await orderRepository.findById(orderId, userId);
-  if (!order) throw new AppError('Commande introuvable.', 404);
-
-  if (!['pending', 'awaiting_payment'].includes(order.status)) {
-    throw new AppError('Cette commande ne peut pas être payée.', 400);
-  }
+  // Verrouille la commande et réserve la ligne payments avant l'appel Stripe —
+  // ferme la fenêtre de course entre deux requêtes concurrentes (double-clic,
+  // deux onglets) qui créeraient chacune un PaymentIntent distinct pour la même
+  // commande. Lève 404/400/409 selon le cas (voir order.repository.js).
+  const { order } = await orderRepository.lockOrderForPaymentIntent(orderId, userId, 'card');
 
   const amountCents = Math.round(roundCHF(parseFloat(order.total)) * 100);
 
-  const intent = await stripe.paymentIntents.create({
-    amount:               amountCents,
-    currency:             'chf',
-    payment_method_types: ['card'],
-    metadata: { order_id: String(orderId) },
-  });
-
-  const existing = await paymentRepository.findByOrderId(orderId);
-  if (existing) {
-    await paymentRepository.updateStatusByOrder(orderId, 'card', 'pending', intent.id);
-  } else {
-    await paymentRepository.create({
-      orderId,
-      provider:          'stripe',
-      providerPaymentId: intent.id,
-      amount:            order.total,
-      method:            'card',
-      status:            'pending',
+  let intent;
+  try {
+    intent = await stripe.paymentIntents.create({
+      amount:               amountCents,
+      currency:             'chf',
+      payment_method_types: ['card'],
+      metadata: { order_id: String(orderId) },
     });
+  } catch (err) {
+    // L'appel Stripe a échoué — libère la réservation pour ne pas bloquer un retry
+    // légitime pendant toute la fenêtre de 30s.
+    await paymentRepository.updateStatusByOrder(orderId, 'card', 'failed');
+    throw err;
   }
+
+  await paymentRepository.updateStatusByOrder(orderId, 'card', 'pending', intent.id);
 
   return { clientSecret: intent.client_secret, amount: order.total };
 };
@@ -56,35 +51,26 @@ const createCardIntent = async (orderId, userId) => {
 const createTwintIntent = async (orderId, userId) => {
   if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
 
-  const order = await orderRepository.findById(orderId, userId);
-  if (!order) throw new AppError('Commande introuvable.', 404);
-
-  if (!['pending', 'awaiting_payment'].includes(order.status)) {
-    throw new AppError('Cette commande ne peut pas être payée.', 400);
-  }
+  // Voir le commentaire de createCardIntent — même protection contre la double
+  // création concurrente de PaymentIntent.
+  const { order } = await orderRepository.lockOrderForPaymentIntent(orderId, userId, 'twint');
 
   const amountCents = Math.round(roundCHF(parseFloat(order.total)) * 100);
 
-  const intent = await stripe.paymentIntents.create({
-    amount:               amountCents,
-    currency:             'chf',
-    payment_method_types: ['twint'],
-    metadata: { order_id: String(orderId) },
-  });
-
-  const existing = await paymentRepository.findByOrderId(orderId);
-  if (existing) {
-    await paymentRepository.updateStatusByOrder(orderId, 'twint', 'pending', intent.id);
-  } else {
-    await paymentRepository.create({
-      orderId,
-      provider:          'stripe',
-      providerPaymentId: intent.id,
-      amount:            order.total,
-      method:            'twint',
-      status:            'pending',
+  let intent;
+  try {
+    intent = await stripe.paymentIntents.create({
+      amount:               amountCents,
+      currency:             'chf',
+      payment_method_types: ['twint'],
+      metadata: { order_id: String(orderId) },
     });
+  } catch (err) {
+    await paymentRepository.updateStatusByOrder(orderId, 'twint', 'failed');
+    throw err;
   }
+
+  await paymentRepository.updateStatusByOrder(orderId, 'twint', 'pending', intent.id);
 
   return { clientSecret: intent.client_secret, amount: order.total };
 };
