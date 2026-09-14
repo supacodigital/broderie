@@ -124,8 +124,11 @@ const changePassword = async (req, res, next) => {
     if (!current_password || !new_password) {
       return next(new AppError('Mot de passe actuel et nouveau mot de passe requis.', 400));
     }
-    if (new_password.length < 5) {
-      return next(new AppError('Le nouveau mot de passe doit contenir au moins 5 caractères.', 400));
+    // Exigence renforcée pour les comptes admin — accès complet au back-office,
+    // le MFA obligatoire ne dispense pas d'un mot de passe robuste (défense en profondeur).
+    const minLength = req.user.role === 'admin' ? 12 : 5;
+    if (new_password.length < minLength) {
+      return next(new AppError(`Le nouveau mot de passe doit contenir au moins ${minLength} caractères.`, 400));
     }
     if (!/[A-Z]/.test(new_password)) {
       return next(new AppError('Le nouveau mot de passe doit contenir au moins une majuscule.', 400));

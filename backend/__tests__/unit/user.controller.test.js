@@ -292,6 +292,30 @@ describe('user.controller — changePassword()', () => {
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
   });
 
+  test('exige au moins 12 caractères pour un compte admin (< 12 refusé même avec majuscule/symbole)', async () => {
+    const req = { user: { id: 1, role: 'admin' }, body: { current_password: 'old', new_password: 'Short1!' } };
+    const res = makeRes();
+    const next = jest.fn();
+    await changePassword(req, res, next);
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
+  });
+
+  test('accepte un mot de passe de 12+ caractères pour un compte admin', async () => {
+    userRepository.findByIdWithPassword.mockResolvedValue({ id: 1, password_hash: '$hash' });
+    userRepository.findById.mockResolvedValue({ id: 1, token_version: 1, role: 'admin' });
+    bcrypt.compare.mockResolvedValue(true);
+    bcrypt.hash.mockResolvedValue('$newhash');
+    userRepository.updatePassword.mockResolvedValue();
+
+    const req = { user: { id: 1, role: 'admin' }, body: { current_password: 'OldPass1!', new_password: 'LongEnough1!' } };
+    const res = makeRes();
+    const next = jest.fn();
+    await changePassword(req, res, next);
+
+    expect(userRepository.updatePassword).toHaveBeenCalledWith(1, '$newhash');
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+  });
+
   test('retourne 404 si utilisateur introuvable', async () => {
     userRepository.findByIdWithPassword.mockResolvedValue(null);
     const req = { user: { id: 99 }, body: { current_password: 'oldpass', new_password: 'NewPass1!' } };

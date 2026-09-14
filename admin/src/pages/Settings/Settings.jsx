@@ -439,8 +439,8 @@ function PasswordSection() {
       setErrorMsg('Les mots de passe ne correspondent pas.')
       return
     }
-    if (values.next.length < 5 || !/[A-Z]/.test(values.next) || !/[^A-Za-z0-9]/.test(values.next)) {
-      setErrorMsg('Le nouveau mot de passe doit contenir au moins 5 caractères, une majuscule et un symbole.')
+    if (values.next.length < 12 || !/[A-Z]/.test(values.next) || !/[^A-Za-z0-9]/.test(values.next)) {
+      setErrorMsg('Le nouveau mot de passe doit contenir au moins 12 caractères, une majuscule et un symbole.')
       return
     }
 
@@ -490,7 +490,7 @@ function PasswordSection() {
             value={values.next}
             onChange={e => handleChange('next', e.target.value)}
           />
-          <p className={s.hint}>Au moins 5 caractères, une majuscule et un symbole.</p>
+          <p className={s.hint}>Au moins 12 caractères, une majuscule et un symbole.</p>
         </div>
         <div className={s.field}>
           <label className={s.label}>Confirmer le nouveau mot de passe</label>
