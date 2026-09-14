@@ -99,25 +99,30 @@ du `.env` (pas une base de test dédiée). Prérequis pour les relancer :
 > Endpoints (dans `config/env.js`) : token `https://api.post.ch/OAuth/token` (scope `DCAPI_BARCODE_READ`),
 > label `https://dcapi.apis.post.ch/barcode/v1/generateAddressLabel`.
 
-**A. Côté cliente (Julie) — accès — ✅ PARTIELLEMENT FAIT (18 juin) :**
+**A. Côté cliente (Julie) — accès — ✅ FAIT (approuvé le 19 juin, vérifié le 14 sept.) :**
 - [x] **Numéros de contrat** trouvés dans « Ma Poste » → débiteur / licence d'affranchissement
       = **`40143484`** (sert pour `KUNDENNUMMER` ET `FRANKIERNUMMER`). Vu aussi comme
       « Debtor number » sur l'app developer.post.ch.
 - [x] **Compte développeur + application** : l'app **« Broderie »** existe déjà sur
       developer.post.ch (créée 12 mai 2026, owner Julie Guerle, statut ACTIVE).
 - [x] **Subscription au produit « Barcode »** (plan Standard, OAuth2) **créée le 18.06.2026**
-      → ⏳ statut **PENDING** (approbation Swiss Post requise, ~3 jours ouvrés annoncés).
+      → ✅ statut **accepted** (approuvée par Swiss Post le 19.06.2026, 08:48).
       ID subscription : `bc00172e-a31f-41c3-8017-2ea31fe1c395`.
-- [ ] ⏳ **`CLIENT_ID` / `CLIENT_SECRET`** (Consumer Key/Secret) : **non visibles tant que la
-      subscription est PENDING** — apparaîtront sur My Applications → Broderie **après approbation**.
-      Pour accélérer : bouton « Get help » du portail ou mail à `digitalintegration@swisspost.ch`
-      (citer app « Broderie », débiteur `40143484`, subscription Barcode du 18.06.2026).
+- [x] **`CLIENT_ID` / `CLIENT_SECRET`** (Consumer Key/Secret) récupérés sur developer.post.ch
+      → My Applications → Broderie → Technical Information, et collés dans `backend/.env` local
+      le 2026-09-14. Authentification OAuth2 **testée et confirmée fonctionnelle** (token Bearer
+      obtenu avec succès, TTL 300s). **Génération réelle d'étiquette pas encore testée** —
+      incertitude sur une éventuelle facturation par test (plan "Standard", pas de mode sandbox
+      visible dans le dashboard) ; décision : attendre confirmation du coût ou tester directement
+      sur une vraie commande client en prod plutôt que de générer une étiquette de test.
 
-**B. Côté config — ✅ PARTIELLEMENT FAIT :**
+**B. Côté config — ✅ FAIT (local) / ⏳ reste à reporter en prod :**
 - [x] `SWISS_POST_KUNDENNUMMER=40143484` et `SWISS_POST_FRANKIERNUMMER=40143484` **dans `backend/.env`** (local)
-- [ ] `SWISS_POST_CLIENT_ID` / `SWISS_POST_CLIENT_SECRET` → à coller après approbation
-      (décommenter dans `.env`) → bascule automatique hors du mode mock, aucun code à changer.
-- [ ] Reporter les 4 valeurs dans `.env.production` le moment venu.
+- [x] `SWISS_POST_CLIENT_ID` / `SWISS_POST_CLIENT_SECRET` collés dans `backend/.env` local (2026-09-14)
+      → mode mock désormais désactivé en local (`swissPost.isMock === false`), bascule automatique,
+      aucun code à changer.
+- [ ] Reporter les 4 valeurs dans `.env.production` le moment venu (déploiement encore bloqué,
+      voir mémoire projet `project-deployment-status`).
 
 **C. Côté dev — ✅ FAIT (le 18 juin) :**
 - [x] Client OAuth2 client_credentials avec cache du token (`config/swissPostClient.js`)
