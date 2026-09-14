@@ -1,6 +1,6 @@
 /* Configuration transporteur Swiss Post (La Poste CH) — Digital Commerce API (OAuth2)
    En attente des accès API : CLIENT_ID, CLIENT_SECRET, KUNDENNUMMER, FRANKIERNUMMER
-   Démarche d'obtention des accès : voir docs/claude_task.md (section « API La Poste CH »).
+   Accès obtenus via developer.post.ch (app « Broderie », subscription Barcode).
    Le service shipping.service.js fonctionne en mode mock tant que clientId est vide. */
 
 const env = require('./env');

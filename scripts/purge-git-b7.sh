@@ -5,8 +5,15 @@
 #
 #   ⚠️  OPÉRATION DESTRUCTIVE — réécrit l'historique et impose un `git push --force`.
 #   ⚠️  À exécuter APRÈS avoir mergé la PR d'audit et prévenu l'équipe.
-#   ⚠️  La rotation des secrets (Stripe test, Mailtrap) doit être faite AVANT — voir
-#       docs/PURGE-GIT-B7.md, section « Étape 1 ».
+#   ⚠️  ROTATION DES SECRETS À FAIRE AVANT — purger l'historique ne suffit pas :
+#       tout secret ayant été poussé doit être considéré comme compromis (clones,
+#       forks, caches GitHub). Avant de lancer ce script :
+#         1. Stripe    → dashboard, révoquer et régénérer les clés (test ET live)
+#         2. SMTP      → changer le mot de passe de la boîte d'envoi
+#         3. JWT / MFA → régénérer les secrets (openssl rand -base64 64) et
+#                        MFA_ENCRYPTION_KEY (openssl rand -hex 32)
+#         4. Swiss Post→ « Renew client secret » sur developer.post.ch
+#         5. Reporter les nouvelles valeurs dans backend/.env.production (VPS)
 #
 # Usage :
 #   1. git-filter-repo doit être installé : brew install git-filter-repo
@@ -67,7 +74,7 @@ echo "  3. Reporté les nouvelles valeurs dans backend/.env et backend/.env.prod
 echo "  4. Prévenu l'équipe qu'elle devra re-cloner ?"
 echo -n "Répondre 'oui' pour continuer : "
 read -r confirm
-[ "$confirm" = "oui" ] || die "Rotation des secrets non confirmée — voir docs/PURGE-GIT-B7.md."
+[ "$confirm" = "oui" ] || die "Rotation des secrets non confirmée — voir la liste en tête de ce script."
 
 # ── Sauvegarde ──────────────────────────────────────────────────────────────
 step "Sauvegarde du dossier avant purge"
@@ -155,7 +162,10 @@ Si GitHub refuse (branche protégée) :
 
 Ensuite :
   - Recréer les PR ouvertes depuis les branches réécrites
-  - Sur le VPS : re-cloner + recopier les .env.production (voir docs/PURGE-GIT-B7.md §4)
+  - Sur le VPS : l'historique ayant été réécrit, un `git pull` échouera.
+      cd ~ && mv broderie broderie.old && git clone <url> broderie
+      cp broderie.old/backend/.env.production broderie/backend/
+      puis rebuild + pm2 reload (voir docs/DEPLOIEMENT.md § « Mettre à jour le site »)
   - Supprimer la sauvegarde une fois tout validé : rm -rf "$BACKUP"
 
 EOF

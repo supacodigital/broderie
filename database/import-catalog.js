@@ -11,7 +11,7 @@
  *
  * Principe : on importe ce qui est exploitable ; la cliente complète le reste
  * (traductions DE/EN, poids manquants, images, catégories fines) depuis le
- * back-office. Voir docs/IMPORT-CATALOGUE.md.
+ * back-office. Procédure de déploiement : docs/DEPLOIEMENT.md § 6.
  *
  * Anti-doublon : UPSERT sur products.external_ref (= NArticleC). Rejouer
  * l'import met à jour prix / stock / nom FR / marque des articles connus, sans

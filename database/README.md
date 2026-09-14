@@ -7,7 +7,7 @@
 | `broderie.sql` | **Schéma de référence complet** + données de seed. Un déploiement *from scratch* exécute ce seul fichier — il reflète toujours l'état actuel, migrations incluses. |
 | `migrations/*.sql` | Modifications incrémentales à appliquer sur une base **déjà déployée**. Nommées `AAAA-MM-JJ_slug.sql`, appliquées dans l'ordre alphabétique. |
 | `migrate.js` | Runner de migrations (sans dépendance, sans ORM). |
-| `import-catalog.js` | Import du catalogue de la cliente (`donnees-client/*.xlsx`) dans `products`. UPSERT sur `products.external_ref` → rejouable sans doublon. Voir [`docs/IMPORT-CATALOGUE.md`](../docs/IMPORT-CATALOGUE.md). |
+| `import-catalog.js` | Import du catalogue de la cliente (`donnees-client/*.xlsx`) dans `products`. UPSERT sur `products.external_ref` → rejouable sans doublon. Procédure de déploiement : [`docs/DEPLOIEMENT.md`](../docs/DEPLOIEMENT.md) § 6. |
 | `catalog-category-map.js` | Correspondance marque (Gamme) → catégorie, utilisée par l'import. À faire valider par la cliente. |
 | `lib/xlsx-reader.js` | Lecteur `.xlsx` minimal sans dépendance (utilisé par `import-catalog.js`). |
 
@@ -56,7 +56,8 @@ npm run import:catalog                        # exécute l'import (UPSERT sur ex
 npm run import:catalog -- --status            # compte les produits déjà importés
 ```
 
-Détail complet, matrice de mapping et checklist : [`docs/IMPORT-CATALOGUE.md`](../docs/IMPORT-CATALOGUE.md).
+Procédure de déploiement : [`docs/DEPLOIEMENT.md`](../docs/DEPLOIEMENT.md) § 6.
+La matrice de mapping détaillée est documentée en tête de `import-catalog.js`.
 
 Options directes :
 

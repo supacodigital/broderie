@@ -1,75 +1,69 @@
 # Déploiement — Au Point-Compté
 
-Guide unique de déploiement sur le **VPS Cloud Infomaniak** (Ubuntu 26.04).
-Architecture : **mono-domaine + Nginx** en reverse-proxy devant Node/PM2.
+Guide unique de mise en ligne sur le VPS Infomaniak.
+Suivre les étapes **dans l'ordre** : chacune dépend de la précédente.
+
+- **VPS** : `179.237.87.29` — Ubuntu 26.04, 4 CPU / 12 Go / 250 Go, Plan-les-Ouates 🇨🇭
+- **Domaine** : `broderie.ch` (Infomaniak)
+- **Architecture** : Nginx (HTTPS) → Node/PM2 sur `localhost:3000`, qui sert l'API,
+  la boutique, le back-office `/admin` et les images `/uploads`. MySQL en local.
 
 ---
 
-## 🟢 État actuel (recette par IP)
+## ⛔ Étape 0 — Débloquer l'accès SSH
 
-> **Le site tourne en prod sur le VPS Infomaniak, accessible par son IP : `https://179.237.87.29`.**
-> C'est une **vraie prod** (`NODE_ENV=production`) mais en **mode recette** :
-> - **Stripe en mode test** (`pk_test_`/`sk_test_`) — rien n'est encaissé.
-> - **Le client (Julie) teste** le site sur cette IP en attendant la bascule du domaine.
-> - Le DNS de `broderie.ch` **n'est pas encore touché** — l'ancien site reste en ligne pour le public.
-> - Certificat **auto-signé** → le navigateur affiche « Connexion non privée » (normal, on continue).
->
-> **➡️ Prochaine étape : bascule vers `broderie.ch`** une fois la recette validée — voir [§10](#10--bascule-du-nom-de-domaine-broderiech--vps-infomaniak).
+**Rien ne peut être déployé tant que ce point n'est pas réglé.**
 
-```
-                  ┌─────────────────── VPS Infomaniak (Ubuntu) ───────────────────┐
-179.237.87.29 →   │  Nginx (:443 SSL)  ──reverse-proxy──►  Node/PM2 (:3000)        │
-   (puis          │                                          ├── /            → frontend/dist
-   broderie.ch)   │                                          ├── /admin       → admin/dist
-                  │                                          ├── /api/v1/*    → API Express
-                  │                                          └── /uploads     → images produit
-                  │  MySQL (:3306, localhost)                                       │
-                  └────────────────────────────────────────────────────────────────┘
-```
-> L'app Express sert **déjà** le frontend, l'admin et l'API (voir `backend/app.js`).
-> Nginx ne fait que : TLS + reverse-proxy vers `localhost:3000` + cache des assets.
-
-> ⚠️ **Pourquoi HTTPS dès l'IP ?** Les cookies de session (refresh token, panier) sont posés en
-> `Secure` en production. Un navigateur **refuse les cookies Secure en HTTP** → sans HTTPS, le login
-> admin et le panier ne marchent pas. On met donc un **certificat auto-signé** sur l'IP (§7), remplacé
-> par Let's Encrypt à la bascule du domaine (§10).
-
----
-
-## 0. Prérequis (une seule fois)
-
-- Accès **SSH** au VPS Infomaniak (clé SSH configurée dans le panel)
-- **L'IP du VPS : `179.237.87.29`** — on déploie dessus directement, **aucun DNS à modifier maintenant**
+La connexion se fait **par clé SSH**, utilisateur `ubuntu` (jamais `root`, jamais par
+mot de passe) :
 
 ```bash
-ssh debian@179.237.87.29     # ou l'utilisateur fourni par Infomaniak
+ssh -i ~/.ssh/id_ed25519 ubuntu@179.237.87.29
+```
+
+Si la connexion est refusée (`Permission denied (publickey)`), c'est que la clé
+publique n'est pas sur le serveur. Attention : le **Trousseau de clés** du dashboard
+Infomaniak ne sert qu'à la *création* ou la *réinstallation* d'un serveur — il
+n'injecte rien sur un VPS existant (Infomaniak l'indique lui-même : « Il ne permet
+pas d'accéder au serveur »).
+
+Trois pistes, par ordre de préférence :
+
+1. **Mot de passe root d'origine** — cherché dans l'email Infomaniak de création du
+   VPS ou un gestionnaire de mots de passe. Se connecter une fois, puis :
+   ```bash
+   mkdir -p ~/.ssh && chmod 700 ~/.ssh
+   echo "<contenu de votre id_ed25519.pub>" >> ~/.ssh/authorized_keys
+   chmod 600 ~/.ssh/authorized_keys
+   ```
+2. **Console VNC** du dashboard Infomaniak (Actions rapides), si un identifiant
+   système est retrouvé — même manipulation une fois connecté.
+3. **Support Infomaniak** — demander une réinitialisation d'accès **sans
+   réinstallation** (une réinstallation effacerait le contenu du VPS).
+
+---
+
+## Étape 1 — Installer la stack
+
+```bash
+ssh -i ~/.ssh/id_ed25519 ubuntu@179.237.87.29
 sudo apt update && sudo apt upgrade -y
-```
 
----
-
-## 1. Installer la stack
-
-```bash
-# Node 22 LTS (via nvm — respecte le .nvmrc du projet)
+# Node 22 LTS (respecte le .nvmrc du projet)
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 source ~/.bashrc
 nvm install 22 && nvm use 22 && nvm alias default 22
 
-# PM2 (gestionnaire de process)
 npm install -g pm2
-
-# MySQL
-sudo apt install -y mysql-server
+sudo apt install -y mysql-server nginx certbot python3-certbot-nginx git
 sudo mysql_secure_installation
-
-# Nginx + Certbot (Certbot servira plus tard, à la bascule du domaine)
-sudo apt install -y nginx certbot python3-certbot-nginx git
 ```
+
+Vérifier : `node -v` (v22.x), `mysql --version`, `nginx -v`.
 
 ---
 
-## 2. Base de données
+## Étape 2 — Créer la base de données
 
 ```bash
 sudo mysql
@@ -82,345 +76,296 @@ FLUSH PRIVILEGES;
 EXIT;
 ```
 
-Importer le schéma (source unique, toujours à jour) :
-```bash
-cd ~/broderie/database
-sudo mysql broderie < broderie.sql
-```
-
-> ℹ️ **Rien d'autre à faire pour le schéma.** `broderie.sql` est la source unique :
-> les 13 migrations antérieures au premier déploiement ont été archivées dans
-> `database/migrations/archive/` (elles y sont toutes déjà intégrées). Une base neuve
-> est donc complète et à jour dès ce chargement — aucun `--baseline` à penser.
-> Contrôle facultatif : `npm run db:migrate:status` doit afficher `0 en attente`.
-
-> ℹ️ **Reprise des données de l'ancien site : pas maintenant.** On démarre sur une base neuve
-> (schéma seul, aucune donnée de démo). L'import du catalogue produits (§ IMPORT-CATALOGUE.md)
-> se fait à part. La reprise des comptes clients de l'ancien site est **annulée** — les
-> clients se réinscrivent eux-mêmes.
-
-> 🔒 **Port 3306 jamais exposé** : MySQL écoute sur `localhost` uniquement.
+> **Notez ce mot de passe** : il ira dans `DB_PASSWORD` à l'étape 4.
+> L'utilisateur n'a délibérément ni `DROP` ni `ALTER` — le schéma se charge en root.
+> MySQL écoute sur `localhost` uniquement, le port 3306 n'est jamais exposé.
 
 ---
 
-## 3. Récupérer le code
+## Étape 3 — Récupérer le code et construire
 
 ```bash
 cd ~
 git clone https://github.com/supacodigital/broderie.git
 cd broderie
-```
 
----
-
-## 4. Variables d'environnement
-
-> Pour le déploiement par IP, on renseigne **l'IP en HTTPS** partout où le domaine apparaîtrait.
-> Ces valeurs seront repassées sur `https://broderie.ch` à la bascule (§10).
-
-```bash
-# Backend
-cp backend/.env.production.example backend/.env.production
-nano backend/.env.production      # compléter tous les __A_DEFINIR__ / __GENERER__
-```
-Dans `backend/.env.production`, pour la phase IP :
-```ini
-NODE_ENV=production
-CLIENT_URL=https://179.237.87.29
-ADMIN_URL=https://179.237.87.29
-# (les cookies Secure/CORS s'appuient sur ces deux URLs — voir backend/app.js)
-```
-
-```bash
-# Frontend
-cp frontend/.env.production.example frontend/.env.production
-nano frontend/.env.production
-```
-```ini
-VITE_API_URL=https://179.237.87.29/api/v1
-VITE_STRIPE_PUBLIC_KEY=pk_test_...        # mode test tant qu'on est en recette
-```
-
-```bash
-# Admin
-cp admin/.env.production.example admin/.env.production
-nano admin/.env.production
-```
-```ini
-VITE_API_URL=https://179.237.87.29/api/v1
-VITE_SHOP_URL=https://179.237.87.29       # lien « Voir la boutique »
-```
-
-Générer les secrets JWT : `openssl rand -base64 64` (deux fois).
-
-> ⚠️ Ne jamais committer ces fichiers (déjà dans `.gitignore`).
-
-La liste complète des variables figure dans les `*.env.example` de chaque dossier.
-
----
-
-## 5. Installer les dépendances + builder
-
-```bash
-cd ~/broderie
-
-# Backend (prod uniquement, sans devDeps)
-cd backend && npm ci --omit=dev && cd ..
-
-# Frontend
+cd backend  && npm ci --omit=dev && cd ..
 cd frontend && npm ci && npm run build && cd ..
-
-# Admin
-cd admin && npm ci && npm run build && cd ..
+cd admin    && npm ci && npm run build && cd ..
 ```
-Les builds produisent `frontend/dist/` et `admin/dist/`, servis par Express.
 
-> 🔁 Les `VITE_*` sont **inlinées au build**. Tout changement d'URL (ex. bascule vers le domaine)
-> impose de **rebuilder** frontend + admin (voir §10).
+`npm run build` produit `frontend/dist` et `admin/dist`, que l'API sert directement.
 
 ---
 
-## 6. Démarrer l'API avec PM2
+## Étape 4 — Configuration
+
+`backend/.env.production` n'est pas dans Git (il contient les secrets). Il est déjà
+prêt sur votre machine : le copier sur le serveur.
+
+```bash
+# depuis votre Mac, à la racine du projet
+scp -i ~/.ssh/id_ed25519 backend/.env.production \
+    ubuntu@179.237.87.29:~/broderie/backend/
+```
+
+Puis compléter les **deux seuls placeholders** restants, sur le serveur :
+
+```bash
+nano ~/broderie/backend/.env.production
+#   DB_PASSWORD=<celui défini à l'étape 2>
+#   MAIL_PASSWORD=<mot de passe de contact@broderie.ch>
+
+chmod 600 ~/broderie/backend/.env.production
+```
+
+Tout le reste est déjà renseigné et vérifié : URLs `https://broderie.ch`, secrets
+JWT/MFA (distincts de ceux de développement), IBAN réel de Julie, adresse et horaires
+de la boutique, clés API Swiss Post, `contact@broderie.ch` en expéditeur.
+
+**Contrôle avant d'aller plus loin** — si la config est invalide, l'API refusera de
+démarrer :
+```bash
+cd ~/broderie/backend
+NODE_ENV=production node -e "require('dotenv').config({path:'.env.production'}); require('./config/env'); console.log('✅ config valide')"
+```
+
+En cas d'erreur, le message nomme précisément la variable en cause.
+
+---
+
+## Étape 5 — Charger le schéma
+
+```bash
+cd ~/broderie/database
+sudo mysql broderie < broderie.sql
+```
+
+C'est tout. `broderie.sql` est la **source unique** du schéma : les migrations
+antérieures au déploiement y sont déjà intégrées (elles sont archivées dans
+`database/migrations/archive/`). Aucun `--baseline` à lancer.
+
+Contrôle facultatif :
+```bash
+cd ~/broderie/backend && npm run db:migrate:status    # → 0 en attente
+```
+
+---
+
+## Étape 6 — Importer le catalogue
+
+Copier les trois fichiers Excel de Julie dans `~/broderie/donnees-client/`
+(`V_ArticleC_INT.xlsx`, `Gamme.xlsx`, `CRFournisseur.xlsx`), puis :
+
+```bash
+cd ~/broderie/backend
+NODE_ENV=production npm run import:catalog -- --dry-run   # ⚠️ LIRE le rapport
+NODE_ENV=production npm run import:catalog                # ~15 500 produits
+```
+
+Le `--dry-run` n'écrit rien : il indique combien d'articles seront retenus, lesquels
+sont exclus et pourquoi. **Le relire avant de lancer l'import réel.**
+
+Puis, sur MySQL :
+```sql
+ANALYZE TABLE products; ANALYZE TABLE product_translations;
+```
+
+> L'import est **rejouable sans risque** : la clé `external_ref` met à jour les
+> articles connus au lieu de les dupliquer, et préserve ce que Julie a complété
+> à la main (poids, descriptions, images, produits en vedette).
+
+---
+
+## Étape 7 — Démarrer l'API
 
 ```bash
 cd ~/broderie
 mkdir -p backend/logs
 pm2 start ecosystem.config.js --env production
-pm2 logs broderie-api          # vérifier "API opérationnelle" + connexion MySQL OK
-pm2 save                       # sauvegarde la liste des process
-pm2 startup                    # commande à coller pour le démarrage auto au reboot
+pm2 startup        # affiche une commande sudo à copier-coller
+pm2 save           # redémarrage automatique au reboot
+pm2 logs broderie-api --lines 30
 ```
+
+> **PM2 est en mode fork (1 process), volontairement.** Ne pas repasser en cluster :
+> le rate limiting et le cache produit sont en mémoire de process. Avec 4 workers, la
+> protection anti-brute-force passerait de 5 à 20 tentatives, et une modification
+> produit dans l'admin apparaîtrait puis disparaîtrait selon le worker qui répond.
+> Détail dans les commentaires de `ecosystem.config.js`.
+
 Test local : `curl http://localhost:3000/health` → `{"success":true,...}`
 
 ---
 
-## 7. Nginx + SSL (certificat auto-signé sur l'IP)
+## Étape 8 — Nginx et HTTPS
 
-Sur une IP nue, Let's Encrypt **ne peut pas** émettre de certificat. On crée un **certificat auto-signé**
-pour avoir du HTTPS (donc des cookies Secure fonctionnels) dès la phase de recette.
-
-### 7a. Générer le certificat auto-signé
 ```bash
-sudo mkdir -p /etc/nginx/ssl
-sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout /etc/nginx/ssl/selfsigned.key \
-  -out    /etc/nginx/ssl/selfsigned.crt \
-  -subj "/C=CH/ST=Geneve/L=Geneve/O=Au Point-Compte/CN=179.237.87.29"
-```
-
-### 7b. Configurer Nginx
-Créer `/etc/nginx/sites-available/broderie` :
-```nginx
-# Redirection HTTP → HTTPS
-server {
-    listen 80;
-    server_name 179.237.87.29;
-    return 301 https://$host$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    server_name 179.237.87.29;
-
-    ssl_certificate     /etc/nginx/ssl/selfsigned.crt;
-    ssl_certificate_key /etc/nginx/ssl/selfsigned.key;
-
-    # Corps des requêtes (upload images jusqu'à 5 Mo + marge)
-    client_max_body_size 10M;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-```bash
-sudo ln -s /etc/nginx/sites-available/broderie /etc/nginx/sites-enabled/
+sudo cp ~/broderie/deploy/nginx/broderie.conf /etc/nginx/sites-available/broderie
+sudo ln -sf /etc/nginx/sites-available/broderie /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-> ✅ `app.js` active `app.set('trust proxy', 1)` en production — `X-Forwarded-Proto: https` est lu,
-> donc les cookies httpOnly/**Secure** (refresh token, session panier) sont bien posés derrière Nginx.
-> ⚠️ Le navigateur affichera **« Connexion non privée »** sur `https://179.237.87.29` (cert auto-signé) :
-> c'est **normal**, on clique « Continuer ». Cet avertissement disparaîtra à la bascule (vrai cert Let's Encrypt).
-
----
-
-## 8. Stripe (mode test en recette)
-
-> Tant qu'on est sur l'IP en recette, garder Stripe en **mode test** (clés `pk_test_`/`sk_test_`)
-> pour ne rien encaisser. Le passage en `live` se fait à la bascule (§10).
-
-- Dashboard Stripe → créer le **webhook** pointant sur l'IP :
-  `https://179.237.87.29/api/v1/payments/webhook` → copier le `whsec_...` dans `backend/.env.production`
-  *(Stripe accepte une URL en IP/HTTPS auto-signé pour le mode test.)*
-- Activer **Twint** dans le dashboard (nécessite le compte bancaire suisse de Julie) — pour le mode live.
-- Tester un paiement carte (mode test) + le flux Twint QR.
-
----
-
-## 9. Vérifications finales (sur l'IP)
-
+Le certificat s'obtient **après** la bascule DNS (étape 9), Let's Encrypt devant
+pouvoir résoudre le domaine :
 ```bash
-curl -k https://179.237.87.29/health      # -k : ignore le cert auto-signé
-```
-- [ ] Site accessible sur `https://179.237.87.29`, redirection 80→443 OK
-- [ ] `/admin` charge le back-office et le **login admin fonctionne** (cookie Secure posé)
-- [ ] Ajout au **panier** persistant (cookie session posé)
-- [ ] Tunnel d'achat complet (desktop + mobile)
-- [ ] Paiement carte + Twint en **mode test** + facture QR (IBAN réel affiché)
-- [ ] Emails transactionnels reçus (SMTP)
-- [ ] Images produit chargées sous `/uploads`
-- [ ] Backup automatique configuré (§12)
-
----
-
-## 10. 🔀 Bascule du nom de domaine (broderie.ch → VPS Infomaniak)
-
-À faire **uniquement quand la recette sur l'IP est 100 % validée**. Objectif : zéro coupure, zéro perte de données.
-
-### Étape A — Préparer Infomaniak à répondre sur le domaine *(avant tout changement DNS)*
-
-1. **Baisser le TTL du DNS** sur l'hébergeur du domaine **24–48 h avant** la bascule
-   (ex. passer le TTL de l'enregistrement A de 3600 s à **300 s**) → propagation rapide le jour J.
-2. **Mettre à jour les `.env`** pour le domaine, puis **rebuilder** front + admin :
-   ```bash
-   cd ~/broderie
-   # backend/.env.production
-   #   CLIENT_URL=https://broderie.ch
-   #   ADMIN_URL=https://broderie.ch
-   # frontend/.env.production  → VITE_API_URL=https://broderie.ch/api/v1
-   # admin/.env.production     → VITE_API_URL=https://broderie.ch/api/v1 , VITE_SHOP_URL=https://broderie.ch
-   cd frontend && npm run build && cd ..
-   cd admin && npm run build && cd ..
-   pm2 reload broderie-api
-   ```
-3. **Ajouter le domaine dans Nginx** (`server_name broderie.ch www.broderie.ch;`) en gardant
-   provisoirement l'IP. `sudo nginx -t && sudo systemctl reload nginx`.
-
-### Étape B — Reprise des données
-
-> La reprise des **comptes clients** de l'ancien site est **annulée** — les clients
-> se réinscrivent eux-mêmes. Le **catalogue produits** est importé via le script dédié
-> (`docs/IMPORT-CATALOGUE.md`), à lancer sur staging puis prod.
-4. **Import catalogue** : `npm run import:catalog` (voir `docs/IMPORT-CATALOGUE.md`).
-5. **Copier les `uploads/`** (images produit) de l'ancien site vers `backend/uploads/products/`
-   si des visuels sont récupérables.
-
-### Étape C — Repointer le DNS
-
-6. Sur l'hébergeur du domaine, modifier l'enregistrement **A** :
-   `broderie.ch` (et `www`) → **`179.237.87.29`**. Supprimer tout ancien A/AAAA.
-7. Attendre la propagation (rapide grâce au TTL bas) :
-   ```bash
-   dig +short broderie.ch       # doit renvoyer 179.237.87.29
-   ```
-
-### Étape D — Vrai certificat SSL Let's Encrypt
-
-8. Une fois le DNS propagé (Certbot valide le domaine via HTTP-01) :
-   ```bash
-   sudo certbot --nginx -d broderie.ch -d www.broderie.ch
-   ```
-   Certbot remplace le cert auto-signé, configure le renouvellement auto et la redirection 80→443.
-   → L'avertissement « connexion non privée » disparaît.
-
-### Étape E — Passer les services externes en production
-
-9. **Stripe** → recréer le webhook sur `https://broderie.ch/api/v1/payments/webhook`, passer en clés
-   **live** (`pk_live_`/`sk_live_`), rebuilder le front si la clé publique change, mettre `whsec_` live.
-10. **Swiss Post** → vérifier les clés API live le cas échéant (voir `claude_task.md` §6).
-
-### Étape F — Vérifs post-bascule
-
-```bash
-curl https://broderie.ch/health
-```
-- [ ] `https://broderie.ch` répond avec cert Let's Encrypt valide (cadenas vert)
-- [ ] Redirection `www` → apex (ou inverse) cohérente
-- [ ] Login admin + panier OK sur le domaine
-- [ ] Paiement réel (petit montant) carte + Twint **en live**
-- [ ] Emails transactionnels reçus avec liens en `broderie.ch`
-- [ ] Webhook Stripe live reçoit bien les events (dashboard Stripe)
-
-### Étape G — Filet de sécurité
-
-12. **Ne pas éteindre l'ancien site tout de suite** : le garder ~1 semaine en secours (rollback DNS
-    rapide possible vers l'ancienne IP si problème).
-13. Remonter le **TTL DNS** à une valeur normale (3600 s) une fois la bascule stable.
-
----
-
-## 11. Points en suspens (à trancher / fournir)
-
-| Sujet | Détail |
-|---|---|
-| **Stockage médias** | ✅ Tranché : **disque du VPS** (`backend/uploads/products/`, servi sous `/uploads`). `config/storage.js` écrit sur disque (plus de dépendance S3). ⚠️ Vérifier la taille du disque pour ~14 000 produits × 3 WebP, **inclure `uploads/` dans Swiss Backup**, ne pas l'effacer lors des `git pull`/déploiements. |
-| **Swiss Post API** | Clés `CLIENT_ID/SECRET` après approbation (étiquettes en mock d'ici là) — voir `claude_task.md` §6. |
-| **Emails prod** | `julie@broderie.ch` est hébergé chez un prestataire tiers (Hetzner), pas Infomaniak. Décider la voie SMTP (Brevo recommandé) — voir `claude_task.md` §5. `MAIL_ENABLED=true` en prod (à `false` = service email en suspens). |
-| **MFA admin** | Deux nouvelles variables obligatoires (`JWT_MFA_PENDING_SECRET`, `MFA_ENCRYPTION_KEY`) — le serveur refuse de démarrer sans elles. Procédure complète : [MFA-PRODUCTION.md](MFA-PRODUCTION.md). |
-
----
-
-## 12. Sauvegardes MySQL
-
-> ⚠️ MySQL installé sur le VPS **n'a pas de backup automatique** (contrairement à une base managée).
-> C'est **le point de vigilance n°1** — à mettre en place dès le déploiement.
-
-- [ ] Script `mysqldump` quotidien (cron) vers un dossier local
-- [ ] **Copier les dumps hors du VPS** (Swiss Backup) — si le serveur meurt, les backups survivent
-- [ ] Rotation : garder 7 jours quotidiens + 4 hebdomadaires
-- [ ] Tester une **restauration** au moins une fois avant le go-live
-- [ ] Sauvegarder aussi `backend/uploads/` (images produit, sur disque)
-
-```bash
-# Exemple — /etc/cron.daily/backup-mysql.sh (à adapter)
-DATE=$(date +%F)
-mysqldump -u backup_user -p"$DB_PASSWORD" broderie | gzip > /var/backups/broderie_$DATE.sql.gz
-# Copie hors du VPS (Swiss Backup via rclone configuré)
-rclone copy /var/backups/broderie_$DATE.sql.gz swissbackup:broderie/backups/
-# Nettoyage local — garder 7 jours
-find /var/backups -name "broderie_*.sql.gz" -mtime +7 -delete
+sudo certbot --nginx -d broderie.ch -d www.broderie.ch
 ```
 
 ---
 
-## 13. Coûts (rappel)
+## Étape 9 — Basculer le DNS
 
-| Service | Produit Infomaniak | Coût |
+Dashboard Infomaniak → `broderie.ch` → **Zone DNS** :
+
+| Enregistrement | Type | Valeur |
 |---|---|---|
-| Nom de domaine | `.ch` | ✅ déjà payé (~CHF 10/an) |
-| Emails | prestataire tiers (Hetzner) | ✅ déjà actif (`julie@broderie.ch`) |
-| SSL | Let's Encrypt | ✅ gratuit (à la bascule) |
-| **Serveur app + MySQL** | VPS Cloud | **~17 à 34 CHF/mois** selon la taille |
-| Sauvegardes | Swiss Backup (200 Go) | commandé |
+| `broderie.ch` | A | `179.237.87.29` |
+| `www.broderie.ch` | A | `179.237.87.29` |
+
+> ⚠️ Les enregistrements pointent aujourd'hui vers **`185.125.27.47`**, qui ne
+> correspond à aucun service identifié — c'est ce qu'il faut corriger.
+>
+> **Ne pas toucher aux enregistrements MX, SPF, DKIM et DMARC** : ils font
+> fonctionner `contact@broderie.ch` et `julie@broderie.ch`. Y toucher casserait
+> l'envoi des factures.
+
+La propagation prend de quelques minutes à quelques heures. Vérifier avec
+`dig broderie.ch +short`, puis lancer certbot (étape 8).
 
 ---
 
-## 14. Mises à jour ultérieures (après un push sur main)
+## Étape 10 — Créer les deux comptes admin
+
+Aucun compte n'existe sur une base neuve. Il en faut **deux, distincts** :
+
+| Compte | Pour | Pourquoi séparé |
+|---|---|---|
+| `julie@broderie.ch` | Julie (gestion de la boutique) | Elle est à distance : elle doit pouvoir configurer sa MFA sur **son** téléphone |
+| `supaco.digital@gmail.com` | Vous (maintenance technique) | Intervenir sans dépendre du téléphone de Julie, ni consommer ses codes de récupération |
+
+Chaque compte a sa propre MFA, sur son propre téléphone. **Ne jamais partager un
+compte admin** : le second facteur serait inutilisable par l'autre personne.
+
+### Générer les hashs
 
 ```bash
-cd ~/broderie && git pull origin main
-cd backend && npm ci --omit=dev && cd ..
+cd ~/broderie/backend
+node -e "require('bcrypt').hash('<MOT_DE_PASSE_JULIE>', 12).then(console.log)"
+node -e "require('bcrypt').hash('<MOT_DE_PASSE_KEVIN>', 12).then(console.log)"
+```
+
+> **Au moins 12 caractères**, avec une majuscule et un symbole — règle renforcée
+> côté serveur pour les comptes `admin` (les comptes clients restent à 5).
+
+### Insérer les deux comptes
+
+```bash
+sudo mysql broderie
+```
+```sql
+INSERT INTO users (email, password_hash, first_name, last_name, role, locale, is_active, email_verified_at)
+VALUES
+  ('julie@broderie.ch',        '<hash Julie>', 'Julie', 'Guerle', 'admin', 'fr', 1, NOW()),
+  ('supaco.digital@gmail.com', '<hash Kevin>', 'Kevin', 'Khek',   'admin', 'fr', 1, NOW());
+
+SELECT id, email, role FROM users WHERE role = 'admin';   -- doit afficher 2 lignes
+```
+
+`email_verified_at` est renseigné d'emblée : ça évite d'avoir à passer par le mail
+de confirmation pour des comptes créés à la main.
+
+### Premier login — MFA obligatoire pour les deux
+
+La double authentification est **imposée à tout compte admin**. Chacun, de son côté,
+sur `https://broderie.ch/admin` :
+
+1. Saisir email et mot de passe.
+2. Un écran de configuration affiche un **QR code**.
+3. Le scanner avec une application d'authentification (Google Authenticator, Authy,
+   1Password…). Une saisie manuelle est proposée si le scan échoue.
+4. Confirmer avec le code à 6 chiffres affiché par l'application.
+5. **10 codes de récupération s'affichent une seule fois** — à conserver dans un
+   endroit sûr (gestionnaire de mots de passe). Ils permettent de se reconnecter en
+   cas de perte du téléphone et ne sont **plus jamais récupérables** ensuite.
+
+### Si quelqu'un perd son téléphone
+
+- *Avec un code de récupération* : « Utiliser un code de récupération » sur l'écran
+  MFA, puis régénérer un jeu depuis **Paramètres → Sécurité**.
+- *Sans aucun code* : intervention en base, sur le compte concerné uniquement —
+  ```bash
+  sudo mysql broderie -e "DELETE FROM user_mfa WHERE user_id = <id>;"
+  ```
+  (`ON DELETE CASCADE` nettoie aussi ses codes de récupération.) La personne
+  reconfigure sa MFA de zéro à la connexion suivante.
+
+  C'est précisément l'intérêt des deux comptes : si Julie est bloquée, vous gardez
+  un accès pour la débloquer — et réciproquement.
+
+---
+
+## Vérifications avant d'annoncer l'ouverture
+
+- [ ] `https://broderie.ch` répond, cadenas HTTPS valide
+- [ ] Catalogue : produits visibles, recherche et filtres fonctionnels
+- [ ] Fiche produit : prix TTC, mention TVA, stock
+- [ ] Commande de test complète → **facture QR reçue par email**
+- [ ] Le QR de la facture est scannable par une application bancaire
+- [ ] `https://broderie.ch/admin` : **les deux comptes admin** se connectent et
+      configurent chacun leur MFA sur leur propre téléphone
+- [ ] Admin : la commande de test apparaît, « Marquer comme payée » fonctionne
+- [ ] **Annuler une commande de test → vérifier que le stock remonte**
+- [ ] Parcours complet testé **sur mobile** (60 %+ du trafic suisse attendu)
+- [ ] Sauvegarde MySQL automatique configurée sur le VPS
+
+---
+
+## Connu et assumé au lancement
+
+| Sujet | État |
+|---|---|
+| **Photos produits** | Absentes. Julie remplit `Catalogue-a-completer-photos.xlsx`, puis `node database/import-catalog-photos.js` |
+| **Carte / Twint** | Désactivés (phase 2). Facture QR et retrait uniquement. Clés Stripe vides → aucun paiement Stripe possible par accident |
+| **Étiquettes Swiss Post** | API réelle active, mais **jamais testée en génération réelle** : la première étiquette de Julie sera le test grandeur nature (coût non confirmé) |
+| **Suivi de livraison** | Pas d'API de tracking disponible pour ce compte → statut « Livrée » à passer manuellement. Un lien vers le suivi post.ch est fourni dans l'admin |
+| **Relance des impayés** | Manuelle — aucune relance automatique des factures à 30 jours |
+
+---
+
+## Mettre à jour le site après un changement de code
+
+```bash
+ssh -i ~/.ssh/id_ed25519 ubuntu@179.237.87.29
+cd ~/broderie && git pull
+
+cd backend  && npm ci --omit=dev && cd ..
 cd frontend && npm ci && npm run build && cd ..
-cd admin && npm ci && npm run build && cd ..
-pm2 reload broderie-api        # redémarrage zéro-downtime
+cd admin    && npm ci && npm run build && cd ..
+
+pm2 reload broderie-api      # rechargement sans coupure
+pm2 logs broderie-api --lines 20
+```
+
+Si le schéma a changé, appliquer d'abord les nouvelles migrations :
+```bash
+cd ~/broderie/backend && npm run db:migrate
 ```
 
 ---
 
-## Points d'attention (rappel CLAUDE.md)
+## En cas de problème
 
-- **Données en Suisse** : Infomaniak (Genève) → conformité LPD native
-- **CORS** : origin = URL exacte (IP en recette, `https://broderie.ch` en prod) — jamais de wildcard `*`
-- **Node.js ≥ 20 LTS** (on utilise 22 LTS via `.nvmrc`)
-- **Credentials distincts** recette / production — jamais partagés
-- **Port 3306 jamais exposé** : MySQL en écoute sur `localhost` uniquement
+| Symptôme | Piste |
+|---|---|
+| L'API ne démarre pas | `pm2 logs broderie-api` — souvent une variable manquante dans `.env.production` (le message la nomme) |
+| 502 Bad Gateway | L'API est tombée : `pm2 status`, puis `pm2 restart broderie-api` |
+| Upload d'image en erreur 500 | Binaire `sharp` incompatible Linux : `cd ~/broderie/backend && npm rebuild sharp && pm2 reload broderie-api`. Sinon permissions : `mkdir -p uploads/products && chown -R $USER uploads` |
+| Emails non reçus | `pm2 logs` (les échecs SMTP y sont tracés), vérifier `MAIL_PASSWORD`, puis les spams |
+| Connexion admin en boucle | MFA non configuré ou cookie `Secure` bloqué — vérifier que le site est bien en HTTPS |
+| « Trop de requêtes » (429) | Rate limiting : 10 tentatives de connexion / 15 min, 5 pour un code MFA. Attendre ou redémarrer l'API |
 
 ---
 
-*Supaco Digital — Au Point-Compté — 2026*
+*Supaco Digital — Au Point-Compté 🇨🇭*
