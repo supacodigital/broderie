@@ -3,8 +3,10 @@
 jest.mock('../../repositories/settings.repository', () => ({
   findAllTaxRates:      jest.fn(),
   updateTaxRate:        jest.fn(),
+  updateTaxRatesBulk:   jest.fn(),
   findAllShippingRates: jest.fn(),
   updateShippingRate:   jest.fn(),
+  updateShippingRatesBulk: jest.fn(),
   findSettings:         jest.fn(),
   upsertSettings:       jest.fn(),
   STORE_KEYS: ['store_name', 'store_email'],
@@ -62,7 +64,7 @@ describe('admin/settings.controller — getTaxRates()', () => {
 
 describe('admin/settings.controller — updateTaxRates()', () => {
   test('met à jour les taux et invalide le cache', async () => {
-    settingsRepository.updateTaxRate.mockResolvedValue();
+    settingsRepository.updateTaxRatesBulk.mockResolvedValue();
     const updated = [{ id: 1, rate: 9.0 }];
     settingsRepository.findAllTaxRates.mockResolvedValue(updated);
     cache.keys.mockReturnValue(['tax_rates:all']);
@@ -70,7 +72,8 @@ describe('admin/settings.controller — updateTaxRates()', () => {
     const req = { body: { rates: [{ id: 1, rate: 9.0 }] } };
     const res = makeRes();
     await updateTaxRates(req, res, jest.fn());
-    expect(settingsRepository.updateTaxRate).toHaveBeenCalledWith(1, { rate: 9.0 });
+    // Grille appliquée en bloc (transaction) — plus ligne par ligne
+    expect(settingsRepository.updateTaxRatesBulk).toHaveBeenCalledWith([{ id: 1, rate: 9.0 }]);
     expect(cache.del).toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith({ success: true, data: updated });
   });
@@ -116,14 +119,16 @@ describe('admin/settings.controller — getShippingRates()', () => {
 
 describe('admin/settings.controller — updateShippingRates()', () => {
   test('met à jour les frais et invalide le cache', async () => {
-    settingsRepository.updateShippingRate.mockResolvedValue();
+    settingsRepository.updateShippingRatesBulk.mockResolvedValue();
     settingsRepository.findAllShippingRates.mockResolvedValue([]);
     cache.keys.mockReturnValue(['shipping:all']);
 
     const req = { body: { rates: [{ id: 2, priceChf: 7.5, estimatedDays: 2 }] } };
     const res = makeRes();
     await updateShippingRates(req, res, jest.fn());
-    expect(settingsRepository.updateShippingRate).toHaveBeenCalledWith(2, { priceChf: 7.5, estimatedDays: 2 });
+    expect(settingsRepository.updateShippingRatesBulk).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ id: 2, priceChf: 7.5, estimatedDays: 2 })])
+    );
     expect(cache.del).toHaveBeenCalled();
   });
 

@@ -16,6 +16,8 @@ const newsletterAdminController = require('../controllers/admin/newsletter.contr
 const settingsController        = require('../controllers/admin/settings.controller');
 const shippingAdminController   = require('../controllers/admin/shipping.controller');
 const { upload } = require('../middlewares/upload');
+const { validate } = require('../middlewares/validate');
+const { createCouponSchema, updateCouponSchema } = require('../validators/coupon.validator');
 
 // Toutes les routes admin nécessitent auth + rôle admin
 router.use(requireAuth);
@@ -83,8 +85,8 @@ router.put('/settings/legal',      settingsController.updateLegalSettings);
 
 // Coupons
 router.get('/coupons', couponController.getAll);
-router.post('/coupons', couponController.create);
-router.put('/coupons/:id', couponController.update);
+router.post('/coupons', validate(createCouponSchema), couponController.create);
+router.put('/coupons/:id', validate(updateCouponSchema), couponController.update);
 router.delete('/coupons/:id', couponController.remove);
 
 // Programme de fidélité

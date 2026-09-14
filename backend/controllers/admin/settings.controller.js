@@ -27,10 +27,8 @@ const updateTaxRates = async (req, res, next) => {
     if (!Array.isArray(rates) || rates.length === 0) {
       return next(new AppError('Tableau de taux requis.', 400));
     }
-    for (const r of rates) {
-      if (!r.id || r.rate == null) continue;
-      await settingsRepository.updateTaxRate(r.id, { rate: r.rate });
-    }
+    // Transaction : la grille TVA est appliquée en bloc ou pas du tout.
+    await settingsRepository.updateTaxRatesBulk(rates);
     invalidateCache();
     const updated = await settingsRepository.findAllTaxRates();
     res.json({ success: true, data: updated });
@@ -56,13 +54,8 @@ const updateShippingRates = async (req, res, next) => {
     if (!Array.isArray(rates) || rates.length === 0) {
       return next(new AppError('Tableau de tarifs requis.', 400));
     }
-    for (const r of rates) {
-      if (!r.id) continue;
-      await settingsRepository.updateShippingRate(r.id, {
-        priceChf:      r.priceChf,
-        estimatedDays: r.estimatedDays,
-      });
-    }
+    // Transaction : la grille tarifaire est appliquée en bloc ou pas du tout.
+    await settingsRepository.updateShippingRatesBulk(rates);
     invalidateCache();
     const updated = await settingsRepository.findAllShippingRates();
     res.json({ success: true, data: updated });

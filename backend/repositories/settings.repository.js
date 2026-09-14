@@ -71,7 +71,57 @@ const upsertSettings = async (entries) => {
   );
 };
 
+// ─────────────────────────────────────────────────────────────
+// Mises à jour groupées — transactionnelles
+// La TVA et les frais de port forment des GRILLES cohérentes : appliquer les
+// lignes une par une hors transaction laisse, en cas d'échec au milieu, une
+// grille moitié ancienne moitié nouvelle (taux TVA incohérents en production).
+// ─────────────────────────────────────────────────────────────
+
+const updateTaxRatesBulk = async (rates) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    for (const r of rates) {
+      if (!r.id || r.rate == null) continue;
+      await connection.execute(`UPDATE tax_rates SET rate = ? WHERE id = ?`, [r.rate, r.id]);
+    }
+    await connection.commit();
+    cache.del(keys.taxRates());
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
+const updateShippingRatesBulk = async (rates) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    for (const r of rates) {
+      if (!r.id) continue;
+      const fields = [];
+      const params = [];
+      if (r.priceChf      !== undefined) { fields.push('price_chf = ?');      params.push(r.priceChf); }
+      if (r.estimatedDays !== undefined) { fields.push('estimated_days = ?'); params.push(r.estimatedDays); }
+      if (fields.length === 0) continue;
+      params.push(r.id);
+      await connection.execute(`UPDATE shipping_rates SET ${fields.join(', ')} WHERE id = ?`, params);
+    }
+    await connection.commit();
+    cache.del(keys.shippingRates());
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
   findAllTaxRates, updateTaxRate, findAllShippingRates, updateShippingRate,
+  updateTaxRatesBulk, updateShippingRatesBulk,
   findSettings, upsertSettings, STORE_KEYS, LEGAL_KEYS,
 };

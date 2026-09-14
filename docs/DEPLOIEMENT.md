@@ -88,6 +88,16 @@ cd ~/broderie/database
 sudo mysql broderie < broderie.sql
 ```
 
+> ⚠️ **Baseline des migrations — étape obligatoire juste après.** `broderie.sql` contient
+> déjà toutes les migrations appliquées, mais la table `schema_migrations` est vide sur
+> une base neuve : sans baseline, le premier `npm run db:migrate` les rejouerait toutes
+> (dont deux qui touchent des **données**, pas seulement le schéma).
+> ```bash
+> cd ~/broderie/backend
+> npm run db:migrate -- --baseline   # marque les migrations comme déjà appliquées
+> npm run db:migrate:status          # doit afficher 0 migration en attente
+> ```
+
 > ℹ️ **Reprise des données de l'ancien site : pas maintenant.** On démarre sur une base neuve
 > (schéma seul, aucune donnée de démo). L'import du catalogue produits (§ IMPORT-CATALOGUE.md)
 > se fait à part. La reprise des comptes clients de l'ancien site est **annulée** — les
