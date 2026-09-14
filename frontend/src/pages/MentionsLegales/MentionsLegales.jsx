@@ -11,7 +11,7 @@ const STATIC_SECTIONS = [
     content: `Dénomination sociale : Au Point-Compté
 Forme juridique : Raison individuelle / Sàrl (à compléter)
 Numéro IDE : CHE-XXX.XXX.XXX (à compléter)
-Adresse : Rue de Vuarrengel 10, 1418 Vuarrens, VD, Suisse
+Adresse : Chemin du Collège 6, 1509 Vucherens, VD, Suisse
 Téléphone : +41 79 847 01 26
 E-mail : julie@broderie.ch
 

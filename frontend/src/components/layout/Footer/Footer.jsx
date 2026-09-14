@@ -109,9 +109,9 @@ export default function Footer() {
             <div className={s.contactItem}>
               <MapPin size={14} className={s.contactIcon} aria-hidden="true" />
               <span>
-                Rue de Vuarrengel 10
+                Chemin du Collège 6
                 <br />
-                1418 Vuarrens, Suisse
+                1509 Vucherens, Suisse
               </span>
             </div>
             <div className={s.contactItem}>

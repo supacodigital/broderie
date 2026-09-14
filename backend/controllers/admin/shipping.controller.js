@@ -2,6 +2,7 @@ const PDFDocument       = require('pdfkit');
 const orderRepository   = require('../../repositories/order.repository');
 const shippingService   = require('../../services/shipping.service');
 const { AppError }      = require('../../middlewares/errorHandler');
+const env               = require('../../config/env');
 
 // Préfixes autorisés pour label_url avant tout res.redirect — évite un open redirect
 // piloté par le contenu de orders.label_url.
@@ -60,7 +61,7 @@ const downloadLabel = async (req, res, next) => {
 
       doc.fontSize(8).text('EXPÉDITEUR');
       doc.fontSize(10).text('Au Point-Compté');
-      doc.fontSize(9).text('Rue de Vuarrengel 10, 1418 Vuarrens');
+      doc.fontSize(9).text(`${env.shopAddress}, ${env.shopZip} ${env.shopCity}`);
       doc.moveDown(0.8);
 
       doc.fontSize(8).text('DESTINATAIRE');
