@@ -10,10 +10,18 @@ module.exports = {
       name: 'broderie-api',
       cwd: './backend',
       script: 'app.js',
-      // Mode cluster — exploite plusieurs cœurs CPU sans changer le code (Express stateless).
-      // Passer à un nombre fixe (ex: 2) si le VPS a peu de RAM.
-      instances: 'max',
-      exec_mode: 'cluster',
+      // ⚠️ Mode fork (1 seul process) — volontaire, ne pas repasser en cluster sans
+      // externaliser d'abord les deux états gardés EN MÉMOIRE DE PROCESS :
+      //   1. express-rate-limit (app.js, auth.routes.js, mfa.routes.js) — un compteur
+      //      par worker ⇒ N workers = limites multipliées par N. En cluster sur 4 cœurs,
+      //      la protection anti-brute-force MFA passerait de 5 à 20 tentatives/15 min.
+      //   2. node-cache (config/cache.js) — invalidateProducts() ne vide que le cache
+      //      du worker qui traite la requête ⇒ une modification produit dans l'admin
+      //      apparaîtrait/disparaîtrait selon le worker qui répond, pendant 5 min.
+      // Pour repasser en cluster : store Redis pour le rate limit + cache partagé.
+      // Le trafic attendu (boutique artisanale) tient très largement sur un process.
+      instances: 1,
+      exec_mode: 'fork',
       // Redémarrage auto si le process dépasse cette mémoire (fuite éventuelle)
       max_memory_restart: '500M',
       // Ne pas relancer en boucle si crash immédiat au démarrage

@@ -54,11 +54,16 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc:     ["'self'"],
-      scriptSrc:      ["'self'"],
+      // js.stripe.com : Stripe.js est chargé par le checkout (phase 2 carte/Twint).
+      // Sans cette autorisation, la CSP bloque le script et les paiements échouent.
+      scriptSrc:      ["'self'", "https://js.stripe.com"],
       styleSrc:       ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       imgSrc:         ["'self'", "data:", "blob:"],
-      connectSrc:     ["'self'"],
+      // api.stripe.com : appels XHR de Stripe.js (tokenisation, confirmation)
+      connectSrc:     ["'self'", "https://api.stripe.com"],
       fontSrc:        ["'self'", "data:", "https://fonts.gstatic.com"],
+      // Stripe rend ses champs de carte dans des iframes servies par js.stripe.com
+      frameSrc:       ["'self'", "https://js.stripe.com", "https://hooks.stripe.com"],
       objectSrc:      ["'none'"],
       frameAncestors: ["'none'"],
     },
@@ -117,7 +122,8 @@ const globalLimiter = rateLimit({
   max: process.env.NODE_ENV === 'production' ? 1000 : 10000,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: () => process.env.NODE_ENV !== 'production',
+  // Actif en production ET en staging (staging = copie exacte de la prod, CLAUDE.md §3)
+  skip: () => !['production', 'staging'].includes(process.env.NODE_ENV),
   message: { success: false, message: 'Trop de requêtes, veuillez réessayer plus tard.' },
 });
 app.use('/api/', globalLimiter);

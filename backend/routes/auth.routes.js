@@ -10,7 +10,8 @@ const authLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: () => process.env.NODE_ENV !== 'production',
+  // Actif en production ET en staging (staging = copie exacte de la prod, CLAUDE.md §3)
+  skip: () => !['production', 'staging'].includes(process.env.NODE_ENV),
   message: { success: false, message: 'Trop de tentatives, veuillez réessayer dans 15 minutes.' },
 });
 
