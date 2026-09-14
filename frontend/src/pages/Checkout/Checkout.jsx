@@ -414,16 +414,15 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
     billingAddress.first_name !== address.first_name ||
     billingAddress.last_name  !== address.last_name
   )
-  const [payment,     setPayment]     = useState('card')
+  const [payment,     setPayment]     = useState('invoice_qr')
   const [cgv,         setCgv]         = useState(false)
   const [cgvError,    setCgvError]    = useState('')
   const [couponInput, setCouponInput] = useState('')
   const [couponError, setCouponError] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
 
+  /* Carte et Twint désactivés en phase 1 (paiement Stripe non configuré) — réactiver en phase 2 */
   const PAYMENT_OPTIONS = [
-    { value: 'card',       label: t('checkout.paymentCard'),    badge: '💳' },
-    { value: 'twint',      label: t('checkout.paymentTwint'),   badge: '📱' },
     { value: 'invoice_qr', label: t('checkout.paymentInvoice'), badge: '🧾' },
     { value: 'pickup',     label: t('checkout.paymentPickup'),  badge: '🏬' },
   ]
@@ -905,9 +904,9 @@ export default function Checkout() {
   const [orderId,        setOrderId]        = useState(() => {
     return sessionStorage.getItem('checkout_order_id') || null
   })
-  const [paymentMethod,  setPaymentMethod]  = useState('twint')
-  /* Méthode en cours de sélection à l'étape 2 (défaut 'card' = défaut du radio) — sert au récap (frais à 0 si Click & Collect) */
-  const [selectedMethod, setSelectedMethod] = useState('card')
+  const [paymentMethod,  setPaymentMethod]  = useState('invoice_qr')
+  /* Méthode en cours de sélection à l'étape 2 (défaut 'invoice_qr' = défaut du radio) — sert au récap (frais à 0 si Click & Collect) */
+  const [selectedMethod, setSelectedMethod] = useState('invoice_qr')
   const [orderTotal,     setOrderTotal]     = useState(() => {
     return parseFloat(sessionStorage.getItem('checkout_order_total') || '0')
   })

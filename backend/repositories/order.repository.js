@@ -105,10 +105,12 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
     );
 
     // Enregistrement du paiement initial — dans la même transaction
+    // Provider Stripe uniquement pour les méthodes carte/Twint, sinon paiement géré en interne (facture, retrait)
+    const provider = (paymentMethod === 'card' || paymentMethod === 'twint') ? 'stripe' : 'internal';
     await connection.execute(
       `INSERT INTO payments (order_id, provider, amount, currency, method, status)
-       VALUES (?, 'stripe', ?, 'CHF', ?, 'pending')`,
-      [orderId, total, paymentMethod]
+       VALUES (?, ?, ?, 'CHF', ?, 'pending')`,
+      [orderId, provider, total, paymentMethod]
     );
 
     // Incrémentation du coupon — dans la même transaction, avec re-vérification
