@@ -3,12 +3,12 @@ const env = require('./env');
 
 // Transporter Nodemailer — SMTP Infomaniak Mail
 const transporter = nodemailer.createTransport({
-  host:   process.env.MAIL_HOST,
-  port:   Number(process.env.MAIL_PORT) || 587,
+  host:   env.mailHost,
+  port:   env.mailPort,
   secure: false, // STARTTLS sur le port 587
   auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASSWORD,
+    user: env.mailUser,
+    pass: env.mailPassword,
   },
   // Timeout généreux pour éviter les blocages silencieux
   connectionTimeout: 10000,
@@ -28,7 +28,7 @@ if (!env.mailEnabled) {
     });
     return { accepted: [], rejected: [], messageId: 'suspended', suspended: true };
   };
-} else if (process.env.NODE_ENV !== 'test') {
+} else if (env.nodeEnv !== 'test') {
   // Vérification de la connexion SMTP au démarrage (non bloquant)
   transporter.verify().catch((err) => {
     console.error('[Mailer] Connexion SMTP échouée :', err.message);

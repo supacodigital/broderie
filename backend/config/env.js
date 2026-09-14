@@ -61,7 +61,13 @@ const baseSchema = z.object({
   PICKUP_HOURS:   z.string().default('Lun–Ven 9h–18h, Sam 9h–16h'),
 
   // ── Emails ──
-  MAIL_FROM:    z.string().optional(),
+  MAIL_FROM:     z.string().optional(),
+  MAIL_HOST:     z.string().optional(),
+  MAIL_PORT:     z.coerce.number().int().positive().default(587),
+  MAIL_USER:     z.string().optional(),
+  MAIL_PASSWORD: z.string().optional(),
+  // Adresse recevant une notification interne à chaque nouvelle commande (boutique)
+  MAIL_CONTACT: z.string().email().optional(),
   // Service email en suspens : à 'false', aucun email n'est réellement envoyé —
   // les appels sont journalisés et résolus sans erreur (dev / recette / incident
   // fournisseur SMTP). Défaut : activé.
@@ -174,8 +180,13 @@ module.exports = {
   pickupHours:   e.PICKUP_HOURS,
 
   /* Emails */
-  mailFrom:    e.MAIL_FROM,
-  mailEnabled: e.MAIL_ENABLED !== 'false',
+  mailFrom:     e.MAIL_FROM,
+  mailHost:     e.MAIL_HOST     ?? null,
+  mailPort:     e.MAIL_PORT,
+  mailUser:     e.MAIL_USER     ?? null,
+  mailPassword: e.MAIL_PASSWORD ?? null,
+  mailContact:  e.MAIL_CONTACT  ?? null,
+  mailEnabled:  e.MAIL_ENABLED !== 'false',
 
   /* Environnement */
   nodeEnv: e.NODE_ENV,

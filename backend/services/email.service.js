@@ -273,6 +273,51 @@ VAT included|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n'),
 }
 
 // ─────────────────────────────────────────────
+// 2bis. Notification interne — nouvelle commande (boutique)
+// N'envoie rien si MAIL_CONTACT n'est pas configuré.
+// ─────────────────────────────────────────────
+async function sendAdminOrderNotification({ user, order }) {
+  if (!env.mailContact) return;
+
+  const orderId    = parseInt(order.id, 10);
+  const itemsHtml   = (order.items ?? []).map((item) => orderItemRow(item, 'fr')).join('');
+  const clientName  = `${escapeHtml(user.first_name)} ${escapeHtml(user.last_name)}`.trim() || user.email;
+
+  const body = `
+    <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+      Nouvelle commande #${orderId}
+    </h1>
+    <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
+      Client : <strong>${clientName}</strong> (${escapeHtml(user.email)})<br>
+      Méthode de paiement : <strong>${escapeHtml(order.status)}</strong>
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+      ${itemsHtml}
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0"
+      style="background:#fdf2f8;border-radius:10px;padding:16px;">
+      <tr>
+        <td style="padding:10px 0 4px;font-size:15px;font-weight:700;color:#1E1020;">Total TTC</td>
+        <td style="padding:10px 0 4px;font-size:15px;font-weight:700;color:#DB2777;text-align:right;">
+          CHF ${roundCHF(order.total).toFixed(2)}
+        </td>
+      </tr>
+    </table>
+
+    ${env.adminUrl ? btn(`${env.adminUrl.replace(/\/$/, '')}/commandes/${orderId}`, 'Voir la commande') : ''}
+  `;
+
+  await transporter.sendMail({
+    from:    FROM,
+    to:      env.mailContact,
+    subject: `🛒 Nouvelle commande #${orderId} — CHF ${roundCHF(order.total).toFixed(2)}`,
+    html:    layout(body, 'fr'),
+  });
+}
+
+// ─────────────────────────────────────────────
 // 3. Notification d'expédition
 // ─────────────────────────────────────────────
 async function sendOrderShipped({ user, order, trackingNumber }) {
@@ -659,9 +704,58 @@ async function sendMfaRecoveryCodesRegenerated(user) {
   });
 }
 
+// ─────────────────────────────────────────────
+// Paiement Twint par QR code — envoyé par l'admin depuis le back-office
+// Image QR jointe en inline (cid:) — pas en pièce jointe téléchargeable.
+// ─────────────────────────────────────────────
+async function sendTwintQrEmail({ user, order, qrBuffer, expiresAt }) {
+  const firstName = escapeHtml(user.first_name);
+  const expiresLabel = new Date(expiresAt).toLocaleString('fr-CH', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+
+  const body = `
+    <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+      Payez votre commande avec Twint, ${firstName}
+    </h1>
+    <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+      Voici le QR code de paiement pour votre commande <strong>#${order.id}</strong>
+      d'un montant de <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
+    </p>
+    <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
+      Ouvrez l'application Twint sur votre téléphone, scannez le code ci-dessous et
+      confirmez le paiement.
+    </p>
+    <div style="text-align:center;margin:0 0 24px;">
+      <img src="cid:twint-qr" alt="QR code de paiement Twint" width="280" height="280"
+           style="display:inline-block;border:1px solid #fbcfe8;border-radius:12px;padding:12px;" />
+    </div>
+    <p style="margin:0;font-size:13px;color:#9D6480;line-height:1.7;">
+      Ce QR code est valable jusqu'au <strong>${expiresLabel}</strong>. Passé ce délai,
+      contactez-nous pour recevoir un nouveau code.
+    </p>
+  `;
+
+  await transporter.sendMail({
+    from:    FROM,
+    to:      user.email,
+    subject: `Payer par Twint — commande #${order.id} — Au Point-Compté`,
+    html:    layout(body, 'fr'),
+    attachments: [
+      {
+        filename:    `twint-${order.id}.png`,
+        content:     qrBuffer,
+        contentType: 'image/png',
+        cid:         'twint-qr',
+      },
+    ],
+  });
+}
+
 module.exports = {
   sendWelcome,
   sendOrderConfirmation,
+  sendAdminOrderNotification,
   sendOrderShipped,
   sendPasswordReset,
   sendInvoice,
@@ -669,4 +763,5 @@ module.exports = {
   sendEmailVerification,
   sendMfaRecoveryCodesLow,
   sendMfaRecoveryCodesRegenerated,
+  sendTwintQrEmail,
 };

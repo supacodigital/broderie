@@ -106,6 +106,11 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
       console.error('[Email] Confirmation commande non envoyée :', err.message);
     });
 
+    // Notification interne boutique — n'envoie rien si MAIL_CONTACT n'est pas configuré
+    emailService.sendAdminOrderNotification({ user, order }).catch((err) => {
+      console.error('[Email] Notification admin non envoyée :', err.message);
+    });
+
     // Facture QR : email dédié avec la QR-facture suisse en pièce jointe PDF
     if (paymentMethod === 'invoice_qr') {
       invoiceService.sendInvoiceEmail({ user, order }).catch((err) => {
