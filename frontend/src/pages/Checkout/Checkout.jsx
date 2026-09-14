@@ -17,8 +17,12 @@ import { getShippingRate } from '../../services/shipping.service.js'
 import { roundCHF } from '../../utils/chf.js'
 import s from './Checkout.module.css'
 
-/* Chargement différé de Stripe — singleton garanti */
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY ?? '')
+/* Chargement différé de Stripe — singleton garanti.
+   Null si aucune clé n'est configurée : loadStripe('') déclenche quand même une
+   requête vers js.stripe.com, bloquée par la CSP (script-src 'self') et inutile
+   tant que carte/Twint sont désactivés (MVP facture-only). */
+const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY
+const stripePromise = stripeKey ? loadStripe(stripeKey) : null
 
 /* ── Cantons suisses — code officiel à 2 lettres + nom (26 cantons, ordre alphabétique du code) ── */
 const SWISS_CANTONS = [
@@ -115,7 +119,7 @@ function Stepper({ step, t }) {
 }
 
 /* ── Mini récapitulatif (colonne droite) ── */
-function OrderSummary({ items, subtotal, discount, couponCode, shipping, shippingLoading, t }) {
+function OrderSummary({ items, subtotal, discount, couponCode, shipping, shippingLoading, shippingError, onRetryShipping, t }) {
   const discounted = roundCHF(subtotal - (discount ?? 0))
   const total      = shipping ? roundCHF(discounted + shipping.price_chf) : null
   return (
@@ -165,10 +169,24 @@ function OrderSummary({ items, subtotal, discount, couponCode, shipping, shippin
             ? <span className={s.shippingLoading}>…</span>
             : shipping
               ? (shipping.price_chf === 0 ? t('checkout.shippingFree') : `CHF ${shipping.price_chf.toFixed(2)}`)
-              : '…'
+              : '—'
           }
         </span>
       </div>
+
+      {/* Échec du calcul des frais : le client doit pouvoir réessayer plutôt que
+          rester devant un total incalculable (et la commande est bloquée en amont). */}
+      {shippingError && !shippingLoading && (
+        <div className={s.shippingErrorRow} role="alert">
+          <AlertCircle size={13} aria-hidden="true" />
+          <span>{t('checkout.shippingError')}</span>
+          {onRetryShipping && (
+            <button type="button" className={s.shippingRetryBtn} onClick={onRetryShipping}>
+              <RefreshCw size={12} aria-hidden="true" />{t('checkout.retry')}
+            </button>
+          )}
+        </div>
+      )}
 
       <hr className={s.summaryDivider} />
 
@@ -404,7 +422,7 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
 }
 
 /* ── Étape 2 : Mode de paiement + CGV ── */
-function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, globalError, subtotal, onCouponApplied, discount, couponCode, onPaymentChange, t }) {
+function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, globalError, subtotal, onCouponApplied, discount, couponCode, onPaymentChange, totalKnown = true, t }) {
   /* La facturation diffère-t-elle de la livraison ? (comparaison des champs clés) */
   const billingDiffers = billingAddress && (
     billingAddress.street !== address.street ||
@@ -450,10 +468,18 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
     setCouponError('')
   }
 
+  /* `disabled={isSubmitting}` seul ne suffit pas : entre le clic et le re-render qui
+     propage l'état depuis le parent, un double-clic rapide passe et crée deux commandes.
+     Ce verrou synchrone ferme la fenêtre. */
+  const submitLock = useRef(false)
+
   const handleConfirm = () => {
+    if (submitLock.current) return
     if (!cgv) { setCgvError(t('checkout.errors.cgvRequired')); return }
     setCgvError('')
-    onSubmit({ payment_method: payment })
+    submitLock.current = true
+    Promise.resolve(onSubmit({ payment_method: payment }))
+      .finally(() => { submitLock.current = false })
   }
 
   return (
@@ -590,7 +616,10 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
           type="button"
           className={s.btnPrimary}
           onClick={handleConfirm}
-          disabled={isSubmitting}
+          /* totalKnown : interdit de valider une commande dont le montant n'a pas
+             pu être calculé (frais de port indisponibles) — le client doit toujours
+             voir le total avant de s'engager. */
+          disabled={isSubmitting || !totalKnown}
         >
           {isSubmitting
             ? t('checkout.placingOrder')
@@ -603,7 +632,7 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
 }
 
 /* ── Formulaire Twint interne (doit être enfant de <Elements>) ── */
-function TwintForm({ orderId, onPaid }) {
+function TwintForm({ orderId, onPaid, t }) {
   const stripe   = useStripe()
   const elements = useElements()
   const [error,      setError]      = useState('')
@@ -715,7 +744,7 @@ function StepTwint({ orderId, total, onPaid, t }) {
           stripe={stripePromise}
           options={{ clientSecret, appearance: stripeAppearance, locale: 'fr' }}
         >
-          <TwintForm orderId={orderId} onPaid={onPaid} />
+          <TwintForm orderId={orderId} onPaid={onPaid} t={t} />
         </Elements>
       )}
     </div>
@@ -919,6 +948,8 @@ export default function Checkout() {
   /* Frais de port — chargés dynamiquement depuis l'API à l'étape 2 */
   const [shipping,        setShipping]        = useState(null)
   const [shippingLoading, setShippingLoading] = useState(false)
+  const [shippingError,   setShippingError]   = useState(false)
+  const [shippingRetry,   setShippingRetry]   = useState(0)
   /* Sous-total brut avant remise — figé lors de la création de commande */
   const [subtotalSnapshot, setSubtotalSnapshot] = useState(0)
   /* Snapshot des articles avant vidage du panier */
@@ -967,12 +998,15 @@ export default function Checkout() {
     if (step !== 2) return
     let cancelled = false
     setShippingLoading(true)
+    setShippingError(false)
     getShippingRate(totalWeightKg)
       .then(data => { if (!cancelled) setShipping(data) })
-      .catch(() => {})
+      /* Sans cet état, le total restait bloqué sur « … » indéfiniment et le client
+         pouvait valider une commande dont il n'avait jamais vu le montant. */
+      .catch(() => { if (!cancelled) setShippingError(true) })
       .finally(() => { if (!cancelled) setShippingLoading(false) })
     return () => { cancelled = true }
-  }, [step, totalWeightKg])
+  }, [step, totalWeightKg, shippingRetry])
 
   const handleAddressNext = (data) => {
     /* Sépare l'adresse de livraison et l'adresse de facturation issues du même formulaire */
@@ -1133,6 +1167,7 @@ export default function Checkout() {
               couponCode={couponCode}
               onCouponApplied={({ discount: d, code: c }) => { setDiscount(d); setCouponCode(c) }}
               onPaymentChange={setSelectedMethod}
+              totalKnown={selectedMethod === 'pickup' ? !!shipping : (!!shipping && !shippingError)}
               t={t}
             />
           )}
@@ -1143,8 +1178,16 @@ export default function Checkout() {
             subtotal={subtotal}
             discount={discount}
             couponCode={couponCode}
-            shipping={selectedMethod === 'pickup' && step === 2 ? { ...(shipping ?? {}), price_chf: 0, carrier: null, estimated_days: null } : shipping}
+            /* Click & Collect : frais à 0 (aucun envoi postal). On ne force ce 0 que si
+               les frais ont réellement été chargés — sinon `{...null, price_chf: 0}`
+               produit un objet truthy qui ferait afficher un total ferme alors que
+               l'appel est encore en cours ou a échoué. */
+            shipping={selectedMethod === 'pickup' && step === 2 && shipping
+              ? { ...shipping, price_chf: 0, carrier: null, estimated_days: null }
+              : shipping}
             shippingLoading={shippingLoading}
+            shippingError={shippingError}
+            onRetryShipping={() => setShippingRetry(n => n + 1)}
             t={t}
           />
         </div>

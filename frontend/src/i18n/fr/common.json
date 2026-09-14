@@ -45,9 +45,18 @@
     "badgeSwissPlace": "Vuarrens, Suisse"
   },
   "advantages": {
-    "shipping": { "title": "Livraison rapide", "desc": "1–2 jours en Suisse via La Poste CH" },
-    "payment":  { "title": "Paiement sécurisé","desc": "Twint et carte bancaire — 100% sécurisé" },
-    "packaging":{ "title": "Emballage soigné", "desc": "Chaque commande emballée avec amour" }
+    "shipping": {
+      "title": "Livraison rapide",
+      "desc": "1–2 jours en Suisse via La Poste CH"
+    },
+    "payment": {
+      "title": "Paiement sécurisé",
+      "desc": "Twint et carte bancaire — 100% sécurisé"
+    },
+    "packaging": {
+      "title": "Emballage soigné",
+      "desc": "Chaque commande emballée avec amour"
+    }
   },
   "categories": {
     "eyebrow": "Explorez",
@@ -295,7 +304,9 @@
     "billingTitle": "Adresse de facturation",
     "twintTitle": "Payer par Twint",
     "twintPay": "Réglez CHF {{amount}} avec votre application Twint. Vous serez redirigé(e) pour confirmer le paiement.",
-    "couponInvalid": "Code invalide."
+    "couponInvalid": "Code invalide.",
+    "shippingError": "Impossible de calculer les frais de port.",
+    "retry": "Réessayer"
   },
   "cart": {
     "title": "Mon panier",

@@ -1096,3 +1096,37 @@
   padding: 14px 32px;
   margin-top: 8px;
 }
+
+/* Échec du calcul des frais de port — le client doit pouvoir réessayer */
+.shippingErrorRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.shippingErrorRow svg { flex-shrink: 0; }
+
+.shippingRetryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 3px 8px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.shippingRetryBtn:hover { background: rgba(185, 28, 28, 0.08); }
