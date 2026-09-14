@@ -55,6 +55,10 @@
       "**/__tests__/**/*.test.js"
     ],
     "verbose": true,
+    "setupFiles": [
+      "<rootDir>/jest.setup.js"
+    ],
+    "globalSetup": "<rootDir>/jest.globalSetup.js",
     "transformIgnorePatterns": [
       "node_modules/(?!.*(uuid|@scure|@noble)/)"
     ]
