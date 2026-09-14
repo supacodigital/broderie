@@ -3,6 +3,7 @@ const { z } = require('zod');
 const userRepository = require('../repositories/user.repository');
 const userService = require('../services/user.service');
 const authService = require('../services/auth.service');
+const dataExportService = require('../services/dataExport.service');
 const env = require('../config/env');
 const { AppError } = require('../middlewares/errorHandler');
 
@@ -169,9 +170,10 @@ const exportMyData = async (req, res, next) => {
   try {
     const data = await userService.exportUserData(req.user.id);
     const dateStr = new Date().toISOString().slice(0, 10);
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="mes-donnees-${req.user.id}-${dateStr}.json"`);
-    res.send(JSON.stringify(data, null, 2));
+    const pdfBuffer = await dataExportService.generateDataExportPDF({ data });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="mes-donnees-${req.user.id}-${dateStr}.pdf"`);
+    res.send(pdfBuffer);
   } catch (error) {
     next(error);
   }

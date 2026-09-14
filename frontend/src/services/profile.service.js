@@ -5,14 +5,14 @@ export async function updateProfile(data) {
   return res.data
 }
 
-/* Télécharge l'export JSON de toutes les données personnelles (LPD art. 25) */
+/* Télécharge l'export PDF de toutes les données personnelles (LPD art. 25) */
 export async function downloadMyData() {
   const res = await api.get('/users/me/export', { responseType: 'blob' })
   const url = URL.createObjectURL(res.data)
   const a = document.createElement('a')
   a.href = url
   const date = new Date().toISOString().slice(0, 10)
-  a.download = `mes-donnees-au-point-compte-${date}.json`
+  a.download = `mes-donnees-au-point-compte-${date}.pdf`
   document.body.appendChild(a)
   a.click()
   a.remove()

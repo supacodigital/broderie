@@ -24,21 +24,27 @@ describe('GET /api/v1/users/me/export', () => {
     expect(res.status).toBe(401);
   });
 
-  test('avec token : fichier JSON complet en pièce jointe', async () => {
-    const { token, email } = await makeAccount();
+  test('avec token : fichier PDF complet en pièce jointe', async () => {
+    const { token } = await makeAccount();
     const res = await request(app)
       .get('/api/v1/users/me/export')
-      .set('Authorization', `Bearer ${token}`);
+      .set('Authorization', `Bearer ${token}`)
+      .buffer(true)
+      .parse((res, cb) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
 
     expect(res.status).toBe(200);
-    expect(res.headers['content-type']).toMatch(/application\/json/);
+    expect(res.headers['content-type']).toMatch(/application\/pdf/);
     expect(res.headers['content-disposition']).toMatch(/attachment/);
+    expect(res.headers['content-disposition']).toMatch(/\.pdf"/);
 
-    const data = JSON.parse(res.text);
-    expect(data.profile.email).toBe(email);
-    expect(Array.isArray(data.orders)).toBe(true);
-    expect(data.export_metadata).toBeDefined();
-    expect(data.consent_logs).toBeDefined();
+    const pdfBuffer = res.body;
+    expect(Buffer.isBuffer(pdfBuffer)).toBe(true);
+    expect(pdfBuffer.slice(0, 5).toString()).toBe('%PDF-');
+    expect(pdfBuffer.length).toBeGreaterThan(500);
   });
 });
 

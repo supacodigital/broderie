@@ -21,6 +21,10 @@ jest.mock('../../services/user.service', () => ({
   deleteAccount:  jest.fn(),
 }));
 
+jest.mock('../../services/dataExport.service', () => ({
+  generateDataExportPDF: jest.fn(),
+}));
+
 jest.mock('../../services/auth.service', () => ({
   generateAccessToken:  jest.fn(() => 'new-access'),
   generateRefreshToken: jest.fn(() => 'new-refresh'),
@@ -30,6 +34,7 @@ jest.mock('../../services/auth.service', () => ({
 const bcrypt         = require('bcrypt');
 const userRepository = require('../../repositories/user.repository');
 const userService    = require('../../services/user.service');
+const dataExportService = require('../../services/dataExport.service');
 const {
   getMe, updateMe, getAddresses,
   createAddress, updateAddress, deleteAddress, changePassword,
@@ -319,21 +324,23 @@ describe('user.controller — changePassword()', () => {
 // ── exportMyData() ────────────────────────────────────────────────────────────
 
 describe('user.controller — exportMyData()', () => {
-  test('renvoie un fichier JSON en pièce jointe', async () => {
-    userService.exportUserData.mockResolvedValue({ profile: { email: 'a@b.ch' }, orders: [] });
+  test('renvoie un fichier PDF en pièce jointe', async () => {
+    const fakeData = { profile: { email: 'a@b.ch' }, orders: [] };
+    const fakePdf  = Buffer.from('%PDF-fake');
+    userService.exportUserData.mockResolvedValue(fakeData);
+    dataExportService.generateDataExportPDF.mockResolvedValue(fakePdf);
     const req = { user: { id: 42 } };
     const res = makeRes();
     await exportMyData(req, res, jest.fn());
 
     expect(userService.exportUserData).toHaveBeenCalledWith(42);
-    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/json; charset=utf-8');
+    expect(dataExportService.generateDataExportPDF).toHaveBeenCalledWith({ data: fakeData });
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');
     expect(res.setHeader).toHaveBeenCalledWith(
       'Content-Disposition',
       expect.stringContaining('attachment; filename="mes-donnees-42-')
     );
-    const sent = res.send.mock.calls[0][0];
-    expect(() => JSON.parse(sent)).not.toThrow();
-    expect(JSON.parse(sent).profile.email).toBe('a@b.ch');
+    expect(res.send).toHaveBeenCalledWith(fakePdf);
   });
 
   test('propage l\'erreur du service', async () => {
