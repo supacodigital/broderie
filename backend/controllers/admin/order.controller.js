@@ -53,7 +53,9 @@ const updateStatus = async (req, res, next) => {
       return next(new AppError(`Statut invalide. Valeurs acceptées : ${VALID_STATUSES.join(', ')}`, 400));
     }
 
-    const ok = await orderRepository.updateStatusWithHistory(orderId, status, note, req.user.id);
+    // previousStatus vient du repository : l'objet relu juste après porte déjà le NOUVEAU
+    // statut, il ne peut donc pas servir à savoir d'où venait la commande.
+    const { ok, previousStatus } = await orderRepository.updateStatusWithHistory(orderId, status, note, req.user.id);
     if (!ok) return next(new AppError('Commande introuvable.', 404));
 
     const order = await orderRepository.findById(orderId);
@@ -86,8 +88,19 @@ const updateStatus = async (req, res, next) => {
         });
 
       } else if (['paid', 'delivered', 'cancelled', 'refunded'].includes(status)) {
-        // Débit fidélité uniquement si la commande avait été payée
-        if (status === 'refunded' || (status === 'cancelled' && ['paid', 'processing', 'shipped', 'delivered'].includes(order.status))) {
+        // Crédit fidélité au passage à « payée » — le webhook Stripe ne couvre que
+        // card/twint ; les commandes MVP (facture QR, retrait) sont marquées payées
+        // manuellement ici et n'accumuleraient jamais rien sans cet appel.
+        if (status === 'paid' && previousStatus !== 'paid') {
+          loyaltyService.processOrderEarning(order.user_id, order.id, order.total).catch((err) => {
+            console.error('[Fidélité] Crédit points échoué :', err.message);
+          });
+        }
+
+        // Débit fidélité uniquement si la commande avait réellement été payée avant
+        // ce changement de statut (previousStatus, pas order.status qui est déjà à jour).
+        const wasPaid = ['paid', 'processing', 'shipped', 'delivered'].includes(previousStatus);
+        if ((status === 'refunded' || status === 'cancelled') && wasPaid) {
           loyaltyService.processRefund(order.user_id, order.id, order.total).catch((err) => {
             console.error('[Fidélité] Débit remboursement échoué :', err.message);
           });

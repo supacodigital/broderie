@@ -357,18 +357,51 @@ const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order =
 
 // Change le statut d'une commande + trace dans l'historique — transaction atomique.
 // Retourne false si la commande n'existe pas.
+// Statuts à partir desquels le stock a été décrémenté et doit donc être restitué
+// si la commande est annulée/remboursée. Une commande déjà `cancelled`/`refunded`
+// a déjà rendu son stock : repasser de l'un à l'autre ne doit pas le rendre deux fois.
+const STOCK_HELD_STATUSES = [
+  'pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup',
+  'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered',
+];
+const STOCK_RELEASING_STATUSES = ['cancelled', 'refunded'];
+
+// Change le statut d'une commande + trace l'historique. Restitue le stock de façon
+// atomique quand la commande bascule vers `cancelled`/`refunded` (le stock est
+// décrémenté dès la création — sans cette contrepartie, un impayé le retire à vie).
+// Retourne { ok, previousStatus, stockRestored } — previousStatus permet à l'appelant
+// de savoir d'où vient la commande (l'objet relu après coup porte déjà le nouveau statut).
 const updateStatusWithHistory = async (orderId, status, note, createdBy) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
+    // FOR UPDATE : deux changements de statut concurrents ne doivent pas tous deux
+    // conclure « la commande n'était pas encore annulée » et restituer le stock chacun.
     const [[existing]] = await connection.execute(
-      `SELECT id FROM orders WHERE id = ? LIMIT 1`,
+      `SELECT id, status FROM orders WHERE id = ? LIMIT 1 FOR UPDATE`,
       [orderId]
     );
     if (!existing) {
       await connection.rollback();
-      return false;
+      return { ok: false, previousStatus: null, stockRestored: false };
+    }
+
+    const previousStatus = existing.status;
+    const shouldRestoreStock =
+      STOCK_RELEASING_STATUSES.includes(status) &&
+      STOCK_HELD_STATUSES.includes(previousStatus);
+
+    if (shouldRestoreStock) {
+      // Les produits « sur commande » n'ont jamais été décrémentés (voir createOrder) :
+      // les ré-incrémenter gonflerait artificiellement leur stock.
+      await connection.execute(
+        `UPDATE products p
+           INNER JOIN order_items oi ON oi.product_id = p.id
+           SET p.stock = p.stock + oi.quantity
+         WHERE oi.order_id = ? AND p.is_made_to_order = 0`,
+        [orderId]
+      );
     }
 
     await connection.execute(`UPDATE orders SET status = ? WHERE id = ?`, [status, orderId]);
@@ -379,7 +412,7 @@ const updateStatusWithHistory = async (orderId, status, note, createdBy) => {
     );
 
     await connection.commit();
-    return true;
+    return { ok: true, previousStatus, stockRestored: shouldRestoreStock };
   } catch (err) {
     await connection.rollback();
     throw err;

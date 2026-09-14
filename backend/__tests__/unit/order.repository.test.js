@@ -23,14 +23,16 @@ describe('order.repository — updateStatusWithHistory()', () => {
   test('met à jour le statut + insère l\'historique, commit, release', async () => {
     const conn = makeConn();
     conn.execute
-      .mockResolvedValueOnce([[{ id: 42 }]])   // SELECT existence
+      .mockResolvedValueOnce([[{ id: 42, status: 'processing' }]])  // SELECT ... FOR UPDATE
       .mockResolvedValueOnce([{}])             // UPDATE orders
       .mockResolvedValueOnce([{}]);            // INSERT history
     pool.getConnection.mockResolvedValue(conn);
 
-    const ok = await repo.updateStatusWithHistory(42, 'shipped', 'Colis remis', 1);
+    const res = await repo.updateStatusWithHistory(42, 'shipped', 'Colis remis', 1);
 
-    expect(ok).toBe(true);
+    expect(res.ok).toBe(true);
+    expect(res.previousStatus).toBe('processing');
+    expect(res.stockRestored).toBe(false);
     const calls = conn.execute.mock.calls.map((c) => c[0]);
     expect(calls.some((s) => /UPDATE orders SET status/.test(s))).toBe(true);
     expect(calls.some((s) => /INSERT INTO order_status_history/.test(s))).toBe(true);
@@ -38,14 +40,50 @@ describe('order.repository — updateStatusWithHistory()', () => {
     expect(conn.release).toHaveBeenCalled();
   });
 
-  test('retourne false + rollback si la commande n\'existe pas', async () => {
+  test('restitue le stock quand la commande passe à cancelled', async () => {
+    const conn = makeConn();
+    conn.execute
+      .mockResolvedValueOnce([[{ id: 7, status: 'pending_invoice' }]]) // SELECT ... FOR UPDATE
+      .mockResolvedValueOnce([{}])   // UPDATE products (restitution)
+      .mockResolvedValueOnce([{}])   // UPDATE orders
+      .mockResolvedValueOnce([{}]);  // INSERT history
+    pool.getConnection.mockResolvedValue(conn);
+
+    const res = await repo.updateStatusWithHistory(7, 'cancelled', 'Facture impayée', 1);
+
+    expect(res.stockRestored).toBe(true);
+    expect(res.previousStatus).toBe('pending_invoice');
+    const calls = conn.execute.mock.calls.map((c) => c[0]);
+    const restore = calls.find((s) => /SET p\.stock = p\.stock \+ oi\.quantity/.test(s));
+    expect(restore).toBeDefined();
+    // Les produits « sur commande » n'ont jamais été décrémentés : ne pas les regonfler
+    expect(restore).toMatch(/is_made_to_order = 0/);
+    expect(conn.commit).toHaveBeenCalled();
+  });
+
+  test('ne restitue PAS le stock deux fois (cancelled → refunded)', async () => {
+    const conn = makeConn();
+    conn.execute
+      .mockResolvedValueOnce([[{ id: 8, status: 'cancelled' }]]) // déjà annulée
+      .mockResolvedValueOnce([{}])   // UPDATE orders
+      .mockResolvedValueOnce([{}]);  // INSERT history
+    pool.getConnection.mockResolvedValue(conn);
+
+    const res = await repo.updateStatusWithHistory(8, 'refunded', null, 1);
+
+    expect(res.stockRestored).toBe(false);
+    const calls = conn.execute.mock.calls.map((c) => c[0]);
+    expect(calls.some((s) => /p\.stock \+ oi\.quantity/.test(s))).toBe(false);
+  });
+
+  test('retourne ok=false + rollback si la commande n\'existe pas', async () => {
     const conn = makeConn();
     conn.execute.mockResolvedValueOnce([[]]); // SELECT vide
     pool.getConnection.mockResolvedValue(conn);
 
-    const ok = await repo.updateStatusWithHistory(999, 'paid', null, 1);
+    const res = await repo.updateStatusWithHistory(999, 'paid', null, 1);
 
-    expect(ok).toBe(false);
+    expect(res.ok).toBe(false);
     expect(conn.rollback).toHaveBeenCalled();
     expect(conn.commit).not.toHaveBeenCalled();
   });
@@ -53,7 +91,7 @@ describe('order.repository — updateStatusWithHistory()', () => {
   test('rollback + rethrow si une requête échoue', async () => {
     const conn = makeConn();
     conn.execute
-      .mockResolvedValueOnce([[{ id: 1 }]])
+      .mockResolvedValueOnce([[{ id: 1, status: 'pending' }]])
       .mockRejectedValueOnce(new Error('boom'));
     pool.getConnection.mockResolvedValue(conn);
 

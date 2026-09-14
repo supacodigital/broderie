@@ -21,6 +21,7 @@ jest.mock('../../services/shipping.service', () => ({
 
 jest.mock('../../services/loyalty.service', () => ({
   processRefund: jest.fn().mockResolvedValue({}),
+  processOrderEarning: jest.fn().mockResolvedValue({}),
 }));
 
 jest.mock('../../services/invoice.service', () => ({
@@ -127,7 +128,7 @@ describe('order.admin.controller — getById()', () => {
 
 describe('order.admin.controller — updateStatus()', () => {
   test('met à jour le statut et retourne la commande mise à jour', async () => {
-    orderRepository.updateStatusWithHistory.mockResolvedValue(true);
+    orderRepository.updateStatusWithHistory.mockResolvedValue({ ok: true, previousStatus: 'pending', stockRestored: false });
     orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'paid' });
     userRepository.findById.mockResolvedValue(fakeUser);
 
@@ -151,7 +152,7 @@ describe('order.admin.controller — updateStatus()', () => {
   });
 
   test('retourne 404 si le repo signale une commande introuvable', async () => {
-    orderRepository.updateStatusWithHistory.mockResolvedValue(false);
+    orderRepository.updateStatusWithHistory.mockResolvedValue({ ok: false, previousStatus: null, stockRestored: false });
 
     const req = { params: { id: '999' }, body: { status: 'paid' }, user: { id: 1 } };
     const res = makeRes();
@@ -175,7 +176,7 @@ describe('order.admin.controller — updateStatus()', () => {
   });
 
   test('envoie email sendOrderShipped quand statut = shipped', async () => {
-    orderRepository.updateStatusWithHistory.mockResolvedValue(true);
+    orderRepository.updateStatusWithHistory.mockResolvedValue({ ok: true, previousStatus: 'pending', stockRestored: false });
     orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'shipped', shipping_street: 'Rue 1' });
     userRepository.findById.mockResolvedValue(fakeUser);
     shippingService.generateLabel.mockResolvedValue({ trackingNumber: '99.00.111111.11111111' });
@@ -189,8 +190,9 @@ describe('order.admin.controller — updateStatus()', () => {
   });
 
   test('débite la fidélité pour statut "cancelled" (commande déjà payée)', async () => {
-    orderRepository.updateStatusWithHistory.mockResolvedValue(true);
-    orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'paid' });
+    // previousStatus = 'paid' : la commande ÉTAIT payée avant l'annulation
+    orderRepository.updateStatusWithHistory.mockResolvedValue({ ok: true, previousStatus: 'paid', stockRestored: true });
+    orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'cancelled' });
     userRepository.findById.mockResolvedValue(fakeUser);
 
     const req = { params: { id: '1' }, body: { status: 'cancelled' }, user: { id: 1 } };
@@ -202,8 +204,8 @@ describe('order.admin.controller — updateStatus()', () => {
   });
 
   test('débite la fidélité pour statut "refunded"', async () => {
-    orderRepository.updateStatusWithHistory.mockResolvedValue(true);
-    orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'delivered' });
+    orderRepository.updateStatusWithHistory.mockResolvedValue({ ok: true, previousStatus: 'delivered', stockRestored: true });
+    orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'refunded' });
     userRepository.findById.mockResolvedValue(fakeUser);
 
     const req = { params: { id: '1' }, body: { status: 'refunded' }, user: { id: 1 } };
@@ -260,5 +262,30 @@ describe('order.admin.controller — downloadInvoice()', () => {
     await controller.downloadInvoice(req, res, next);
 
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 404 }));
+  });
+  test('crédite la fidélité au passage à "paid" (commande facture/retrait, hors Stripe)', async () => {
+    orderRepository.updateStatusWithHistory.mockResolvedValue({ ok: true, previousStatus: 'pending_invoice', stockRestored: false });
+    orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'paid' });
+    userRepository.findById.mockResolvedValue(fakeUser);
+
+    const req = { params: { id: '1' }, body: { status: 'paid' }, user: { id: 1 } };
+    const res = makeRes();
+    await controller.updateStatus(req, res, jest.fn());
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(loyaltyService.processOrderEarning).toHaveBeenCalled();
+  });
+
+  test('ne débite PAS la fidélité si la commande n\'avait jamais été payée', async () => {
+    orderRepository.updateStatusWithHistory.mockResolvedValue({ ok: true, previousStatus: 'pending_invoice', stockRestored: true });
+    orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'cancelled' });
+    userRepository.findById.mockResolvedValue(fakeUser);
+
+    const req = { params: { id: '1' }, body: { status: 'cancelled' }, user: { id: 1 } };
+    const res = makeRes();
+    await controller.updateStatus(req, res, jest.fn());
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(loyaltyService.processRefund).not.toHaveBeenCalled();
   });
 });
