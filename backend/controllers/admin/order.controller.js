@@ -4,6 +4,7 @@ const { AppError }      = require('../../middlewares/errorHandler');
 const emailService      = require('../../services/email.service');
 const shippingService   = require('../../services/shipping.service');
 const loyaltyService    = require('../../services/loyalty.service');
+const paymentService    = require('../../services/payment.service');
 const { generateInvoicePDF } = require('../../services/invoice.service');
 
 // Statuts valides — alignés avec l'ENUM du schema
@@ -119,4 +120,23 @@ const downloadInvoice = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, updateStatus, downloadInvoice };
+// Génère un QR Twint pour la commande et l'envoie par email au client (voir CLAUDE.md §5)
+const sendTwintQr = async (req, res, next) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    const order = await orderRepository.findById(orderId);
+    if (!order) return next(new AppError('Commande introuvable.', 404));
+
+    const user = await userRepository.findById(order.user_id);
+    if (!user) return next(new AppError('Client introuvable.', 404));
+
+    const { qrBuffer, expiresAt } = await paymentService.createTwintQrForEmail(orderId);
+    await emailService.sendTwintQrEmail({ user, order, qrBuffer, expiresAt });
+
+    res.json({ success: true, message: 'QR Twint envoyé par email.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getAll, getById, updateStatus, downloadInvoice, sendTwintQr };

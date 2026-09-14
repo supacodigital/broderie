@@ -102,6 +102,7 @@ const ROUTE_LABELS = {
   "/fidelite": "Fidélité",
   "/categories": "Catégories",
   "/coupons": "Promotions",
+  "/newsletter": "Newsletter",
   "/parametres": "Paramètres",
 };
 

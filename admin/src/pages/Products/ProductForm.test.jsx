@@ -75,72 +75,73 @@ describe('ProductForm — aperçu boutique', () => {
     const user = userEvent.setup()
     renderForm()
     const priceInput = await screen.findByLabelText(/Prix de vente/)
-    await user.type(priceInput, '100')
+    await user.type(priceInput, '80')
 
     expect(screen.queryByText('Aperçu boutique')).not.toBeInTheDocument()
   })
 
-  it('calcule le prix final avec une réduction en pourcentage', async () => {
+  it('calcule le prix barré avec une réduction en pourcentage', async () => {
     const user = userEvent.setup()
     renderForm()
 
     const priceInput = await screen.findByLabelText(/Prix de vente/)
-    await user.type(priceInput, '100')
+    await user.type(priceInput, '80')
     await user.selectOptions(screen.getByLabelText(/Réduction/), 'percent')
     await user.type(screen.getByLabelText(/Valeur de la réduction/), '20')
 
     expect(await screen.findByText('Aperçu boutique')).toBeInTheDocument()
+    // prix payé 80 = prix barré × (1 - 20%) → prix barré = 80 / 0.8 = 100
     expect(screen.getByText('CHF 100.00')).toBeInTheDocument()
     expect(screen.getByText('CHF 80.00')).toBeInTheDocument()
   })
 
-  it('calcule le prix final avec une réduction en montant fixe', async () => {
+  it('calcule le prix barré avec une réduction en montant fixe', async () => {
     const user = userEvent.setup()
     renderForm()
 
     const priceInput = await screen.findByLabelText(/Prix de vente/)
-    await user.type(priceInput, '100')
+    await user.type(priceInput, '85')
     await user.selectOptions(screen.getByLabelText(/Réduction/), 'fixed')
     await user.type(screen.getByLabelText(/Valeur de la réduction/), '15')
 
-    expect(await screen.findByText('CHF 85.00')).toBeInTheDocument()
+    // prix barré = prix payé + montant fixe = 85 + 15 = 100
+    expect(await screen.findByText('CHF 100.00')).toBeInTheDocument()
   })
 
-  it('arrondit le prix final au 0.05 CHF le plus proche', async () => {
+  it('arrondit le prix barré au 0.05 CHF le plus proche', async () => {
     const user = userEvent.setup()
     renderForm()
 
     const priceInput = await screen.findByLabelText(/Prix de vente/)
-    await user.type(priceInput, '99.90')
+    await user.type(priceInput, '84.90')
     await user.selectOptions(screen.getByLabelText(/Réduction/), 'percent')
     await user.type(screen.getByLabelText(/Valeur de la réduction/), '15')
-    // 99.90 * 0.85 = 84.915 → arrondi au 0.05 le plus proche = 84.90
-    expect(await screen.findByText('CHF 84.90')).toBeInTheDocument()
+    // 84.90 / 0.85 = 99.882… → arrondi au 0.05 le plus proche = 99.90
+    expect(await screen.findByText('CHF 99.90')).toBeInTheDocument()
   })
 
-  it('affiche un avertissement si la réduction rend le prix final négatif ou nul', async () => {
+  it('affiche un avertissement si la réduction en pourcentage ne donne aucun prix barré valide', async () => {
     const user = userEvent.setup()
     renderForm()
 
     const priceInput = await screen.findByLabelText(/Prix de vente/)
     await user.type(priceInput, '50')
-    await user.selectOptions(screen.getByLabelText(/Réduction/), 'fixed')
-    await user.type(screen.getByLabelText(/Valeur de la réduction/), '100')
+    await user.selectOptions(screen.getByLabelText(/Réduction/), 'percent')
+    await user.type(screen.getByLabelText(/Valeur de la réduction/), '0')
 
     expect(await screen.findByText(/Réduction invalide/)).toBeInTheDocument()
-    expect(screen.queryByText('CHF 50.00')).not.toBeInTheDocument()
   })
 })
 
 describe('ProductForm — soumission avec réduction', () => {
-  it('envoie priceChf = prix final calculé et comparePriceChf = prix de vente saisi', async () => {
+  it('envoie priceChf = prix de vente saisi et comparePriceChf = prix barré calculé', async () => {
     const user = userEvent.setup()
     createProduct.mockResolvedValue({ id: 42 })
     renderForm()
 
     await fillRequiredFields(user)
     const priceInput = screen.getByLabelText(/Prix de vente/)
-    await user.type(priceInput, '100')
+    await user.type(priceInput, '80')
     await user.selectOptions(screen.getByLabelText(/Réduction/), 'percent')
     await user.type(screen.getByLabelText(/Valeur de la réduction/), '20')
 
@@ -170,7 +171,7 @@ describe('ProductForm — soumission avec réduction', () => {
 })
 
 describe('ProductForm — édition d\'un produit avec réduction existante', () => {
-  it('reconstitue le mode pourcentage et pré-remplit le prix de vente avec l\'ancien prix', async () => {
+  it('reconstitue le mode pourcentage et garde le prix de vente réel (jamais l\'ancien prix barré)', async () => {
     getProductById.mockResolvedValue({
       id: 7,
       name: 'Produit promo',
@@ -186,9 +187,9 @@ describe('ProductForm — édition d\'un produit avec réduction existante', () 
     renderForm({ id: 7 })
 
     const priceInput = await screen.findByLabelText(/Prix de vente/)
-    expect(priceInput).toHaveValue(100)
+    expect(priceInput).toHaveValue(80)
     expect(screen.getByLabelText(/Réduction/)).toHaveValue('percent')
-    expect(await screen.findByText('CHF 80.00')).toBeInTheDocument()
+    expect(await screen.findByText('CHF 100.00')).toBeInTheDocument()
   })
 
   it("n'active aucune réduction si compare_price_chf est absent", async () => {

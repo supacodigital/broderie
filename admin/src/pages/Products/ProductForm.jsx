@@ -204,10 +204,11 @@ export default function ProductForm() {
   const [saved,      setSaved]      = useState(false)
   const [apiError,   setApiError]   = useState('')
 
-  /* Réduction — le champ "Prix de vente" (priceChf) reste le prix normal, jamais
-     modifié automatiquement. La réduction (% ou CHF) calcule à part le prix final
-     réellement payé, envoyé à l'API en tant que priceChf ; le prix normal saisi
-     devient alors comparePriceChf (ancien prix, affiché barré en boutique) */
+  /* Réduction — le champ "Prix de vente" (priceChf) est TOUJOURS le prix réellement
+     payé (price_chf), y compris quand une réduction est active : il ne doit jamais
+     être remplacé par l'ancien prix barré. La réduction (% ou CHF) ne sert qu'à
+     calculer comparePriceChf (prix barré, affiché en boutique) à partir de priceChf —
+     jamais l'inverse. */
   const [discountMode,  setDiscountMode]  = useState('none') // 'none' | 'percent' | 'fixed'
   const [discountValue, setDiscountValue] = useState('')
 
@@ -220,15 +221,17 @@ export default function ProductForm() {
   const isMadeToOrderChecked = watch('isMadeToOrder')
   const watchedPrice = watch('priceChf')
 
-  /* Prix final réellement payé, dérivé du prix de vente saisi + de la réduction —
-     null si aucune réduction active (le prix de vente est alors payé tel quel) */
-  const finalPrice = (() => {
+  /* Prix barré (comparePriceChf), dérivé du prix de vente saisi + de la réduction —
+     null si aucune réduction active. Le prix de vente (priceChf) n'est jamais
+     recalculé à partir de ce prix barré : la réduction est purement informative,
+     affichée en boutique en plus du prix de vente réel. */
+  const comparePrice = (() => {
     if (discountMode === 'none' || !discountValue) return null
     const price = Number(watchedPrice)
     const value = Number(discountValue)
     if (!(price > 0) || !(value > 0)) return null
-    const computed = discountMode === 'percent' ? price * (1 - value / 100) : price - value
-    return computed > 0 ? roundCHF(computed) : null
+    const computed = discountMode === 'percent' ? price / (1 - value / 100) : price + value
+    return computed > price ? roundCHF(computed) : null
   })()
 
   const selectedSupplier = suppliers.find(sup => String(sup.id) === String(selectedSupplierId))
@@ -292,13 +295,16 @@ export default function ProductForm() {
       .then(res => {
         setProduct(res)
 
-        /* Si une réduction existe déjà en base, on la reconstitue dans le sélecteur
-           réduction : le "Prix de vente" affiché redevient l'ancien prix (barré) et
-           la réduction en % est recalculée à partir des deux prix stockés */
-        const hasDiscount = res.compare_price_chf && res.price_chf && res.compare_price_chf > res.price_chf
+        /* Si une réduction existe déjà en base, on reconstitue uniquement le
+           sélecteur réduction (le % affiché) à partir des deux prix stockés — le
+           "Prix de vente" affiché reste toujours price_chf, jamais l'ancien prix barré.
+           mysql2 renvoie les DECIMAL sous forme de chaînes ("119.00") : comparer avec
+           > sans convertir donne un résultat lexicographique erroné (ex: "119.00" >
+           "84.50" vaut false), d'où le Number() explicite avant comparaison. */
+        const oldPrice = Number(res.compare_price_chf)
+        const paidPrice = Number(res.price_chf)
+        const hasDiscount = oldPrice > 0 && paidPrice > 0 && oldPrice > paidPrice
         if (hasDiscount) {
-          const oldPrice = Number(res.compare_price_chf)
-          const paidPrice = Number(res.price_chf)
           const percent = Math.round((1 - paidPrice / oldPrice) * 100)
           setDiscountMode('percent')
           setDiscountValue(String(percent))
@@ -310,7 +316,7 @@ export default function ProductForm() {
         reset({
           name:            res.name ?? '',
           sku:             res.sku ?? '',
-          priceChf:        hasDiscount ? res.compare_price_chf : (res.price_chf ?? ''),
+          priceChf:        res.price_chf ?? '',
           stock:           res.stock ?? 0,
           weightKg:        res.weight_kg ?? '',
           lengthCm:        res.length_cm ?? '',
@@ -345,16 +351,16 @@ export default function ProductForm() {
         .replace(/^-+|-+$/g, '')
       const slug = slugBase || `produit-${Date.now()}`
 
-      /* Réduction active : le prix de vente saisi devient l'ancien prix (barré),
-         le prix réellement payé est celui calculé par la réduction */
-      const hasDiscount = finalPrice != null
+      /* Le prix de vente saisi (priceChf) est toujours envoyé tel quel — la
+         réduction ne fait que dériver le prix barré (comparePriceChf) à afficher
+         en boutique en plus du prix de vente réel */
       const payload = {
         categoryId:      Number(data.categoryId),
         supplierId:      data.supplierId ? Number(data.supplierId) : null,
         taxRateId:       Number(data.taxRateId),
         slug:            isEdit ? undefined : slug,
-        priceChf:        hasDiscount ? finalPrice : Number(data.priceChf),
-        comparePriceChf: hasDiscount ? Number(data.priceChf) : null,
+        priceChf:        Number(data.priceChf),
+        comparePriceChf: comparePrice,
         sku:             data.sku,
         stock:           Number(data.stock),
         weightKg:        data.weightKg ? Number(data.weightKg) : null,
@@ -580,7 +586,7 @@ export default function ProductForm() {
                     />
                   )}
                 </div>
-                <span className={s.hint}>Optionnel. Calcule le prix promo affiché au client, sans toucher au prix de vente.</span>
+                <span className={s.hint}>Optionnel. Calcule le prix barré affiché au client, en plus du prix de vente ci-contre.</span>
               </div>
             </div>
 
@@ -588,15 +594,15 @@ export default function ProductForm() {
               <div className={s.pricePreview}>
                 <span className={s.pricePreviewLabel}>Aperçu boutique</span>
                 <div className={s.pricePreviewRow}>
-                  {finalPrice != null ? (
+                  {comparePrice != null ? (
                     <>
-                      <span className={s.priceOld}>CHF {Number(watchedPrice).toFixed(2)}</span>
-                      <span className={s.priceNew}>CHF {finalPrice.toFixed(2)}</span>
+                      <span className={s.priceOld}>CHF {comparePrice.toFixed(2)}</span>
+                      <span className={s.priceNew}>CHF {Number(watchedPrice).toFixed(2)}</span>
                     </>
                   ) : (
                     <span className={s.priceWarning}>
                       <AlertTriangle size={12} />
-                      Réduction invalide — le prix final doit rester positif.
+                      Réduction invalide — le prix barré doit rester supérieur au prix de vente.
                     </span>
                   )}
                 </div>

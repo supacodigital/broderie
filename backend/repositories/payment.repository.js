@@ -29,6 +29,17 @@ const findByOrderId = async (orderId) => {
   return rows[0] || null;
 };
 
+// Récupère le paiement d'une commande pour une méthode précise (ex: annuler l'ancien
+// PaymentIntent Twint en attente avant d'en générer un nouveau QR)
+const findByOrderIdAndMethod = async (orderId, method) => {
+  const [rows] = await pool.execute(
+    `SELECT id, order_id, provider, provider_payment_id, amount, currency, method, status, created_at
+     FROM payments WHERE order_id = ? AND method = ? ORDER BY created_at DESC LIMIT 1`,
+    [orderId, method]
+  );
+  return rows[0] || null;
+};
+
 // Enregistre un event webhook Stripe pour l'idempotence.
 // Retourne true si c'est un event nouveau, false s'il a déjà été traité.
 const registerWebhookEvent = async (eventId, type) => {
@@ -39,4 +50,4 @@ const registerWebhookEvent = async (eventId, type) => {
   return result.affectedRows > 0;
 };
 
-module.exports = { create, updateStatusByOrder, findByOrderId, registerWebhookEvent };
+module.exports = { create, updateStatusByOrder, findByOrderId, findByOrderIdAndMethod, registerWebhookEvent };

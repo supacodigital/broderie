@@ -82,6 +82,11 @@ for f in backend/.env frontend/.env e2e/.env.test; do
   echo "  $f : $n commit(s)"
 done
 
+# Les vérifications post-purge portent sur les branches LOCALES réécrites, pas sur
+# refs/remotes/origin/* (encore l'ancien état tant que le push --force n'a pas eu lieu).
+LOCAL_BRANCHES=()
+while IFS= read -r b; do LOCAL_BRANCHES+=("$b"); done < <(git for-each-ref --format='%(refname:short)' refs/heads)
+
 # On capture les valeurs sensibles depuis le .env historique AVANT de le purger,
 # pour pouvoir vérifier après coup qu'elles ont bien disparu. Ces variables ne
 # sont jamais écrites sur disque et meurent avec le process.
@@ -114,20 +119,20 @@ git filter-repo "${FR_ARGS[@]}" --force
 git remote add origin "$REMOTE_URL"
 
 # ── Vérifications post-purge ────────────────────────────────────────────────
-step "Vérifications"
+step "Vérifications (branches locales : ${LOCAL_BRANCHES[*]})"
 FAIL=0
 for f in backend/.env frontend/.env e2e/.env.test; do
-  if git log --all --full-history --oneline -- "$f" | grep -q .; then
+  if git log "${LOCAL_BRANCHES[@]}" --full-history --oneline -- "$f" | grep -q .; then
     echo "  ${RED}✗ $f encore présent dans l'historique${NC}"; FAIL=1
   else
-    echo "  ${GREEN}✓ $f absent de tout l'historique${NC}"
+    echo "  ${GREEN}✓ $f absent des branches locales${NC}"
   fi
 done
 # Aucune des valeurs sensibles mémorisées ne doit plus apparaître dans un diff
 if [ "${#SECRET_NEEDLES[@]}" -gt 0 ]; then
   leaked=0
   for needle in "${SECRET_NEEDLES[@]}"; do
-    if git log --all -S "$needle" --oneline | grep -q .; then
+    if git log "${LOCAL_BRANCHES[@]}" -S "$needle" --oneline | grep -q .; then
       echo "  ${RED}✗ Une valeur sensible est encore trouvable dans l'historique${NC}"; leaked=1; FAIL=1
     fi
   done

@@ -124,11 +124,34 @@ const parseSheet = (xml, sharedStrings) => {
 
 // ── API publique ───────────────────────────────────────────
 
+// Résout le fichier sheetN.xml correspondant à un nom d'onglet, via
+// xl/workbook.xml (ordre déclaré, indépendant de l'ordre physique des
+// fichiers) + xl/_rels/workbook.xml.rels (r:id → cible réelle).
+const resolveSheetPathByName = (entries, sheetName) => {
+  const escaped = sheetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const workbookXml = entries['xl/workbook.xml'].toString('utf8');
+  const sheetTagMatch = new RegExp(`<sheet\\b[^>]*name="${escaped}"[^>]*/>`).exec(workbookXml);
+  if (!sheetTagMatch) throw new Error(`Onglet "${sheetName}" introuvable dans le classeur`);
+  const ridMatch = /r:id="([^"]+)"/.exec(sheetTagMatch[0]);
+  if (!ridMatch) throw new Error(`Onglet "${sheetName}" : r:id introuvable`);
+  const rId = ridMatch[1];
+
+  const relsXml = entries['xl/_rels/workbook.xml.rels'].toString('utf8');
+  const relTagMatch = new RegExp(`<Relationship\\b[^>]*Id="${rId}"[^>]*/>`).exec(relsXml);
+  if (!relTagMatch) throw new Error(`Relation "${rId}" introuvable pour l'onglet "${sheetName}"`);
+  const targetMatch = /Target="([^"]+)"/.exec(relTagMatch[0]);
+  if (!targetMatch) throw new Error(`Relation "${rId}" : Target introuvable`);
+
+  return `xl/${targetMatch[1].replace(/^\/?xl\//, '')}`;
+};
+
 /**
- * Lit la première feuille d'un .xlsx et renvoie un tableau de lignes.
+ * Lit une feuille d'un .xlsx et renvoie un tableau de lignes.
  * Chaque ligne est un objet { [colIndex]: valeur|null }.
+ * Par défaut lit la première feuille ; passer `sheetName` pour cibler un
+ * onglet précis par son nom (indépendant de son ordre physique dans le fichier).
  */
-const readSheetRows = (filePath) => {
+const readSheetRows = (filePath, sheetName = null) => {
   const buf = fs.readFileSync(filePath);
   const entries = readZipEntries(buf);
 
@@ -147,19 +170,28 @@ const readSheetRows = (filePath) => {
     }
   }
 
-  const sheetXml = entries['xl/worksheets/sheet1.xml'];
-  if (!sheetXml) throw new Error(`${filePath} : xl/worksheets/sheet1.xml introuvable`);
+  const sheetPath = sheetName ? resolveSheetPathByName(entries, sheetName) : 'xl/worksheets/sheet1.xml';
+  const sheetXml = entries[sheetPath];
+  if (!sheetXml) throw new Error(`${filePath} : ${sheetPath} introuvable`);
 
   return parseSheet(sheetXml.toString('utf8'), sharedStrings);
 };
 
 /**
  * Comme readSheetRows, mais mappe chaque ligne sur un objet dont les clés sont
- * les libellés de la première ligne (en-tête).
+ * les libellés de la ligne d'en-tête (première ligne non vide de la feuille).
+ * `headerRow` (1-based) permet de sauter des lignes de titre au-dessus de l'en-tête.
  */
-const readSheetObjects = (filePath) => {
-  const rows = readSheetRows(filePath);
-  if (rows.length === 0) return [];
+const readSheetObjects = (filePath, { sheetName = null, headerRow = 1 } = {}) => {
+  const rows = readSheetRows(filePath, sheetName);
+  const dataRows = rows.slice(headerRow - 1);
+  if (dataRows.length === 0) return [];
+  const [headerLine, ...body] = dataRows;
+  return mapRowsToObjects(headerLine, body);
+};
+
+const mapRowsToObjects = (headerLine, rows) => {
+  if (!headerLine) return [];
 
   // Largeur maximale (sans spread — les fichiers font des dizaines de milliers de lignes)
   let maxCol = 0;
@@ -172,11 +204,11 @@ const readSheetObjects = (filePath) => {
 
   const headers = [];
   for (let i = 0; i <= maxCol; i++) {
-    const raw = rows[0][i];
+    const raw = headerLine[i];
     headers[i] = raw != null ? String(raw).trim() : `col${i}`;
   }
 
-  return rows.slice(1).map((row) => {
+  return rows.map((row) => {
     const obj = {};
     for (let i = 0; i <= maxCol; i++) {
       obj[headers[i]] = row[i] != null ? row[i] : null;
