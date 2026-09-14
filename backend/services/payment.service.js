@@ -169,8 +169,15 @@ const handleWebhook = async (rawBody, signature) => {
 
   // Idempotence : Stripe retente les webhooks non acquittés — si l'event a déjà
   // été traité, on sort (200) sans rien refaire.
-  const isNew = await paymentRepository.registerWebhookEvent(event.id, event.type);
-  if (!isNew) {
+  //
+  // ⚠️ L'enregistrement se fait APRÈS le traitement métier, jamais avant : marquer
+  // l'event comme traité en amont ferait qu'un échec (deadlock MySQL, pool saturé)
+  // serait « avalé » au retry de Stripe — la commande resterait impayée alors que
+  // le client a été débité. Le doublon est ici préféré à la perte, et il est de toute
+  // façon neutralisé en aval (markPaidFromWebhook est idempotent : WHERE status != 'paid',
+  // et le crédit fidélité ne part que si statusChanged est vrai).
+  const alreadyProcessed = await paymentRepository.hasProcessedWebhookEvent(event.id);
+  if (alreadyProcessed) {
     console.warn('[Stripe] Webhook déjà traité, ignoré :', event.id);
     return;
   }
@@ -205,6 +212,11 @@ const handleWebhook = async (rawBody, signature) => {
       await paymentRepository.updateStatusByOrder(orderId, method, 'failed');
     }
   }
+
+  // Traitement terminé sans exception : l'event peut être marqué comme acquitté.
+  // Si une erreur est survenue plus haut, on n'arrive jamais ici — Stripe retentera
+  // et le traitement sera rejoué (opérations idempotentes en aval).
+  await paymentRepository.registerWebhookEvent(event.id, event.type);
 };
 
 module.exports = { createCardIntent, createTwintIntent, createTwintQrForEmail, handleWebhook };

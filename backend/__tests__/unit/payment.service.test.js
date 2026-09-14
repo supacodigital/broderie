@@ -195,6 +195,7 @@ const mockEvent = (obj) => {
 describe('payment.service — handleWebhook()', () => {
   beforeEach(() => {
     // event nouveau par défaut
+    paymentRepository.hasProcessedWebhookEvent.mockResolvedValue(false);
     paymentRepository.registerWebhookEvent.mockResolvedValue(true);
     orderRepository.markPaidFromWebhook.mockResolvedValue({ statusChanged: true });
   });
@@ -206,14 +207,38 @@ describe('payment.service — handleWebhook()', () => {
     await expect(paymentService.handleWebhook('raw', 'bad')).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  test('ignore un event déjà traité (registerWebhookEvent → false)', async () => {
-    paymentRepository.registerWebhookEvent.mockResolvedValue(false);
+  test('ignore un event déjà traité (hasProcessedWebhookEvent → true)', async () => {
+    paymentRepository.hasProcessedWebhookEvent.mockResolvedValue(true);
     mockEvent({ id: 'evt_dup', type: 'payment_intent.succeeded',
       data: { id: 'pi_x', metadata: { order_id: '1' }, payment_method_types: ['card'] } });
 
     await paymentService.handleWebhook('raw', 'sig');
 
     expect(orderRepository.markPaidFromWebhook).not.toHaveBeenCalled();
+    expect(paymentRepository.registerWebhookEvent).not.toHaveBeenCalled();
+  });
+
+  test('acquitte l\'event APRÈS traitement réussi', async () => {
+    mockEvent({ id: 'evt_ok', type: 'payment_intent.succeeded',
+      data: { id: 'pi_ok', metadata: { order_id: '1' }, payment_method_types: ['card'] } });
+    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'paid' }));
+    loyaltyService.processOrderEarning.mockResolvedValue();
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(orderRepository.markPaidFromWebhook).toHaveBeenCalled();
+    expect(paymentRepository.registerWebhookEvent).toHaveBeenCalledWith('evt_ok', 'payment_intent.succeeded');
+  });
+
+  test('n\'acquitte PAS l\'event si le traitement échoue (Stripe doit pouvoir retenter)', async () => {
+    // Sans cette garantie, un échec transitoire ferait perdre définitivement le
+    // paiement : Stripe retenterait et l'event serait ignoré comme « déjà traité ».
+    orderRepository.markPaidFromWebhook.mockRejectedValue(new Error('deadlock'));
+    mockEvent({ id: 'evt_ko', type: 'payment_intent.succeeded',
+      data: { id: 'pi_ko', metadata: { order_id: '1' }, payment_method_types: ['card'] } });
+
+    await expect(paymentService.handleWebhook('raw', 'sig')).rejects.toThrow('deadlock');
+    expect(paymentRepository.registerWebhookEvent).not.toHaveBeenCalled();
   });
 
   test('ignore les événements inconnus sans erreur', async () => {
