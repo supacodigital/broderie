@@ -3,6 +3,7 @@ const cartRepository    = require('../repositories/cart.repository');
 const userRepository    = require('../repositories/user.repository');
 const paymentRepository = require('../repositories/payment.repository');
 const couponRepository  = require('../repositories/coupon.repository');
+const loyaltyRepository = require('../repositories/loyalty.repository');
 const { AppError }      = require('../middlewares/errorHandler');
 const { roundCHF }      = require('../utils/chf.utils');
 const { getShippingCost } = require('../utils/shipping.utils');
@@ -38,16 +39,32 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
     activeItems.reduce((sum, item) => sum + parseFloat(item.price_snapshot) * item.quantity, 0)
   );
 
-  // Validation et application du coupon
-  let discount    = 0;
-  let couponId    = null;
-  let couponApplied = null;
+  // Validation et application du code de réduction.
+  // Deux sources possibles derrière un même champ « code promo » côté client :
+  // la table `coupons` (codes créés par l'admin) et `loyalty_rewards` (bons générés
+  // par le programme de fidélité). On essaie les coupons d'abord, puis les bons —
+  // sans ce second essai, un bon annoncé au client par email serait refusé au panier.
+  let discount        = 0;
+  let couponId        = null;
+  let couponApplied   = null;
+  let loyaltyRewardId = null;
   if (couponCode) {
     const result = await couponRepository.validate(couponCode, subtotal);
-    if (!result.valid) throw new AppError(result.error, 400);
-    discount      = result.discount;
-    couponId      = result.coupon.id;
-    couponApplied = result.coupon.code;
+    if (result.valid) {
+      discount      = result.discount;
+      couponId      = result.coupon.id;
+      couponApplied = result.coupon.code;
+    } else {
+      const rewardResult = await loyaltyRepository.validateReward(couponCode, userId, subtotal);
+      if (!rewardResult.valid) {
+        // On remonte l'erreur du bon si le code ressemble à un bon de fidélité
+        // (message plus précis : « déjà utilisé », « expiré »), sinon celle du coupon.
+        throw new AppError(rewardResult.error === 'Code invalide.' ? result.error : rewardResult.error, 400);
+      }
+      discount        = rewardResult.discount;
+      couponApplied   = rewardResult.reward.code;
+      loyaltyRewardId = rewardResult.reward.id;
+    }
   }
 
   const discountedSubtotal = roundCHF(subtotal - discount);
@@ -91,6 +108,21 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
     qrReference,
     locale,
   });
+
+  // Consommation du bon de fidélité — après création de la commande (on a besoin de
+  // l'orderId pour tracer la transaction 'redeem'). Échec non bloquant : la commande
+  // est déjà créée et payable, on ne la perd pas pour un bon non décompté — mais on
+  // le journalise, c'est une incohérence à rattraper manuellement.
+  if (loyaltyRewardId) {
+    try {
+      const redeemed = await loyaltyRepository.redeemReward(loyaltyRewardId, userId, orderId, discount);
+      if (!redeemed) {
+        console.error('[Fidélité] Bon non consommé (déjà utilisé ?) — commande', orderId, 'bon', loyaltyRewardId);
+      }
+    } catch (err) {
+      console.error('[Fidélité] Consommation du bon échouée — commande', orderId, ':', err.message);
+    }
+  }
 
   // Vider le panier après confirmation de la commande
   await cartRepository.clearCart(cart.id);

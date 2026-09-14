@@ -1,5 +1,6 @@
 const crypto   = require('crypto');
 const { pool } = require('../config/db');
+const { roundCHF } = require('../utils/chf.utils');
 
 // Compte fidélité d'un utilisateur avec son palier actuel
 const findAccount = async (userId) => {
@@ -246,9 +247,84 @@ const findAllRewards = async ({ page = 1, limit = 20, status = '' }) => {
   return { rows, total };
 };
 
+// ─────────────────────────────────────────────────────────────
+// Consommation d'un bon de fidélité au checkout
+// Les bons vivent dans loyalty_rewards, pas dans coupons : sans ces deux
+// fonctions, un bon annoncé au client par email serait refusé au panier.
+// ─────────────────────────────────────────────────────────────
+
+/* Valide un bon pour un utilisateur donné (lecture seule — aucune consommation).
+   Retourne { valid, reward, discount } ou { valid: false, error }. */
+const validateReward = async (code, userId, orderSubtotal) => {
+  const [rows] = await pool.execute(
+    `SELECT id, user_id, code, type, value, status, expires_at
+     FROM loyalty_rewards
+     WHERE code = ? LIMIT 1`,
+    [String(code).toUpperCase()]
+  );
+  const reward = rows[0] ?? null;
+  if (!reward) return { valid: false, error: 'Code invalide.' };
+
+  // Message volontairement identique à « code inconnu » : ne pas révéler
+  // qu'un bon existe et appartient à quelqu'un d'autre.
+  if (reward.user_id !== userId) return { valid: false, error: 'Code invalide.' };
+
+  if (reward.status === 'used')    return { valid: false, error: 'Ce bon de fidélité a déjà été utilisé.' };
+  if (reward.status === 'expired') return { valid: false, error: 'Ce bon de fidélité est expiré.' };
+  if (reward.status !== 'available') return { valid: false, error: 'Ce bon de fidélité n\'est pas encore disponible.' };
+
+  if (reward.expires_at && new Date(reward.expires_at) < new Date()) {
+    return { valid: false, error: 'Ce bon de fidélité est expiré.' };
+  }
+
+  const discount = reward.type === 'percent'
+    ? roundCHF(orderSubtotal * parseFloat(reward.value) / 100)
+    : roundCHF(Math.min(parseFloat(reward.value), orderSubtotal));
+
+  return { valid: true, reward, discount };
+};
+
+/* Marque le bon comme utilisé et journalise la transaction 'redeem'.
+   Verrou FOR UPDATE + re-vérification du statut : deux commandes simultanées
+   avec le même bon ne doivent pas le consommer deux fois. */
+const redeemReward = async (rewardId, userId, orderId, amountChf) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [[reward]] = await connection.execute(
+      `SELECT id, status FROM loyalty_rewards WHERE id = ? AND user_id = ? FOR UPDATE`,
+      [rewardId, userId]
+    );
+    if (!reward || reward.status !== 'available') {
+      await connection.rollback();
+      return false;
+    }
+
+    await connection.execute(
+      `UPDATE loyalty_rewards SET status = 'used' WHERE id = ?`,
+      [rewardId]
+    );
+    await connection.execute(
+      `INSERT INTO loyalty_transactions (user_id, order_id, amount_chf, type)
+       VALUES (?, ?, ?, 'redeem')`,
+      [userId, orderId, amountChf]
+    );
+
+    await connection.commit();
+    return true;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
   findAccount, createAccount, findRewards, findTransactions,
   findTiers, findAllTiers, createTier, updateTier, deleteTier,
   addTransaction, createRewardAndUpdateTier, tierAlreadyRewarded,
   findAllAccounts, getGlobalKpis, findAllRewards,
+  validateReward, redeemReward,
 };
