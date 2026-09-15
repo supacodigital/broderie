@@ -139,6 +139,16 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
       ? 'relevance'
       : (ALLOWED_SORT_FIELDS[sort] || 'p.created_at');
   const sortOrder = filters.featured ? 'ASC' : relevanceSort ? 'DESC' : (order === 'asc' ? 'ASC' : 'DESC');
+  /* Produits illustrés en premier : le catalogue photo est incomplet (les lots de
+     photos de la cliente arrivent par vagues), et une page entière de vignettes vides
+     donne une mauvaise première impression. `pi.id IS NULL` vaut 0 (avec image) ou
+     1 (sans), donc ASC remonte les produits illustrés — le tri demandé s'applique
+     ensuite, à l'intérieur de chaque groupe.
+     Neutralisé pour la home bento (ordre manuel défini par l'admin) et pour la
+     recherche (la pertinence prime : masquer une correspondance exacte parce qu'elle
+     n'a pas encore de photo serait pire).
+     À retirer quand tous les lots seront importés — voir database/README.md. */
+  const imageFirst = !filters.featured && !relevanceSort ? 'pi.id IS NULL ASC, ' : '';
   const offset = (page - 1) * limit;
 
   // Requête de comptage. Tout produit a toujours une traduction FR (translations.fr
@@ -187,7 +197,7 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
      LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      WHERE ${conditions.join(' AND ')} AND (pt.name IS NOT NULL OR pt_fr.name IS NOT NULL)
-     ORDER BY ${sortField} ${sortOrder}
+     ORDER BY ${imageFirst}${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
     [...relevanceParams, locale, locale, ...params, limit, offset]
   );
@@ -293,6 +303,8 @@ const search = async ({ q, locale = 'fr', page = 1, limit = 20 }) => {
 const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 20, sort = 'created_at', order = 'desc' }) => {
   const sortField = ALLOWED_SORT_FIELDS[sort] || 'p.created_at';
   const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
+  // Produits illustrés en premier — même raison que dans findAll()
+  const imageFirst = 'pi.id IS NULL ASC, ';
   const offset = (page - 1) * limit;
 
   // Tout produit a une traduction FR → pas besoin de joindre les traductions pour le COUNT
@@ -315,7 +327,7 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.category_id = ?
        AND (pt.name IS NOT NULL OR pt_fr.name IS NOT NULL)
-     ORDER BY ${sortField} ${sortOrder}
+     ORDER BY ${imageFirst}${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
     [locale, locale, categoryId, limit, offset]
   );
