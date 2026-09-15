@@ -2,7 +2,7 @@
 /* ============================================================
  * Import du complément catalogue transmis par la cliente via le fichier
  * Excel "Catalogue-a-completer-photos.xlsx" (généré par
- * database/generate-catalog-excel.js, onglet "Catalogue").
+ * database/export-catalog-excel.js, onglet "Catalogue").
  *
  * Ce script couvre exactement ce que import-catalog.js NE fait PAS
  * photos, description FR manquante,

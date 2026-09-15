@@ -10,7 +10,11 @@
     "test:coverage": "jest --coverage --runInBand --forceExit",
     "db:migrate": "node ../database/migrate.js",
     "db:migrate:status": "node ../database/migrate.js --status",
-    "import:catalog": "node ../database/import-catalog.js"
+    "import:catalog": "node ../database/import-catalog.js",
+    "import:catalog-photos": "node ../database/import-catalog-photos.js",
+    "export:catalog": "node ../database/export-catalog-excel.js",
+    "import:catalog-updates": "node ../database/import-catalog-updates.js",
+    "prices:dmc": "node ../database/update-prices-dmc.js"
   },
   "keywords": [],
   "author": "",
@@ -24,6 +28,7 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.4.1",
     "helmet": "^8.1.0",
