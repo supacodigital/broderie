@@ -21,6 +21,8 @@ function buildSchema(t) {
     password_confirm: z.string(),
     /* Zod 4 : la case CGV doit valoir true — message custom via refine */
     cgv: z.boolean().refine(v => v === true, { message: t('auth.errors.cgvRequired') }),
+    /* Consentement marketing — facultatif, jamais pré-coché (LPD) */
+    newsletter: z.boolean().optional(),
   }).refine(d => d.password === d.password_confirm, {
     message: t('auth.errors.passwordMatch'),
     path: ['password_confirm'],
@@ -39,7 +41,7 @@ export default function RegisterForm() {
 
   const { register, handleSubmit, setFocus, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(buildSchema(t)),
-    defaultValues: { cgv: false },
+    defaultValues: { cgv: false, newsletter: false },
   })
 
   /* Focus programmatique sur le 1er champ en erreur à la soumission (WCAG) */
@@ -50,9 +52,9 @@ export default function RegisterForm() {
 
   const onSubmit = async (values) => {
     setGlobalError('')
-    const { password_confirm, cgv, first_name, last_name, ...rest } = values
+    const { password_confirm, cgv, first_name, last_name, newsletter, ...rest } = values
     try {
-      await authRegister({ ...rest, firstName: first_name, lastName: last_name })
+      await authRegister({ ...rest, firstName: first_name, lastName: last_name, newsletter: !!newsletter })
       navigate('/mon-compte', { replace: true })
     } catch (err) {
       const status = err.response?.status
@@ -182,6 +184,24 @@ export default function RegisterForm() {
               <AlertCircle size={12} aria-hidden="true" />{errors.cgv.message}
             </span>
           )}
+        </div>
+
+        {/* Inscription newsletter — facultative et décorrélée des CGV.
+            Le consentement est recueilli ici mais ne devient effectif qu'à la
+            confirmation de l'adresse e-mail : c'est un double opt-in, et cela évite
+            d'inscrire une adresse que personne n'a prouvé posséder. */}
+        <div className={s.field}>
+          <div className={s.cgvRow}>
+            <input
+              id="reg-newsletter"
+              type="checkbox"
+              className={s.checkbox}
+              {...register('newsletter')}
+            />
+            <label htmlFor="reg-newsletter" className={s.cgvLabel}>
+              {t('auth.newsletterOptIn')}
+            </label>
+          </div>
         </div>
 
         {/* Bouton inscription */}

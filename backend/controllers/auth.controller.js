@@ -16,6 +16,9 @@ const registerSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName:  z.string().min(1).max(100),
   locale:    z.literal('fr').optional().default('fr'),
+  // Consentement marketing facultatif — recueilli à l'inscription, effectif à la
+  // confirmation de l'adresse e-mail (double opt-in).
+  newsletter: z.boolean().optional().default(false),
 });
 
 const loginSchema = z.object({
@@ -40,9 +43,9 @@ const register = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors });
     }
 
-    const { email, password, firstName, lastName, locale } = parsed.data;
+    const { email, password, firstName, lastName, locale, newsletter } = parsed.data;
     const { user, accessToken, refreshToken } = await authService.register({
-      email, password, firstName, lastName, locale,
+      email, password, firstName, lastName, locale, newsletter,
     });
 
     res.cookie('refreshToken', refreshToken, authService.refreshCookieOptions());

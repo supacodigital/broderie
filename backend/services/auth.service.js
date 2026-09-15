@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const userRepository = require('../repositories/user.repository');
+const newsletterRepository = require('../repositories/newsletter.repository');
 const mfaRepository = require('../repositories/mfa.repository');
 const { AppError } = require('../middlewares/errorHandler');
 const emailService = require('./email.service');
@@ -73,7 +74,7 @@ const issueEmailVerification = async (user, { blocking = false } = {}) => {
   }
 };
 
-const register = async ({ email, password, firstName, lastName, locale }) => {
+const register = async ({ email, password, firstName, lastName, locale, newsletter = false }) => {
   const exists = await userRepository.emailExists(email);
   if (exists) {
     throw new AppError('Un compte existe déjà avec cet email.', 409);
@@ -91,6 +92,15 @@ const register = async ({ email, password, firstName, lastName, locale }) => {
     console.error('[Email] Bienvenue non envoyé :', err.message);
   });
 
+  /* Newsletter : consentement recueilli à l'inscription, mais conservé inactif tant que
+     l'adresse n'est pas confirmée (double opt-in). Échec non bloquant — on ne perd pas
+     une inscription client pour un abonnement marketing. */
+  if (newsletter) {
+    newsletterRepository.subscribePending(email, locale).catch((err) => {
+      console.error('[Newsletter] Pré-inscription échouée :', err.message);
+    });
+  }
+
   // Email de vérification d'adresse — non bloquant (n'interrompt jamais l'inscription)
   await issueEmailVerification(user, { blocking: false });
 
@@ -107,6 +117,13 @@ const verifyEmail = async (rawToken) => {
   if (!user) throw new AppError('Lien de vérification invalide ou expiré.', 400);
 
   await userRepository.markEmailVerified(user.id);
+
+  /* L'adresse est prouvée : une éventuelle pré-inscription newsletter devient effective.
+     Sans effet si le client n'en avait pas demandé, ou s'il s'est désabonné depuis. */
+  newsletterRepository.confirmPending(user.email).catch((err) => {
+    console.error('[Newsletter] Confirmation échouée :', err.message);
+  });
+
   return { email: user.email };
 };
 

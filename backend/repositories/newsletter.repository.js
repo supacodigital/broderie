@@ -24,6 +24,37 @@ const subscribe = async (email, locale = 'fr') => {
   return { created: true };
 };
 
+/* Pré-inscription en attente de confirmation (double opt-in).
+   L'abonnement est créé inactif : il ne devient effectif qu'une fois l'adresse
+   e-mail vérifiée, via confirmPending(). On n'écrase jamais un abonnement déjà
+   actif, ni un désabonnement volontaire plus récent que la demande. */
+const subscribePending = async (email, locale = 'fr') => {
+  const [existing] = await pool.execute(
+    `SELECT id, is_active FROM newsletter_subscribers WHERE email = ? LIMIT 1`,
+    [email]
+  );
+  if (existing[0]) return { alreadyKnown: true };
+
+  await pool.execute(
+    `INSERT INTO newsletter_subscribers (email, locale, is_active) VALUES (?, ?, 0)`,
+    [email, locale]
+  );
+  return { pending: true };
+};
+
+/* Active une pré-inscription au moment où l'adresse e-mail est confirmée.
+   Ne touche qu'aux lignes encore inactives et jamais désabonnées : quelqu'un qui
+   s'est désinscrit entre-temps ne doit pas être réabonné par une confirmation tardive. */
+const confirmPending = async (email) => {
+  const [result] = await pool.execute(
+    `UPDATE newsletter_subscribers
+     SET is_active = 1, subscribed_at = NOW()
+     WHERE email = ? AND is_active = 0 AND unsubscribed_at IS NULL`,
+    [email]
+  );
+  return result.affectedRows > 0;
+};
+
 // Désabonnement
 const unsubscribe = async (email) => {
   const [result] = await pool.execute(
@@ -87,4 +118,12 @@ const unsubscribeById = async (id) => {
   return result.affectedRows > 0;
 };
 
-module.exports = { subscribe, unsubscribe, findAll, findByEmail, unsubscribeById };
+module.exports = {
+  subscribePending,
+  confirmPending,
+  subscribe,
+  unsubscribe,
+  findAll,
+  findByEmail,
+  unsubscribeById,
+};

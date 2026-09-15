@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
@@ -16,6 +16,7 @@ import { updateProfile, updatePassword, downloadMyData, deleteMyAccount } from '
 import { getAddresses, createAddress, updateAddress, deleteAddress } from '../../services/addresses.service.js'
 import { getLoyaltyAccount, getLoyaltyRewards } from '../../services/loyalty.service.js'
 import { getWishlist } from '../../services/wishlist.service.js'
+import Pagination from '../../components/ui/Pagination/Pagination.jsx'
 import { roundCHF } from '../../utils/chf.js'
 import { normalizeLocale } from '../../utils/locale.js'
 import { formatDate } from '../../utils/date.js'
@@ -377,9 +378,10 @@ function TabProfile({ user, onSaved }) {
 
   return (
     <section className={s.panel}>
+      {/* Le séparateur appartient à TabLoyalty : sans palier configuré, le composant
+          ne rend rien et un <hr> laissé ici ouvrirait le panneau sur un trait
+          horizontal isolé. */}
       <TabLoyalty />
-
-      <hr className={s.sectionDivider} />
 
       <TabAddresses />
 
@@ -439,20 +441,36 @@ function TabProfile({ user, onSaved }) {
   )
 }
 
+/* Nombre de commandes par page dans l'onglet « Mes commandes » */
+const PAGE_SIZE = 20
+
 /* ── Section Commandes — tableau ── */
 function TabOrders() {
   const navigate = useNavigate()
   const [orders,  setOrders]  = useState([])
   const [loading, setLoading] = useState(true)
+  /* `error` distinct de la liste vide : un échec réseau ou une session expirée
+     affichait « Aucune commande », laissant croire que les commandes avaient disparu. */
+  const [error,      setError]      = useState(false)
+  const [page,       setPage]       = useState(1)
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 })
 
-  useEffect(() => {
+  const loadOrders = useCallback((targetPage) => {
     let cancelled = false
-    getMyOrders({ limit: 20 })
-      .then(d => { if (!cancelled) setOrders(d.data ?? []) })
-      .catch(() => { if (!cancelled) setOrders([]) })
+    setLoading(true)
+    setError(false)
+    getMyOrders({ page: targetPage, limit: PAGE_SIZE })
+      .then(d => {
+        if (cancelled) return
+        setOrders(d.data ?? [])
+        setPagination(d.pagination ?? { page: targetPage, totalPages: 1, total: d.data?.length ?? 0 })
+      })
+      .catch(() => { if (!cancelled) { setOrders([]); setError(true) } })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [])
+
+  useEffect(() => loadOrders(page), [page, loadOrders])
 
   if (loading) {
     return (
@@ -460,6 +478,20 @@ function TabOrders() {
         <h2 className={s.panelTitle}>Mes commandes</h2>
         <div className={s.skeletonList}>
           {[1,2,3].map(i => <div key={i} className={s.skeletonRow} />)}
+        </div>
+      </section>
+    )
+  }
+
+  if (error) {
+    return (
+      <section className={s.panel}>
+        <h2 className={s.panelTitle}>Mes commandes</h2>
+        <div className={s.emptyState}>
+          <Package size={40} className={s.emptyIcon} />
+          <p className={s.emptyTitle}>Impossible d'afficher vos commandes</p>
+          <p className={s.emptyDesc}>La connexion au serveur a échoué. Vos commandes ne sont pas perdues.</p>
+          <button type="button" className={s.btnPrimary} onClick={() => loadOrders(page)}>Réessayer</button>
         </div>
       </section>
     )
@@ -481,7 +513,8 @@ function TabOrders() {
 
   return (
     <section className={s.panel}>
-      <h2 className={s.panelTitle}>Mes commandes <span className={s.countBadge}>{orders.length}</span></h2>
+      {/* Compteur global, pas le nombre de lignes de la page courante */}
+      <h2 className={s.panelTitle}>Mes commandes <span className={s.countBadge}>{pagination.total ?? orders.length}</span></h2>
       <table className={s.dataTable}>
         <thead>
           <tr>
@@ -510,6 +543,13 @@ function TabOrders() {
           ))}
         </tbody>
       </table>
+
+      {/* Au-delà d'une page, les commandes plus anciennes étaient inaccessibles */}
+      <Pagination
+        page={pagination.page ?? page}
+        totalPages={pagination.totalPages ?? 1}
+        onChange={setPage}
+      />
     </section>
   )
 }
@@ -852,6 +892,11 @@ function TabLoyalty() {
 
   const account    = data?.account ?? null
   const tiers      = data?.tiers ?? []
+
+  /* Aucun palier actif : il n'y a ni progression ni récompense à montrer — afficher
+     « Sans palier » avec une barre pleine n'aurait aucun sens. Créer ou activer un
+     palier depuis l'admin réaffiche la section, sans toucher au code. */
+  if (tiers.length === 0) return null
   const spendChf   = parseFloat(account?.total_spend_chf ?? 0)
   const currentTier = tiers.find(t => t.id === account?.current_tier_id) ?? null
   const nextTier    = tiers
@@ -976,6 +1021,9 @@ function TabLoyalty() {
           })}
         </div>
       )}
+
+      {/* Séparateur porté par la section elle-même — voir TabProfile */}
+      <hr className={s.sectionDivider} />
     </>
   )
 }
