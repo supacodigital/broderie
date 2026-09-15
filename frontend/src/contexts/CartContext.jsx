@@ -75,6 +75,10 @@ export function CartProvider({ children }) {
       if (serverItems.length) {
         dispatch({ type: 'SET_ITEMS', payload: serverItems.map(normalizeItem) })
       }
+      /* Confirmation immédiate près du point de clic. Le bouton « Valider mon panier »
+         (bas de l'écran) prend ensuite le relais : il reste visible tant que le panier
+         n'est pas vide, sans que le client ait à remonter en haut de page. */
+      toast.success(t('cart.itemAdded'), { to: '/panier', label: t('cart.viewCart') })
     } catch {
       /* Rollback vers l'état au moment de l'appel — pas une closure périmée */
       dispatch({ type: 'SET_ITEMS', payload: snapshot })

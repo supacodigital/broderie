@@ -27,7 +27,7 @@
     "twint": "Paiement par Twint accepté"
   },
   "hero": {
-    "eyebrow": "Artisanat suisse depuis 1987",
+    "eyebrow": "Artisanat suisse depuis 1995",
     "title": "L'art de la broderie à <1>l'aiguille</1>",
     "subtitle": "Kits, fils et accessoires sélectionnés avec passion",
     "desc": "Découvrez notre collection de fils DMC, kits de broderie et accessoires de qualité suisse. Idéal pour les débutantes comme les expertes.",
@@ -83,8 +83,8 @@
   },
   "crafts": {
     "eyebrow": "Notre histoire",
-    "title": "L'amour du fil depuis 1987",
-    "text": "Fondée à Lausanne, Au Point-Compté est une boutique spécialisée dans les arts de l'aiguille. Depuis près de 40 ans, nous accompagnons les passionnées de broderie avec une sélection rigoureuse de matériel de qualité supérieure.",
+    "title": "L'amour du fil depuis 1995",
+    "text": "Fondée à Lausanne, Au Point-Compté est une boutique spécialisée dans les arts de l'aiguille. Depuis plus de 30 ans, nous accompagnons les passionnées de broderie avec une sélection rigoureuse de matériel de qualité supérieure.",
     "cta": "Découvrir notre histoire",
     "points": [
       "Fils DMC certifiés, couleurs garanties",
@@ -126,7 +126,7 @@
     "success": "✓ Merci ! Vous êtes maintenant abonnée."
   },
   "footer": {
-    "desc": "Votre spécialiste suisse en broderie depuis 1987. Qualité, passion et service au fil de chaque commande.",
+    "desc": "Votre spécialiste suisse en broderie depuis 1995. Qualité, passion et service au fil de chaque commande.",
     "shopTitle": "Boutique",
     "helpTitle": "Aide",
     "contactTitle": "Contact",
@@ -329,6 +329,9 @@
     "securePayment": "Paiement 100% sécurisé",
     "itemAdded": "Article ajouté au panier",
     "viewCart": "Voir le panier",
+    "validateCart": "Valider mon panier",
+    "validateCartAria": "Valider mon panier — {{count}} article",
+    "validateCartAria_other": "Valider mon panier — {{count}} articles",
     "addFailed": "Impossible d'ajouter l'article. Veuillez réessayer."
   },
   "auth": {
@@ -362,6 +365,7 @@
     "loadingRegister": "Création du compte…",
     "cgvAccept": "J'accepte les",
     "cgvLink": "Conditions Générales de Vente",
+    "newsletterOptIn": "Je souhaite recevoir les nouveautés et offres par e-mail (facultatif)",
     "aside": {
       "subtext": "Retrouvez vos commandes, vos favoris et votre programme de fidélité en un seul endroit.",
       "perk1": "Livraison soignée dans toute la Suisse",
@@ -447,11 +451,11 @@
   },
   "seo": {
     "homeTitle": "Broderie & Arts de l'aiguille",
-    "homeDesc": "Votre spécialiste suisse en broderie depuis 1987. Kits, fils DMC, toiles et accessoires. Livraison 1–2 jours en Suisse.",
+    "homeDesc": "Votre spécialiste suisse en broderie depuis 1995. Kits, fils DMC, toiles et accessoires. Livraison 1–2 jours en Suisse.",
     "catalogueTitle": "Catalogue",
     "catalogueDesc": "Découvrez notre catalogue de kits de broderie, fils, toiles et accessoires. Prix en CHF, livraison rapide en Suisse.",
     "aboutTitle": "Notre histoire",
-    "aboutDesc": "L'histoire d'Au Point-Compté et de Julie — passion de la broderie depuis 1987 en Suisse romande.",
+    "aboutDesc": "L'histoire d'Au Point-Compté et de Julie — passion de la broderie depuis 1995 en Suisse romande.",
     "cartTitle": "Mon panier",
     "cartDesc": "Récapitulatif de votre panier avant commande.",
     "cgvTitle": "Conditions générales de vente",

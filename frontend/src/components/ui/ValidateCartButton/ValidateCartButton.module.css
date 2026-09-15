@@ -1,0 +1,144 @@
+/* ── Bouton « Valider mon panier » — bas droit, au-dessus du contenu ── */
+.button {
+  position: fixed;
+  /* Position basse : c'est l'action principale, elle occupe le coin le plus
+     accessible au pouce. « Retour en haut » est empilé au-dessus (voir
+     Catalogue.module.css → .backToTop). */
+  right: 32px;
+  bottom: 32px;
+  /* Sous le drawer panier (300/301) et la bannière cookies (600), au-dessus du
+     contenu de page et de la navbar (100/200). */
+  z-index: 250;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px 10px 12px;
+  border-radius: 999px;
+  background: var(--rose);
+  color: var(--white);
+  text-decoration: none;
+  box-shadow: var(--shadow-md);
+  font-family: 'Montserrat', sans-serif;
+
+  /* Propriétés listées explicitement — jamais `all` */
+  transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+              box-shadow 160ms cubic-bezier(0.23, 1, 0.32, 1),
+              background-color 160ms ease;
+
+  /* Entrée depuis 0.95 et non 0 : rien n'apparaît de nulle part */
+  animation: buttonIn 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes buttonIn {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+/* Survol réservé au pointeur fin — sur mobile il se déclencherait au tap */
+@media (hover: hover) and (pointer: fine) {
+  .button:hover {
+    background: var(--rose-dark);
+    box-shadow: var(--shadow-lg);
+    transform: scale(1.03);
+  }
+}
+
+/* Retour tactile immédiat à la pression */
+.button:active {
+  transform: scale(0.97);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--rose-dark);
+  outline-offset: 3px;
+}
+
+/* ── Icône + badge ── */
+.iconWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.badge {
+  position: absolute;
+  top: -7px;
+  right: -9px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  /* Détache le badge du fond rose du bouton */
+  border: 2px solid var(--rose);
+  background: var(--text);
+  color: var(--white);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Rejoué à chaque changement de quantité (via `key`) : confirme l'ajout sans
+     déplacer le bouton. */
+  animation: badgePop 260ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes badgePop {
+  0%   { transform: scale(0.8); }
+  55%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* ── Libellés ── */
+.labels {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  /* Un libellé coupé en deux ferait bricolé */
+  white-space: nowrap;
+}
+
+.total {
+  font-size: 11.5px;
+  opacity: 0.9;
+}
+
+/* ── Mobile — marges réduites à 20px, comme le « Retour en haut » ──
+   Breakpoint aligné sur celui de .backToTop (768px) : à 1px d'écart, les deux
+   boutons basculaient à des largeurs différentes et se chevauchaient. */
+@media (max-width: 768px) {
+  .button {
+    right: 20px;
+    bottom: 20px;
+    padding: 9px 14px 9px 11px;
+  }
+  .label { font-size: 12.5px; }
+  .total { font-size: 11px; }
+}
+
+/* ── Mouvement réduit : on garde l'apparition, on retire le déplacement ── */
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    animation: buttonFade 160ms ease-out;
+  }
+  .button:hover,
+  .button:active {
+    transform: none;
+  }
+  .badge {
+    animation: none;
+  }
+  @keyframes buttonFade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+}

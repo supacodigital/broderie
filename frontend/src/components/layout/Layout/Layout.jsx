@@ -5,6 +5,7 @@ import Footer from '../Footer/Footer.jsx'
 import CookieBanner from '../../ui/CookieBanner/CookieBanner.jsx'
 import EmailVerificationBanner from '../../ui/EmailVerificationBanner/EmailVerificationBanner.jsx'
 import Toaster from '../../ui/Toaster/Toaster.jsx'
+import ValidateCartButton from '../../ui/ValidateCartButton/ValidateCartButton.jsx'
 import s from './Layout.module.css'
 
 export default function Layout() {
@@ -23,6 +24,7 @@ export default function Layout() {
       </main>
       <Footer />
       <CookieBanner />
+      <ValidateCartButton />
       <Toaster />
     </div>
   )
