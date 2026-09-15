@@ -61,6 +61,8 @@ const buildListFilters = (query) => ({
   lowStock:   query.low_stock === 'true',
   isActive:   query.is_active === 'true' ? true : query.is_active === 'false' ? false : null,
   isFeatured: query.is_featured === 'true' ? true : query.is_featured === 'false' ? false : null,
+  // Remonte les produits illustrés — utilisé par le sélecteur de la vitrine home
+  imageFirst: query.image_first === 'true',
 });
 
 const list = async (query) => {

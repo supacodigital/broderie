@@ -53,6 +53,16 @@ const LEGAL_KEYS = ['cgv', 'mentions_legales', 'politique_retour'];
    `banner_enabled` vaut '1' ou '0' — la table settings ne stocke que du texte. */
 const BANNER_KEYS = ['banner_enabled', 'banner_text', 'banner_link'];
 
+/* Retrait en boutique — ces valeurs partent dans l'email « votre commande est
+   prête ». Elles vivaient dans le .env : les corriger imposait un accès SSH au
+   serveur pour un simple changement d'horaires. */
+const PICKUP_KEYS = ['pickup_name', 'pickup_address', 'pickup_zip', 'pickup_city', 'pickup_hours'];
+
+/* Coordonnées imprimées sur la facture QR et délai de paiement.
+   Le QR-IBAN reste volontairement dans le .env : c'est une donnée bancaire, et
+   une erreur de saisie enverrait de vrais paiements sur le mauvais compte. */
+const INVOICE_KEYS = ['invoice_name', 'invoice_address', 'invoice_zip', 'invoice_city', 'invoice_vat_number', 'invoice_due_days'];
+
 const findSettings = async (keys) => {
   const placeholders = keys.map(() => '?').join(', ');
   const [rows] = await pool.execute(
@@ -126,5 +136,5 @@ const updateShippingRatesBulk = async (rates) => {
 module.exports = {
   findAllTaxRates, updateTaxRate, findAllShippingRates, updateShippingRate,
   updateTaxRatesBulk, updateShippingRatesBulk,
-  findSettings, upsertSettings, STORE_KEYS, LEGAL_KEYS, BANNER_KEYS,
+  findSettings, upsertSettings, STORE_KEYS, LEGAL_KEYS, BANNER_KEYS, PICKUP_KEYS, INVOICE_KEYS,
 };

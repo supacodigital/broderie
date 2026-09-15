@@ -38,6 +38,58 @@ describe('invoice.service — generateQrReference()', () => {
   });
 });
 
+/* Non-régression : format de facture « AAAA-NNNNNN » demandé par la cliente.
+   Avec un QR-IBAN, la référence doit être structurée (27 chiffres) et intégrer
+   l'année — sans quoi le compteur, remis à 1 chaque 1er janvier, produirait la
+   même référence en 2026 et en 2027 et la banque rapprocherait le paiement sur
+   la mauvaise facture. */
+describe('invoice.service — référence structurée avec QR-IBAN', () => {
+  const QR_IBAN = 'CH9330000001167981317'; // QR-IBAN PostFinance de la boutique
+
+  let generateWithQrIban;
+  let isQRReference;
+
+  beforeAll(() => {
+    jest.resetModules();
+    jest.doMock('../../config/env', () => ({
+      ...jest.requireActual('../../config/env'),
+      qrInvoiceIban: QR_IBAN,
+    }));
+    ({ generateQrReference: generateWithQrIban } = require('../../services/invoice.service'));
+    ({ isQRReference } = require('swissqrbill/utils'));
+  });
+
+  afterAll(() => {
+    jest.dontMock('../../config/env');
+    jest.resetModules();
+  });
+
+  test('l’IBAN PostFinance de la boutique est bien un QR-IBAN', () => {
+    const { isQRIBAN } = require('swissqrbill/utils');
+    expect(isQRIBAN(QR_IBAN)).toBe(true);
+  });
+
+  test('produit 27 chiffres avec une clé de contrôle valide', () => {
+    const ref = generateWithQrIban(1, 2026);
+    expect(ref).toHaveLength(27);
+    expect(ref).toMatch(/^\d{27}$/);
+    expect(isQRReference(ref)).toBe(true);
+  });
+
+  test('encode l’année et le compteur sur 6 chiffres', () => {
+    // 2026 + 000042 → « …0000 2026 000042 » + clé de contrôle
+    expect(generateWithQrIban(42, 2026).slice(0, 26)).toMatch(/0{16}2026000042$/);
+  });
+
+  test('deux années différentes ne partagent pas la même référence', () => {
+    expect(generateWithQrIban(1, 2026)).not.toBe(generateWithQrIban(1, 2027));
+  });
+
+  test('sans numéro de séquence, retombe sur la référence interne', () => {
+    expect(generateWithQrIban(null)).toMatch(/^APC/);
+  });
+});
+
 describe('invoice.service — generateInvoicePDF()', () => {
   test('retourne un Buffer non vide', async () => {
     const buf = await generateInvoicePDF({ order: makeOrder(), user: makeUser() });

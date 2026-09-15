@@ -51,3 +51,25 @@ export async function updateBannerSettings(data) {
   const res = await api.put('/admin/settings/banner', data)
   return res.data.data ?? null
 }
+
+/* Retrait en boutique — adresse et horaires envoyés dans l'email « commande prête » */
+export async function getPickupSettings() {
+  const res = await api.get('/admin/settings/pickup')
+  return res.data.data ?? {}
+}
+
+export async function updatePickupSettings(data) {
+  const res = await api.put('/admin/settings/pickup', data)
+  return res.data.data ?? {}
+}
+
+/* Coordonnées et délai imprimés sur la facture QR */
+export async function getInvoiceSettings() {
+  const res = await api.get('/admin/settings/invoice')
+  return res.data.data ?? {}
+}
+
+export async function updateInvoiceSettings(data) {
+  const res = await api.put('/admin/settings/invoice', data)
+  return res.data.data ?? {}
+}

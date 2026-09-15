@@ -20,7 +20,12 @@ const getAll = async (req, res, next) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, parseInt(req.query.limit) || 20);
     const search = req.query.q || '';
-    const { rows, total } = await supplierRepository.findAll({ page, limit, search });
+    const { rows, total } = await supplierRepository.findAll({
+      page, limit, search,
+      isActive: req.query.is_active === 'true' ? true : req.query.is_active === 'false' ? false : null,
+      sort:  req.query.sort  || 'name',
+      order: req.query.order || 'asc',
+    });
     res.json({
       success: true,
       data: rows,

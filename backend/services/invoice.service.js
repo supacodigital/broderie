@@ -61,9 +61,15 @@ const computeTaxBreakdown = (order) => {
 // suffit à activer la référence structurée, sans modifier le code.
 // ─────────────────────────────────────────────────────────────
 
-// Référence QR structurée à partir du compteur de facture (26 chiffres + checksum)
-const buildStructuredReference = (invoiceSeq) => {
-  const base = String(invoiceSeq).replace(/\D/g, '').padStart(26, '0').slice(-26);
+/* Référence QR structurée : 26 chiffres + 1 de contrôle.
+   On encode ANNÉE (4) + compteur (6), complété par des zéros à gauche, soit le
+   numéro de facture « 2026-000001 » sans son tiret → …0000 2026 000001 + clé.
+   L'année est indispensable : le compteur repart à 1 chaque 1er janvier, donc
+   le seul numéro de séquence donnerait la même référence en 2026 et en 2027 —
+   la banque rapprocherait le paiement sur la mauvaise facture. */
+const buildStructuredReference = (invoiceSeq, year = new Date().getFullYear()) => {
+  const numeric = `${String(year)}${String(invoiceSeq).replace(/\D/g, '').padStart(6, '0')}`;
+  const base    = numeric.padStart(26, '0').slice(-26);
   return base + calculateQRReferenceChecksum(base);
 };
 
@@ -81,16 +87,16 @@ const usesStructuredReference = () => isQRIBAN(String(env.qrInvoiceIban || '').r
 
 /* Conservé pour les commandes créées avant la numérotation des factures :
    la référence est alors générée sans connaître le numéro de facture. */
-const generateQrReference = (invoiceSeq = null) => (
+const generateQrReference = (invoiceSeq = null, year = new Date().getFullYear()) => (
   usesStructuredReference() && invoiceSeq
-    ? buildStructuredReference(invoiceSeq)
+    ? buildStructuredReference(invoiceSeq, year)
     : buildInternalReference()
 );
 
 // Date d'échéance de la facture (aujourd'hui + délai configuré, défaut 30 jours)
-const computeDueDate = () => {
+const computeDueDate = (dueDays = null) => {
   const due = new Date();
-  due.setDate(due.getDate() + (env.invoiceDueDays || 30));
+  due.setDate(due.getDate() + (dueDays ?? env.invoiceDueDays ?? 30));
   return due;
 };
 
@@ -100,8 +106,8 @@ const formatDate = (date) => {
 };
 
 // Construit l'objet de données attendu par SwissQRBill à partir d'une commande
-const buildQrBillData = (order) => {
-  const dueDays = env.invoiceDueDays || 30;
+const buildQrBillData = (order, issuer = null) => {
+  const dueDays = issuer?.dueDays ?? env.invoiceDueDays ?? 30;
   const structured = usesStructuredReference();
   const invoiceLabel = order.invoice_number ?? `#${order.id}`;
   // Le débiteur de la facture QR est l'adresse de FACTURATION.
@@ -116,11 +122,12 @@ const buildQrBillData = (order) => {
     amount:   roundCHF(parseFloat(order.total)),
     currency: 'CHF',
     creditor: {
+      // Le QR-IBAN reste dans la configuration serveur : donnée bancaire
       account: env.qrInvoiceIban,
-      name:    env.qrInvoiceName,
-      address: env.qrInvoiceAddress,
-      city:    env.qrInvoiceCity,
-      zip:     parseInt(env.qrInvoiceZip, 10) || env.qrInvoiceZip,
+      name:    issuer?.name    ?? env.qrInvoiceName,
+      address: issuer?.address ?? env.qrInvoiceAddress,
+      city:    issuer?.city    ?? env.qrInvoiceCity,
+      zip:     parseInt(issuer?.zip ?? env.qrInvoiceZip, 10) || (issuer?.zip ?? env.qrInvoiceZip),
       country: 'CH',
     },
     debtor: {
@@ -166,7 +173,18 @@ const PAGE_BOTTOM    = 792 - PAGE_MARGIN; // A4 = 842pt de haut, marge basse ide
 // Génère un PDF de facture (Buffer) : facture détaillée + QR-facture suisse
 // Signature conservée { order, user } — utilisée par l'admin et le flux client
 // ─────────────────────────────────────────────────────────────
-const generateInvoicePDF = ({ order, user }) => {
+/* `settings` provient de shopSettings.service (valeurs saisies dans l'admin).
+   Optionnel : sans lui on retombe sur la configuration serveur, ce qui garde
+   les appels existants et les tests valides. */
+const generateInvoicePDF = ({ order, user, settings = null }) => {
+  const issuer = {
+    name:      settings?.name      ?? env.qrInvoiceName,
+    address:   settings?.address   ?? env.qrInvoiceAddress,
+    zip:       settings?.zip       ?? env.qrInvoiceZip,
+    city:      settings?.city      ?? env.qrInvoiceCity,
+    vatNumber: settings?.vatNumber ?? env.qrInvoiceVatNumber,
+    dueDays:   settings?.dueDays   ?? env.invoiceDueDays ?? 30,
+  };
   return new Promise((resolve, reject) => {
     try {
       // Garde-fou : ne jamais émettre une facture avec l'IBAN de test en production
@@ -189,18 +207,18 @@ const generateInvoicePDF = ({ order, user }) => {
       doc.image(LOGO_PATH, PAGE_MARGIN, 44, { height: 46 });
 
       doc.fontSize(9).fillColor(muted).font('Helvetica')
-         .text(`${env.qrInvoiceAddress} · ${env.qrInvoiceZip} ${env.qrInvoiceCity}`, PAGE_MARGIN, 96);
+         .text(`${issuer.address} · ${issuer.zip} ${issuer.city}`, PAGE_MARGIN, 96);
 
       // N° TVA du vendeur — imprimé seulement si la boutique est assujettie (LTVA art. 26)
-      if (env.qrInvoiceVatNumber) {
-        doc.text(env.qrInvoiceVatNumber, PAGE_MARGIN, 108);
+      if (issuer.vatNumber) {
+        doc.text(issuer.vatNumber, PAGE_MARGIN, 108);
       }
 
       doc.fontSize(24).fillColor(dark).font('Helvetica-Bold')
          .text('FACTURE', 350, 46, { align: 'right', width: 195 });
 
       doc.fontSize(9).fillColor(muted).font('Helvetica')
-         /* Numéro de facture au format « 2026-09/01 » — lisible et classable en
+         /* Numéro de facture au format « 2026-000001 » — lisible et classable en
             comptabilité. Le numéro de commande reste affiché en dessous : c'est
             lui que la cliente retrouve dans l'administration. */
          .text(`N° ${order.invoice_number ?? String(order.id).padStart(6, '0')}`, 350, 78,  { align: 'right', width: 195 })
@@ -349,7 +367,7 @@ const generateInvoicePDF = ({ order, user }) => {
       // `language: 'FR'` est indispensable : la librairie rend le bulletin en
       // ALLEMAND par défaut (Zahlteil, Empfangsschein, Betrag…), alors que le
       // reste de la facture est en français.
-      const qrBill = new SwissQRBill(buildQrBillData(order), { language: 'FR' });
+      const qrBill = new SwissQRBill(buildQrBillData(order, issuer), { language: 'FR' });
       qrBill.attachTo(doc);
 
       doc.end();
@@ -364,7 +382,7 @@ const generateInvoicePDF = ({ order, user }) => {
 // ─────────────────────────────────────────────────────────────
 const sendInvoiceEmail = async ({ user, order }) => {
   const pdfBuffer = await generateInvoicePDF({ order, user });
-  const dueDate   = computeDueDate();
+  const dueDate   = computeDueDate(issuer.dueDays);
   await emailService.sendInvoice({ user, order, pdfBuffer, dueDate });
 };
 

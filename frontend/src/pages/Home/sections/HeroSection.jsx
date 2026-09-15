@@ -38,10 +38,6 @@ export default function HeroSection() {
             <strong>{t("hero.stat2Value")}</strong>
             <span>{t("hero.stat2Label")}</span>
           </div>
-          <div className={s.stat}>
-            <strong>{t("hero.stat3Value")}</strong>
-            <span>{t("hero.stat3Label")}</span>
-          </div>
         </div>
       </div>
     </section>

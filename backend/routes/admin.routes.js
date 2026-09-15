@@ -84,6 +84,10 @@ router.get('/settings/legal',      settingsController.getLegalSettings);
 router.put('/settings/legal',      settingsController.updateLegalSettings);
 router.get('/settings/banner',     settingsController.getBannerSettings);
 router.put('/settings/banner',     settingsController.updateBannerSettings);
+router.get('/settings/pickup',     settingsController.getPickupSettings);
+router.put('/settings/pickup',     settingsController.updatePickupSettings);
+router.get('/settings/invoice',    settingsController.getInvoiceSettings);
+router.put('/settings/invoice',    settingsController.updateInvoiceSettings);
 
 // Coupons
 router.get('/coupons', couponController.getAll);

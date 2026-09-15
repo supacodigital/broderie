@@ -203,6 +203,7 @@ const findAllAdmin = async ({
   inStock = false, lowStock = false,
   isActive = null, isFeatured = null,
   sort = 'created_at', order = 'desc',
+  imageFirst = false,
 } = {}) => {
   const offset = (page - 1) * limit;
   // Vitrine home bento : même ordre que la boutique (featured_order), pas le tri générique demandé —
@@ -211,6 +212,13 @@ const findAllAdmin = async ({
     ? 'p.featured_order IS NULL, p.featured_order, p.created_at'
     : (ALLOWED_SORT_ADMIN[sort] || 'p.created_at');
   const sortOrder = isFeatured ? 'ASC' : (order === 'asc' ? 'ASC' : 'DESC');
+  /* Produits illustrés en premier — même logique que la boutique (voir
+     product.repository.js) : le catalogue photo est incomplet, et un écran de
+     vignettes vides est inexploitable quand on choisit un produit pour son image.
+     Activé à la demande (sélecteur de la vitrine), pas sur la liste admin où le
+     tri demandé par l'utilisatrice doit primer.
+     `pi.id IS NULL` vaut 0 (avec image) ou 1 (sans), donc ASC remonte les illustrés. */
+  const imageFirstSql = imageFirst ? 'pi.id IS NULL ASC, ' : '';
 
   const params = ['fr'];
   let where = 'WHERE p.deleted_at IS NULL';
@@ -301,7 +309,7 @@ const findAllAdmin = async ({
      LEFT JOIN suppliers sup ON sup.id = p.supplier_id
      LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
      ${where}
-     ORDER BY ${sortField} ${sortOrder}
+     ORDER BY ${imageFirstSql}${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );

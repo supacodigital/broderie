@@ -7,6 +7,15 @@ export async function getProducts(params = {}) {
   return { data: res.data.data ?? [], pagination: res.data.pagination ?? {} }
 }
 
+/* Liste des marques / éditeurs pour le filtre de la liste produits.
+   Route publique du catalogue : elle ne retourne que les marques ayant au moins
+   un produit actif — une gamme entièrement désactivée n'apparaît donc pas dans
+   le filtre. Acceptable ici, le filtre servant à retrouver des produits en vente. */
+export async function getBrands() {
+  const res = await api.get('/products/brands')
+  return res.data.data ?? []
+}
+
 export async function getProductById(id) {
   const res = await api.get(`/admin/products/${id}`)
   return res.data.data ?? null

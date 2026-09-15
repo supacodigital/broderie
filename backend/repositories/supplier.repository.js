@@ -1,15 +1,33 @@
 const { pool } = require('../config/db');
 
-const findAll = async ({ page = 1, limit = 20, search = '' }) => {
+/* Tris autorisés — protège de l'injection, la valeur venant de la query string */
+const ALLOWED_SORT = {
+  name:          's.name',
+  created_at:    's.created_at',
+  product_count: 'product_count',
+};
+
+const findAll = async ({ page = 1, limit = 20, search = '', isActive = null, sort = 'name', order = 'asc' }) => {
   const offset = (page - 1) * limit;
   const params = [];
-  let where = '';
+  const conditions = [];
 
   if (search) {
-    where = 'WHERE s.name LIKE ? OR s.contact_name LIKE ? OR s.email LIKE ?';
+    /* Parenthèses obligatoires : sans elles, l'ajout d'une seconde condition
+       (is_active) serait combiné en OR avec la dernière alternative de la
+       recherche, et le filtre ne s'appliquerait plus. */
+    conditions.push('(s.name LIKE ? OR s.contact_name LIKE ? OR s.email LIKE ?)');
     const term = `%${search}%`;
     params.push(term, term, term);
   }
+  if (isActive !== null) {
+    conditions.push('s.is_active = ?');
+    params.push(isActive ? 1 : 0);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  const sortField = ALLOWED_SORT[sort] || 's.name';
+  const sortOrder = order === 'desc' ? 'DESC' : 'ASC';
 
   const [countRows] = await pool.query(
     `SELECT COUNT(*) AS total FROM suppliers s ${where}`,
@@ -25,7 +43,7 @@ const findAll = async ({ page = 1, limit = 20, search = '' }) => {
      LEFT JOIN products p ON p.supplier_id = s.id AND p.deleted_at IS NULL
      ${where}
      GROUP BY s.id
-     ORDER BY s.name ASC
+     ORDER BY ${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );

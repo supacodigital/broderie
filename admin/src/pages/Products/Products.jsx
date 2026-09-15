@@ -1,13 +1,11 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
-import { useDebounceSearch } from '../../hooks/useDebounceSearch.js'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import {
-  Plus, Search, Edit2, Trash2,
-  ImageOff, AlertTriangle,
-  SlidersHorizontal, RotateCcw, Layout, Eye, ChevronDown, X, GripVertical,
+  Plus, Search, Edit2, Trash2, ImageOff, AlertTriangle,
+  SlidersHorizontal, RotateCcw, EyeOff, X, Rows2, Rows3, Star, ChevronDown,
 } from 'lucide-react'
 import {
-  getProducts, getProductById, updateProduct, deleteProduct, updateFeaturedOrder,
+  getProducts, deleteProduct, getBrands,
 } from '../../services/products.service.js'
 import { getCategories } from '../../services/categories.service.js'
 import { getSuppliers } from '../../services/suppliers.service.js'
@@ -18,275 +16,244 @@ import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import SkeletonTable from '../../components/ui/SkeletonTable/SkeletonTable.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import { useToast } from '../../contexts/ToastContext.jsx'
+import { useSavedViews } from '../../hooks/useSavedViews.js'
 import s from './Products.module.css'
 
-const LIMIT = 20
-const FEATURED_MAX = 5
+/* Nombre de produits par page — ajustable depuis la barre d'outils.
+   20 reste le défaut (page légère) ; 50 et 100 servent à balayer une gamme
+   entière sans enchaîner les pages, sur un catalogue de ~15 000 références. */
+const DEFAULT_LIMIT = 20
+const PER_PAGE_OPTIONS = [20, 50, 100]
 
-// ── Aperçu bento ──────────────────────────────────────────────────────────
-function BentoPreview({ products, onClose }) {
-  return (
-    <div className={s.previewOverlay} onClick={onClose}>
-      <div className={s.previewModal} onClick={e => e.stopPropagation()}>
-        <div className={s.previewHead}>
-          <span className={s.previewTitle}>Aperçu — Vitrine home</span>
-          <button className={s.previewClose} onClick={onClose} aria-label="Fermer"><X size={15} /></button>
-        </div>
-        <p className={s.previewSub}>Tel qu'il s'affichera sur la page d'accueil</p>
-        <div className={s.previewBento}>
-          {Array.from({ length: FEATURED_MAX }).map((_, i) => {
-            const p = products[i]
-            const isFirst = i === 0
-            return (
-              <div key={p?.id ?? `empty-${i}`} className={`${s.previewSlot} ${isFirst ? s.previewSlotLarge : ''}`}>
-                <div className={s.previewImg}>
-                  {p?.image_url
-                    ? <img src={p.image_url} alt={p.name} />
-                    : <ImageOff size={20} />
-                  }
-                </div>
-                {p ? (
-                  <div className={s.previewInfo}>
-                    <p className={s.previewName}>{p.name}</p>
-                    <p className={s.previewPrice}>CHF {Number(p.price_chf).toFixed(2)}</p>
-                  </div>
-                ) : (
-                  <p className={s.previewEmpty}>Slot vide</p>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Recherche inline pour slot vide ──────────────────────────────────────
-function SlotSearch({ onAdd, onClose }) {
-  const [q, setQ]           = useState('')
-  const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(false)
-  const inputRef              = useRef(null)
-
-  useEffect(() => { inputRef.current?.focus() }, [])
-
-  useEffect(() => {
-    if (q.length < 2) { setResults([]); return }
-    setLoading(true)
-    const timer = setTimeout(() => {
-      getProducts({ q, limit: 6, is_active: 'true' })
-        .then(res => setResults(res.data ?? []))
-        .catch(() => setResults([]))
-        .finally(() => setLoading(false))
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [q])
-
-  return (
-    <div className={s.slotSearch}>
-      <div className={s.slotSearchInput}>
-        <Search size={12} className={s.slotSearchIcon} />
-        <input
-          ref={inputRef}
-          value={q}
-          onChange={e => setQ(e.target.value)}
-          placeholder="Rechercher un produit…"
-          className={s.slotSearchField}
-        />
-        <button onClick={onClose} className={s.slotSearchClose}><X size={12} /></button>
-      </div>
-      {loading && <p className={s.slotSearchLoading}>Recherche…</p>}
-      {!loading && results.length > 0 && (
-        <ul className={s.slotSearchResults}>
-          {results.map(p => (
-            <li key={p.id}>
-              <button className={s.slotSearchResult} onClick={() => onAdd(p)}>
-                <div className={s.slotSearchThumb}>
-                  {p.image_url
-                    ? <img src={p.image_url} alt={p.name} />
-                    : <ImageOff size={10} />
-                  }
-                </div>
-                <span className={s.slotSearchName}>{p.name}</span>
-                <span className={s.slotSearchPrice}>CHF {Number(p.price_chf).toFixed(2)}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {!loading && q.length >= 2 && results.length === 0 && (
-        <p className={s.slotSearchEmpty}>Aucun résultat</p>
-      )}
-    </div>
-  )
-}
-
-// ── Bande vitrine home ─────────────────────────────────────────────────────
-function FeaturedSlots({ featuredProducts, onEdit, onRemove, onAdd, onReorder }) {
-  const count                           = featuredProducts.length
-  const [open, setOpen]                 = useState(true)
-  const [preview, setPreview]           = useState(false)
-  const [activeSearch, setActiveSearch] = useState(null)
-
-  /* Ordre local affiché pendant le drag — resynchronisé dès que featuredProducts change côté serveur */
-  const [order, setOrder]     = useState(featuredProducts)
-  const [dragIndex, setDragIndex] = useState(null)
-  const [overIndex, setOverIndex] = useState(null)
-  useEffect(() => { setOrder(featuredProducts) }, [featuredProducts])
-
-  function handleDragStart(i) {
-    setDragIndex(i)
-  }
-  function handleDragOver(e, i) {
-    e.preventDefault()
-    if (i !== overIndex) setOverIndex(i)
-  }
-  function handleDrop(i) {
-    if (dragIndex === null || dragIndex === i) { setDragIndex(null); setOverIndex(null); return }
-    const next = [...order]
-    const [moved] = next.splice(dragIndex, 1)
-    next.splice(i, 0, moved)
-    setOrder(next)
-    setDragIndex(null)
-    setOverIndex(null)
-    onReorder(next.map(p => p.id))
-  }
-  function handleDragEnd() {
-    setDragIndex(null)
-    setOverIndex(null)
-  }
-
-  return (
-    <>
-      {preview && <BentoPreview products={order} onClose={() => setPreview(false)} />}
-      <div className={s.featuredBar}>
-        <button className={s.featuredBarHead} onClick={() => setOpen(v => !v)} aria-expanded={open}>
-          <Layout size={14} className={s.featuredBarIcon} />
-          <span className={s.featuredBarTitle}>Vitrine home — bento grid</span>
-          <span className={`${s.featuredBarCount} ${count >= FEATURED_MAX ? s.featuredBarCountFull : ''}`}>
-            {count} / {FEATURED_MAX}
-          </span>
-          {count > FEATURED_MAX && (
-            <span className={s.featuredBarWarn}>
-              <AlertTriangle size={12} /> {count - FEATURED_MAX} de trop
-            </span>
-          )}
-          <ChevronDown size={15} className={`${s.featuredBarChevron} ${open ? s.featuredBarChevronOpen : ''}`} />
-        </button>
-
-        {open && (
-          <>
-          <div className={s.featuredBarActions}>
-            <button className={s.previewBtn} onClick={e => { e.stopPropagation(); setPreview(true) }}>
-              <Eye size={13} /> Aperçu
-            </button>
-          </div>
-          <div className={s.featuredSlots}>
-          {Array.from({ length: FEATURED_MAX }).map((_, i) => {
-            const product = order[i]
-            const isFirst = i === 0
-
-            if (product) {
-              return (
-                <div
-                  key={product.id}
-                  className={`${s.featuredSlot} ${isFirst ? s.featuredSlotLarge : ''} ${dragIndex === i ? s.featuredSlotDragging : ''} ${overIndex === i && dragIndex !== null && dragIndex !== i ? s.featuredSlotDragOver : ''}`}
-                  draggable
-                  onDragStart={() => handleDragStart(i)}
-                  onDragOver={(e) => handleDragOver(e, i)}
-                  onDrop={() => handleDrop(i)}
-                  onDragEnd={handleDragEnd}
-                >
-                  {isFirst && <span className={s.featuredSlotLabel}>Grande carte</span>}
-                  <span className={s.featuredSlotHandle} title="Glisser pour réordonner">
-                    <GripVertical size={13} />
-                  </span>
-                  <div className={s.featuredSlotImg}>
-                    {product.image_url
-                      ? <img src={product.image_url} alt={product.name} />
-                      : <ImageOff size={16} />
-                    }
-                  </div>
-                  <p className={s.featuredSlotName}>{product.name}</p>
-                  <p className={s.featuredSlotPrice}>{product.price_chf ? `CHF ${Number(product.price_chf).toFixed(2)}` : ''}</p>
-                  <div className={s.featuredSlotActions}>
-                    <button className={s.featuredSlotEdit} onClick={() => onEdit(product)} title="Modifier">
-                      <Edit2 size={11} />
-                    </button>
-                    <button className={s.featuredSlotRemove} onClick={() => onRemove(product)} title="Retirer de la home">
-                      <X size={11} />
-                    </button>
-                  </div>
-                </div>
-              )
-            }
-
-            /* Slot vide */
-            return (
-              <div
-                key={`empty-${i}`}
-                className={`${s.featuredSlot} ${s.featuredSlotEmpty} ${isFirst ? s.featuredSlotLarge : ''}`}
-              >
-                {isFirst && <span className={s.featuredSlotLabel}>Grande carte</span>}
-                {activeSearch === i ? (
-                  <SlotSearch
-                    onAdd={(p) => { onAdd(p); setActiveSearch(null) }}
-                    onClose={() => setActiveSearch(null)}
-                  />
-                ) : (
-                  <button className={s.featuredSlotAddBtn} onClick={() => setActiveSearch(i)}>
-                    <Plus size={16} />
-                    <span>Ajouter</span>
-                  </button>
-                )}
-              </div>
-            )
-          })}
-          </div>
-          <p className={s.featuredBarHint}>Le slot 1 s'affiche en grande carte · Glissez-déposez une carte pour réordonner la vitrine</p>
-          </>
-        )}
-      </div>
-    </>
-  )
-}
 
 // ── Page principale ────────────────────────────────────────────────────────
 export default function Products() {
   const toast = useToast()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+
+  /* Recherche, filtres, tri et page vivent dans l'URL, pas dans des useState.
+     Julie travaille sur 15 000 références : elle filtre, ouvre une fiche, revient.
+     Avec un état local, ce retour repartait de zéro et il fallait tout refiltrer.
+     En passant par l'URL, le bouton Retour du navigateur restaure la vue, un
+     rafraîchissement ne perd rien, et une recherche récurrente (« stock bas chez
+     tel fournisseur ») peut être mise en favori ou transmise telle quelle. */
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const getParam = (key, fallback = '') => searchParams.get(key) ?? fallback
+
+  /* Écrit dans l'URL en repartant TOUJOURS de l'URL courante plutôt que d'une
+     copie figée : deux changements rapprochés (taper puis cocher) ne s'écrasent
+     pas l'un l'autre. `replace` évite d'empiler une entrée d'historique par
+     frappe — sinon le bouton Retour rejouerait la saisie lettre par lettre. */
+  const setParams = useCallback((changes, { resetPage = true } = {}) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      for (const [key, value] of Object.entries(changes)) {
+        // '' / false / null = valeur par défaut : on retire la clé pour garder une URL lisible
+        if (value === '' || value === false || value === null || value === undefined) next.delete(key)
+        else next.set(key, String(value))
+      }
+      if (resetPage) next.delete('page')
+      return next
+    }, { replace: true })
+  }, [setSearchParams])
+
   const [products,    setProducts]    = useState([])
   const [total,       setTotal]       = useState(0)
-  const [page,        setPage]        = useState(1)
-  const { search: searchInput, debouncedSearch: search, handleSearch: handleSearchChange } = useDebounceSearch(300, () => setPage(1))
-  const [sortCol,     setSortCol]     = useState('created_at')
-  const [sortDir,     setSortDir]     = useState('desc')
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState(false)
   const [confirm,     setConfirm]     = useState(null)
   const [categories,  setCategories]  = useState([])
   const [suppliers,   setSuppliers]   = useState([])
-  const [showFilters, setShowFilters] = useState(false)
-  /* Filtres — états primitifs pour que useEffect les détecte fiablement */
-  const [filterCat,      setFilterCat]      = useState('')
-  const [filterSupplier, setFilterSupplier] = useState('')
-  const [filterMinPrice, setFilterMinPrice] = useState('')
-  const [filterMaxPrice, setFilterMaxPrice] = useState('')
-  const [filterInStock,  setFilterInStock]  = useState(false)
+  const [brands,      setBrands]      = useState([])
+
+  /* Valeurs dérivées de l'URL — source de vérité unique */
+  const page           = Math.max(1, parseInt(getParam('page', '1'), 10) || 1)
+  const search         = getParam('q')
+  const sortCol        = getParam('sort', 'created_at')
+  const sortDir        = getParam('order', 'desc')
+  const perPage        = Math.min(100, Math.max(10, parseInt(getParam('limit', String(DEFAULT_LIMIT)), 10) || DEFAULT_LIMIT))
+  const filterCat      = getParam('category_id')
+  const filterSupplier = getParam('supplier_id')
+  const filterBrand    = getParam('brand')
+  const filterMinPrice = getParam('min_price')
+  const filterMaxPrice = getParam('max_price')
+  const filterInStock  = getParam('in_stock')  === 'true'
   /* Stock bas : articles actifs à 5 unités ou moins — sert au réassort fournisseur */
-  const [filterLowStock, setFilterLowStock] = useState(false)
-  const [filterIsActive, setFilterIsActive] = useState('')
-  const [filterFeatured, setFilterFeatured] = useState('')
+  const filterLowStock = getParam('low_stock') === 'true'
+  const filterIsActive = getParam('is_active')
+  const filterFeatured = getParam('is_featured')
 
-  const activeFilterCount = useMemo(() => [filterCat, filterSupplier, filterMinPrice, filterMaxPrice, filterIsActive, filterFeatured].filter(v => v !== '').length + (filterInStock ? 1 : 0) + (filterLowStock ? 1 : 0), [filterCat, filterSupplier, filterMinPrice, filterMaxPrice, filterInStock, filterLowStock, filterIsActive, filterFeatured])
-
-  const resetFilters = () => {
-    setFilterCat(''); setFilterSupplier(''); setFilterMinPrice(''); setFilterMaxPrice('')
-    setFilterInStock(false); setFilterLowStock(false); setFilterIsActive(''); setFilterFeatured('')
-    setPage(1)
+  /* Le champ de recherche garde son propre état le temps de la frappe : l'URL
+     n'est mise à jour qu'après le debounce, sinon chaque lettre relancerait une
+     requête sur 15 000 produits. */
+  const [searchInput, setSearchInput] = useState(search)
+  const searchTimer = useRef(null)
+  const handleSearchChange = (value) => {
+    setSearchInput(value)
+    clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => setParams({ q: value }), 300)
   }
+  /* Resynchronise le champ quand l'URL change sans passer par la frappe
+     (bouton Retour, clic sur « Effacer », arrivée depuis un lien). */
+  useEffect(() => { setSearchInput(search) }, [search])
+  useEffect(() => () => clearTimeout(searchTimer.current), [])
+
+  const setPage = useCallback((p) => setParams({ page: p > 1 ? p : '' }, { resetPage: false }), [setParams])
+
+  const activeFilterCount = useMemo(
+    () => [filterCat, filterSupplier, filterBrand, filterMinPrice, filterMaxPrice, filterIsActive, filterFeatured].filter(v => v !== '').length
+      + (filterInStock ? 1 : 0) + (filterLowStock ? 1 : 0),
+    [filterCat, filterSupplier, filterBrand, filterMinPrice, filterMaxPrice, filterInStock, filterLowStock, filterIsActive, filterFeatured]
+  )
+
+  /* Réinitialise les filtres mais conserve la recherche en cours : effacer les
+     filtres ne doit pas faire perdre le terme déjà tapé. */
+  const resetFilters = () => setParams({
+    category_id: '', supplier_id: '', brand: '', min_price: '', max_price: '',
+    in_stock: '', low_stock: '', is_active: '', is_featured: '',
+  })
+
+  /* Popover des filtres avancés. Fermé à l'arrivée, même quand des filtres sont
+     actifs : les puces les rendent déjà visibles, et garder le panneau ouvert
+     masquait la moitié du tableau. */
+  const [showFilters, setShowFilters] = useState(false)
+  const filterRef = useRef(null)
+
+  /* Fermeture au clic extérieur et à Échap — attendu de tout popover.
+     `mousedown` plutôt que `click` : le popover doit disparaître dès l'appui,
+     pas au relâchement. */
+  useEffect(() => {
+    if (!showFilters) return
+    const onPointerDown = (e) => {
+      if (!filterRef.current?.contains(e.target)) setShowFilters(false)
+    }
+    const onKey = (e) => { if (e.key === 'Escape') setShowFilters(false) }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [showFilters])
+
+  /* Densité d'affichage — préférence de confort propre au poste, pas à la vue :
+     elle n'a donc rien à faire dans l'URL (qui se partage), mais doit survivre
+     au rechargement. Le mode compact fait tenir environ deux fois plus de lignes
+     à l'écran, ce qui change tout quand on balaye une gamme.
+     localStorage peut lever (Safari en navigation privée) : on protège lecture
+     et écriture, l'affichage restant correct sans. */
+  const [dense, setDense] = useState(() => {
+    try { return localStorage.getItem('products:dense') === '1' } catch { return false }
+  })
+  const toggleDense = () => {
+    setDense(v => {
+      const next = !v
+      try { localStorage.setItem('products:dense', next ? '1' : '0') } catch { /* stockage indisponible */ }
+      return next
+    })
+  }
+
+  /* ── Vues enregistrées ────────────────────────────────────────────────── */
+  const { views, saveView, removeView, maxViews } = useSavedViews()
+  const [naming, setNaming] = useState(false)
+  const nameRef = useRef(null)
+
+  const currentQuery = searchParams.toString()
+  const hasCriteria  = activeFilterCount > 0 || !!search
+  /* Une vue est « active » quand l'URL courante porte exactement ses critères.
+     On compare des ensembles de paramètres et non les chaînes brutes : l'ordre
+     des clés varie selon l'ordre des clics, et `page` ne fait pas partie de
+     l'identité d'une vue (la page 3 de « Réassort DMC » reste cette vue). */
+  const sameCriteria = useCallback((queryA, queryB) => {
+    const normalize = (q) => {
+      const params = new URLSearchParams(q)
+      params.delete('page')
+      const entries = [...params.entries()].sort(([a], [b]) => a.localeCompare(b))
+      return JSON.stringify(entries)
+    }
+    return normalize(queryA) === normalize(queryB)
+  }, [])
+
+  const activeView = useMemo(
+    () => views.find(v => sameCriteria(v.query, currentQuery)) ?? null,
+    [views, currentQuery, sameCriteria]
+  )
+
+  const handleSaveView = (e) => {
+    e.preventDefault()
+    const value = nameRef.current?.value ?? ''
+    if (!value.trim()) return
+    saveView(value, currentQuery)
+    setNaming(false)
+    toast.success(`Vue « ${value.trim()} » enregistrée.`)
+  }
+
+  /* Dernière vue consultée — restaurée à l'arrivée sur la page quand aucun
+     critère n'est passé dans l'URL. Julie reprend souvent son travail là où elle
+     l'a laissé (un réassort en cours), et retaper les filtres à chaque session
+     était une perte de temps.
+     Ne s'applique qu'à une arrivée « nue » : un lien partagé, un favori ou un
+     retour arrière portent leurs propres critères et doivent primer. */
+  const restoredRef = useRef(false)
+  useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
+    if (currentQuery) return // l'URL a déjà des critères : on ne touche à rien
+    try {
+      const last = localStorage.getItem('products:lastQuery')
+      if (last) setSearchParams(new URLSearchParams(last), { replace: true })
+    } catch { /* stockage indisponible */ }
+  }, [currentQuery, setSearchParams])
+
+  /* Mémorise les critères courants (hors pagination, qui n'a pas à être rejouée) */
+  useEffect(() => {
+    if (!restoredRef.current) return
+    try {
+      const params = new URLSearchParams(currentQuery)
+      params.delete('page')
+      const value = params.toString()
+      if (value) localStorage.setItem('products:lastQuery', value)
+      else localStorage.removeItem('products:lastQuery')
+    } catch { /* stockage indisponible */ }
+  }, [currentQuery])
+
+  /* Raccourci « / » pour placer le curseur dans la recherche, sans le voler
+     quand on est déjà en train de saisir ailleurs. */
+  const searchRef = useRef(null)
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      const tag = document.activeElement?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable) return
+      e.preventDefault()
+      searchRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  /* Libellés des filtres actifs — résolus après le chargement des listes de
+     référence, d'où le repli sur l'identifiant tant qu'elles n'ont pas répondu. */
+  const activeChips = useMemo(() => {
+    const chips = []
+    if (filterCat) {
+      chips.push({ key: 'category_id', label: 'Catégorie',
+        value: categories.find(c => String(c.id) === filterCat)?.name.replace(/^— /, '') ?? filterCat })
+    }
+    if (filterSupplier) {
+      chips.push({ key: 'supplier_id', label: 'Fournisseur',
+        value: suppliers.find(sup => String(sup.id) === filterSupplier)?.name ?? filterSupplier })
+    }
+    if (filterBrand)    chips.push({ key: 'brand',       label: 'Marque',  value: filterBrand })
+    if (filterMinPrice) chips.push({ key: 'min_price',   label: 'Prix min', value: `CHF ${filterMinPrice}` })
+    if (filterMaxPrice) chips.push({ key: 'max_price',   label: 'Prix max', value: `CHF ${filterMaxPrice}` })
+    if (filterInStock)  chips.push({ key: 'in_stock',    label: 'Stock',   value: 'En stock' })
+    if (filterLowStock) chips.push({ key: 'low_stock',   label: 'Stock',   value: 'Bas (≤ 5)' })
+    if (filterIsActive) chips.push({ key: 'is_active',   label: 'Statut',  value: filterIsActive === 'true' ? 'Actif' : 'Inactif' })
+    if (filterFeatured) chips.push({ key: 'is_featured', label: 'Vitrine', value: filterFeatured === 'true' ? 'Mis en avant' : 'Non mis en avant' })
+    return chips
+  }, [filterCat, filterSupplier, filterBrand, filterMinPrice, filterMaxPrice, filterInStock, filterLowStock, filterIsActive, filterFeatured, categories, suppliers])
 
   /* Catégories parentes pour le groupe optgroup */
   const parentCats = useMemo(() => categories.filter(c => !c.parentId), [categories])
@@ -318,84 +285,18 @@ export default function Products() {
 
     /* getSuppliers() retourne { data: [], pagination: {} } */
     getSuppliers({ limit: 100 }).then(({ data }) => setSuppliers(data)).catch(() => {})
+
+    /* Marques / éditeurs — filtre demandé pour travailler gamme par gamme (ex. DMC Art.117) */
+    getBrands().then(setBrands).catch(() => {})
   }, [])
 
   const handleSort = (col) => {
     const newDir = sortCol === col ? (sortDir === 'asc' ? 'desc' : 'asc') : 'desc'
-    setSortCol(col)
-    setSortDir(newDir)
-    setPage(1)
+    setParams({ sort: col, order: newDir })
   }
 
   const [refreshTick, setRefreshTick] = useState(0)
   const load = () => setRefreshTick(t => t + 1)
-
-  const [featuredProducts, setFeaturedProducts] = useState([])
-
-  /* Charge les produits featured pour la bande vitrine */
-  const loadFeatured = useCallback(() => {
-    getProducts({ is_featured: 'true', limit: 10, sort: 'created_at', order: 'asc' })
-      .then(res => setFeaturedProducts(res.data ?? []))
-      .catch(() => {})
-  }, [])
-
-  useEffect(() => { loadFeatured() }, [loadFeatured])
-
-  /* Construit le payload complet à partir d'un produit existant pour le PATCH featured */
-  const buildFeaturedPayload = useCallback(async (product, isFeatured) => {
-    const full = await getProductById(product.id)
-    return {
-      categoryId:      full.category_id,
-      supplierId:      full.supplier_id ?? null,
-      taxRateId:       full.tax_rate_id,
-      priceChf:        Number(full.price_chf),
-      comparePriceChf: full.compare_price_chf ? Number(full.compare_price_chf) : null,
-      sku:             full.sku ?? null,
-      stock:           full.stock ?? 0,
-      weightKg:        full.weight_kg ? Number(full.weight_kg) : null,
-      isFeatured,
-      isActive:        !!full.is_active,
-      badge:           full.badge ?? null,
-      translations: {
-        fr: { name: full.name, description: full.description_fr ?? '' },
-      },
-    }
-  }, [])
-
-  const handleRemoveFeatured = useCallback(async (product) => {
-    try {
-      const payload = await buildFeaturedPayload(product, false)
-      await updateProduct(product.id, payload)
-      loadFeatured()
-      load()
-      toast.success(`"${product.name}" retiré de la vitrine.`)
-    } catch {
-      toast.error('Erreur lors de la mise à jour.')
-    }
-  }, [buildFeaturedPayload, loadFeatured, toast])
-
-  const handleAddFeatured = useCallback(async (product) => {
-    try {
-      const payload = await buildFeaturedPayload(product, true)
-      await updateProduct(product.id, payload)
-      loadFeatured()
-      load()
-      toast.success(`"${product.name}" ajouté à la vitrine.`)
-    } catch {
-      toast.error('Erreur lors de la mise à jour.')
-    }
-  }, [buildFeaturedPayload, loadFeatured, toast])
-
-  /* Persiste le nouvel ordre après un drag & drop dans la bande vitrine home */
-  const handleReorderFeatured = useCallback(async (productIds) => {
-    try {
-      await updateFeaturedOrder(productIds)
-      loadFeatured()
-    } catch {
-      toast.error('Erreur lors de la mise à jour de l\'ordre.')
-      loadFeatured() // resynchronise l'affichage avec le vrai ordre serveur en cas d'échec
-    }
-  }, [loadFeatured, toast])
 
 
   useEffect(() => {
@@ -404,10 +305,11 @@ export default function Products() {
       setError(false)
       setLoading(true)
       try {
-        const params = { page, limit: LIMIT, sort: sortCol, order: sortDir }
+        const params = { page, limit: perPage, sort: sortCol, order: sortDir }
         if (search)            params.q           = search
         if (filterCat)         params.category_id = filterCat
         if (filterSupplier)    params.supplier_id = filterSupplier
+        if (filterBrand)       params.brand       = filterBrand
         if (filterMinPrice)    params.min_price   = filterMinPrice
         if (filterMaxPrice)    params.max_price   = filterMaxPrice
         if (filterInStock)     params.in_stock    = 'true'
@@ -427,7 +329,7 @@ export default function Products() {
     }
     run()
     return () => { cancelled = true }
-  }, [page, search, filterCat, filterSupplier, filterMinPrice, filterMaxPrice, filterInStock, filterLowStock, filterIsActive, filterFeatured, sortCol, sortDir, refreshTick])
+  }, [page, perPage, search, filterCat, filterSupplier, filterBrand, filterMinPrice, filterMaxPrice, filterInStock, filterLowStock, filterIsActive, filterFeatured, sortCol, sortDir, refreshTick])
 
   /* Rediriger vers la page d'édition si ?edit=ID dans l'URL (ex: depuis dashboard) */
   useEffect(() => {
@@ -451,7 +353,7 @@ export default function Products() {
     })
   }
 
-  const totalPages = Math.ceil(total / LIMIT)
+  const totalPages = Math.ceil(total / perPage)
 
   return (
     <div className={s.page}>
@@ -471,178 +373,318 @@ export default function Products() {
         <div className={s.searchWrap}>
           <Search size={14} className={s.searchIcon} />
           <input
+            ref={searchRef}
             type="search"
             className={s.searchInput}
-            placeholder="Rechercher un produit…"
+            placeholder="Nom, référence, fournisseur ou marque…"
             value={searchInput}
             onChange={e => handleSearchChange(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Escape' && searchInput) { handleSearchChange(''); e.currentTarget.blur() } }}
           />
+          {/* Raccourci clavier : la recherche est le premier geste de presque
+              chaque visite sur un catalogue de cette taille. */}
+          <kbd className={s.searchKbd}>/</kbd>
         </div>
+
+        {/* Raccourcis vers les deux vues les plus utilisées — évitent d'ouvrir
+            le panneau de filtres pour les tâches quotidiennes (réassort, brouillons). */}
         <button
-          className={`${s.filterToggleBtn} ${showFilters ? s.filterToggleActive : ''}`}
-          onClick={() => setShowFilters(v => !v)}
+          className={`${s.quickFilter} ${filterLowStock ? s.quickFilterOn : ''}`}
+          onClick={() => setParams({ low_stock: filterLowStock ? '' : 'true', in_stock: '' })}
+          aria-pressed={filterLowStock}
         >
-          <SlidersHorizontal size={14} />
-          Filtres
-          {activeFilterCount > 0 && (
-            <span className={s.filterBadge}>{activeFilterCount}</span>
-          )}
+          <AlertTriangle size={13} /> Stock bas
         </button>
-        {activeFilterCount > 0 && (
-          <button className={s.resetBtn} onClick={resetFilters}>
-            <RotateCcw size={13} /> Réinitialiser
+        <button
+          className={`${s.quickFilter} ${filterIsActive === 'false' ? s.quickFilterOn : ''}`}
+          onClick={() => setParams({ is_active: filterIsActive === 'false' ? '' : 'false' })}
+          aria-pressed={filterIsActive === 'false'}
+        >
+          <EyeOff size={13} /> Inactifs
+        </button>
+
+        {/* Filtres avancés en popover ancré au bouton, et non en panneau poussant
+            la page : ouvert en permanence, il repoussait le tableau à 540 px du
+            haut et ne laissait voir que 9 produits. Il se ferme dès qu'on a
+            choisi, la liste reprend toute la place. */}
+        <div className={s.filterAnchor} ref={filterRef}>
+          <button
+            className={`${s.quickFilter} ${showFilters || activeFilterCount > 0 ? s.quickFilterOn : ''}`}
+            onClick={() => setShowFilters(v => !v)}
+            aria-expanded={showFilters}
+            aria-haspopup="dialog"
+          >
+            <SlidersHorizontal size={13} />
+            Filtres
+            {activeFilterCount > 0 && (
+              <span className={s.filterBadge}>{activeFilterCount}</span>
+            )}
+            <ChevronDown size={13} className={`${s.filterChevron} ${showFilters ? s.filterChevronOpen : ''}`} />
           </button>
+
+        {showFilters && (
+          <div className={s.filterPanel}>
+            <div className={s.filterGrid}>
+
+              {/* Catégorie avec sous-catégories */}
+              <div className={s.filterField}>
+                <label className={s.filterLabel}>Catégorie</label>
+                <select
+                  className={s.filterSelect}
+                  value={filterCat}
+                  onChange={e => setParams({ category_id: e.target.value })}
+                >
+                  <option value="">Toutes</option>
+                  {parentCats.map(p => (
+                    <optgroup key={p.id} label={p.name}>
+                      <option value={p.id}>{p.name} (tout)</option>
+                      {childrenOf(p.id).map(ch => (
+                        <option key={ch.id} value={ch.id}>&nbsp;&nbsp;{ch.name}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+
+              {/* Fournisseur */}
+              <div className={s.filterField}>
+                <label className={s.filterLabel}>Fournisseur</label>
+                <select
+                  className={s.filterSelect}
+                  value={filterSupplier}
+                  onChange={e => setParams({ supplier_id: e.target.value })}
+                >
+                  <option value="">Tous</option>
+                  {suppliers.map(sup => (
+                    <option key={sup.id} value={sup.id}>{sup.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Marque / éditeur — permet de travailler gamme par gamme (ex. « DMC Art.117 »),
+                  ce que la catégorie seule ne permet pas : une même gamme est répartie
+                  sur plusieurs catégories. */}
+              <div className={s.filterField}>
+                <label className={s.filterLabel}>Marque</label>
+                <select
+                  className={s.filterSelect}
+                  value={filterBrand}
+                  onChange={e => setParams({ brand: e.target.value })}
+                >
+                  <option value="">Toutes</option>
+                  {brands.map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Fourchette de prix */}
+              <div className={s.filterField}>
+                <label className={s.filterLabel}>Prix min (CHF)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.05"
+                  className={s.filterInput}
+                  placeholder="0.00"
+                  value={filterMinPrice}
+                  onChange={e => setParams({ min_price: e.target.value })}
+                />
+              </div>
+              <div className={s.filterField}>
+                <label className={s.filterLabel}>Prix max (CHF)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.05"
+                  className={s.filterInput}
+                  placeholder="999.00"
+                  value={filterMaxPrice}
+                  onChange={e => setParams({ max_price: e.target.value })}
+                />
+              </div>
+
+              {/* Statut */}
+              <div className={s.filterField}>
+                <label className={s.filterLabel}>Statut</label>
+                <select
+                  className={s.filterSelect}
+                  value={filterIsActive}
+                  onChange={e => setParams({ is_active: e.target.value })}
+                >
+                  <option value="">Tous</option>
+                  <option value="true">Actif</option>
+                  <option value="false">Inactif</option>
+                </select>
+              </div>
+
+              {/* Mise en avant */}
+              <div className={s.filterField}>
+                <label className={s.filterLabel}>Mise en avant</label>
+                <select
+                  className={s.filterSelect}
+                  value={filterFeatured}
+                  onChange={e => setParams({ is_featured: e.target.value })}
+                >
+                  <option value="">Tous</option>
+                  <option value="true">Mis en avant</option>
+                  <option value="false">Non</option>
+                </select>
+              </div>
+
+              {/* Stock — « en stock » et « stock bas » s'excluent : cocher l'un décoche
+                  l'autre, une combinaison des deux ne renverrait presque rien. */}
+              <div className={s.filterField}>
+                <label className={s.filterLabel}>Stock</label>
+                <label className={s.filterCheckbox}>
+                  <input
+                    type="checkbox"
+                    checked={filterInStock}
+                    onChange={e => setParams({ in_stock: e.target.checked ? 'true' : '', low_stock: '' })}
+                  />
+                  En stock uniquement
+                </label>
+                {/* Croisé avec le filtre Fournisseur : donne la liste de ce qu'il faut
+                    recommander chez un fournisseur donné. */}
+                <label className={s.filterCheckbox}>
+                  <input
+                    type="checkbox"
+                    checked={filterLowStock}
+                    onChange={e => setParams({ low_stock: e.target.checked ? 'true' : '', in_stock: '' })}
+                  />
+                  Stock bas (≤ 5)
+                </label>
+              </div>
+
+            </div>
+
+            {/* Pied du popover : « Tout effacer » n'apparaît que s'il y a quelque
+                chose à effacer, et « Voir les résultats » referme le popover pour
+                rendre la place au tableau. */}
+            <div className={s.filterActions}>
+              {activeFilterCount > 0 && (
+                <button className={s.filterClearBtn} onClick={resetFilters}>
+                  <RotateCcw size={12} /> Tout effacer
+                </button>
+              )}
+              <button className={s.filterApplyBtn} onClick={() => setShowFilters(false)}>
+                Voir les {total.toLocaleString('fr-CH')} résultat{total > 1 ? 's' : ''}
+              </button>
+            </div>
+          </div>
         )}
+        </div>
+
+        <div className={s.toolbarRight}>
+          <button
+            className={s.densityBtn}
+            onClick={toggleDense}
+            aria-pressed={dense}
+            title={dense ? 'Affichage confortable' : 'Affichage compact — plus de lignes à l’écran'}
+          >
+            {dense ? <Rows3 size={15} /> : <Rows2 size={15} />}
+          </button>
+          <label className={s.perPageLabel}>
+            Afficher
+            <select
+              className={s.perPageSelect}
+              value={perPage}
+              onChange={e => setParams({ limit: Number(e.target.value) === DEFAULT_LIMIT ? '' : e.target.value })}
+            >
+              {PER_PAGE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+        </div>
       </div>
 
-      {showFilters && (
-        <div className={s.filterPanel}>
-          <div className={s.filterGrid}>
-
-            {/* Catégorie avec sous-catégories */}
-            <div className={s.filterField}>
-              <label className={s.filterLabel}>Catégorie</label>
-              <select
-                className={s.filterSelect}
-                value={filterCat}
-                onChange={e => { setFilterCat(e.target.value); setPage(1) }}
+      {/* ── Vues enregistrées ──
+          Recherches récurrentes rappelées en un clic (« Réassort DMC »,
+          « Brouillons »). Conservées sur le poste : c'est un confort de travail,
+          pas une donnée métier à synchroniser. */}
+      {(views.length > 0 || hasCriteria) && (
+        <div className={s.views}>
+          <Star size={13} className={s.viewsIcon} />
+          {views.map(view => (
+            <span
+              key={view.name}
+              className={`${s.view} ${activeView?.name === view.name ? s.viewActive : ''}`}
+            >
+              <button
+                className={s.viewBtn}
+                onClick={() => setSearchParams(new URLSearchParams(view.query))}
               >
-                <option value="">Toutes</option>
-                {parentCats.map(p => (
-                  <optgroup key={p.id} label={p.name}>
-                    <option value={p.id}>{p.name} (tout)</option>
-                    {childrenOf(p.id).map(ch => (
-                      <option key={ch.id} value={ch.id}>&nbsp;&nbsp;{ch.name}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
-
-            {/* Fournisseur */}
-            <div className={s.filterField}>
-              <label className={s.filterLabel}>Fournisseur</label>
-              <select
-                className={s.filterSelect}
-                value={filterSupplier}
-                onChange={e => { setFilterSupplier(e.target.value); setPage(1) }}
+                {view.name}
+              </button>
+              <button
+                className={s.viewRemove}
+                onClick={() => removeView(view.name)}
+                aria-label={`Supprimer la vue ${view.name}`}
+                title="Supprimer cette vue"
               >
-                <option value="">Tous</option>
-                {suppliers.map(sup => (
-                  <option key={sup.id} value={sup.id}>{sup.name}</option>
-                ))}
-              </select>
-            </div>
+                <X size={11} />
+              </button>
+            </span>
+          ))}
 
-            {/* Fourchette de prix */}
-            <div className={s.filterField}>
-              <label className={s.filterLabel}>Prix min (CHF)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.05"
-                className={s.filterInput}
-                placeholder="0.00"
-                value={filterMinPrice}
-                onChange={e => { setFilterMinPrice(e.target.value); setPage(1) }}
-              />
-            </div>
-            <div className={s.filterField}>
-              <label className={s.filterLabel}>Prix max (CHF)</label>
-              <input
-                type="number"
-                min="0"
-                step="0.05"
-                className={s.filterInput}
-                placeholder="999.00"
-                value={filterMaxPrice}
-                onChange={e => { setFilterMaxPrice(e.target.value); setPage(1) }}
-              />
-            </div>
-
-            {/* Statut */}
-            <div className={s.filterField}>
-              <label className={s.filterLabel}>Statut</label>
-              <select
-                className={s.filterSelect}
-                value={filterIsActive}
-                onChange={e => { setFilterIsActive(e.target.value); setPage(1) }}
-              >
-                <option value="">Tous</option>
-                <option value="true">Actif</option>
-                <option value="false">Inactif</option>
-              </select>
-            </div>
-
-            {/* Mise en avant */}
-            <div className={s.filterField}>
-              <label className={s.filterLabel}>Mise en avant</label>
-              <select
-                className={s.filterSelect}
-                value={filterFeatured}
-                onChange={e => { setFilterFeatured(e.target.value); setPage(1) }}
-              >
-                <option value="">Tous</option>
-                <option value="true">Mis en avant</option>
-                <option value="false">Non</option>
-              </select>
-            </div>
-
-            {/* Stock — « en stock » et « stock bas » s'excluent : cocher l'un décoche
-                l'autre, une combinaison des deux ne renverrait presque rien. */}
-            <div className={s.filterField}>
-              <label className={s.filterLabel}>Stock</label>
-              <label className={s.filterCheckbox}>
+          {/* Proposé seulement s'il y a quelque chose à enregistrer et que la vue
+              n'existe pas déjà à l'identique */}
+          {hasCriteria && !activeView && (
+            naming ? (
+              <form className={s.viewForm} onSubmit={handleSaveView}>
                 <input
-                  type="checkbox"
-                  checked={filterInStock}
-                  onChange={e => {
-                    setFilterInStock(e.target.checked)
-                    if (e.target.checked) setFilterLowStock(false)
-                    setPage(1)
-                  }}
+                  ref={nameRef}
+                  autoFocus
+                  className={s.viewInput}
+                  placeholder="Nom de la vue…"
+                  maxLength={32}
+                  onKeyDown={e => { if (e.key === 'Escape') setNaming(false) }}
+                  onBlur={() => setNaming(false)}
                 />
-                En stock uniquement
-              </label>
-              {/* Croisé avec le filtre Fournisseur : donne la liste de ce qu'il faut
-                  recommander chez un fournisseur donné. */}
-              <label className={s.filterCheckbox}>
-                <input
-                  type="checkbox"
-                  checked={filterLowStock}
-                  onChange={e => {
-                    setFilterLowStock(e.target.checked)
-                    if (e.target.checked) setFilterInStock(false)
-                    setPage(1)
-                  }}
-                />
-                Stock bas (≤ 5)
-              </label>
-            </div>
-
-          </div>
-
-          <div className={s.filterActions}>
-            <button className={s.filterClearBtn} onClick={resetFilters}>
-              Tout effacer
-            </button>
-          </div>
+              </form>
+            ) : (
+              <button
+                className={s.viewAdd}
+                onClick={() => setNaming(true)}
+                disabled={views.length >= maxViews}
+                title={views.length >= maxViews ? `Maximum ${maxViews} vues` : 'Enregistrer cette recherche'}
+              >
+                <Plus size={12} /> Enregistrer la vue
+              </button>
+            )
+          )}
         </div>
       )}
 
-      <FeaturedSlots
-        featuredProducts={featuredProducts}
-        onEdit={(product) => navigate(`/produits/${product.id}`)}
-        onRemove={handleRemoveFeatured}
-        onAdd={handleAddFeatured}
-        onReorder={handleReorderFeatured}
-      />
+      {/* Puces des filtres actifs — le compteur seul ne disait pas LESQUELS
+          étaient appliqués : il fallait rouvrir le panneau pour le savoir, et un
+          filtre oublié faisait croire à un catalogue vide. Chaque puce se retire
+          d'un clic. */}
+      {activeFilterCount > 0 && (
+        <div className={s.chips}>
+          {activeChips.map(chip => (
+            <button key={chip.key} className={s.chip} onClick={() => setParams({ [chip.key]: '' })}>
+              <span className={s.chipLabel}>{chip.label}</span>
+              <span className={s.chipValue}>{chip.value}</span>
+              <X size={12} className={s.chipX} />
+            </button>
+          ))}
+          <button className={s.chipReset} onClick={resetFilters}>
+            <RotateCcw size={12} /> Tout effacer
+          </button>
+        </div>
+      )}
+
 
       {error && <ErrorBanner onRetry={load} />}
 
-      <div className={s.card}>
+      <div className={`${s.card} ${dense ? s.cardDense : ''}`}>
         <div className={s.tableHead}>
-          <span>Produit</span>
+          {/* Tri alphabétique : déjà accepté par l'API (whitelist `name`), il
+              n'était simplement pas proposé dans l'interface. */}
+          <button className={s.sortHeader} onClick={() => handleSort('name')}>
+            Produit <SortIcon col="name" sortCol={sortCol} sortDir={sortDir} />
+          </button>
+          <span>Marque</span>
           <span>SKU</span>
           <button className={s.sortHeader} onClick={() => handleSort('price_chf')}>
             Prix <SortIcon col="price_chf" sortCol={sortCol} sortDir={sortDir} />
@@ -655,9 +697,39 @@ export default function Products() {
         </div>
 
         {loading ? (
-          <SkeletonTable rows={8} cols={6} />
+          <SkeletonTable rows={8} cols={7} />
         ) : products.length === 0 ? (
-          <p className={s.empty}>Aucun produit trouvé.</p>
+          /* Liste vide : le catalogue compte 15 000 références, donc un écran vide
+             vient presque toujours d'un filtre trop restrictif — souvent un filtre
+             oublié d'une recherche précédente. On rappelle ce qui est appliqué et
+             on offre la sortie, au lieu d'un « Aucun produit trouvé » sans issue. */
+          <div className={s.empty}>
+            <p className={s.emptyTitle}>Aucun produit ne correspond.</p>
+            {(activeFilterCount > 0 || search) && (
+              <>
+                <p className={s.emptyHint}>
+                  {search && <>Recherche « <strong>{search}</strong> »</>}
+                  {search && activeFilterCount > 0 && ' et '}
+                  {activeFilterCount > 0 && (
+                    <>{activeFilterCount} filtre{activeFilterCount > 1 ? 's' : ''} actif{activeFilterCount > 1 ? 's' : ''}</>
+                  )}
+                  .
+                </p>
+                <div className={s.emptyActions}>
+                  {activeFilterCount > 0 && (
+                    <button className={s.emptyBtn} onClick={resetFilters}>
+                      <RotateCcw size={13} /> Effacer les filtres
+                    </button>
+                  )}
+                  {search && (
+                    <button className={s.emptyBtn} onClick={() => handleSearchChange('')}>
+                      <X size={13} /> Effacer la recherche
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         ) : (
           products.map(product => (
             <div key={product.id} className={s.tableRow}>
@@ -675,8 +747,15 @@ export default function Products() {
                     <ImageOff size={16} />
                   </span>
                 </div>
-                <div>
-                  <p className={s.productName}>{product.name}</p>
+                <div className={s.productInfo}>
+                  {/* Vrai lien, et non un onClick : la fiche s'ouvre dans un nouvel
+                      onglet au Cmd/Ctrl+clic ou au clic-milieu, et se parcourt au
+                      clavier. Il s'étire sur toute la ligne via ::after, ce qui
+                      rend l'ensemble cliquable sans imbriquer les boutons d'action
+                      dans une zone cliquable. */}
+                  <Link to={`/produits/${product.id}`} className={s.productLink}>
+                    {product.name}
+                  </Link>
                   <p className={s.productMeta}>
                     {product.category_name && <span>{product.category_name}</span>}
                     {product.category_name && product.supplier_name && <span className={s.metaSep}>·</span>}
@@ -684,6 +763,20 @@ export default function Products() {
                   </p>
                 </div>
               </div>
+              {/* Marque cliquable : un clic filtre sur toute la gamme. C'est le
+                  geste « voir les autres produits comme celui-ci », qui demandait
+                  sinon d'ouvrir le panneau et de chercher dans une liste de 80. */}
+              {product.brand ? (
+                <button
+                  className={s.brandCell}
+                  onClick={() => setParams({ brand: product.brand })}
+                  title={`Filtrer sur ${product.brand}`}
+                >
+                  {product.brand}
+                </button>
+              ) : (
+                <span className={s.brandEmpty}>—</span>
+              )}
               <span className={s.sku}>{product.sku ?? '—'}</span>
               <span className={s.bold}>{formatCHF(product.price_chf)}</span>
               <span className={product.stock <= 5 ? s.stockLow : s.stockOk}>
@@ -708,7 +801,7 @@ export default function Products() {
         )}
       </div>
 
-      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} total={total} perPage={perPage} />
     </div>
   )
 }
