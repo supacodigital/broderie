@@ -311,7 +311,7 @@ const findById = async (orderId, userId = null) => {
 const VALID_STATUSES = ['pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
 const ALLOWED_SORT   = { created_at: 'o.created_at', total: 'o.total' };
 
-const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order = 'desc', status = null, q = null } = {}) => {
+const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order = 'desc', status = null, q = null, dateFrom = null, dateTo = null } = {}) => {
   const offset    = (page - 1) * limit;
   const sortField = ALLOWED_SORT[sort] || 'o.created_at';
   const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
@@ -333,10 +333,30 @@ const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order =
     if (/^\d+$/.test(q)) {
       conditions.push('o.id = ?');
       params.push(parseInt(q));
+    } else if (/^\d{4}-\d+$/.test(q)) {
+      /* Numéro de facture (« 2026-000001 ») : c'est la référence que la cliente a
+         sous les yeux quand elle appelle, et elle ne trouvait rien — le format
+         n'est ni un entier pur ni un nom. Comparaison exacte, et repli LIKE pour
+         une saisie sans les zéros de tête (« 2026-1 »). */
+      conditions.push('(o.invoice_number = ? OR o.invoice_number LIKE ?)');
+      const [year, seq] = q.split('-');
+      params.push(q, `${year}-%${parseInt(seq, 10)}`);
     } else {
-      conditions.push('(u.email LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)');
-      params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+      conditions.push('(u.email LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR o.invoice_number LIKE ? OR o.tracking_number LIKE ?)');
+      params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
     }
+  }
+
+  /* Période — sert au point comptable (TVA trimestrielle) : on borne sur la
+     journée entière, une date de fin au format AAAA-MM-JJ devant inclure les
+     commandes passées ce jour-là. */
+  if (dateFrom) {
+    conditions.push('o.created_at >= ?');
+    params.push(`${dateFrom} 00:00:00`);
+  }
+  if (dateTo) {
+    conditions.push('o.created_at <= ?');
+    params.push(`${dateTo} 23:59:59`);
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -350,6 +370,7 @@ const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order =
   const [rows] = await pool.query(
     `SELECT o.id, o.status, o.subtotal, o.shipping_cost, o.tax_amount, o.total,
             o.created_at, o.updated_at, o.wants_printed_invoice,
+            o.invoice_number, o.tracking_number,
             u.email, u.first_name, u.last_name
      FROM orders o
      INNER JOIN users u ON u.id = o.user_id
@@ -549,9 +570,11 @@ const lockOrderForPaymentIntent = async (orderId, userId, method) => {
 };
 
 /* Attribue son numéro de facture à une commande, à la première émission.
-   Le compteur est mensuel (« 2026-09/01 ») et repart à 1 chaque mois.
+   Le compteur est annuel (« 2026-000001 ») et repart à 1 le 1er janvier :
+   la période est l'année civile, donc 2027 recommence à « 2027-000001 »
+   sans aucune intervention.
 
-   Atomicité : INSERT ... ON DUPLICATE KEY UPDATE incrémente la ligne du mois
+   Atomicité : INSERT ... ON DUPLICATE KEY UPDATE incrémente la ligne de l'année
    sous verrou de la transaction, donc deux commandes simultanées ne peuvent pas
    obtenir le même numéro — un doublon de numéro de facture serait une faute
    comptable, pas un simple défaut d'affichage.
@@ -574,11 +597,18 @@ const assignInvoiceNumber = async (orderId) => {
     }
     if (existing.invoice_number) {
       await connection.commit();
-      return { invoiceNumber: existing.invoice_number, invoiceSeq: existing.invoice_seq };
+      // L'année provient du numéro déjà figé (« 2026-000001 »), pas de l'horloge :
+      // régénérer en 2027 une facture de 2026 doit redonner la même référence QR.
+      const existingYear = parseInt(String(existing.invoice_number).slice(0, 4), 10);
+      return {
+        invoiceNumber: existing.invoice_number,
+        invoiceSeq:    existing.invoice_seq,
+        year:          Number.isInteger(existingYear) ? existingYear : new Date().getFullYear(),
+      };
     }
 
-    const now    = new Date();
-    const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    // Période = année civile courante (« 2026 »), d'où la remise à zéro au 1er janvier
+    const period = String(new Date().getFullYear());
 
     await connection.execute(
       `INSERT INTO invoice_counters (period, last_seq) VALUES (?, 1)
@@ -590,8 +620,9 @@ const assignInvoiceNumber = async (orderId) => {
       [period]
     );
 
+    // Format demandé par la cliente : année + 6 chiffres, ex. « 2026-000001 »
     const seq           = counter.last_seq;
-    const invoiceNumber = `${period}/${String(seq).padStart(2, '0')}`;
+    const invoiceNumber = `${period}-${String(seq).padStart(6, '0')}`;
 
     await connection.execute(
       `UPDATE orders SET invoice_number = ?, invoice_seq = ? WHERE id = ?`,
@@ -599,7 +630,7 @@ const assignInvoiceNumber = async (orderId) => {
     );
 
     await connection.commit();
-    return { invoiceNumber, invoiceSeq: seq };
+    return { invoiceNumber, invoiceSeq: seq, year: Number(period) };
   } catch (err) {
     try { await connection.rollback(); } catch { /* connexion déjà rendue */ }
     throw err;

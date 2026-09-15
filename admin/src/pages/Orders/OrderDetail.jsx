@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import {
   ArrowLeft, Check, FileText, RefreshCw, Package, Download, Truck, Store, QrCode, ExternalLink,
   Printer,
@@ -58,6 +59,7 @@ export default function OrderDetail() {
   const [newStatus,       setNewStatus]       = useState('')
   const [note,            setNote]            = useState('')
   const [saving,          setSaving]          = useState(false)
+  const [confirm,         setConfirm]         = useState(null)
   const [markingPaid,     setMarkingPaid]     = useState(false)
   const [markingReady,    setMarkingReady]    = useState(false)
   const [sendingTwintQr,  setSendingTwintQr]  = useState(false)
@@ -85,10 +87,25 @@ export default function OrderDetail() {
 
   useEffect(() => { load() }, [orderId])
 
-  const goBack = () => navigate('/commandes')
+  /* Retour en remontant l'historique : les filtres de la liste vivent dans son
+     URL, et un navigate('/commandes') sec les effaçait — on revenait sur la liste
+     complète après chaque commande traitée. Repli sur l'URL nue quand il n'y a
+     pas d'historique (lien direct, nouvel onglet). */
+  const goBack = () => {
+    if (window.history.state?.idx > 0) navigate(-1)
+    else navigate('/commandes')
+  }
 
-  const handleStatusUpdate = async () => {
-    if (!order || newStatus === order.status) return
+  /* Statuts qui déclenchent un envoi au client. « Expédiée » génère en plus une
+     vraie étiquette Swiss Post (prestation facturée). Ces actions sont
+     irréversibles : un mauvais choix dans la liste déroulante envoyait le mail
+     sans le moindre avertissement. */
+  const STATUS_SIDE_EFFECTS = {
+    shipped:          'Un email d’expédition sera envoyé au client, et une étiquette Swiss Post sera générée.',
+    ready_for_pickup: 'Un email « votre commande est prête » sera envoyé au client.',
+  }
+
+  const runStatusUpdate = async () => {
     setSaving(true)
     setFeedback('')
     setError('')
@@ -103,6 +120,23 @@ export default function OrderDetail() {
     } finally {
       setSaving(false)
     }
+  }
+
+  /* Demande confirmation uniquement quand le changement part chez le client :
+     les statuts internes (en préparation, annulée…) restent immédiats, pour ne
+     pas transformer chaque clic en dialogue. */
+  const handleStatusUpdate = () => {
+    if (!order || newStatus === order.status) return
+    const sideEffect = STATUS_SIDE_EFFECTS[newStatus]
+    if (sideEffect) {
+      const label = STATUS_OPTIONS.find(o => o.value === newStatus)?.label ?? newStatus
+      setConfirm({
+        message: `Passer la commande #${order.id} en « ${label} » ? ${sideEffect}`,
+        onConfirm: runStatusUpdate,
+      })
+      return
+    }
+    runStatusUpdate()
   }
 
   const handleMarkAsPaid = async () => {
@@ -123,7 +157,7 @@ export default function OrderDetail() {
     }
   }
 
-  const handleMarkReady = async () => {
+  const runMarkReady = async () => {
     setMarkingReady(true)
     setFeedback('')
     setError('')
@@ -139,6 +173,14 @@ export default function OrderDetail() {
     } finally {
       setMarkingReady(false)
     }
+  }
+
+  /* Même garde que pour le select : ce bouton prévient le client par email. */
+  const handleMarkReady = () => {
+    setConfirm({
+      message: `Marquer la commande #${order.id} comme prête ? ${STATUS_SIDE_EFFECTS.ready_for_pickup}`,
+      onConfirm: runMarkReady,
+    })
   }
 
   const handleSendTwintQr = async () => {
@@ -233,6 +275,8 @@ export default function OrderDetail() {
 
   return (
     <div className={s.page}>
+      {confirm && <ConfirmDialog {...confirm} danger={false} onClose={() => setConfirm(null)} />}
+
       {/* ── En-tête ── */}
       <div className={s.pageHead}>
         <div className={s.pageHeadLeft}>
@@ -241,7 +285,17 @@ export default function OrderDetail() {
           </button>
           <div>
             <h1 className={s.pageTitle}>Commande #{order.id}</h1>
-            <p className={s.pageSubtitle}>{formatDateLong(order.created_at)}</p>
+            <p className={s.pageSubtitle}>
+              {formatDateLong(order.created_at)}
+              {/* Le n° de facture est la référence que le client cite au
+                  téléphone : il doit être lisible sans ouvrir le PDF. */}
+              {order.invoice_number && (
+                <>
+                  <span className={s.subSep}>·</span>
+                  <span className={s.invoiceRef}>Facture {order.invoice_number}</span>
+                </>
+              )}
+            </p>
           </div>
         </div>
         <StatusBadge status={order.status} />

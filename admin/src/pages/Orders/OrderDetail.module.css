@@ -456,3 +456,12 @@
   .infoGrid { grid-template-columns: 1fr; }
   .pageTitle { font-size: 18px; }
 }
+
+/* Référence de facture dans le sous-titre — citée par le client au téléphone */
+.subSep { margin: 0 8px; color: var(--rose-border); }
+
+.invoiceRef {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dark);
+  font-weight: 600;
+}

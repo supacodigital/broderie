@@ -97,7 +97,7 @@
 
 .tableHead, .tableRow {
   display: grid;
-  grid-template-columns: 70px 1fr 130px 100px 120px 40px;
+  grid-template-columns: 110px 1fr 160px 100px 150px 40px;
   gap: 8px;
   padding: 10px 16px;
   align-items: center;
@@ -205,7 +205,7 @@
 
 .skeletonRow {
   display: grid;
-  grid-template-columns: 70px 1fr 130px 100px 120px 40px;
+  grid-template-columns: 110px 1fr 160px 100px 150px 40px;
   gap: 8px;
   padding: 14px 16px;
   border-bottom: 1px solid #f9fafb;
@@ -312,3 +312,315 @@
   white-space: nowrap;
 }
 .sortHeader:hover { color: var(--rose); }
+
+
+/* ── Barre d'outils ── */
+.searchKbd {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px 6px;
+  border: 1px solid var(--rose-border);
+  border-radius: 5px;
+  background: var(--rose-pale);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: inherit;
+  line-height: 16px;
+  pointer-events: none;
+  transition: opacity 150ms ease-out;
+}
+.searchInput:focus ~ .searchKbd,
+.searchInput:not(:placeholder-shown) ~ .searchKbd { opacity: 0; }
+
+.quickFilter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 150ms ease-out, background 150ms ease-out, color 150ms ease-out, transform 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .quickFilter:hover { border-color: var(--rose); color: var(--text-dark); }
+}
+.quickFilter:active { transform: scale(0.97); }
+.quickFilterOn { background: var(--rose-pale); border-color: var(--rose); color: var(--rose-dark); }
+
+.filterBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--rose);
+  color: #fff;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+  padding-left: 14px;
+}
+
+.perPageLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.perPageSelect {
+  padding: 7px 8px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: border-color 150ms ease-out;
+}
+.perPageSelect:focus { outline: none; border-color: var(--rose); }
+
+/* ── Popover filtres ── */
+.filterAnchor { position: relative; }
+
+.filterPanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: min(520px, calc(100vw - 48px));
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 14px;
+  padding: 18px 20px 14px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.12);
+  transform-origin: top right;
+  animation: filterPop 150ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+@keyframes filterPop {
+  from { opacity: 0; transform: scale(.96) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) { .filterPanel { animation: none; } }
+
+.filterBlock { margin-bottom: 18px; }
+
+.filterLabel {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.statusGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px 14px;
+}
+
+.statusCheck {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dark);
+  cursor: pointer;
+}
+.statusCheck input { accent-color: var(--rose); width: 15px; height: 15px; flex-shrink: 0; }
+
+.dateRow { display: flex; gap: 14px; }
+
+.dateField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.dateInput {
+  padding: 8px 10px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-dark);
+  outline: none;
+  transition: border-color 150ms ease-out;
+}
+.dateInput:focus { border-color: var(--rose); }
+
+.filterActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rose-border);
+}
+
+.filterClearBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .filterClearBtn:hover { color: var(--rose-dark); }
+}
+
+.filterApplyBtn {
+  padding: 9px 18px;
+  background: var(--rose);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease-out, transform 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .filterApplyBtn:hover { background: var(--rose-dark); }
+}
+.filterApplyBtn:active { transform: scale(0.97); }
+
+/* ── Puces de filtres actifs ── */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  background: var(--rose-pale);
+  border: 1px solid var(--rose-border);
+  border-radius: 99px;
+  font-size: 12px;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: border-color 150ms ease-out, background 150ms ease-out, transform 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover { border-color: var(--rose); background: #fff; }
+  .chip:hover .chipX { color: var(--rose-dark); }
+}
+.chip:active { transform: scale(0.97); }
+
+.chipLabel { color: var(--text-muted); }
+.chipValue { font-weight: 600; }
+.chipX     { color: var(--text-muted); transition: color 150ms ease-out; }
+
+.chipReset {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 4px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .chipReset:hover { color: var(--rose-dark); }
+}
+
+/* ── Cellules du tableau ── */
+.idCell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.invoiceNo {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dateCell { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+
+/* Ancienneté d'une commande en attente — signal de relance, pas décoration */
+.ageWarn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ── État vide ── */
+/* `.empty` n'existait pas : le message « Aucune commande » n'était pas stylé */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 56px 24px;
+  text-align: center;
+}
+
+.emptyTitle { font-size: 14px; font-weight: 600; color: var(--text-dark); }
+.emptyHint  { font-size: 13px; color: var(--text-muted); }
+
+.emptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.emptyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 9px;
+  font-size: 13px;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: border-color 150ms ease-out, background 150ms ease-out, transform 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .emptyBtn:hover { border-color: var(--rose); background: var(--rose-pale); }
+}
+.emptyBtn:active { transform: scale(0.97); }

@@ -22,6 +22,9 @@ const getAll = async (req, res, next) => {
       order:  req.query.order  || 'desc',
       status: req.query.status || null,
       q:      req.query.q?.trim() || null,
+      // Période — format AAAA-MM-JJ, validé ici pour ne pas passer n'importe quoi au SQL
+      dateFrom: /^\d{4}-\d{2}-\d{2}$/.test(req.query.date_from ?? '') ? req.query.date_from : null,
+      dateTo:   /^\d{4}-\d{2}-\d{2}$/.test(req.query.date_to   ?? '') ? req.query.date_to   : null,
     });
 
     res.json({
