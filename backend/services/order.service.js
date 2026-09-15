@@ -116,13 +116,17 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
     wantsPrintedInvoice,
   });
 
-  /* Numérotation de la facture : « 2026-09/01 », compteur remis à 1 chaque mois,
-     et référence de paiement dérivée de ce numéro. Échec non bloquant — la
-     commande existe et reste payable ; c'est la facture qui serait à régénérer. */
+  /* Numérotation de la facture : « 2026-000001 », compteur remis à 1 chaque
+     1er janvier, et référence de paiement dérivée de ce numéro. Échec non
+     bloquant — la commande existe et reste payable ; c'est la facture qui
+     serait à régénérer. */
   if (isInvoiceOrder) {
     try {
       const assigned = await orderRepository.assignInvoiceNumber(orderId);
-      const reference = invoiceService.generateQrReference(assigned?.invoiceSeq ?? null);
+      const reference = invoiceService.generateQrReference(
+        assigned?.invoiceSeq ?? null,
+        assigned?.year ?? new Date().getFullYear()
+      );
       await orderRepository.saveQrReference(orderId, reference);
     } catch (err) {
       console.error('[Facture] Numérotation échouée — commande', orderId, ':', err.message);

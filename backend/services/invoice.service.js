@@ -61,9 +61,15 @@ const computeTaxBreakdown = (order) => {
 // suffit à activer la référence structurée, sans modifier le code.
 // ─────────────────────────────────────────────────────────────
 
-// Référence QR structurée à partir du compteur de facture (26 chiffres + checksum)
-const buildStructuredReference = (invoiceSeq) => {
-  const base = String(invoiceSeq).replace(/\D/g, '').padStart(26, '0').slice(-26);
+/* Référence QR structurée : 26 chiffres + 1 de contrôle.
+   On encode ANNÉE (4) + compteur (6), complété par des zéros à gauche, soit le
+   numéro de facture « 2026-000001 » sans son tiret → …0000 2026 000001 + clé.
+   L'année est indispensable : le compteur repart à 1 chaque 1er janvier, donc
+   le seul numéro de séquence donnerait la même référence en 2026 et en 2027 —
+   la banque rapprocherait le paiement sur la mauvaise facture. */
+const buildStructuredReference = (invoiceSeq, year = new Date().getFullYear()) => {
+  const numeric = `${String(year)}${String(invoiceSeq).replace(/\D/g, '').padStart(6, '0')}`;
+  const base    = numeric.padStart(26, '0').slice(-26);
   return base + calculateQRReferenceChecksum(base);
 };
 
@@ -81,9 +87,9 @@ const usesStructuredReference = () => isQRIBAN(String(env.qrInvoiceIban || '').r
 
 /* Conservé pour les commandes créées avant la numérotation des factures :
    la référence est alors générée sans connaître le numéro de facture. */
-const generateQrReference = (invoiceSeq = null) => (
+const generateQrReference = (invoiceSeq = null, year = new Date().getFullYear()) => (
   usesStructuredReference() && invoiceSeq
-    ? buildStructuredReference(invoiceSeq)
+    ? buildStructuredReference(invoiceSeq, year)
     : buildInternalReference()
 );
 
@@ -200,7 +206,7 @@ const generateInvoicePDF = ({ order, user }) => {
          .text('FACTURE', 350, 46, { align: 'right', width: 195 });
 
       doc.fontSize(9).fillColor(muted).font('Helvetica')
-         /* Numéro de facture au format « 2026-09/01 » — lisible et classable en
+         /* Numéro de facture au format « 2026-000001 » — lisible et classable en
             comptabilité. Le numéro de commande reste affiché en dessous : c'est
             lui que la cliente retrouve dans l'administration. */
          .text(`N° ${order.invoice_number ?? String(order.id).padStart(6, '0')}`, 350, 78,  { align: 'right', width: 195 })
