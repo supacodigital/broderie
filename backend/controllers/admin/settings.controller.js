@@ -1,5 +1,6 @@
 const settingsRepository = require('../../repositories/settings.repository');
 const { AppError } = require('../../middlewares/errorHandler');
+const shopSettingsService = require('../../services/shopSettings.service');
 const { cache } = require('../../config/cache');
 
 /* Invalide le cache TVA et frais de port */
@@ -218,10 +219,71 @@ const updateBannerSettings = async (req, res, next) => {
   }
 };
 
+/* ── Retrait en boutique ── */
+const getPickupSettings = async (req, res, next) => {
+  try {
+    const data = await settingsRepository.findSettings(settingsRepository.PICKUP_KEYS);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updatePickupSettings = async (req, res, next) => {
+  try {
+    const allowed = {};
+    for (const key of settingsRepository.PICKUP_KEYS) {
+      if (req.body[key] !== undefined) allowed[key] = req.body[key];
+    }
+    await settingsRepository.upsertSettings(allowed);
+    shopSettingsService.invalidate('pickup');  // le prochain email reprend les nouvelles valeurs
+    const data = await settingsRepository.findSettings(settingsRepository.PICKUP_KEYS);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/* ── Coordonnées de facturation ── */
+const getInvoiceSettings = async (req, res, next) => {
+  try {
+    const data = await settingsRepository.findSettings(settingsRepository.INVOICE_KEYS);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateInvoiceSettings = async (req, res, next) => {
+  try {
+    const allowed = {};
+    for (const key of settingsRepository.INVOICE_KEYS) {
+      if (req.body[key] !== undefined) allowed[key] = req.body[key];
+    }
+    /* Le délai de paiement figure sur la facture : une valeur non numérique ou
+       négative produirait une échéance absurde côté client. */
+    if (allowed.invoice_due_days !== undefined) {
+      const days = parseInt(allowed.invoice_due_days, 10);
+      if (!Number.isInteger(days) || days < 1 || days > 365) {
+        return next(new AppError('Le délai de paiement doit être compris entre 1 et 365 jours.', 400));
+      }
+      allowed.invoice_due_days = String(days);
+    }
+    await settingsRepository.upsertSettings(allowed);
+    shopSettingsService.invalidate('invoice');  // la prochaine facture reprend les nouvelles valeurs
+    const data = await settingsRepository.findSettings(settingsRepository.INVOICE_KEYS);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getTaxRates, updateTaxRates,
   getShippingRates, updateShippingRates,
   getStoreSettings, updateStoreSettings,
   getLegalSettings, updateLegalSettings,
   getBannerSettings, updateBannerSettings,
+  getPickupSettings, updatePickupSettings,
+  getInvoiceSettings, updateInvoiceSettings,
 };

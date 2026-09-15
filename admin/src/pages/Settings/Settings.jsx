@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound, Megaphone } from 'lucide-react'
+import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound, Megaphone, MapPin, Wallet } from 'lucide-react'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import { useDirtyTracker } from '../../hooks/useDirtyTracker.js'
@@ -15,6 +15,10 @@ import {
   updateShippingRates,
   getLegalSettings,
   updateLegalSettings,
+  getPickupSettings,
+  updatePickupSettings,
+  getInvoiceSettings,
+  updateInvoiceSettings,
   getBannerSettings,
   updateBannerSettings,
 } from '../../services/settings.service.js'
@@ -215,9 +219,7 @@ function TaxTab({ onDirtyChange }) {
           </div>
           <div className={s.taxNote}>
             <AlertCircle size={13} />
-            Les taux TVA sont figés sur chaque commande au moment de l'achat (<code>tax_rate_snapshot</code>).
-            Une modification n'affecte que les nouvelles commandes.
-          </div>
+            Les taux enregistrés ici ne s'appliquent qu'aux commandes à venir. Les commandes déjà passées conservent le taux en vigueur le jour de l'achat — leurs factures restent donc inchangées.</div>
           <div className={s.formActions}>
             <SaveFeedback status={status} />
             <button className={s.btnSave} onClick={handleSave} disabled={saving || loading}>
@@ -561,6 +563,211 @@ function BannerTab({ onDirtyChange }) {
   )
 }
 
+/* ── Onglet Retrait en boutique ──
+   Ces valeurs partent dans l'email « votre commande est prête ». Elles vivaient
+   dans la configuration serveur : corriger un horaire imposait un accès SSH. */
+function PickupTab({ onDirtyChange }) {
+  const FIELDS = [
+    { key: 'pickup_name',    label: 'Nom du point de retrait', placeholder: 'Au Point-Compté' },
+    { key: 'pickup_address', label: 'Adresse',                 placeholder: 'Chemin du Collège 6' },
+    { key: 'pickup_zip',     label: 'NPA',                     placeholder: '1509' },
+    { key: 'pickup_city',    label: 'Localité',                placeholder: 'Vucherens' },
+  ]
+
+  const [values,  setValues]  = useState({ pickup_name: '', pickup_address: '', pickup_zip: '', pickup_city: '', pickup_hours: '' })
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(false)
+  const [status,  setStatus]  = useState(null)
+  const [saving,  setSaving]  = useState(false)
+  const { resetBaseline } = useDirtyTracker(values, loading, onDirtyChange)
+
+  const load = useCallback(async () => {
+    setError(false)
+    setLoading(true)
+    try {
+      const res = await getPickupSettings()
+      setValues(prev => ({ ...prev, ...res }))
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const handleChange = (key, val) => setValues(prev => ({ ...prev, [key]: val }))
+
+  const handleSave = async () => {
+    setSaving(true)
+    setStatus(null)
+    try {
+      await updatePickupSettings(values)
+      setStatus('saved')
+      resetBaseline()
+    } catch {
+      setStatus('error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <SettingsSection
+      title="Retrait en boutique"
+      desc="Adresse et horaires envoyés au client dans l'email « votre commande est prête »."
+    >
+      {error ? <ErrorBanner onRetry={load} /> : (
+        <>
+          <div className={s.formRow}>
+            {FIELDS.map(f => (
+              <div key={f.key} className={s.field}>
+                <label className={s.label} htmlFor={f.key}>{f.label}</label>
+                <input
+                  id={f.key}
+                  className={s.input}
+                  value={values[f.key] ?? ''}
+                  placeholder={f.placeholder}
+                  onChange={e => handleChange(f.key, e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+            ))}
+            <div className={`${s.field} ${s.fieldFull}`}>
+              <label className={s.label} htmlFor="pickup_hours">Horaires d'ouverture</label>
+              <textarea
+                id="pickup_hours"
+                className={s.textarea}
+                rows={3}
+                value={values.pickup_hours ?? ''}
+                placeholder="Mardi 9h–12h et 13h30–18h30 · Mercredi 13h–18h · 1er samedi du mois 9h–16h"
+                onChange={e => handleChange('pickup_hours', e.target.value)}
+                disabled={loading}
+              />
+              <p className={s.hint}>Texte repris tel quel dans l'email envoyé au client.</p>
+            </div>
+          </div>
+          <div className={s.formActions}>
+            <SaveFeedback status={status} />
+            <button className={s.btnSave} onClick={handleSave} disabled={saving || loading}>
+              <Save size={14} />
+              {saving ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+          </div>
+        </>
+      )}
+    </SettingsSection>
+  )
+}
+
+/* ── Onglet Facturation ──
+   Coordonnées imprimées sur la facture QR et délai de paiement. Le QR-IBAN
+   reste volontairement hors interface : une erreur de saisie enverrait de
+   vrais paiements clients sur le mauvais compte. */
+function InvoiceTab({ onDirtyChange }) {
+  const [values,  setValues]  = useState({ invoice_name: '', invoice_address: '', invoice_zip: '', invoice_city: '', invoice_vat_number: '', invoice_due_days: '' })
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(false)
+  const [status,  setStatus]  = useState(null)
+  const [saving,  setSaving]  = useState(false)
+  const { resetBaseline } = useDirtyTracker(values, loading, onDirtyChange)
+
+  const load = useCallback(async () => {
+    setError(false)
+    setLoading(true)
+    try {
+      const res = await getInvoiceSettings()
+      setValues(prev => ({ ...prev, ...res }))
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const handleChange = (key, val) => setValues(prev => ({ ...prev, [key]: val }))
+
+  const handleSave = async () => {
+    setSaving(true)
+    setStatus(null)
+    try {
+      await updateInvoiceSettings(values)
+      setStatus('saved')
+      resetBaseline()
+    } catch {
+      setStatus('error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <SettingsSection
+      title="Facturation"
+      desc="Coordonnées imprimées sur les factures QR et délai de paiement accordé au client."
+    >
+      {error ? <ErrorBanner onRetry={load} /> : (
+        <>
+          <div className={s.formRow}>
+            <div className={s.field}>
+              <label className={s.label} htmlFor="invoice_name">Nom de l'émetteur</label>
+              <input id="invoice_name" className={s.input} value={values.invoice_name ?? ''}
+                placeholder="Au Point-Compté" onChange={e => handleChange('invoice_name', e.target.value)} disabled={loading} />
+              <p className={s.hint}>Doit correspondre au titulaire du compte bancaire.</p>
+            </div>
+            <div className={s.field}>
+              <label className={s.label} htmlFor="invoice_address">Adresse</label>
+              <input id="invoice_address" className={s.input} value={values.invoice_address ?? ''}
+                placeholder="Chemin du Collège 6" onChange={e => handleChange('invoice_address', e.target.value)} disabled={loading} />
+            </div>
+            <div className={s.field}>
+              <label className={s.label} htmlFor="invoice_zip">NPA</label>
+              <input id="invoice_zip" className={s.input} value={values.invoice_zip ?? ''}
+                placeholder="1509" onChange={e => handleChange('invoice_zip', e.target.value)} disabled={loading} />
+            </div>
+            <div className={s.field}>
+              <label className={s.label} htmlFor="invoice_city">Localité</label>
+              <input id="invoice_city" className={s.input} value={values.invoice_city ?? ''}
+                placeholder="Vucherens" onChange={e => handleChange('invoice_city', e.target.value)} disabled={loading} />
+            </div>
+            <div className={s.field}>
+              <label className={s.label} htmlFor="invoice_vat_number">Numéro de TVA</label>
+              <input id="invoice_vat_number" className={s.input} value={values.invoice_vat_number ?? ''}
+                placeholder="CHE-123.456.789 TVA" onChange={e => handleChange('invoice_vat_number', e.target.value)} disabled={loading} />
+              <p className={s.hint}>À laisser vide tant que la boutique n'est pas assujettie (dès CHF 100 000 de CA).</p>
+            </div>
+            <div className={s.field}>
+              <label className={s.label} htmlFor="invoice_due_days">Délai de paiement (jours)</label>
+              <input id="invoice_due_days" type="number" min="1" max="365" className={s.input}
+                value={values.invoice_due_days ?? ''} placeholder="30"
+                onChange={e => handleChange('invoice_due_days', e.target.value)} disabled={loading} />
+              <p className={s.hint}>Échéance calculée depuis la date d'émission.</p>
+            </div>
+          </div>
+
+          <div className={s.noteBox}>
+            <AlertCircle size={15} />
+            <span>
+              Le compte bancaire (QR-IBAN) reste configuré sur le serveur : une erreur
+              de saisie enverrait de vrais paiements sur le mauvais compte.
+            </span>
+          </div>
+
+          <div className={s.formActions}>
+            <SaveFeedback status={status} />
+            <button className={s.btnSave} onClick={handleSave} disabled={saving || loading}>
+              <Save size={14} />
+              {saving ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+          </div>
+        </>
+      )}
+    </SettingsSection>
+  )
+}
+
 /* ── Changement de mot de passe ── */
 function PasswordSection() {
   const [values,  setValues]  = useState({ current: '', next: '', confirm: '' })
@@ -750,13 +957,18 @@ function SecurityTab() {
 }
 
 /* ── Page principale ── */
+/* Onglets groupés par domaine : l'identité de la boutique, puis ce qui touche
+   à la vente, puis le compte. Sans regroupement, « Bandeau » voisinait avec
+   « TVA » sans rapport de sens. */
 const TABS = [
-  { key: 'store',    label: 'Boutique',      icon: Store,       desc: 'Nom, email, téléphone'    },
-  { key: 'shipping', label: 'Livraison',     icon: Truck,       desc: 'Tarifs Swiss Post'         },
-  { key: 'tax',      label: 'TVA',           icon: Receipt,     desc: 'Taux AFC suisses'          },
-  { key: 'legal',    label: 'Textes légaux', icon: FileText,    desc: 'CGV, mentions, retours'    },
-  { key: 'banner',   label: 'Bandeau',       icon: Megaphone,   desc: 'Annonce en haut du site'   },
-  { key: 'security', label: 'Sécurité',      icon: ShieldCheck, desc: 'Double authentification'   },
+  { key: 'store',    label: 'Boutique',      icon: Store,       desc: 'Nom, email, téléphone',   group: 'Boutique' },
+  { key: 'pickup',   label: 'Retrait',       icon: MapPin,      desc: 'Adresse et horaires',     group: 'Boutique' },
+  { key: 'banner',   label: 'Bandeau',       icon: Megaphone,   desc: 'Annonce en haut du site', group: 'Boutique' },
+  { key: 'shipping', label: 'Livraison',     icon: Truck,       desc: 'Tarifs Swiss Post',       group: 'Vente' },
+  { key: 'tax',      label: 'TVA',           icon: Receipt,     desc: 'Taux AFC suisses',        group: 'Vente' },
+  { key: 'invoice',  label: 'Facturation',   icon: Wallet,      desc: 'Coordonnées, échéance',   group: 'Vente' },
+  { key: 'legal',    label: 'Textes légaux', icon: FileText,    desc: 'CGV, mentions, retours',  group: 'Vente' },
+  { key: 'security', label: 'Sécurité',      icon: ShieldCheck, desc: 'Double authentification', group: 'Compte' },
 ]
 
 export default function Settings() {
@@ -814,9 +1026,12 @@ export default function Settings() {
 
       <div className={s.settingsLayout}>
         <nav className={s.tabs}>
-          {TABS.map(t => {
+          {TABS.map((t, i) => {
             const Icon = t.icon
+            const startsGroup = i === 0 || TABS[i - 1].group !== t.group
             return (
+              <div key={`w-${t.key}`} className={s.tabGroup}>
+              {startsGroup && <span className={s.tabGroupLabel}>{t.group}</span>}
               <button
                 key={t.key}
                 className={`${s.tab} ${tab === t.key ? s.tabActive : ''}`}
@@ -831,6 +1046,7 @@ export default function Settings() {
                 </span>
                 <span className={s.tabDesc}>{t.desc}</span>
               </button>
+              </div>
             )
           })}
         </nav>
@@ -841,6 +1057,8 @@ export default function Settings() {
           {tab === 'tax'      && <TaxTab      onDirtyChange={markDirty('tax')} />}
           {tab === 'legal'    && <LegalTab    onDirtyChange={markDirty('legal')} />}
           {tab === 'banner'   && <BannerTab   onDirtyChange={markDirty('banner')} />}
+          {tab === 'pickup'   && <PickupTab   onDirtyChange={markDirty('pickup')} />}
+          {tab === 'invoice'  && <InvoiceTab  onDirtyChange={markDirty('invoice')} />}
           {tab === 'security' && <SecurityTab />}
         </div>
       </div>

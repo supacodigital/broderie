@@ -6,6 +6,7 @@ const shippingService   = require('../../services/shipping.service');
 const loyaltyService    = require('../../services/loyalty.service');
 const paymentService    = require('../../services/payment.service');
 const { generateInvoicePDF } = require('../../services/invoice.service');
+const shopSettingsService = require('../../services/shopSettings.service');
 
 // Statuts valides — alignés avec l'ENUM du schema
 const VALID_STATUSES = ['pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
@@ -125,7 +126,10 @@ const downloadInvoice = async (req, res, next) => {
     const user = await userRepository.findById(order.user_id);
     if (!user) return next(new AppError('Client introuvable.', 404));
 
-    const pdfBuffer = await generateInvoicePDF({ order, user });
+    /* Coordonnées d'émetteur et délai de paiement saisis dans l'admin
+       (Paramètres → Facturation), avec repli sur la configuration serveur. */
+    const invoiceSettings = await shopSettingsService.getInvoiceSettings();
+    const pdfBuffer = await generateInvoicePDF({ order, user, settings: invoiceSettings });
 
     const filename = `facture-${String(order.id).padStart(6, '0')}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');

@@ -385,12 +385,19 @@ async function sendPickupReady({ user, order }) {
   const firstName = escapeHtml(user.first_name);
   const orderId   = parseInt(order.id, 10);
 
-  // Adresse et horaires de la boutique (config)
+  /* Adresse et horaires du retrait — éditables depuis l'administration
+     (Paramètres → Retrait), avec repli sur la configuration serveur tant
+     qu'aucune valeur n'y a été saisie. */
+  /* require() local et non en tête de fichier : shopSettings tire la couche base
+     de données, et ce module doit rester chargeable sans elle (tests, envoi
+     d'emails dans un contexte sans pool). */
+  const { getPickupSettings } = require('./shopSettings.service');
+  const pickup = await getPickupSettings();
   const shop = {
-    name:    escapeHtml(env.pickupName),
-    address: escapeHtml(env.pickupAddress),
-    zipCity: escapeHtml(`${env.pickupZip} ${env.pickupCity}`),
-    hours:   escapeHtml(env.pickupHours),
+    name:    escapeHtml(pickup.name),
+    address: escapeHtml(pickup.address),
+    zipCity: escapeHtml(`${pickup.zip ?? ''} ${pickup.city ?? ''}`.trim()),
+    hours:   escapeHtml(pickup.hours),
   };
 
   // Encart adresse + horaires de la boutique
