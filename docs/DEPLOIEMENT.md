@@ -123,6 +123,20 @@ Tout le reste est déjà renseigné et vérifié : URLs `https://broderie.ch`, s
 JWT/MFA (distincts de ceux de développement), IBAN réel de Julie, adresse et horaires
 de la boutique, clés API Swiss Post, `contact@broderie.ch` en expéditeur.
 
+> ⚠️ **`CLIENT_URL` et `ADMIN_URL` en particulier** : ce sont elles qui composent les
+> liens envoyés par email (vérification de compte, réinitialisation de mot de passe).
+> Si elles restent sur la valeur par défaut de `.env.example`
+> (`http://localhost:5173` / `http://localhost:5174`), les emails envoyés depuis la
+> prod contiennent des liens en local, inutilisables par les clients. Vérifier après
+> chaque copie de `.env.production` :
+> ```bash
+> grep -E "^(CLIENT_URL|ADMIN_URL)=" ~/broderie/backend/.env.production
+> #   CLIENT_URL=https://broderie.ch
+> #   ADMIN_URL=https://broderie.ch
+> ```
+> Après correction, `pm2 reload broderie-api` (les variables d'env ne sont relues
+> qu'au (re)démarrage du process).
+
 **Contrôle avant d'aller plus loin** — si la config est invalide, l'API refusera de
 démarrer :
 ```bash
@@ -363,6 +377,7 @@ cd ~/broderie/backend && npm run db:migrate
 | 502 Bad Gateway | L'API est tombée : `pm2 status`, puis `pm2 restart broderie-api` |
 | Upload d'image en erreur 500 | Binaire `sharp` incompatible Linux : `cd ~/broderie/backend && npm rebuild sharp && pm2 reload broderie-api`. Sinon permissions : `mkdir -p uploads/products && chown -R $USER uploads` |
 | Emails non reçus | `pm2 logs` (les échecs SMTP y sont tracés), vérifier `MAIL_PASSWORD`, puis les spams |
+| Lien reçu par email pointe vers `localhost` | `CLIENT_URL`/`ADMIN_URL` mal renseignées dans `.env.production` — voir étape 4. Corriger puis `pm2 reload broderie-api` |
 | Connexion admin en boucle | MFA non configuré ou cookie `Secure` bloqué — vérifier que le site est bien en HTTPS |
 | « Trop de requêtes » (429) | Rate limiting : 10 tentatives de connexion / 15 min, 5 pour un code MFA. Attendre ou redémarrer l'API |
 
