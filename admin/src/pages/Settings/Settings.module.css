@@ -129,6 +129,44 @@
 .label { font-size: 12px; font-weight: 600; color: var(--text-dark); }
 .hint  { font-size: 11px; color: var(--text-muted); }
 
+/* ── Bandeau d'annonce ── */
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* Message d'erreur du serveur, à côté du bouton d'enregistrement */
+.errText { font-size: 12px; color: #dc2626; }
+
+/* Aperçu : montre le rendu réel sans avoir à ouvrir la boutique */
+.bannerPreview { margin-top: 16px; }
+
+.bannerPreviewLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Reprend les couleurs du bandeau réel (frontend AnnouncementBanner) */
+.bannerPreviewBar {
+  padding: 9px 16px;
+  border-radius: 6px;
+  background: var(--rose);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+  /* Une annonce longue passe à la ligne, comme sur la boutique */
+  overflow-wrap: anywhere;
+}
+
 /* ── Inputs ── */
 .input {
   padding: 9px 12px;

@@ -1,7 +1,9 @@
 /* ── Zone d'affichage des toasts — bas droit de l'écran ── */
 .region {
   position: fixed;
-  bottom: 24px;
+  /* Remonte au-dessus de la barre de confirmation d'email quand elle est
+     affichée (variable posée sur <html> par EmailVerificationBanner). */
+  bottom: calc(24px + var(--email-banner-height, 0px));
   right: 24px;
   z-index: 9999;
   display: flex;
@@ -124,7 +126,7 @@
   .region {
     left: 12px;
     right: 12px;
-    bottom: 12px;
+    bottom: calc(12px + var(--email-banner-height, 0px));
   }
   .toast { max-width: none; }
 }

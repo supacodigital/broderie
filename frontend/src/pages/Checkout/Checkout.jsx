@@ -435,6 +435,8 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
   const [payment,     setPayment]     = useState('invoice_qr')
   const [cgv,         setCgv]         = useState(false)
   const [cgvError,    setCgvError]    = useState('')
+  /* Facture papier jointe au colis — l'envoi du PDF par email a lieu dans tous les cas */
+  const [printedInvoice, setPrintedInvoice] = useState(false)
   const [couponInput, setCouponInput] = useState('')
   const [couponError, setCouponError] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
@@ -478,7 +480,7 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
     if (!cgv) { setCgvError(t('checkout.errors.cgvRequired')); return }
     setCgvError('')
     submitLock.current = true
-    Promise.resolve(onSubmit({ payment_method: payment }))
+    Promise.resolve(onSubmit({ payment_method: payment, wants_printed_invoice: printedInvoice }))
       .finally(() => { submitLock.current = false })
   }
 
@@ -583,6 +585,21 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
         {couponError && (
           <span className={s.fieldError} role="alert"><AlertCircle size={12} aria-hidden="true" />{couponError}</span>
         )}
+      </div>
+
+      {/* Facture papier — option, sans incidence sur l'envoi du PDF par email */}
+      <div className={s.printedInvoiceRow}>
+        <input
+          id="checkout-printed-invoice"
+          type="checkbox"
+          className={s.checkbox}
+          checked={printedInvoice}
+          onChange={e => setPrintedInvoice(e.target.checked)}
+        />
+        <label htmlFor="checkout-printed-invoice" className={s.printedInvoiceLabel}>
+          {t('checkout.printedInvoice')}
+          <span className={s.printedInvoiceHint}>{t('checkout.printedInvoiceHint')}</span>
+        </label>
       </div>
 
       {/* CGV */}
@@ -1035,7 +1052,7 @@ export default function Checkout() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handlePlaceOrder = async ({ payment_method }) => {
+  const handlePlaceOrder = async ({ payment_method, wants_printed_invoice = false }) => {
     setGlobalError('')
     setIsSubmitting(true)
     try {
@@ -1043,6 +1060,7 @@ export default function Checkout() {
         address,
         billing_address: billingAddress ?? address,
         payment_method,
+        wants_printed_invoice,
         coupon_code: couponCode || undefined,
         items: items.map(i => ({
           product_id: i.product_id,

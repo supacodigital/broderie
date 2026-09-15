@@ -172,7 +172,7 @@
   /* Empilé au-dessus du bouton « Valider mon panier », qui occupe le coin bas
      (32px) : 32 + ~51 de hauteur (padding 20 + deux lignes de libellé) + 12
      d'écart. Le panier prend la place la plus accessible, c'est l'action utile. */
-  bottom: 95px;
+  bottom: calc(95px + var(--email-banner-height, 0px));
   right: 32px;
   width: 44px;
   height: 44px;
@@ -211,7 +211,7 @@
 @media (max-width: 768px) {
   .grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
   /* Au-dessus du bouton panier (bottom 20px, ~48px de haut en mobile) + 12 d'écart */
-  .backToTop { bottom: 80px; right: 20px; width: 40px; height: 40px; }
+  .backToTop { bottom: calc(80px + var(--email-banner-height, 0px)); right: 20px; width: 40px; height: 40px; }
 }
 
 @media (max-width: 640px) {

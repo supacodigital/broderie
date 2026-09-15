@@ -40,25 +40,28 @@ describe('email.service — sendWelcome()', () => {
     expect(mail.html).toContain('broderie.ch');
   });
 
-  test('envoie en DE si locale = de', async () => {
+  /* Site français uniquement : quelle que soit la locale portée par le compte
+     (colonne conservée en base), l'email part en français. */
+  test('reste en français même si le compte porte une autre locale', async () => {
     await service.sendWelcome({ user: { ...fakeUser, locale: 'de' } });
 
     const mail = transporter.sendMail.mock.calls[0][0];
-    expect(mail.subject).toContain('Willkommen');
+    expect(mail.subject).toContain('Bienvenue');
+    expect(mail.html).not.toContain('Willkommen');
   });
 
-  test('envoie en EN si locale = en', async () => {
-    await service.sendWelcome({ user: { ...fakeUser, locale: 'en' } });
-
-    const mail = transporter.sendMail.mock.calls[0][0];
-    expect(mail.subject).toContain('Welcome');
-  });
-
-  test('utilise FR par défaut si locale absente', async () => {
+  test('reste en français si locale absente', async () => {
     await service.sendWelcome({ user: { ...fakeUser, locale: undefined } });
 
     const mail = transporter.sendMail.mock.calls[0][0];
     expect(mail.subject).toContain('Bienvenue');
+  });
+
+  test('annonce le délai de livraison 3 à 5 jours', async () => {
+    await service.sendWelcome({ user: fakeUser });
+
+    const mail = transporter.sendMail.mock.calls[0][0];
+    expect(mail.html).toContain('3 à 5 jours ouvrables');
   });
 
   test('échappe les caractères HTML dans le prénom', async () => {
@@ -116,11 +119,19 @@ describe('email.service — sendOrderConfirmation()', () => {
     expect(transporter.sendMail).toHaveBeenCalledTimes(1);
   });
 
-  test('envoie en DE', async () => {
+  test('reste en français même si le compte porte une autre locale', async () => {
     await service.sendOrderConfirmation({ user: { ...fakeUser, locale: 'de' }, order: fakeOrder });
 
     const mail = transporter.sendMail.mock.calls[0][0];
-    expect(mail.subject).toContain('Bestellbestätigung');
+    expect(mail.subject).toContain('Confirmation de votre commande');
+    expect(mail.html).not.toContain('Zwischensumme');
+  });
+
+  test('annonce le délai de livraison 3 à 5 jours', async () => {
+    await service.sendOrderConfirmation({ user: fakeUser, order: fakeOrder });
+
+    const mail = transporter.sendMail.mock.calls[0][0];
+    expect(mail.html).toContain('3 à 5 jours ouvrables');
   });
 });
 
@@ -152,7 +163,7 @@ describe('email.service — sendOrderShipped()', () => {
     expect(mail.html).toContain('&lt;img');
   });
 
-  test('envoie en DE', async () => {
+  test('reste en français même si le compte porte une autre locale', async () => {
     await service.sendOrderShipped({
       user:           { ...fakeUser, locale: 'de' },
       order:          { id: 1 },
@@ -160,7 +171,8 @@ describe('email.service — sendOrderShipped()', () => {
     });
 
     const mail = transporter.sendMail.mock.calls[0][0];
-    expect(mail.subject).toContain('unterwegs');
+    expect(mail.subject).toContain('est en route');
+    expect(mail.html).not.toContain('unterwegs');
   });
 });
 
@@ -183,11 +195,12 @@ describe('email.service — sendPasswordReset()', () => {
     expect(mail.html).toContain('1 heure');
   });
 
-  test('envoie en DE', async () => {
+  test('reste en français même si le compte porte une autre locale', async () => {
     await service.sendPasswordReset({ user: { ...fakeUser, locale: 'de' }, resetToken: 'tok' });
 
     const mail = transporter.sendMail.mock.calls[0][0];
-    expect(mail.subject).toContain('zurücksetzen');
+    expect(mail.subject).toContain('Réinitialisation');
+    expect(mail.html).not.toContain('Passwort');
   });
 });
 

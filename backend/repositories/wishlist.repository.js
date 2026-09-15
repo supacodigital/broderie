@@ -1,11 +1,14 @@
 const { pool } = require('../config/db');
+const { effectivePriceSql, displayComparePriceSql } = require('../utils/promo.utils');
 
 // Wishlist complète d'un utilisateur avec infos produit
 const findByUser = async (userId, locale = 'fr') => {
   const [rows] = await pool.execute(
     `SELECT w.id, w.product_id, w.created_at,
             COALESCE(pt.name, pt_fr.name) AS product_name,
-            p.price_chf, p.compare_price_chf, p.slug,
+            ${effectivePriceSql('p')} AS price_chf,
+            ${displayComparePriceSql('p')} AS compare_price_chf,
+            p.slug,
             p.stock, p.is_active,
             pi.url AS image_url
      FROM wishlists w

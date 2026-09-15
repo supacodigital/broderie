@@ -16,7 +16,7 @@ const getRates = async (req, res, next) => {
         price_chf:      priceChf,
         currency:       'CHF',
         carrier:        'Swiss Post',
-        estimated_days: '1–2',
+        estimated_days: '3–5',
       },
     });
   } catch (error) {

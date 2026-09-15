@@ -93,7 +93,7 @@ export default function MentionsLegales() {
           <div className={s.heroIcon}><Scale size={28} /></div>
           <h1 className={s.heroTitle}>Mentions légales</h1>
           <p className={s.heroSub}>
-            Au Point-Compté — broderie-domaine.ch<br />
+            Au Point-Compté — broderie.ch<br />
             Dernière mise à jour : 1<sup>er</sup> mai 2026
           </p>
         </div>

@@ -41,8 +41,11 @@ describe('product.repository — findAll()', () => {
 
     await repo.findAll({ locale: 'fr', minPrice: 5, maxPrice: 20 });
     const countQuery = pool.execute.mock.calls[0][0];
-    expect(countQuery).toContain('p.price_chf >=');
-    expect(countQuery).toContain('p.price_chf <=');
+    /* Le filtre porte sur le prix RÉELLEMENT payé (expression CASE de
+       promo.utils), pas sur p.price_chf brut : hors fenêtre de promotion,
+       c'est le prix normal (compare_price_chf) qui doit être filtré. */
+    expect(countQuery).toMatch(/CASE WHEN[\s\S]*compare_price_chf[\s\S]*>=\s*\?/);
+    expect(countQuery).toMatch(/CASE WHEN[\s\S]*compare_price_chf[\s\S]*<=\s*\?/);
   });
 
   test('applique le filtre inStock', async () => {

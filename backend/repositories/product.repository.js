@@ -1,11 +1,18 @@
 const { pool } = require('../config/db');
+const { toSearchTerms } = require('../utils/search.utils');
+const { promoPriceColumns, effectivePriceSql } = require('../utils/promo.utils');
 
 // Colonnes produit sélectionnées explicitement — jamais SELECT *
 // Fallback FR : COALESCE vers pt_fr/ct_fr si la traduction demandée (locale) est absente
 // avg_rating / review_count : colonnes dénormalisées (products.rating_avg/rating_count),
 // tenues à jour à l'approbation/suppression d'un avis — pas de jointure reviews ni de GROUP BY.
+// price_chf / compare_price_chf sont réécrits par promoPriceColumns() : hors
+// fenêtre de promotion, le prix normal reprend la main et plus rien n'est barré.
 const PRODUCT_COLUMNS = `
-  p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
+  p.id, p.slug, p.sku, p.stock,
+  ${promoPriceColumns('p')},
+  ${effectivePriceSql('p')} AS price_chf,
+  p.promo_starts_at, p.promo_ends_at,
   p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.featured_order, p.is_made_to_order, p.badge, p.brand, p.category_id, p.supplier_id, p.created_at,
   COALESCE(pt.name, pt_fr.name) AS name,
   COALESCE(pt.description, pt_fr.description) AS description,
@@ -28,20 +35,11 @@ const PRODUCT_COLUMNS = `
    sens de la requête ou provoquent une erreur SQL. */
 const RESERVED_FT_CHARS = /[+\-~<>()*"@]/g;
 
-/* Retire la marque du pluriel français (« cotons » → « coton ») avant d'ajouter le
-   préfixe. Sans cela « cotons » ne retrouve pas « coton » : le joker « * » étend vers
-   la droite mais ne raccourcit jamais le terme. C'est le cas concret qui faisait
-   échouer la recherche « cotons moulinés » alors que les descriptions disent
-   « échevette de coton mouliné » au singulier.
-   Les mots de 3 lettres ou moins sont laissés intacts (« bas », « lps »…). */
-const singularize = (token) => (token.length > 3 ? token.replace(/[sx]$/i, '') : token);
-
+/* Le passage au singulier est partagé avec la recherche admin — voir
+   utils/search.utils.js pour le détail du cas « cotons moulinés ». */
 const toBooleanQuery = (q) =>
-  String(q)
-    .replace(RESERVED_FT_CHARS, ' ')
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((token) => `+${singularize(token)}*`)
+  toSearchTerms(String(q).replace(RESERVED_FT_CHARS, ' '))
+    .map((token) => `+${token}*`)
     .join(' ');
 
 // Construction dynamique des filtres WHERE pour la liste produits
@@ -75,12 +73,14 @@ const buildFilters = (filters) => {
     conditions.push('p.category_id = ?');
     params.push(filters.categoryId);
   }
+  /* Filtres de prix appliqués au prix RÉELLEMENT payé : un produit dont la promo
+     est expirée doit être filtré sur son prix normal, pas sur l'ancien prix promo. */
   if (filters.minPrice !== undefined) {
-    conditions.push('p.price_chf >= ?');
+    conditions.push(`${effectivePriceSql('p')} >= ?`);
     params.push(filters.minPrice);
   }
   if (filters.maxPrice !== undefined) {
-    conditions.push('p.price_chf <= ?');
+    conditions.push(`${effectivePriceSql('p')} <= ?`);
     params.push(filters.maxPrice);
   }
   if (filters.inStock) {
@@ -116,7 +116,8 @@ const buildFilters = (filters) => {
 const ALLOWED_SORT_FIELDS = {
   created_at: 'p.created_at',
   updated_at: 'p.updated_at',
-  price_chf: 'p.price_chf',
+  // Tri sur le prix réellement payé — une promo expirée ne doit plus peser sur l'ordre
+  price_chf: effectivePriceSql('p'),
   name: 'COALESCE(pt.name, pt_fr.name)',
   stock: 'p.stock',
   avg_rating: 'p.rating_avg',
@@ -140,14 +141,13 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
       : (ALLOWED_SORT_FIELDS[sort] || 'p.created_at');
   const sortOrder = filters.featured ? 'ASC' : relevanceSort ? 'DESC' : (order === 'asc' ? 'ASC' : 'DESC');
   /* Produits illustrés en premier : le catalogue photo est incomplet (les lots de
-     photos de la cliente arrivent par vagues), et une page entière de vignettes vides
-     donne une mauvaise première impression. `pi.id IS NULL` vaut 0 (avec image) ou
-     1 (sans), donc ASC remonte les produits illustrés — le tri demandé s'applique
-     ensuite, à l'intérieur de chaque groupe.
-     Neutralisé pour la home bento (ordre manuel défini par l'admin) et pour la
-     recherche (la pertinence prime : masquer une correspondance exacte parce qu'elle
-     n'a pas encore de photo serait pire).
-     À retirer quand tous les lots seront importés — voir database/README.md. */
+     photos arrivent par vagues), et une page entière de vignettes vides donne une
+     mauvaise première impression. `pi.id IS NULL` vaut 0 (avec image) ou 1 (sans),
+     donc ASC remonte les produits illustrés — le tri demandé s'applique ensuite.
+     Neutralisé pour la home bento (ordre manuel de l'admin) et pour la recherche
+     (la pertinence prime : masquer une correspondance exacte parce qu'elle n'a pas
+     de photo serait pire).
+     À retirer quand tous les lots seront importés : voir database/README.md. */
   const imageFirst = !filters.featured && !relevanceSort ? 'pi.id IS NULL ASC, ' : '';
   const offset = (page - 1) * limit;
 
@@ -208,7 +208,10 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
 // Détail d'un produit par id avec images et variantes
 const findById = async (id, locale = 'fr') => {
   const [rows] = await pool.execute(
-    `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
+    `SELECT p.id, p.slug, p.sku, p.stock,
+            ${promoPriceColumns('p')},
+            ${effectivePriceSql('p')} AS price_chf,
+            p.promo_starts_at, p.promo_ends_at,
             p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.badge, p.brand, p.category_id, p.supplier_id, p.created_at,
             COALESCE(pt.name, pt_fr.name) AS name,
             COALESCE(pt.description, pt_fr.description) AS description,
@@ -338,7 +341,10 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
 // Détail d'un produit par slug avec images et variantes
 const findBySlug = async (slug, locale = 'fr') => {
   const [rows] = await pool.execute(
-    `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
+    `SELECT p.id, p.slug, p.sku, p.stock,
+            ${promoPriceColumns('p')},
+            ${effectivePriceSql('p')} AS price_chf,
+            p.promo_starts_at, p.promo_ends_at,
             p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.badge, p.brand, p.category_id, p.supplier_id, p.created_at,
             COALESCE(pt.name, pt_fr.name) AS name,
             COALESCE(pt.description, pt_fr.description) AS description,

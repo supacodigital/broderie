@@ -24,6 +24,10 @@ function makeCartItem(price = '49.90', qty = 1, taxRate = '8.1') {
   return {
     id: 1, product_id: 1, variant_id: null,
     quantity: qty,
+    /* unit_price = prix courant renvoyé par cart.repository (promotion prise en
+       compte) ; price_snapshot reste la trace de la saisie initiale. C'est
+       unit_price que order.service facture. */
+    unit_price: price,
     price_snapshot: price,
     tax_rate_snapshot: taxRate,
     is_active: 1, deleted_at: null,

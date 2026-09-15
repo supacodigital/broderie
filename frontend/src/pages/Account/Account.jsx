@@ -7,7 +7,7 @@ import { z } from 'zod'
 import {
   User, Package, MapPin, Heart, LogOut, ChevronRight,
   Check, AlertCircle, Plus, Pencil, Trash2, Star, X, Gift, Copy, Eye, EyeOff,
-  Download, ShieldAlert,
+  Download, ShieldAlert, BadgeCheck, MailWarning,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useWishlist } from '../../contexts/WishlistContext.jsx'
@@ -1080,6 +1080,8 @@ export default function Account() {
   const firstName = userData?.firstName ?? userData?.first_name ?? ''
   const lastName  = userData?.lastName  ?? userData?.last_name  ?? ''
   const initials  = `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
+  /* Statut de confirmation de l'adresse email — affiché à côté de l'avatar */
+  const emailVerified = !!userData?.emailVerified
 
   return (
     <div className={s.page}>
@@ -1095,10 +1097,29 @@ export default function Account() {
       {/* ── Barre supérieure — avatar + navigation par onglets horizontale (desktop/tablette) ── */}
       <div className={s.topBar}>
         <div className={s.topBarAvatar}>
-          <div className={s.avatar}>{initials}</div>
+          <div className={s.avatarWrap}>
+            <div className={s.avatar}>{initials}</div>
+            {/* Pastille de confirmation — apposée sur l'avatar une fois l'adresse vérifiée */}
+            {emailVerified && (
+              <span className={s.avatarBadge} title={t('account.emailVerifiedTitle')}>
+                <BadgeCheck size={16} aria-hidden="true" />
+                <span className={s.srOnly}>{t('account.emailVerifiedTitle')}</span>
+              </span>
+            )}
+          </div>
           <div>
             <p className={s.avatarName}>{firstName} {lastName}</p>
             <p className={s.avatarEmail}>{userData?.email}</p>
+            {/* Mention explicite sous l'email : la pastille seule reste ambiguë */}
+            {emailVerified ? (
+              <span className={s.verifiedTag}>
+                <Check size={12} aria-hidden="true" />{t('account.emailVerified')}
+              </span>
+            ) : (
+              <span className={s.unverifiedTag}>
+                <MailWarning size={12} aria-hidden="true" />{t('account.emailUnverified')}
+              </span>
+            )}
           </div>
         </div>
 

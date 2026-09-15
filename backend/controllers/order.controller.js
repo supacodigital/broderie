@@ -27,6 +27,8 @@ const createOrderSchema = z.object({
   address:         addressSchema,
   // Adresse de facturation optionnelle — si absente, identique à la livraison
   billing_address: addressSchema.optional().nullable(),
+  // Facture papier jointe au colis — l'envoi du PDF par email a lieu dans tous les cas
+  wants_printed_invoice: z.boolean().optional(),
   items:           z.any(),
 });
 
@@ -43,7 +45,8 @@ const createOrder = async (req, res, next) => {
     const couponCode     = parsed.data.coupon_code?.trim() || null;
     const address        = parsed.data.address;
     const billingAddress = parsed.data.billing_address ?? null;
-    const order = await orderService.createOrder({ userId, sessionId, paymentMethod, couponCode, address, billingAddress, locale: localeFromRequest(req) });
+    const wantsPrintedInvoice = parsed.data.wants_printed_invoice === true;
+    const order = await orderService.createOrder({ userId, sessionId, paymentMethod, couponCode, address, billingAddress, locale: localeFromRequest(req), wantsPrintedInvoice });
     res.status(201).json({ success: true, data: order });
   } catch (error) {
     next(error);

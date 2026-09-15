@@ -163,6 +163,29 @@
   white-space: nowrap;
 }
 
+/* Cellule statut — empile le badge de statut et l'éventuelle mention facture papier */
+.statusCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* Facture papier demandée — ambre, comme toutes les actions manuelles attendues */
+.printedInvoiceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .iconBtn {
   background: none;
   border: none;

@@ -256,6 +256,43 @@ describe('product.admin.repository — findAllAdmin()', () => {
     expect(countParams).toContain('%fil%');
   });
 
+  /* Non-régression « moteur de recherche pas assez précis » : la saisie entière
+     servait de motif unique, donc « DMC 745 » ne trouvait pas « DMC mouliné N° 745 ». */
+  test('exige chaque mot séparément, quel que soit leur ordre', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 1 }]])
+      .mockResolvedValueOnce([[{ id: 1 }]]);
+
+    await repo.findAllAdmin({ search: 'DMC 745' });
+    const [sql, params] = pool.query.mock.calls[0];
+    // Un bloc de conditions par mot, et non un seul motif « %DMC 745% »
+    expect(params).toContain('%DMC%');
+    expect(params).toContain('%745%');
+    expect(params).not.toContain('%DMC 745%');
+    expect(sql.match(/pt\.name LIKE \?/g)).toHaveLength(2);
+  });
+
+  test('le pluriel saisi retrouve le singulier des fiches', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 1 }]])
+      .mockResolvedValueOnce([[{ id: 1 }]]);
+
+    await repo.findAllAdmin({ search: 'cotons moulinés' });
+    const params = pool.query.mock.calls[0][1];
+    expect(params).toContain('%coton%');
+    expect(params).toContain('%mouliné%');
+  });
+
+  test('une recherche vide ne filtre rien', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 5 }]])
+      .mockResolvedValueOnce([[]]);
+
+    await repo.findAllAdmin({ search: '   ' });
+    const sql = pool.query.mock.calls[0][0];
+    expect(sql).not.toContain('LIKE ?');
+  });
+
   test('applique le filtre inStock', async () => {
     pool.query
       .mockResolvedValueOnce([[{ total: 0 }]])
@@ -264,6 +301,19 @@ describe('product.admin.repository — findAllAdmin()', () => {
     await repo.findAllAdmin({ inStock: true });
     const countQuery = pool.query.mock.calls[0][0];
     expect(countQuery).toContain('p.stock > 0');
+  });
+
+  /* Le filtre « stock bas » sert au réassort : les articles « sur commande »,
+     à 0 par nature, noyaient les ~1 750 vrais réassorts sous ~12 900 lignes. */
+  test('le filtre lowStock exclut les articles sur commande', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 0 }]])
+      .mockResolvedValueOnce([[]]);
+
+    await repo.findAllAdmin({ lowStock: true });
+    const countQuery = pool.query.mock.calls[0][0];
+    expect(countQuery).toContain('p.stock <= 5');
+    expect(countQuery).toContain('p.is_made_to_order = 0');
   });
 
   test('applique le filtre lowStock', async () => {

@@ -357,6 +357,38 @@
 .cgvLabel a { color: var(--rose); text-decoration: none; }
 .cgvLabel a:hover { text-decoration: underline; }
 
+/* ── Facture imprimée — option, encadrée pour la distinguer des CGV obligatoires ── */
+.printedInvoiceRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 12px 14px;
+  background: var(--rose-pale);
+  border: 1px solid var(--rose-border);
+  border-radius: 10px;
+}
+
+.printedInvoiceLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+/* Précision sous le libellé : évite de faire croire que cocher remplace l'email */
+.printedInvoiceHint {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
 /* ── Boutons navigation ── */
 .actions {
   display: flex;

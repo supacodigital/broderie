@@ -25,7 +25,7 @@ beforeAll(async () => {
   ]) {
     await pool.execute(
       'INSERT INTO shipping_rates (zone_id, name, min_weight, max_weight, price_chf, estimated_days) VALUES (?, ?, ?, ?, ?, ?)',
-      [zoneId, t.name, t.min, t.max, t.price, '1-2']
+      [zoneId, t.name, t.min, t.max, t.price, '3-5']
     );
   }
 });

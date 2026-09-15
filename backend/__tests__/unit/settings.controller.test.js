@@ -11,6 +11,7 @@ jest.mock('../../repositories/settings.repository', () => ({
   upsertSettings:       jest.fn(),
   STORE_KEYS: ['store_name', 'store_email'],
   LEGAL_KEYS: ['cgv', 'privacy'],
+  BANNER_KEYS: ['banner_enabled', 'banner_text', 'banner_link'],
 }));
 
 jest.mock('../../config/cache', () => ({
@@ -28,6 +29,7 @@ const {
   getShippingRates, updateShippingRates,
   getStoreSettings, updateStoreSettings,
   getLegalSettings, updateLegalSettings,
+  updateBannerSettings,
 } = require('../../controllers/admin/settings.controller');
 
 beforeEach(() => jest.clearAllMocks());
@@ -200,5 +202,65 @@ describe('admin/settings.controller — updateLegalSettings()', () => {
     const res = makeRes();
     await updateLegalSettings(req, res, jest.fn());
     expect(settingsRepository.upsertSettings).toHaveBeenCalledWith({ cgv: 'Nouveau CGV' });
+  });
+});
+
+// ── updateBannerSettings() ────────────────────────────────────────────────────
+// Non-régression : le lien du bandeau ne doit jamais pouvoir sortir du site.
+// Une validation par liste de caractères laissait passer « //evil.com » — chaîne
+// composée uniquement de caractères licites dans un chemin et commençant bien par
+// « / », mais lue par les navigateurs comme une URL protocole-relative.
+
+describe('admin/settings.controller — updateBannerSettings()', () => {
+  const saveLink = async (banner_link) => {
+    settingsRepository.findSettings.mockResolvedValue({});
+    const req = { body: { banner_link } };
+    const res = makeRes();
+    await updateBannerSettings(req, res, jest.fn());
+    return res;
+  };
+
+  test.each([
+    ['//evil.com',           'protocole-relative'],
+    ['///evil.com',          'triple slash'],
+    ['//evil.com/promo',     'protocole-relative avec chemin'],
+    ['https://evil.com',     'URL absolue'],
+    ['javascript:alert(1)',  'pseudo-protocole javascript'],
+    ['/\\evil.com',          'antislash interprété comme slash'],
+  ])('refuse un lien externe : %s (%s)', async (link) => {
+    const res = await saveLink(link);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(settingsRepository.upsertSettings).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ['/catalogue',           '/catalogue'],
+    ['/catalogue?cat=kits',  '/catalogue?cat=kits'],
+    ['/produits/12#avis',    '/produits/12#avis'],
+    // Une saisie sans « / » initial est normalisée plutôt que refusée
+    ['catalogue',            '/catalogue'],
+  ])('accepte un lien interne : %s', async (link, expected) => {
+    await saveLink(link);
+    expect(settingsRepository.upsertSettings).toHaveBeenCalledWith({ banner_link: expected });
+  });
+
+  test('normalise banner_enabled en « 1 » ou « 0 »', async () => {
+    settingsRepository.findSettings.mockResolvedValue({});
+    const res = makeRes();
+    await updateBannerSettings({ body: { banner_enabled: true } }, res, jest.fn());
+    expect(settingsRepository.upsertSettings).toHaveBeenCalledWith({ banner_enabled: '1' });
+
+    jest.clearAllMocks();
+    settingsRepository.findSettings.mockResolvedValue({});
+    await updateBannerSettings({ body: { banner_enabled: 'nimporte quoi' } }, makeRes(), jest.fn());
+    expect(settingsRepository.upsertSettings).toHaveBeenCalledWith({ banner_enabled: '0' });
+  });
+
+  test('refuse un texte trop long', async () => {
+    settingsRepository.findSettings.mockResolvedValue({});
+    const res = makeRes();
+    await updateBannerSettings({ body: { banner_text: 'x'.repeat(201) } }, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(settingsRepository.upsertSettings).not.toHaveBeenCalled();
   });
 });

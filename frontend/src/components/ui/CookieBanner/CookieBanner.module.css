@@ -1,6 +1,8 @@
 .banner {
   position: fixed;
-  bottom: 0;
+  /* Repose sur la barre de confirmation d'email quand elle est affichée
+     (variable posée sur <html> par EmailVerificationBanner), sinon collée en bas. */
+  bottom: var(--email-banner-height, 0px);
   left: 0;
   right: 0;
   z-index: 600;

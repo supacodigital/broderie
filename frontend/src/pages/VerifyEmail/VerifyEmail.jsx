@@ -26,13 +26,17 @@ export default function VerifyEmail() {
     verifyEmail(token)
       .then(() => {
         setState('success')
-        /* Rafraîchit l'utilisateur si connecté → masque le bandeau */
-        refreshUser()
+        /* Rafraîchit l'utilisateur si connecté → masque le bandeau.
+           Le lien est souvent ouvert sans session (autre navigateur, téléphone) :
+           l'appel échoue alors en 401, ce qui est normal et sans conséquence ici
+           — la vérification côté serveur a déjà abouti. On ignore donc l'échec
+           pour ne jamais compromettre l'écran de succès. */
+        refreshUser().catch(() => {})
       })
       .catch(async () => {
         /* Token à usage unique : un 2e clic échoue. Si l'utilisateur connecté est
            déjà vérifié, c'est un reclic bénin → on affiche un succès plutôt qu'une erreur. */
-        const current = await refreshUser()
+        const current = await refreshUser().catch(() => null)
         setState(current?.emailVerified ? 'success' : 'error')
       })
   }, [token, refreshUser])

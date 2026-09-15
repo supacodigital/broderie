@@ -5,7 +5,9 @@
      accessible au pouce. « Retour en haut » est empilé au-dessus (voir
      Catalogue.module.css → .backToTop). */
   right: 32px;
-  bottom: 32px;
+  /* Remonte au-dessus de la barre de confirmation d'email quand elle est
+     affichée (variable posée sur <html> par EmailVerificationBanner). */
+  bottom: calc(32px + var(--email-banner-height, 0px));
   /* Sous le drawer panier (300/301) et la bannière cookies (600), au-dessus du
      contenu de page et de la navbar (100/200). */
   z-index: 250;
@@ -118,7 +120,7 @@
 @media (max-width: 768px) {
   .button {
     right: 20px;
-    bottom: 20px;
+    bottom: calc(20px + var(--email-banner-height, 0px));
     padding: 9px 14px 9px 11px;
   }
   .label { font-size: 12.5px; }

@@ -9,6 +9,33 @@ const {
 
 const ALLOWED_SORT_FIELDS = ['created_at', 'price_chf', 'name', 'stock'];
 
+/* Les dates de promotion arrivent en ISO 8601 UTC depuis l'admin ; MySQL attend
+   'YYYY-MM-DD HH:MM:SS'. La comparaison en base se fait avec NOW(), donc en heure
+   du serveur : on convertit en heure locale du serveur, pas en UTC, sinon une
+   promo s'ouvrirait ou se fermerait avec 1 à 2 heures de décalage selon la saison
+   (l'heure suisse est UTC+1 ou UTC+2). Chaîne vide ou null = pas de borne. */
+const toMysqlDateTime = (value) => {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} `
+       + `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
+/* Convertit les bornes de promo et neutralise une promo sans prix barré :
+   sans prix de référence, des dates seules n'auraient aucun effet. */
+const normalizePromo = (data) => {
+  const out = { ...data };
+  if ('promoStartsAt' in out) out.promoStartsAt = toMysqlDateTime(out.promoStartsAt);
+  if ('promoEndsAt'   in out) out.promoEndsAt   = toMysqlDateTime(out.promoEndsAt);
+  if ('comparePriceChf' in out && !out.comparePriceChf) {
+    out.promoStartsAt = null;
+    out.promoEndsAt   = null;
+  }
+  return out;
+};
+
 const parseOrThrow = (schema, body) => {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -73,7 +100,7 @@ const create = async (body) => {
   }
 
   try {
-    const id = await productAdminRepository.create({ ...data, slug: uniqueSlug });
+    const id = await productAdminRepository.create({ ...normalizePromo(data), slug: uniqueSlug });
     invalidateProducts();
     return productAdminRepository.findByIdAdmin(id, 'fr');
   } catch (error) {
@@ -97,7 +124,7 @@ const update = async (id, body) => {
   }
 
   try {
-    await productAdminRepository.update(id, data);
+    await productAdminRepository.update(id, normalizePromo(data));
     invalidateProducts();
     const product = await productAdminRepository.findByIdAdmin(id, 'fr');
     if (!product) throw new AppError('Produit introuvable.', 404);

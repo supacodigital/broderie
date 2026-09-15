@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useDebounceSearch } from '../../hooks/useDebounceSearch.js'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Eye, Search, RefreshCw } from 'lucide-react'
+import { Eye, Search, RefreshCw, Printer } from 'lucide-react'
 import { getOrders } from '../../services/orders.service.js'
 import { formatCHF } from '../../utils/chf.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
@@ -165,7 +165,17 @@ export default function Orders() {
               </div>
               <span className={s.muted}>{formatDate(order.created_at)}</span>
               <span className={s.bold}>{formatCHF(order.total)}</span>
-              <StatusBadge status={order.status} />
+              <div className={s.statusCell}>
+                <StatusBadge status={order.status} />
+                {/* Facture papier demandée — visible dès la liste, c'est au moment
+                    de préparer le colis que l'information sert. */}
+                {!!order.wants_printed_invoice && (
+                  <span className={s.printedInvoiceBadge} title="Facture imprimée demandée">
+                    <Printer size={12} aria-hidden="true" />
+                    Facture papier
+                  </span>
+                )}
+              </div>
               <button
                 className={s.iconBtn}
                 onClick={e => { e.stopPropagation(); navigate(`/commandes/${order.id}`) }}

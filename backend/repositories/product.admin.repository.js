@@ -1,5 +1,7 @@
 const { pool } = require('../config/db');
 const storage = require('../config/storage');
+const { promoActiveSql } = require('../utils/promo.utils');
+const { toSearchTerms } = require('../utils/search.utils');
 
 // Supprime du disque les 3 variantes d'une ligne product_images (best-effort — un
 // fichier absent ne doit jamais faire échouer la suppression en base).
@@ -15,15 +17,15 @@ const deleteImageFiles = (row) => {
 };
 
 // Création d'un produit avec ses traductions — transaction atomique
-const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, badge, brand, translations }) => {
+const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, badge, brand, translations }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
     const [result] = await connection.execute(
-      `INSERT INTO products (category_id, supplier_id, slug, price_chf, compare_price_chf, tax_rate_id, sku, stock, weight_kg, length_cm, width_cm, is_featured, is_made_to_order, badge, brand, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, taxRateId, sku || null, stock || 0, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, brand || null]
+      `INSERT INTO products (category_id, supplier_id, slug, price_chf, compare_price_chf, promo_starts_at, promo_ends_at, tax_rate_id, sku, stock, weight_kg, length_cm, width_cm, is_featured, is_made_to_order, badge, brand, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock || 0, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, brand || null]
     );
     const productId = result.insertId;
 
@@ -47,7 +49,7 @@ const create = async ({ categoryId, supplierId, slug, priceChf, comparePriceChf,
 };
 
 // Mise à jour d'un produit avec ses traductions
-const update = async (id, { categoryId, supplierId, slug, priceChf, comparePriceChf, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, isActive, badge, brand, translations }) => {
+const update = async (id, { categoryId, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, isActive, badge, brand, translations }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -55,12 +57,13 @@ const update = async (id, { categoryId, supplierId, slug, priceChf, comparePrice
     /* slug non modifiable en édition — on ne le met à jour que s'il est fourni */
     const slugClause = slug ? 'slug = ?,' : '';
     const baseParams = slug
-      ? [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, brand || null, isActive ? 1 : 0, id]
-      : [categoryId, supplierId || null,       priceChf, comparePriceChf || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, brand || null, isActive ? 1 : 0, id];
+      ? [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, brand || null, isActive ? 1 : 0, id]
+      : [categoryId, supplierId || null,       priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, brand || null, isActive ? 1 : 0, id];
 
     await connection.execute(
       `UPDATE products SET category_id = ?, supplier_id = ?, ${slugClause} price_chf = ?,
-       compare_price_chf = ?, tax_rate_id = ?, sku = ?, stock = ?, weight_kg = ?, length_cm = ?, width_cm = ?,
+       compare_price_chf = ?, promo_starts_at = ?, promo_ends_at = ?,
+       tax_rate_id = ?, sku = ?, stock = ?, weight_kg = ?, length_cm = ?, width_cm = ?,
        is_featured = ?, is_made_to_order = ?, badge = ?, brand = ?, is_active = ? WHERE id = ?`,
       baseParams
     );
@@ -157,7 +160,9 @@ const setPrimaryImage = async (imageId, productId) => {
 // Détail d'un produit pour l'admin — sans filtre is_active (produits inactifs visibles)
 const findByIdAdmin = async (id, locale = 'fr') => {
   const [rows] = await pool.execute(
-    `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock,
+    `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf,
+            p.promo_starts_at, p.promo_ends_at, ${promoActiveSql('p')} AS is_promo_active,
+            p.sku, p.stock,
             p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.is_active, p.badge, p.brand, p.category_id, p.supplier_id,
             p.tax_rate_id, p.created_at,
             pt.name, pt.description,
@@ -210,9 +215,21 @@ const findAllAdmin = async ({
   const params = ['fr'];
   let where = 'WHERE p.deleted_at IS NULL';
 
-  if (search) {
-    where += ' AND (pt.name LIKE ? OR p.sku LIKE ? OR sup.name LIKE ? OR p.brand LIKE ?)';
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+  /* Recherche admin : chaque mot doit être présent, dans n'importe quel ordre et
+     réparti sur n'importe lequel des champs (nom, référence, fournisseur, gamme).
+     Auparavant la saisie entière servait de motif unique : « DMC 745 » ne trouvait
+     rien, car « DMC mouliné N° 745 » ne contient pas cette suite exacte de
+     caractères — signalement cliente « le moteur de recherche n'est pas assez
+     précis ».
+     Les mots passent par toSearchTerms (singulier + plafond), le même découpage
+     que la boutique : une recherche qui aboutit là-bas doit aboutir ici. */
+  const searchTerms = toSearchTerms(search);
+  if (searchTerms.length > 0) {
+    for (const term of searchTerms) {
+      where += ' AND (pt.name LIKE ? OR p.sku LIKE ? OR sup.name LIKE ? OR p.brand LIKE ?)';
+      const like = `%${term}%`;
+      params.push(like, like, like, like);
+    }
   }
   if (brand) {
     where += ' AND p.brand = ?';
@@ -243,8 +260,12 @@ const findAllAdmin = async ({
   if (inStock) {
     where += ' AND p.stock > 0';
   }
+  /* Stock bas : sert au réassort, donc uniquement les articles réellement tenus en
+     stock. Les articles « sur commande » sont à 0 par nature (commandés chez le
+     fournisseur à réception) — les inclure noyait les ~1 750 vrais réassorts sous
+     ~12 900 lignes normales, rendant le filtre inutilisable. */
   if (lowStock) {
-    where += ' AND p.stock <= 5 AND p.is_active = 1';
+    where += ' AND p.stock <= 5 AND p.is_active = 1 AND p.is_made_to_order = 0';
   }
   if (isActive !== null) {
     where += ' AND p.is_active = ?';
@@ -265,7 +286,9 @@ const findAllAdmin = async ({
   const total = countRows[0].total;
 
   const [rows] = await pool.query(
-    `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf, p.sku, p.stock, p.weight_kg, p.length_cm, p.width_cm,
+    `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf,
+            p.promo_starts_at, p.promo_ends_at, ${promoActiveSql('p')} AS is_promo_active,
+            p.sku, p.stock, p.weight_kg, p.length_cm, p.width_cm,
             p.is_active, p.is_featured, p.is_made_to_order, p.badge, p.brand, p.category_id, p.supplier_id, p.tax_rate_id, p.created_at,
             pt.name, pt.description AS description_fr,
             ct.name AS category_name,

@@ -275,14 +275,16 @@ export default function Products() {
   const [filterMinPrice, setFilterMinPrice] = useState('')
   const [filterMaxPrice, setFilterMaxPrice] = useState('')
   const [filterInStock,  setFilterInStock]  = useState(false)
+  /* Stock bas : articles actifs à 5 unités ou moins — sert au réassort fournisseur */
+  const [filterLowStock, setFilterLowStock] = useState(false)
   const [filterIsActive, setFilterIsActive] = useState('')
   const [filterFeatured, setFilterFeatured] = useState('')
 
-  const activeFilterCount = useMemo(() => [filterCat, filterSupplier, filterMinPrice, filterMaxPrice, filterIsActive, filterFeatured].filter(v => v !== '').length + (filterInStock ? 1 : 0), [filterCat, filterSupplier, filterMinPrice, filterMaxPrice, filterInStock, filterIsActive, filterFeatured])
+  const activeFilterCount = useMemo(() => [filterCat, filterSupplier, filterMinPrice, filterMaxPrice, filterIsActive, filterFeatured].filter(v => v !== '').length + (filterInStock ? 1 : 0) + (filterLowStock ? 1 : 0), [filterCat, filterSupplier, filterMinPrice, filterMaxPrice, filterInStock, filterLowStock, filterIsActive, filterFeatured])
 
   const resetFilters = () => {
     setFilterCat(''); setFilterSupplier(''); setFilterMinPrice(''); setFilterMaxPrice('')
-    setFilterInStock(false); setFilterIsActive(''); setFilterFeatured('')
+    setFilterInStock(false); setFilterLowStock(false); setFilterIsActive(''); setFilterFeatured('')
     setPage(1)
   }
 
@@ -409,6 +411,7 @@ export default function Products() {
         if (filterMinPrice)    params.min_price   = filterMinPrice
         if (filterMaxPrice)    params.max_price   = filterMaxPrice
         if (filterInStock)     params.in_stock    = 'true'
+        if (filterLowStock)    params.low_stock   = 'true'
         if (filterIsActive)    params.is_active   = filterIsActive
         if (filterFeatured)    params.is_featured = filterFeatured
         const res = await getProducts(params)
@@ -424,7 +427,7 @@ export default function Products() {
     }
     run()
     return () => { cancelled = true }
-  }, [page, search, filterCat, filterSupplier, filterMinPrice, filterMaxPrice, filterInStock, filterIsActive, filterFeatured, sortCol, sortDir, refreshTick])
+  }, [page, search, filterCat, filterSupplier, filterMinPrice, filterMaxPrice, filterInStock, filterLowStock, filterIsActive, filterFeatured, sortCol, sortDir, refreshTick])
 
   /* Rediriger vers la page d'édition si ?edit=ID dans l'URL (ex: depuis dashboard) */
   useEffect(() => {
@@ -585,16 +588,35 @@ export default function Products() {
               </select>
             </div>
 
-            {/* En stock */}
+            {/* Stock — « en stock » et « stock bas » s'excluent : cocher l'un décoche
+                l'autre, une combinaison des deux ne renverrait presque rien. */}
             <div className={s.filterField}>
               <label className={s.filterLabel}>Stock</label>
               <label className={s.filterCheckbox}>
                 <input
                   type="checkbox"
                   checked={filterInStock}
-                  onChange={e => { setFilterInStock(e.target.checked); setPage(1) }}
+                  onChange={e => {
+                    setFilterInStock(e.target.checked)
+                    if (e.target.checked) setFilterLowStock(false)
+                    setPage(1)
+                  }}
                 />
                 En stock uniquement
+              </label>
+              {/* Croisé avec le filtre Fournisseur : donne la liste de ce qu'il faut
+                  recommander chez un fournisseur donné. */}
+              <label className={s.filterCheckbox}>
+                <input
+                  type="checkbox"
+                  checked={filterLowStock}
+                  onChange={e => {
+                    setFilterLowStock(e.target.checked)
+                    if (e.target.checked) setFilterInStock(false)
+                    setPage(1)
+                  }}
+                />
+                Stock bas (≤ 5)
               </label>
             </div>
 

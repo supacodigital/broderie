@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, Upload, X, Star, AlertTriangle, Check, Trash2,
+  ArrowLeft, Upload, X, Star, AlertTriangle, Check, Trash2, CalendarClock,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -34,7 +34,37 @@ const schema = z.object({
   badge:            z.string().optional(),
   brand:            z.string().max(120).optional(),
   description:      z.string().optional(),
-})
+  // Fenêtre de promotion — datetime-local ('' = pas de borne de ce côté)
+  promoStartsAt:    z.string().optional(),
+  promoEndsAt:      z.string().optional(),
+}).refine(
+  (d) => !(d.promoStartsAt && d.promoEndsAt) || new Date(d.promoEndsAt) > new Date(d.promoStartsAt),
+  { path: ['promoEndsAt'], message: 'La fin doit être postérieure au début.' },
+)
+
+/* MySQL DATETIME → valeur d'un <input type="datetime-local"> ('YYYY-MM-DDTHH:MM').
+   La date arrive en chaîne locale du serveur ou en ISO selon le driver : on
+   découpe la chaîne plutôt que de passer par Date(), qui réinterpréterait une
+   chaîne sans fuseau en UTC et décalerait l'heure affichée. */
+const toDateTimeLocal = (value) => {
+  if (!value) return ''
+  const str = String(value)
+  const m = str.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/)
+  if (m) return `${m[1]}T${m[2]}`
+  const d = new Date(str)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/* Valeur du <input datetime-local> → ISO 8601 attendu par l'API.
+   La saisie est en heure locale : Date() l'interprète comme telle, toISOString
+   la convertit en UTC — le serveur la reconvertira en heure locale pour MySQL. */
+const fromDateTimeLocal = (value) => {
+  if (!value) return null
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? null : d.toISOString()
+}
 
 // ── Zone de drop d'images ──────────────────────────────────────────────────
 function ImageDropZone({ productId, images, onImagesChange }) {
@@ -234,6 +264,21 @@ export default function ProductForm() {
     return computed > price ? roundCHF(computed) : null
   })()
 
+  /* État de la promotion d'après les dates saisies — retour immédiat à l'admin :
+     sans ça, une promo programmée dans le futur ressemble à une promo inactive. */
+  const watchedPromoStart = watch('promoStartsAt')
+  const watchedPromoEnd   = watch('promoEndsAt')
+  const promoStatus = (() => {
+    if (discountMode === 'none' || comparePrice == null) return null
+    const now   = new Date()
+    const start = watchedPromoStart ? new Date(watchedPromoStart) : null
+    const end   = watchedPromoEnd   ? new Date(watchedPromoEnd)   : null
+    if (end && end <= now)     return { tone: 'promoStatusOff',  label: 'Promotion terminée — le produit est vendu à son prix normal.' }
+    if (start && start > now)  return { tone: 'promoStatusSoon', label: `Promotion programmée — démarre le ${start.toLocaleString('fr-CH', { dateStyle: 'short', timeStyle: 'short' })}.` }
+    if (end)                   return { tone: 'promoStatusOn',   label: `Promotion active jusqu'au ${end.toLocaleString('fr-CH', { dateStyle: 'short', timeStyle: 'short' })}.` }
+    return { tone: 'promoStatusOn', label: 'Promotion active, sans date de fin.' }
+  })()
+
   const selectedSupplier = suppliers.find(sup => String(sup.id) === String(selectedSupplierId))
   const supplierDelay = selectedSupplier?.made_to_order_delay_min_weeks && selectedSupplier?.made_to_order_delay_max_weeks
     ? `${selectedSupplier.made_to_order_delay_min_weeks} à ${selectedSupplier.made_to_order_delay_max_weeks} semaines`
@@ -335,6 +380,8 @@ export default function ProductForm() {
           badge:           res.badge ?? '',
           brand:           res.brand ?? '',
           description:     res.description_fr ?? '',
+          promoStartsAt:   toDateTimeLocal(res.promo_starts_at),
+          promoEndsAt:     toDateTimeLocal(res.promo_ends_at),
         })
         const imgs = (res?.images ?? []).map(img => ({ ...img, isPrimary: !!img.is_primary }))
         setImages(imgs)
@@ -367,6 +414,10 @@ export default function ProductForm() {
         slug:            isEdit ? undefined : slug,
         priceChf:        Number(data.priceChf),
         comparePriceChf: comparePrice,
+        /* Bornes envoyées uniquement s'il y a une remise : sans prix barré, des
+           dates seules n'auraient aucun effet (le serveur les remet à null). */
+        promoStartsAt:   comparePrice != null ? fromDateTimeLocal(data.promoStartsAt) : null,
+        promoEndsAt:     comparePrice != null ? fromDateTimeLocal(data.promoEndsAt)   : null,
         sku:             data.sku,
         stock:           Number(data.stock),
         weightKg:        data.weightKg ? Number(data.weightKg) : null,
@@ -620,6 +671,51 @@ export default function ProductForm() {
                     Le client paie <strong>CHF {Number(watchedPrice).toFixed(2)}</strong> — l'ancien prix
                     barré affiché sera <strong>CHF {comparePrice.toFixed(2)}</strong>.
                   </p>
+                )}
+              </div>
+            )}
+
+            {/* ── Période de la promotion ──
+                Affichée seulement quand une remise est saisie : sans prix barré,
+                des dates seules n'auraient aucun effet. */}
+            {discountMode !== 'none' && (
+              <div className={s.promoDates}>
+                <div className={s.promoDatesHead}>
+                  <CalendarClock size={14} aria-hidden="true" />
+                  <span>Période de la promotion</span>
+                </div>
+                <p className={s.promoDatesHint}>
+                  Laissez vide pour une promotion sans limite. À la date de fin, le produit
+                  revient automatiquement à son prix normal
+                  {comparePrice != null ? ` (CHF ${comparePrice.toFixed(2)})` : ''} — aucune
+                  action de votre part.
+                </p>
+                <div className={s.formGrid}>
+                  <div className={s.field}>
+                    <label className={s.label} htmlFor="promoStartsAt">Début</label>
+                    <input
+                      id="promoStartsAt"
+                      type="datetime-local"
+                      className={s.input}
+                      {...register('promoStartsAt')}
+                    />
+                    <span className={s.hint}>Vide = démarre immédiatement.</span>
+                  </div>
+                  <div className={s.field}>
+                    <label className={s.label} htmlFor="promoEndsAt">Fin</label>
+                    <input
+                      id="promoEndsAt"
+                      type="datetime-local"
+                      className={`${s.input} ${errors.promoEndsAt ? s.inputError : ''}`}
+                      {...register('promoEndsAt')}
+                    />
+                    {errors.promoEndsAt
+                      ? <span className={s.err}>{errors.promoEndsAt.message}</span>
+                      : <span className={s.hint}>Vide = sans échéance.</span>}
+                  </div>
+                </div>
+                {promoStatus && (
+                  <p className={`${s.promoStatus} ${s[promoStatus.tone]}`}>{promoStatus.label}</p>
                 )}
               </div>
             )}

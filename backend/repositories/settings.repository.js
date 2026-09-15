@@ -49,6 +49,9 @@ const updateShippingRate = async (id, { priceChf, estimatedDays }) => {
 /* ── Paramètres boutique (clé/valeur) ── */
 const STORE_KEYS = ['store_name', 'store_email', 'store_phone', 'store_address'];
 const LEGAL_KEYS = ['cgv', 'mentions_legales', 'politique_retour'];
+/* Bandeau d'annonce affiché en haut de la boutique (promotion, fermeture, délais).
+   `banner_enabled` vaut '1' ou '0' — la table settings ne stocke que du texte. */
+const BANNER_KEYS = ['banner_enabled', 'banner_text', 'banner_link'];
 
 const findSettings = async (keys) => {
   const placeholders = keys.map(() => '?').join(', ');
@@ -123,5 +126,5 @@ const updateShippingRatesBulk = async (rates) => {
 module.exports = {
   findAllTaxRates, updateTaxRate, findAllShippingRates, updateShippingRate,
   updateTaxRatesBulk, updateShippingRatesBulk,
-  findSettings, upsertSettings, STORE_KEYS, LEGAL_KEYS,
+  findSettings, upsertSettings, STORE_KEYS, LEGAL_KEYS, BANNER_KEYS,
 };

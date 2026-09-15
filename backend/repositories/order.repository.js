@@ -1,8 +1,9 @@
 const { pool } = require('../config/db');
 const { AppError } = require('../middlewares/errorHandler');
+const { displayComparePriceSql } = require('../utils/promo.utils');
 
 // Création d'une commande — transaction atomique (stock + commande + items + coupon + paiement)
-const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, billingAddress = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null, locale = 'fr' }) => {
+const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, billingAddress = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null, locale = 'fr', wantsPrintedInvoice = false }) => {
   // L'adresse de facturation par défaut est identique à la livraison
   const billing = billingAddress ?? address;
   const connection = await pool.getConnection();
@@ -36,8 +37,9 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
           shipping_first_name, shipping_last_name,
           shipping_street, shipping_street_number, shipping_city, shipping_zip, shipping_country, shipping_canton,
           billing_first_name, billing_last_name,
-          billing_street, billing_street_number, billing_city, billing_zip, billing_country, billing_canton)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          billing_street, billing_street_number, billing_city, billing_zip, billing_country, billing_canton,
+          wants_printed_invoice)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId, status, subtotal, discount, couponCode, shippingCost, taxAmount, total, qrReference,
         address?.first_name ?? null,
@@ -56,6 +58,7 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
         billing?.zip     ?? null,
         billing?.country ?? 'CH',
         billing?.canton  ?? null,
+        wantsPrintedInvoice ? 1 : 0,
       ]
     );
     const orderId = orderResult.insertId;
@@ -63,7 +66,8 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
     // Insertion des articles avec snapshot produit figé
     for (const item of items) {
       const [productRows] = await connection.execute(
-        `SELECT p.price_chf, p.compare_price_chf, p.sku, p.weight_kg, p.is_made_to_order,
+        `SELECT p.price_chf, ${displayComparePriceSql('p')} AS compare_price_chf,
+                p.sku, p.weight_kg, p.is_made_to_order,
                 COALESCE(pt.name, pt_fr.name) AS name,
                 COALESCE(pt.description, pt_fr.description) AS description
          FROM products p
@@ -83,7 +87,8 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
           item.product_id,
           item.variant_id || null,
           item.quantity,
-          item.price_snapshot,
+          // Prix courant (promo appliquée si en cours), cohérent avec le sous-total
+          item.unit_price,
           item.tax_rate_snapshot,
           // Snapshot figé du produit — inclut le flag « sur commande » et le prix barré au moment de l'achat
           JSON.stringify({
@@ -185,7 +190,8 @@ const findAllByUserIdWithItems = async (userId) => {
             o.shipping_first_name, o.shipping_last_name, o.shipping_street, o.shipping_street_number,
             o.shipping_city, o.shipping_zip, o.shipping_country, o.shipping_canton,
             o.billing_first_name, o.billing_last_name, o.billing_street, o.billing_street_number,
-            o.billing_city, o.billing_zip, o.billing_country, o.billing_canton
+            o.billing_city, o.billing_zip, o.billing_country, o.billing_canton,
+            o.wants_printed_invoice
      FROM orders o
      WHERE o.user_id = ?
      ORDER BY o.created_at ASC`,
@@ -256,6 +262,7 @@ const findById = async (orderId, userId = null) => {
             o.billing_first_name, o.billing_last_name,
             o.billing_street, o.billing_street_number, o.billing_city, o.billing_zip, o.billing_country, o.billing_canton,
             o.tracking_number, o.label_url, o.label_id,
+            o.wants_printed_invoice,
             u.first_name, u.last_name, u.email
      FROM orders o
      INNER JOIN users u ON u.id = o.user_id
@@ -342,7 +349,7 @@ const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order =
 
   const [rows] = await pool.query(
     `SELECT o.id, o.status, o.subtotal, o.shipping_cost, o.tax_amount, o.total,
-            o.created_at, o.updated_at,
+            o.created_at, o.updated_at, o.wants_printed_invoice,
             u.email, u.first_name, u.last_name
      FROM orders o
      INNER JOIN users u ON u.id = o.user_id

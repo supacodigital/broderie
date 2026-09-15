@@ -20,14 +20,29 @@
  * backend/uploads/products/. Le fichier source est cherché dans le dossier
  * de photos fourni par la cliente (nom exact, sensible à la casse).
  *
+ * Deux formats de fichier Excel sont acceptés (détection automatique) :
+ *   - « catalogue » : Catalogue-a-completer-photos.xlsx — onglet "Catalogue",
+ *                     en-tête ligne 3. Photos + description + poids + dimensions
+ *                     + catégorie.
+ *   - « audit »     : Rapport_Audit_Photos.xlsx — onglet "Audit Photos", en-tête
+ *                     ligne 1. Photos UNIQUEMENT (colonnes NArticleC / Nom Fichier
+ *                     / Conforme Web). Les lignes dont "Conforme Web" ≠ OK sont
+ *                     écartées et comptées à part.
+ *
  * Usage (toujours depuis backend/ — utilise backend/node_modules + .env) :
  *   npm run import:catalog-photos -- --dry-run
  *   npm run import:catalog-photos
  *   npm run import:catalog-photos -- --excel=chemin.xlsx --photos=chemin/dossier
  *
+ * Plusieurs dossiers de photos (lots) séparés par une virgule :
+ *   npm run import:catalog-photos -- \
+ *     --excel=../donnees-client/Rapport_Audit_Photos.xlsx \
+ *     --photos=../donnees-client/Lot_Photo_web_01,../donnees-client/Lot_Photo_web_02
+ *
  * Par défaut :
  *   --excel  = donnees-client/Catalogue-a-completer-photos.xlsx
  *   --photos = donnees-client/photos/
+ *   --format = auto  (forçable : --format=audit | --format=catalogue)
  * ============================================================ */
 
 const path = require('path');
@@ -56,11 +71,25 @@ const DRY_RUN = has('--dry-run');
 const BATCH_SIZE = 500; // règle projet : import en batch de 500, jamais ligne par ligne
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MB — même limite que middlewares/upload.js
 
+// Deux formats de fichier sont acceptés :
+//   - « catalogue »  : Catalogue-a-completer-photos.xlsx (onglet Catalogue, en-tête ligne 3)
+//                      → photos + description + poids + dimensions + catégorie
+//   - « audit »      : Rapport_Audit_Photos.xlsx (onglet « Audit Photos », en-tête ligne 1)
+//                      → photos uniquement, colonnes NArticleC / Nom Fichier / Conforme Web
+// --format=auto (défaut) détecte le format d'après les en-têtes présents.
+const FORMAT = flag('format', 'auto');
+
 const EXCEL_PATH = path.resolve(
   __dirname,
   flag('excel', '../donnees-client/Catalogue-a-completer-photos.xlsx')
 );
-const PHOTOS_DIR = path.resolve(__dirname, flag('photos', '../donnees-client/photos'));
+
+// Les photos de la cliente arrivent en lots (Lot_Photo_web_01, _02, …) : on accepte
+// plusieurs dossiers séparés par une virgule et on cherche le fichier dans chacun.
+const PHOTOS_DIRS = flag('photos', '../donnees-client/photos')
+  .split(',')
+  .map((d) => path.resolve(__dirname, d.trim()))
+  .filter(Boolean);
 
 // ── Helpers ─────────────────────────────────────────────────
 const cleanStr = (v) => {
@@ -76,8 +105,16 @@ const toNumber = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 
-// ── Lecture d'une ligne du fichier remis par la cliente ─────
-const mapRow = (row) => {
+// ── Détection du format d'après les en-têtes réellement présents ──
+const detectFormat = (rows) => {
+  if (FORMAT !== 'auto') return FORMAT;
+  const sample = rows.find(Boolean);
+  if (sample && 'NArticleC' in sample && 'Nom Fichier' in sample) return 'audit';
+  return 'catalogue';
+};
+
+// ── Lecture d'une ligne du fichier « catalogue » ────────────
+const mapCatalogueRow = (row) => {
   const externalRef = cleanStr(row['Référence (NArticleC)']);
   if (!externalRef) return null;
 
@@ -95,6 +132,34 @@ const mapRow = (row) => {
     length_cm: toNumber(row['Longueur (cm)']),
     width_cm: toNumber(row['Largeur (cm)']),
     photo_filenames: photoFilenames,
+  };
+};
+
+// ── Lecture d'une ligne du « Rapport_Audit_Photos.xlsx » ────
+// Ce fichier ne porte QUE la correspondance article ↔ photo : aucun autre champ
+// produit n'est touché. Les lignes non conformes (photo manquante, > 5 Mo) sont
+// écartées ici — elles sont comptées à part dans le rapport final.
+const mapAuditRow = (row) => {
+  const externalRef = cleanStr(row['NArticleC']);
+  if (!externalRef) return null;
+
+  const conforme = cleanStr(row['Conforme Web']);
+  const filename = cleanStr(row['Nom Fichier']);
+  const isUsable = conforme === 'OK' && filename && filename !== '-';
+
+  return {
+    external_ref: externalRef,
+    category_label: null,
+    description_fr: null,
+    weight_kg: null,
+    length_cm: null,
+    width_cm: null,
+    photo_filenames: isUsable ? [filename] : [],
+    // Motif de mise à l'écart, pour le rapport (non conforme ≠ fichier introuvable)
+    skip_reason: isUsable ? null : conforme || 'Sans photo',
+    // Lot annoncé par la cliente — sert à distinguer « lot pas encore livré »
+    // d'un vrai fichier manquant dans un lot présent.
+    lot: cleanStr(row['Lot Destination']),
   };
 };
 
@@ -120,7 +185,8 @@ const printReport = (report) => {
   console.log(`  photos déjà présentes (ignorées) ....... ${report.photosSkippedExisting}`);
   console.log(`  fichiers introuvables ................... ${report.photosMissing}`);
   console.log(`  fichiers trop volumineux (> 5 Mo) ....... ${report.photosTooLarge}`);
-  console.log(`  fichiers invalides (format non supporté) ${report.photosInvalid}\n`);
+  console.log(`  fichiers invalides (format non supporté) ${report.photosInvalid}`);
+  console.log(`  écartées par l'audit (non conformes) .... ${report.photosNotCompliant}\n`);
 
   if (report.unknownCategoryLabels.size > 0) {
     console.log('Libellés de catégorie non reconnus (ignorés) :');
@@ -129,8 +195,15 @@ const printReport = (report) => {
   }
 
   if (report.missingFiles.length > 0) {
-    console.log(`Fichiers photo introuvables (${report.missingFiles.length}, 20 premiers) :`);
-    for (const f of report.missingFiles.slice(0, 20)) console.log(`  - ${f}`);
+    console.log(`Fichiers photo introuvables (${report.missingFiles.length}) :`);
+    // Ventilation par lot : un lot entier absent = lot pas encore livré par la
+    // cliente (cas normal), pas une photo perdue.
+    if (report.missingByLot.size > 0) {
+      const lots = [...report.missingByLot.entries()].sort((a, b) => b[1] - a[1]);
+      for (const [lot, n] of lots) console.log(`  ${lot} : ${n} fichier(s) — lot non fourni ?`);
+    }
+    console.log('  Exemples :');
+    for (const f of report.missingFiles.slice(0, 10)) console.log(`    - ${f}`);
     console.log('');
   }
 };
@@ -140,9 +213,29 @@ async function main() {
   if (!fs.existsSync(EXCEL_PATH)) {
     throw new Error(`Fichier introuvable : ${EXCEL_PATH}\nPassez --excel=chemin/vers/fichier.xlsx si besoin.`);
   }
-  if (!fs.existsSync(PHOTOS_DIR)) {
-    throw new Error(`Dossier photos introuvable : ${PHOTOS_DIR}\nPassez --photos=chemin/vers/dossier si besoin.`);
+  for (const dir of PHOTOS_DIRS) {
+    if (!fs.existsSync(dir)) {
+      throw new Error(`Dossier photos introuvable : ${dir}\nPassez --photos=dossier1,dossier2 si besoin.`);
+    }
   }
+
+  // Index nom de fichier → chemin complet, construit une seule fois pour tous
+  // les lots (évite un fs.existsSync par photo sur 9 000 fichiers).
+  // La casse de l'extension varie dans les lots (.jpg / .JPG) : on indexe aussi
+  // une clé en minuscules pour retrouver le fichier malgré l'écart.
+  const photoIndex = new Map();
+  let photoFileCount = 0;
+  for (const dir of PHOTOS_DIRS) {
+    for (const name of fs.readdirSync(dir)) {
+      const full = path.join(dir, name);
+      photoFileCount++;
+      if (!photoIndex.has(name)) photoIndex.set(name, full);
+      const lower = name.toLowerCase();
+      if (!photoIndex.has(lower)) photoIndex.set(lower, full);
+    }
+  }
+  const resolvePhoto = (filename) =>
+    photoIndex.get(filename) || photoIndex.get(filename.toLowerCase()) || null;
 
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST || '127.0.0.1',
@@ -174,8 +267,27 @@ async function main() {
 
     // ── Lecture du fichier ──
     console.log(`Lecture de ${EXCEL_PATH} …`);
-    const rawRows = readSheetObjects(EXCEL_PATH, { sheetName: 'Catalogue', headerRow: 3 });
-    console.log(`  ${rawRows.length} lignes lues.\n`);
+    // Le format « audit » a son propre onglet et son en-tête en ligne 1. On tente
+    // d'abord ce format quand il est demandé (ou en auto si l'onglet existe).
+    let rawRows;
+    let format = FORMAT;
+    if (FORMAT === 'audit' || FORMAT === 'auto') {
+      try {
+        rawRows = readSheetObjects(EXCEL_PATH, { sheetName: 'Audit Photos', headerRow: 1 });
+        format = detectFormat(rawRows);
+      } catch (error) {
+        if (FORMAT === 'audit') throw error;
+        rawRows = null; // onglet absent → on retombe sur le format catalogue
+      }
+    }
+    if (!rawRows) {
+      rawRows = readSheetObjects(EXCEL_PATH, { sheetName: 'Catalogue', headerRow: 3 });
+      format = 'catalogue';
+    }
+    const mapRow = format === 'audit' ? mapAuditRow : mapCatalogueRow;
+    console.log(`  format détecté : ${format}`);
+    console.log(`  ${rawRows.length} lignes lues.`);
+    console.log(`  dossiers photos : ${PHOTOS_DIRS.length} (${photoFileCount} fichiers)\n`);
 
     const report = {
       totalRead: rawRows.length,
@@ -192,8 +304,10 @@ async function main() {
       photosMissing: 0,
       photosTooLarge: 0,
       photosInvalid: 0,
+      photosNotCompliant: 0, // écartées par l'audit lui-même (manquante, > 5 Mo)
       unknownCategoryLabels: new Set(),
       missingFiles: [],
+      missingByLot: new Map(), // lot annoncé → nb de fichiers absents (lots non encore livrés)
     };
 
     // ── Mapping + validation, sans écrire ──
@@ -210,6 +324,7 @@ async function main() {
         continue;
       }
       report.matched++;
+      if (mapped.skip_reason) report.photosNotCompliant++;
 
       let categoryId = null;
       if (mapped.category_label) {
@@ -251,7 +366,7 @@ async function main() {
           report.photosSkippedExisting += mapped.photo_filenames.length;
         } else {
           mapped.photo_filenames.forEach((filename, i) => {
-            photoJobs.push({ productId, filename, sortOrder: i, isPrimary: i === 0 });
+            photoJobs.push({ productId, filename, sortOrder: i, isPrimary: i === 0, lot: mapped.lot || null });
           });
         }
       }
@@ -264,10 +379,12 @@ async function main() {
     // ── Vérification des fichiers photo (existence, taille, format) ──
     const validPhotoJobs = [];
     for (const job of photoJobs) {
-      const filePath = path.join(PHOTOS_DIR, job.filename);
-      if (!fs.existsSync(filePath)) {
+      const filePath = resolvePhoto(job.filename);
+      if (!filePath) {
         report.photosMissing++;
         report.missingFiles.push(job.filename);
+        const lot = job.lot || 'lot inconnu';
+        report.missingByLot.set(lot, (report.missingByLot.get(lot) || 0) + 1);
         continue;
       }
       const stat = fs.statSync(filePath);

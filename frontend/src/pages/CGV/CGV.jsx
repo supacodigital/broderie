@@ -8,7 +8,7 @@ const STATIC_SECTIONS = [
   {
     id: 'objet',
     title: '1. Objet et champ d\'application',
-    content: `Les présentes Conditions Générales de Vente (ci-après « CGV ») régissent l'ensemble des relations contractuelles entre Au Point-Compté (ci-après « le Vendeur ») et toute personne physique effectuant un achat sur le site broderie-domaine.ch (ci-après « le Client »).
+    content: `Les présentes Conditions Générales de Vente (ci-après « CGV ») régissent l'ensemble des relations contractuelles entre Au Point-Compté (ci-après « le Vendeur ») et toute personne physique effectuant un achat sur le site broderie.ch (ci-après « le Client »).
 
 Tout achat implique l'acceptation pleine et entière des présentes CGV. Le Vendeur se réserve le droit de modifier les CGV à tout moment ; la version applicable est celle en vigueur au moment de la commande.
 
@@ -55,7 +55,7 @@ Le paiement est sécurisé. Les données bancaires ne sont jamais stockées sur 
     title: '6. Livraison',
     content: `La livraison s'effectue exclusivement en Suisse via La Poste Suisse (Post CH). Les frais de port sont forfaitaires et indiqués au moment de la commande.
 
-Délai de livraison : 1 à 2 jours ouvrables après confirmation du paiement. Un numéro de suivi Post CH est communiqué par e-mail dès l'expédition.
+Délai de livraison : 3 à 5 jours ouvrables après confirmation du paiement pour les articles en stock. Les produits signalés « sur commande » sont fabriqués à la demande et livrés sous 3 à 4 semaines ; ce délai est indiqué sur la fiche produit avant la commande. Un numéro de suivi Post CH est communiqué par e-mail dès l'expédition.
 
 Le Vendeur décline toute responsabilité en cas de retard imputable à La Poste Suisse ou à un cas de force majeure.`,
   },
@@ -73,7 +73,7 @@ En cas de produit défectueux, le Vendeur procède au remplacement ou au rembour
 
 Les données sont hébergées en Suisse (Infomaniak, Genève) et ne sont pas transmises à des tiers sans consentement explicite. Le Client dispose d'un droit d'accès, de rectification et de suppression de ses données.
 
-Pour exercer ces droits : noreply@broderie-domaine.ch. Toute violation de données sera notifiée aux autorités compétentes dans les 72 heures.`,
+Pour exercer ces droits : contact@broderie.ch. Toute violation de données sera notifiée aux autorités compétentes dans les 72 heures.`,
   },
   {
     id: 'cookies',
@@ -87,7 +87,7 @@ Un bandeau de consentement vous permet de gérer vos préférences. Le refus des
     title: '10. Droit applicable et litiges',
     content: `Les présentes CGV sont soumises au droit suisse. En cas de litige, les parties s'engagent à rechercher une solution amiable. À défaut, le tribunal compétent sera celui du domicile du Vendeur en Suisse.
 
-Pour toute réclamation : noreply@broderie-domaine.ch — nous nous engageons à répondre dans les 5 jours ouvrables.`,
+Pour toute réclamation : contact@broderie.ch — nous nous engageons à répondre dans les 5 jours ouvrables.`,
   },
 ]
 
@@ -116,7 +116,7 @@ export default function CGV() {
           <div className={s.heroIcon}><FileText size={28} /></div>
           <h1 className={s.heroTitle}>Conditions Générales de Vente</h1>
           <p className={s.heroSub}>
-            Au Point-Compté — broderie-domaine.ch<br />
+            Au Point-Compté — broderie.ch<br />
             Dernière mise à jour : 1<sup>er</sup> mai 2026
           </p>
         </div>
@@ -163,8 +163,8 @@ export default function CGV() {
           <div className={s.footer}>
             <p>
               Pour toute question relative à ces conditions, contactez-nous à{' '}
-              <a href="mailto:noreply@broderie-domaine.ch" className={s.mailLink}>
-                noreply@broderie-domaine.ch
+              <a href="mailto:contact@broderie.ch" className={s.mailLink}>
+                contact@broderie.ch
               </a>
             </p>
             <Link to="/catalogue" className={s.btnBack}>

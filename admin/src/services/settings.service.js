@@ -40,3 +40,14 @@ export async function updateLegalSettings(data) {
   const res = await api.put('/admin/settings/legal', data)
   return res.data.data ?? null
 }
+
+/* Bandeau d'annonce affiché en haut de la boutique */
+export async function getBannerSettings() {
+  const res = await api.get('/admin/settings/banner')
+  return res.data.data ?? {}
+}
+
+export async function updateBannerSettings(data) {
+  const res = await api.put('/admin/settings/banner', data)
+  return res.data.data ?? null
+}

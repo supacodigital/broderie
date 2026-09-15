@@ -39,7 +39,9 @@
 /* ── KPIs ── */
 .kpiGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* auto-fit plutôt qu'un nombre fixe de colonnes : la 5e carte (« À encaisser »)
+     passe à la ligne sur les écrans étroits au lieu de comprimer les autres. */
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 16px;
 }
 

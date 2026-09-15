@@ -16,15 +16,18 @@ function getShippingCost(weightKg = 0) {
   return matched ? roundCHF(matched.price_chf) : roundCHF(SHIPPING_RATES[0].price_chf);
 }
 
+/* Miroir de order.service : le calcul porte sur `unit_price`, le prix courant
+   recalculé par cart.repository (promotion en cours prise en compte), et non sur
+   `price_snapshot` figé à l'ajout au panier. */
 function calculerCommande(items, weightKg = 0) {
   const subtotal = roundCHF(
-    items.reduce((sum, item) => sum + parseFloat(item.price_snapshot) * item.quantity, 0)
+    items.reduce((sum, item) => sum + parseFloat(item.unit_price) * item.quantity, 0)
   );
   const shippingCost = getShippingCost(weightKg);
   const taxAmount = roundCHF(
     items.reduce((sum, item) => {
       const rate       = parseFloat(item.tax_rate_snapshot) / 100;
-      const proportion = (parseFloat(item.price_snapshot) * item.quantity) / subtotal;
+      const proportion = (parseFloat(item.unit_price) * item.quantity) / subtotal;
       const lineTotal  = subtotal * proportion;
       return sum + (lineTotal * rate / (1 + rate));
     }, 0)
@@ -74,7 +77,7 @@ describe('Frais de port — calcul dynamique par poids', () => {
 
 describe('Calcul total commande — frais dynamiques', () => {
   test('article léger (0.35 kg) → frais CHF 8.50', () => {
-    const items = [{ price_snapshot: '49.90', quantity: 1, tax_rate_snapshot: '8.1' }];
+    const items = [{ unit_price: '49.90', quantity: 1, tax_rate_snapshot: '8.1' }];
     const { shippingCost, total, subtotal } = calculerCommande(items, 0.35);
     expect(shippingCost).toBe(8.50);
     expect(total).toBe(roundCHF(subtotal + 8.50));
@@ -82,8 +85,8 @@ describe('Calcul total commande — frais dynamiques', () => {
 
   test('deux articles (poids cumulé 0.53 kg) → frais CHF 9.90', () => {
     const items = [
-      { price_snapshot: '64.90', quantity: 1, tax_rate_snapshot: '8.1' }, // 0.420 kg
-      { price_snapshot: '7.90',  quantity: 1, tax_rate_snapshot: '8.1' }, // 0.110 kg
+      { unit_price: '64.90', quantity: 1, tax_rate_snapshot: '8.1' }, // 0.420 kg
+      { unit_price: '7.90',  quantity: 1, tax_rate_snapshot: '8.1' }, // 0.110 kg
     ];
     const { shippingCost, subtotal, total } = calculerCommande(items, 0.53);
     expect(shippingCost).toBe(9.90);
@@ -92,22 +95,22 @@ describe('Calcul total commande — frais dynamiques', () => {
   });
 
   test('calcul TVA 8.1% correct sur un article', () => {
-    const items = [{ price_snapshot: '49.90', quantity: 1, tax_rate_snapshot: '8.1' }];
+    const items = [{ unit_price: '49.90', quantity: 1, tax_rate_snapshot: '8.1' }];
     const { taxAmount } = calculerCommande(items, 0.35);
     // TVA = 49.90 * 0.081 / 1.081 ≈ 3.74
     expect(taxAmount).toBeCloseTo(3.74, 1);
   });
 
   test('total arrondi au 0.05 CHF le plus proche', () => {
-    const items = [{ price_snapshot: '10.03', quantity: 1, tax_rate_snapshot: '8.1' }];
+    const items = [{ unit_price: '10.03', quantity: 1, tax_rate_snapshot: '8.1' }];
     const { subtotal } = calculerCommande(items, 0.1);
     expect(subtotal % 0.05).toBeCloseTo(0, 5);
   });
 
   test('plusieurs articles — sous-total et total cohérents', () => {
     const items = [
-      { price_snapshot: '49.90', quantity: 2, tax_rate_snapshot: '8.1' },
-      { price_snapshot: '8.50',  quantity: 1, tax_rate_snapshot: '8.1' },
+      { unit_price: '49.90', quantity: 2, tax_rate_snapshot: '8.1' },
+      { unit_price: '8.50',  quantity: 1, tax_rate_snapshot: '8.1' },
     ];
     const weightKg = 0.35 * 2 + 0.12; // 0.82 kg → tranche 2
     const { subtotal, shippingCost, total } = calculerCommande(items, weightKg);

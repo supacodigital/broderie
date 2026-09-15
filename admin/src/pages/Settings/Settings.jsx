@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound } from 'lucide-react'
+import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound, Megaphone } from 'lucide-react'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import RecoveryCodesModal from '../Mfa/RecoveryCodesModal.jsx'
 import { mfaGetStatus, mfaRegenerateRecoveryCodes, updatePassword } from '../../services/auth.service.js'
@@ -12,6 +12,8 @@ import {
   updateShippingRates,
   getLegalSettings,
   updateLegalSettings,
+  getBannerSettings,
+  updateBannerSettings,
 } from '../../services/settings.service.js'
 import s from './Settings.module.css'
 
@@ -308,7 +310,7 @@ function ShippingTab() {
                 <input
                   type="text"
                   className={`${s.input} ${s.inputSm}`}
-                  placeholder="ex: 1-2 jours"
+                  placeholder="ex: 3-5 jours"
                   value={r.estimated_days ?? ''}
                   onChange={e => handleChange(r.id, 'estimated_days', e.target.value)}
                 />
@@ -417,6 +419,129 @@ function LegalTab() {
         <button className={s.btnSave} onClick={handleSave} disabled={saving || loading}>
           <Save size={14} />
           {saving ? 'Enregistrement…' : 'Enregistrer tous les textes'}
+        </button>
+      </div>
+    </>
+  )
+}
+
+/* ── Onglet Bandeau d'annonce ──
+   Message affiché en haut de la boutique : promotion, fermeture, délais de livraison.
+   Modifiable par la cliente sans intervention technique. */
+function BannerTab() {
+  const [values,  setValues]  = useState({ banner_enabled: '0', banner_text: '', banner_link: '' })
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(false)
+  const [status,  setStatus]  = useState(null)
+  const [saving,  setSaving]  = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const load = useCallback(async () => {
+    setError(false)
+    setLoading(true)
+    try {
+      const res = await getBannerSettings()
+      setValues(prev => ({ ...prev, ...res }))
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const handleChange = (key, val) => setValues(prev => ({ ...prev, [key]: val }))
+  const isOn = values.banner_enabled === '1'
+
+  const handleSave = async () => {
+    setSaving(true)
+    setStatus(null)
+    setErrorMsg('')
+    try {
+      await updateBannerSettings(values)
+      setStatus('saved')
+    } catch (err) {
+      /* Le message du serveur est plus utile que « une erreur est survenue » :
+         il précise par exemple qu'un lien doit commencer par « / ». */
+      setErrorMsg(err.response?.data?.errors?.[0]?.message ?? '')
+      setStatus('error')
+    } finally {
+      setSaving(false)
+      setTimeout(() => setStatus(null), 4000)
+    }
+  }
+
+  return (
+    <>
+      {error && <ErrorBanner onRetry={load} />}
+
+      <div className={s.sections}>
+        <SettingsSection
+          title="Bandeau d'annonce"
+          desc="Message affiché tout en haut de la boutique. Utile pour une promotion, une fermeture ou un délai de livraison exceptionnel."
+        >
+          {loading ? (
+            <div className={s.skeleton} style={{ height: 120 }} />
+          ) : (
+            <>
+              <label className={s.checkRow}>
+                <input
+                  type="checkbox"
+                  checked={isOn}
+                  onChange={e => handleChange('banner_enabled', e.target.checked ? '1' : '0')}
+                />
+                <span>Afficher le bandeau sur la boutique</span>
+              </label>
+
+              <div className={s.field} style={{ marginTop: 14 }}>
+                <label className={s.label} htmlFor="banner_text">Texte de l'annonce</label>
+                <input
+                  id="banner_text"
+                  className={s.input}
+                  maxLength={200}
+                  value={values.banner_text ?? ''}
+                  onChange={e => handleChange('banner_text', e.target.value)}
+                  placeholder="Ex : Boutique fermée du 24 au 31 décembre"
+                />
+                <span className={s.hint}>
+                  {(values.banner_text ?? '').length} / 200 caractères
+                </span>
+              </div>
+
+              <div className={s.field} style={{ marginTop: 12 }}>
+                <label className={s.label} htmlFor="banner_link">Lien (facultatif)</label>
+                <input
+                  id="banner_link"
+                  className={s.input}
+                  value={values.banner_link ?? ''}
+                  onChange={e => handleChange('banner_link', e.target.value)}
+                  placeholder="/catalogue"
+                />
+                <span className={s.hint}>
+                  Page du site vers laquelle le bandeau renvoie, commençant par « / ».
+                  Laisser vide pour un message non cliquable.
+                </span>
+              </div>
+
+              {/* Aperçu : évite d'aller vérifier sur la boutique après chaque essai */}
+              {isOn && (values.banner_text ?? '').trim() && (
+                <div className={s.bannerPreview}>
+                  <span className={s.bannerPreviewLabel}>Aperçu</span>
+                  <div className={s.bannerPreviewBar}>{values.banner_text}</div>
+                </div>
+              )}
+            </>
+          )}
+        </SettingsSection>
+      </div>
+
+      <div className={s.formActions} style={{ marginTop: 8 }}>
+        {errorMsg && <span className={s.errText}>{errorMsg}</span>}
+        <SaveFeedback status={status} />
+        <button className={s.btnSave} onClick={handleSave} disabled={saving || loading}>
+          <Save size={14} />
+          {saving ? 'Enregistrement…' : 'Enregistrer le bandeau'}
         </button>
       </div>
     </>
@@ -617,6 +742,7 @@ const TABS = [
   { key: 'shipping', label: 'Livraison',     icon: Truck,       desc: 'Tarifs Swiss Post'         },
   { key: 'tax',      label: 'TVA',           icon: Receipt,     desc: 'Taux AFC suisses'          },
   { key: 'legal',    label: 'Textes légaux', icon: FileText,    desc: 'CGV, mentions, retours'    },
+  { key: 'banner',   label: 'Bandeau',       icon: Megaphone,   desc: 'Annonce en haut du site'   },
   { key: 'security', label: 'Sécurité',      icon: ShieldCheck, desc: 'Double authentification'   },
 ]
 
@@ -653,6 +779,7 @@ export default function Settings() {
           {tab === 'shipping' && <ShippingTab />}
           {tab === 'tax'      && <TaxTab />}
           {tab === 'legal'    && <LegalTab />}
+          {tab === 'banner'   && <BannerTab />}
           {tab === 'security' && <SecurityTab />}
         </div>
       </div>

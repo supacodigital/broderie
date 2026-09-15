@@ -238,8 +238,16 @@ CREATE TABLE products (
   category_id       INT UNSIGNED   NULL DEFAULT NULL, -- NULL possible : catégorie supprimée alors qu'un produit soft-deleted y était encore rattaché (ON DELETE SET NULL)
   supplier_id       INT UNSIGNED   NULL DEFAULT NULL,
   slug              VARCHAR(255)   NOT NULL,
+  -- price_chf : prix promotionnel quand une promo est en cours, prix normal sinon.
+  -- compare_price_chf : prix normal barré pendant la promo (NULL si aucune promo).
+  -- Hors fenêtre de promo, c'est compare_price_chf qui redevient le prix payé :
+  -- voir la colonne générée effective_price_chf plus bas, seule source de vérité.
   price_chf         DECIMAL(10, 2) NOT NULL,
   compare_price_chf DECIMAL(10, 2) NULL DEFAULT NULL,
+  -- Fenêtre de validité de la promotion. NULL = pas de borne de ce côté
+  -- (début NULL : promo active immédiatement ; fin NULL : promo sans échéance).
+  promo_starts_at   DATETIME       NULL DEFAULT NULL,
+  promo_ends_at     DATETIME       NULL DEFAULT NULL,
   tax_rate_id       INT UNSIGNED   NOT NULL,
   sku               VARCHAR(100)   NULL DEFAULT NULL,
   external_ref      VARCHAR(32)    NULL DEFAULT NULL,  -- NArticleC de l'export cliente — clé d'UPSERT de l'import catalogue (database/import-catalog.js)
@@ -276,6 +284,7 @@ CREATE TABLE products (
   INDEX idx_products_active_price(is_active, price_chf),             -- tri par prix
   INDEX idx_products_active_rating(is_active, rating_avg),           -- tri par note
   INDEX idx_products_active_created(is_active, created_at),          -- tri catalogue par défaut
+  INDEX idx_products_promo       (promo_ends_at, promo_starts_at),   -- promos en cours / à échoir
   INDEX idx_products_stock       (is_active, stock),                 -- filtre in_stock
   CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL,
   CONSTRAINT fk_products_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers (id) ON DELETE SET NULL,
@@ -398,6 +407,9 @@ CREATE TABLE orders (
   tracking_number  VARCHAR(100)   NULL DEFAULT NULL,
   label_url        VARCHAR(500)   NULL DEFAULT NULL,
   label_id         VARCHAR(100)   NULL DEFAULT NULL,
+  -- La cliente demande une facture imprimée jointe au colis. La facture PDF
+  -- reste envoyée par email dans tous les cas : c'est un exemplaire papier EN PLUS.
+  wants_printed_invoice TINYINT(1) NOT NULL DEFAULT 0,
   created_at      DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at      DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -472,7 +484,7 @@ CREATE TABLE shipping_zones (
   id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
   name           VARCHAR(100) NOT NULL,
   carrier        VARCHAR(100) NOT NULL DEFAULT 'Swiss Post',
-  estimated_days VARCHAR(20)  NOT NULL DEFAULT '1-2',
+  estimated_days VARCHAR(20)  NOT NULL DEFAULT '3-5',
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -650,14 +662,17 @@ INSERT INTO tax_rates (name, rate, category, is_default) VALUES
 -- ============================================================
 -- DONNÉES DE RÉFÉRENCE — LIVRAISON SUISSE
 -- ============================================================
+-- Délai annoncé : 3 à 5 jours ouvrables pour les articles en stock (préparation
+-- en boutique incluse). Les produits « sur commande » gardent leur propre délai,
+-- affiché à part sur la fiche produit (3 à 4 semaines).
 INSERT INTO shipping_zones (name, carrier, estimated_days) VALUES
-  ('Suisse', 'Swiss Post', '1-2');
+  ('Suisse', 'Swiss Post', '3-5');
 
 INSERT INTO shipping_rates (zone_id, name, min_weight, max_weight, price_chf, estimated_days) VALUES
-  (1, 'Lettre A (jusqu\'à 100g)',   0.000, 0.100,  1.90, '1-2'),
-  (1, 'Colis S (jusqu\'à 2kg)',     0.100, 2.000,  8.50, '1-2'),
-  (1, 'Colis M (jusqu\'à 10kg)',    2.000, 10.000, 14.00, '1-2'),
-  (1, 'Colis L (jusqu\'à 30kg)',   10.000, 30.000, 22.00, '2-3');
+  (1, 'Lettre A (jusqu\'à 100g)',   0.000, 0.100,  1.90, '3-5'),
+  (1, 'Colis S (jusqu\'à 2kg)',     0.100, 2.000,  8.50, '3-5'),
+  (1, 'Colis M (jusqu\'à 10kg)',    2.000, 10.000, 14.00, '3-5'),
+  (1, 'Colis L (jusqu\'à 30kg)',   10.000, 30.000, 22.00, '3-5');
 
 -- ============================================================
 -- DONNÉES DE RÉFÉRENCE — CATÉGORIES (hiérarchie à 3 niveaux)

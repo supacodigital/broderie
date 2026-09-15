@@ -49,6 +49,34 @@ describe('dashboard.repository — getStats()', () => {
     expect(params[2]).toBe(4);    // mois précédent = avril
     expect(params[3]).toBe(2026); // même année
   });
+
+  /* Une facture émise n'est pas un encaissement : elle ne doit jamais entrer dans
+     le CA, sous peine de gonfler le chiffre avec des impayés. */
+  test('le CA exclut les factures émises non réglées', async () => {
+    mockStats();
+    await dashboardRepository.getStats({ month: 5, year: 2026 });
+    const sql = pool.execute.mock.calls[0][0];
+    expect(sql).not.toContain("'pending_invoice'");
+    expect(sql).toContain("'paid'");
+  });
+
+  test('remonte l\'encours des factures non réglées', async () => {
+    mockStats();
+    await dashboardRepository.getStats({ month: 5, year: 2026 });
+    // 2e requête : compteurs commandes + encours
+    const sql = pool.execute.mock.calls[1][0];
+    expect(sql).toContain('invoices_unpaid');
+    expect(sql).toContain('invoices_unpaid_total');
+    expect(sql).toContain('invoices_overdue');
+  });
+
+  test('« en attente » inclut les factures à payer', async () => {
+    mockStats();
+    await dashboardRepository.getStats({ month: 5, year: 2026 });
+    const sql = pool.execute.mock.calls[1][0];
+    expect(sql).toMatch(/orders_pending/);
+    expect(sql).toContain("'pending_invoice'");
+  });
 });
 
 // ── getChart() ────────────────────────────────────────────────────────────────
@@ -67,12 +95,19 @@ describe('dashboard.repository — getChart()', () => {
     );
   });
 
-  test('exclut les commandes annulées/remboursées', async () => {
+  /* Le CA ne compte que l'encaissé : la requête liste les statuts payés plutôt que
+     d'exclure les annulés. On vérifie donc les deux propriétés qui comptent —
+     les statuts payés sont inclus, ceux d'avant paiement ne le sont pas. */
+  test('ne compte que les commandes encaissées', async () => {
     pool.execute.mockResolvedValue([[]]);
     await dashboardRepository.getChart();
-    expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining("NOT IN ('cancelled','refunded')")
-    );
+    const sql = pool.execute.mock.calls[0][0];
+    for (const status of ['paid', 'processing', 'ready_for_pickup', 'shipped', 'delivered']) {
+      expect(sql).toContain(`'${status}'`);
+    }
+    for (const status of ['cancelled', 'refunded', 'pending_invoice', 'awaiting_payment']) {
+      expect(sql).not.toContain(`'${status}'`);
+    }
   });
 });
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Check, FileText, RefreshCw, Package, Download, Truck, Store, QrCode, ExternalLink,
+  Printer,
 } from 'lucide-react'
 import { getOrderById, updateOrderStatus, downloadInvoice, generateLabel, downloadLabel, updateTracking, sendTwintQr } from '../../services/orders.service.js'
 import { formatCHF } from '../../utils/chf.js'
@@ -262,6 +263,19 @@ export default function OrderDetail() {
                 <p className={s.cardSub}>Client, adresse et totaux</p>
               </div>
             </div>
+
+            {/* Demande de facture imprimée — encart plutôt qu'une ligne du tableau :
+                c'est une action manuelle à faire avant d'expédier le colis. */}
+            {!!order.wants_printed_invoice && (
+              <div className={s.printedInvoiceNotice}>
+                <Printer size={16} aria-hidden="true" />
+                <div>
+                  <strong>Facture imprimée demandée</strong>
+                  <span>La cliente souhaite une facture papier jointe au colis.</span>
+                </div>
+              </div>
+            )}
+
             <div className={s.infoGrid}>
               <div className={s.infoBlock}>
                 <span className={s.infoLabel}>Client</span>

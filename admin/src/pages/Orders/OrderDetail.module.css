@@ -133,6 +133,35 @@
 }
 
 /* ── Résumé — grille d'infos ── */
+/* ── Facture imprimée demandée — action manuelle avant expédition ── */
+.printedInvoiceNotice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 18px 20px 0;
+  padding: 12px 14px;
+  background: #fef3c7;
+  border-left: 4px solid #d97706;
+  border-radius: 8px;
+  color: #92400e;
+}
+
+.printedInvoiceNotice > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.printedInvoiceNotice strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.printedInvoiceNotice span {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .infoGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;

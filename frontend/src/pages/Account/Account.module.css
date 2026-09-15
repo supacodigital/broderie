@@ -155,6 +155,69 @@
   word-break: break-all;
 }
 
+/* ── Statut de confirmation de l'adresse email ── */
+
+/* Conteneur de l'avatar — sert de repère pour positionner la pastille */
+.avatarWrap {
+  position: relative;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+/* Pastille verte apposée en bas à droite de l'avatar */
+.avatarBadge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #059669;
+  color: #fff;
+  /* Anneau blanc : détache la pastille du dégradé rosé de l'avatar */
+  box-shadow: 0 0 0 2px var(--white, #fff);
+}
+
+/* Mention textuelle sous l'email — la pastille seule resterait ambiguë */
+.verifiedTag,
+.unverifiedTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.verifiedTag {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.unverifiedTag {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Texte réservé aux lecteurs d'écran — la pastille est purement visuelle */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Badge numérique (nombre de commandes/adresses/favoris) — réutilisé par .topTabBtn et .mobileTabBtn */
 .tabBadge {
   flex: 0 0 auto;

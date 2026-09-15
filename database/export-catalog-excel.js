@@ -55,6 +55,10 @@ const OUT_PATH = path.resolve(
    L'ordre et les libellés des 16 premières colonnes reprennent exactement le
    fichier déjà connu de la cliente, pour ne pas la désorienter. */
 const COLUMNS = [
+  /* Colonne de tri, calculée à l'export et non modifiable : avec 15 000 lignes,
+     retrouver « ce qu'il reste à faire » au jugé est impossible. Filtrer sur cette
+     colonne isole en un clic les articles sans catégorie, sans photo ou sans prix. */
+  { header: 'À revoir',                key: 'status',     width: 21, locked: true },
   { header: 'Référence (NArticleC)',   key: 'ref',        width: 16, locked: true },
   { header: 'Nom du produit (FR)',     key: 'name',       width: 46, locked: true },
   { header: 'Gamme',                   key: 'brand',      width: 20, locked: true },
@@ -78,6 +82,48 @@ const COLUMNS = [
 const TITLE_ROW  = 1;
 const HEADER_ROW = 3;
 
+/* Index de colonne (base 1) déduit de la clé — jamais écrit en dur : ajouter une
+   colonne en tête décalerait sinon silencieusement les validations et les formats. */
+const colIndex = (key) => COLUMNS.findIndex((c) => c.key === key) + 1;
+
+/* Diagnostic d'une ligne, affiché dans la colonne « À revoir » et filtrable.
+   Un seul libellé par ligne — celui du manque le plus bloquant — plutôt qu'une
+   liste : le filtre Excel travaille sur des valeurs exactes, et cumuler plusieurs
+   mentions multiplierait les entrées du menu déroulant jusqu'à le rendre inutile.
+
+   Le seuil de « Gros lot » vise le cas réel du catalogue : « Kits de Broderie »
+   compte à lui seul 10 483 articles, soit les deux tiers du fichier. Ce sont ces
+   catégories fourre-tout qui demandent un reclassement, pas celles à 23 articles.
+   Les manques (photo, fournisseur, prix) passent avant, car ils bloquent la vente. */
+const BIG_CATEGORY_THRESHOLD = 500;
+
+const ROW_STATUS = {
+  NO_CATEGORY:  'À classer',
+  NO_PRICE:     'Prix à vérifier',
+  NO_PHOTO:     'Sans photo',
+  BIG_CATEGORY: 'Catégorie à affiner',
+  OK:           'Complet',
+};
+
+/* Le fournisseur est volontairement absent du diagnostic : il manque aujourd'hui
+   sur la TOTALITÉ du catalogue, et sera rattaché en masse depuis l'export de l'ERP
+   (fichier CRFournisseur). L'afficher ici mettrait le même libellé sur les 15 000
+   lignes et rendrait la colonne muette — c'est précisément ce qu'on veut éviter.
+   Même logique pour « Sans photo » : neutralisé tant qu'aucune image n'existe en
+   base, sinon il masquerait les diagnostics réellement actionnables. */
+const rowStatus = (p, categorySizes, { photosKnown }) => {
+  if (!p.category_name)                                  return ROW_STATUS.NO_CATEGORY;
+  if (p.price_chf === null || Number(p.price_chf) <= 0)  return ROW_STATUS.NO_PRICE;
+  if (photosKnown && !p.image_count)                     return ROW_STATUS.NO_PHOTO;
+  if ((categorySizes.get(p.category_name) ?? 0) > BIG_CATEGORY_THRESHOLD) {
+    return ROW_STATUS.BIG_CATEGORY;
+  }
+  return ROW_STATUS.OK;
+};
+
+const STATUS_OK_FILL   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF6EE' } };
+const STATUS_TODO_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
+
 const GREY_FILL  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFEFEF' } };
 const GREEN_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDF3E4' } };
 const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F5D50' } };
@@ -87,6 +133,27 @@ const INSTRUCTIONS = [
   [''],
   ['Ce fichier liste tous les articles de la boutique. Vous pouvez le remplir en'],
   ['plusieurs fois et nous le renvoyer autant de fois que nécessaire.'],
+  [''],
+  ['TRIER ET FILTRER — pour ne pas parcourir 15 000 lignes'],
+  ['   Chaque titre de colonne (ligne 3) porte une petite flèche : cliquez dessus'],
+  ['   pour n\'afficher que ce qui vous intéresse.'],
+  [''],
+  ['   La colonne « À revoir » (1re colonne) indique ce qu\'il reste à faire :'],
+  ['      • Catégorie à affiner  la catégorie contient plus de 500 articles :'],
+  ['                             c\'est là qu\'un sous-classement est utile'],
+  ['      • Sans photo ......... aucune image pour cet article'],
+  ['      • Prix à vérifier .... le prix est absent ou à zéro'],
+  ['      • À classer .......... aucune catégorie'],
+  ['      • Complet ............ rien à signaler sur cette ligne'],
+  [''],
+  ['   La colonne Fournisseur n\'apparaît pas dans ce diagnostic : elle sera'],
+  ['   remplie automatiquement depuis votre ancien logiciel, pas à la main.'],
+  [''],
+  ['   Exemple : filtrez « À revoir = Catégorie à affiner » puis « Gamme = DMC »'],
+  ['   pour traiter le catalogue par petits lots plutôt qu\'en une seule fois.'],
+  [''],
+  ['   La référence et le nom restent visibles quand vous faites défiler vers la'],
+  ['   droite : vous savez toujours sur quelle ligne vous travaillez.'],
   [''],
   ['Colonnes GRISES : ne pas modifier.'],
   ['   Elles servent à retrouver l\'article (surtout la référence).'],
@@ -144,7 +211,10 @@ async function main() {
          p.weight_kg, p.length_cm, p.width_cm,
          pt.name AS name, pt.description AS description,
          ct.name AS category_name, pct.name AS parent_category_name,
-         s.name AS supplier_name
+         s.name AS supplier_name,
+         -- Sous-requête plutôt qu'une jointure + GROUP BY : évite de dédoubler les
+         -- lignes produit, et la colonne « État » a seulement besoin du compte.
+         (SELECT COUNT(*) FROM product_images pi WHERE pi.product_id = p.id) AS image_count
        FROM products p
        LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = 'fr'
        LEFT JOIN categories c ON c.id = p.category_id
@@ -168,8 +238,19 @@ async function main() {
     [6, 9].forEach((r) => { guide.getRow(r).font = { bold: true }; });
 
     // ── Onglet Catalogue ──
+    /* Volet figé sur les 2 premières colonnes EN PLUS de l'en-tête : sans xSplit,
+       la référence et le nom du produit disparaissent dès qu'on fait défiler vers
+       la droite, et on ne sait plus quelle ligne on est en train de remplir.
+       `topLeftCell` + `activeCell` ouvrent le fichier directement sur la première
+       ligne de données plutôt qu'en haut du titre. */
     const sheet = workbook.addWorksheet('Catalogue', {
-      views: [{ state: 'frozen', ySplit: HEADER_ROW }],
+      views: [{
+        state: 'frozen',
+        xSplit: 2,
+        ySplit: HEADER_ROW,
+        topLeftCell: `C${HEADER_ROW + 1}`,
+        activeCell:  `D${HEADER_ROW + 1}`,
+      }],
     });
 
     sheet.getRow(TITLE_ROW).getCell(1).value =
@@ -190,8 +271,22 @@ async function main() {
     });
     header.height = 30;
 
+    /* Nombre d'articles par catégorie — sert au diagnostic « Catégorie à affiner ».
+       Compté ici sur le jeu exporté plutôt qu'en SQL : c'est le volume que la
+       cliente voit réellement dans son fichier qui l'intéresse. */
+    const categorySizes = new Map();
+    products.forEach((p) => {
+      if (!p.category_name) return;
+      categorySizes.set(p.category_name, (categorySizes.get(p.category_name) ?? 0) + 1);
+    });
+
+    /* Le catalogue ne contient aucune image tant que l'import photos n'a pas eu
+       lieu : dans ce cas le diagnostic « Sans photo » n'apprendrait rien. */
+    const photosKnown = products.some((p) => Number(p.image_count) > 0);
+
     products.forEach((p) => {
       const row = sheet.addRow([
+        rowStatus(p, categorySizes, { photosKnown }),
         p.external_ref ?? '',
         p.name ?? '',
         p.brand ?? '',
@@ -220,7 +315,19 @@ async function main() {
           cell.protection = { locked: false };
         }
       });
-      row.getCell(6).numFmt = '0.00';
+      row.getCell(colIndex('price')).numFmt = '0.00';
+
+      /* La colonne « État » prend une couleur propre plutôt que le gris des colonnes
+         verrouillées : c'est un repère de travail, pas une donnée à ignorer. */
+      const statusCell = row.getCell(colIndex('status'));
+      const value = statusCell.value;
+      statusCell.fill = value === ROW_STATUS.OK ? STATUS_OK_FILL : STATUS_TODO_FILL;
+      statusCell.font = {
+        bold: value !== ROW_STATUS.OK,
+        color: { argb: value === ROW_STATUS.OK ? 'FF2F5D50' : 'FF8A4B00' },
+        size: 10,
+      };
+      statusCell.alignment = { horizontal: 'center' };
     });
 
     const lastRow = sheet.rowCount;
@@ -254,12 +361,12 @@ async function main() {
       return true;
     };
 
-    const categoryListOk = addList(4, categoryLabels, 'A');
-    const supplierListOk = addList(5, supplierLabels, 'B');
+    const categoryListOk = addList(colIndex('category'), categoryLabels, 'A');
+    const supplierListOk = addList(colIndex('supplier'), supplierLabels, 'B');
 
     // SUPPRIMER : uniquement O ou N, pour lever toute ambiguïté
     for (let r = firstDataRow; r <= lastRow; r++) {
-      sheet.getCell(r, 8).dataValidation = {
+      sheet.getCell(r, colIndex('remove')).dataValidation = {
         type: 'list',
         allowBlank: true,
         formulae: ['"O,N"'],
@@ -270,9 +377,13 @@ async function main() {
       };
     }
 
+    /* Le filtre couvre l'en-tête ET toutes les lignes de données. Borné à la seule
+       ligne d'en-tête, Excel doit deviner l'étendue du tableau et s'arrête à la
+       première ligne vide rencontrée — le tri ne porterait alors que sur une partie
+       du catalogue, en déplaçant des valeurs sans leurs voisines. */
     sheet.autoFilter = {
       from: { row: HEADER_ROW, column: 1 },
-      to:   { row: HEADER_ROW, column: COLUMNS.length },
+      to:   { row: lastRow,    column: COLUMNS.length },
     };
 
     await workbook.xlsx.writeFile(OUT_PATH);

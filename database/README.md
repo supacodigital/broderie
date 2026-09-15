@@ -7,7 +7,7 @@
 | `broderie.sql` | **Schéma de référence complet** + données de seed. Un déploiement *from scratch* exécute ce seul fichier — il reflète toujours l'état actuel, migrations incluses. |
 | `migrations/*.sql` | Modifications incrémentales à appliquer sur une base **déjà déployée**. Nommées `AAAA-MM-JJ_slug.sql`, appliquées dans l'ordre alphabétique. |
 | `migrate.js` | Runner de migrations (sans dépendance, sans ORM). |
-| `import-catalog.js` | Import du catalogue de la cliente (`donnees-client/*.xlsx`) dans `products`. UPSERT sur `products.external_ref` → rejouable sans doublon. Procédure de déploiement : [`docs/DEPLOIEMENT.md`](../docs/DEPLOIEMENT.md) § 6. |
+| `import-catalog.js` | Import du catalogue de la cliente (`donnees-client/*.xlsx`) dans `products`. UPSERT sur `products.external_ref` → rejouable sans doublon. |
 | `catalog-category-map.js` | Correspondance marque (Gamme) → catégorie, utilisée par l'import. À faire valider par la cliente. |
 | `lib/xlsx-reader.js` | Lecteur `.xlsx` minimal sans dépendance (utilisé par `import-catalog.js`). |
 
@@ -56,8 +56,52 @@ npm run import:catalog                        # exécute l'import (UPSERT sur ex
 npm run import:catalog -- --status            # compte les produits déjà importés
 ```
 
-Procédure de déploiement : [`docs/DEPLOIEMENT.md`](../docs/DEPLOIEMENT.md) § 6.
 La matrice de mapping détaillée est documentée en tête de `import-catalog.js`.
+
+### Import des photos produit
+
+Les photos sont livrées par la cliente en **lots de 3 000 fichiers**
+(`donnees-client/Lot_Photo_web_01`, `_02`, …), accompagnés du
+`Rapport_Audit_Photos.xlsx` qui porte la correspondance article ↔ photo :
+
+| Colonne | Rôle |
+| --- | --- |
+| `NArticleC` | clé d'appariement — correspond à `products.external_ref` |
+| `RefFab` | référence fabricant — correspond à `products.sku` |
+| `Nom Fichier` | nom exact du fichier dans le lot |
+| `Conforme Web` | `OK` / `Photo Manquante` / `Taille > 5Mo` — seules les lignes `OK` sont importées |
+| `Lot Destination` | lot contenant le fichier |
+
+`import-catalog-photos.js` accepte ce fichier directement (`--format=auto` le
+détecte) et cherche les photos dans **plusieurs lots séparés par une virgule** :
+
+```bash
+cd backend
+
+npm run import:catalog-photos -- --dry-run \
+  --excel=../donnees-client/Rapport_Audit_Photos.xlsx \
+  --photos=../donnees-client/Lot_Photo_web_01,../donnees-client/Lot_Photo_web_02
+
+npm run import:catalog-photos -- \
+  --excel=../donnees-client/Rapport_Audit_Photos.xlsx \
+  --photos=../donnees-client/Lot_Photo_web_01,../donnees-client/Lot_Photo_web_02
+```
+
+Points à connaître :
+
+- **Relançable sans risque** : un produit ayant déjà au moins une image est
+  ignoré. À chaque nouveau lot, relancer la même commande en ajoutant le
+  dossier — seules les photos nouvelles sont traitées.
+- Les fichiers annoncés dans l'audit mais absents du disque sont comptés
+  **par lot** dans le rapport : un lot entier absent = lot pas encore livré,
+  ce n'est pas une erreur.
+- La casse de l'extension varie dans les lots (`.jpg` / `.JPG`) ; la résolution
+  du fichier est insensible à la casse.
+- Le pipeline est celui de l'upload admin : WebP, 3 tailles
+  (200/600/1200 px), ~1 Go pour 8 600 photos.
+- Les photos source ne dépassent pas 1000 px de large : `withoutEnlargement`
+  fait que les tailles `medium`/`large` sont souvent identiques. Fonctionnel,
+  mais ~19 % de stockage redondant si l'on veut optimiser plus tard.
 
 Options directes :
 

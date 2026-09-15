@@ -20,7 +20,7 @@ const INITIAL_STATUS_BY_METHOD = {
   pickup:     'pending_pickup',   // retrait + paiement en boutique
 };
 
-const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponCode = null, address = null, billingAddress = null, locale = 'fr' }) => {
+const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponCode = null, address = null, billingAddress = null, locale = 'fr', wantsPrintedInvoice = false }) => {
   if (!VALID_METHODS.includes(paymentMethod)) {
     throw new AppError('Méthode de paiement invalide.', 400);
   }
@@ -34,9 +34,13 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
 
   if (activeItems.length === 0) throw new AppError('Le panier est vide.', 400);
 
-  // Calcul du sous-total TTC
+  /* Calcul du sous-total TTC sur `unit_price` — le prix courant recalculé par
+     cart.repository (promotion en cours prise en compte), et non `price_snapshot`
+     figé à l'ajout au panier. C'est ce même montant qui est affiché à la cliente
+     au récapitulatif : facturer le snapshot ferait payer un prix différent de
+     celui annoncé dès qu'une promo a démarré ou expiré entre-temps. */
   const subtotal = roundCHF(
-    activeItems.reduce((sum, item) => sum + parseFloat(item.price_snapshot) * item.quantity, 0)
+    activeItems.reduce((sum, item) => sum + parseFloat(item.unit_price) * item.quantity, 0)
   );
 
   // Validation et application du code de réduction.
@@ -73,7 +77,7 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
   const taxAmount = roundCHF(
     activeItems.reduce((sum, item) => {
       const rate       = parseFloat(item.tax_rate_snapshot) / 100;
-      const proportion = (parseFloat(item.price_snapshot) * item.quantity) / subtotal;
+      const proportion = (parseFloat(item.unit_price) * item.quantity) / subtotal;
       const lineTotal  = discountedSubtotal * proportion;
       return sum + (lineTotal * rate / (1 + rate));
     }, 0)
@@ -109,6 +113,7 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
     paymentMethod,
     qrReference: null,
     locale,
+    wantsPrintedInvoice,
   });
 
   /* Numérotation de la facture : « 2026-09/01 », compteur remis à 1 chaque mois,

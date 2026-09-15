@@ -493,3 +493,55 @@
   .actionBarRight { gap: 8px; }
   .btnSaveLarge { padding: 10px 16px; font-size: 13px; }
 }
+
+/* ── Période de la promotion ──
+   Encadré distinct du reste du formulaire : ces dates pilotent le prix réellement
+   facturé, pas seulement l'affichage. */
+.promoDates {
+  margin: 14px 0;
+  padding: 14px 16px;
+  background: var(--rose-pale);
+  border: 1px solid var(--rose-border);
+  border-radius: 10px;
+}
+
+.promoDatesHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.promoDatesHint {
+  margin: 4px 0 12px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+/* Statut calculé en direct — évite de croire qu'une promo programmée est inactive */
+.promoStatus {
+  margin: 10px 0 0;
+  padding: 7px 11px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.promoStatusOn {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.promoStatusSoon {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.promoStatusOff {
+  background: #fef3c7;
+  color: #92400e;
+}

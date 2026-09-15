@@ -2,8 +2,8 @@ const transporter = require('../config/mailer');
 const { roundCHF } = require('../utils/chf.utils');
 const env = require('../config/env');
 
-const FROM     = env.mailFrom    || '"Au Point-Compté" <noreply@broderie-domaine.ch>';
-const BASE_URL = env.clientUrl   || 'https://broderie-domaine.ch';
+const FROM     = env.mailFrom    || '"Au Point-Compté" <contact@broderie.ch>';
+const BASE_URL = env.clientUrl   || 'https://broderie.ch';
 
 // ─────────────────────────────────────────────
 // Helpers communs
@@ -20,25 +20,19 @@ function escapeHtml(str) {
     .replace(/'/g, '&#x27;');
 }
 
+// Délai de livraison annoncé — articles EN STOCK uniquement.
+// Les produits « sur commande » ont leur propre délai (voir MADE_TO_ORDER_LABEL).
+const DELIVERY_DELAY = '3 à 5 jours ouvrables';
+
 // Mise en page HTML commune à tous les emails
-function layout(content, locale = 'fr') {
-  const footerText = {
-    fr: `Vous recevez cet email car vous avez un compte sur Au Point-Compté.<br>
+function layout(content) {
+  const footerText = `Vous recevez cet email car vous avez un compte sur Au Point-Compté.<br>
          <a href="${BASE_URL}/cgv" style="color:#DB2777;">CGV</a> &nbsp;·&nbsp;
          <a href="${BASE_URL}/mon-compte" style="color:#DB2777;">Mon compte</a> &nbsp;·&nbsp;
-         <a href="mailto:contact@broderie-domaine.ch" style="color:#DB2777;">Contact</a>`,
-    de: `Sie erhalten diese E-Mail, weil Sie ein Konto bei Au Point-Compté haben.<br>
-         <a href="${BASE_URL}/cgv" style="color:#DB2777;">AGB</a> &nbsp;·&nbsp;
-         <a href="${BASE_URL}/mon-compte" style="color:#DB2777;">Mein Konto</a> &nbsp;·&nbsp;
-         <a href="mailto:contact@broderie-domaine.ch" style="color:#DB2777;">Kontakt</a>`,
-    en: `You received this email because you have an account on Au Point-Compté.<br>
-         <a href="${BASE_URL}/cgv" style="color:#DB2777;">T&C</a> &nbsp;·&nbsp;
-         <a href="${BASE_URL}/mon-compte" style="color:#DB2777;">My account</a> &nbsp;·&nbsp;
-         <a href="mailto:contact@broderie-domaine.ch" style="color:#DB2777;">Contact</a>`,
-  };
+         <a href="mailto:contact@broderie.ch" style="color:#DB2777;">Contact</a>`;
 
   return `<!DOCTYPE html>
-<html lang="${locale}">
+<html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -71,7 +65,7 @@ function layout(content, locale = 'fr') {
         <!-- Pied de page -->
         <tr>
           <td style="background:#fdf2f8;border-top:1px solid #fbcfe8;padding:20px 40px;text-align:center;font-size:11px;color:#9D6480;line-height:1.7;">
-            ${footerText[locale] ?? footerText.fr}<br><br>
+            ${footerText}<br><br>
             © ${new Date().getFullYear()} Au Point-Compté — Lausanne, Suisse
           </td>
         </tr>
@@ -91,15 +85,11 @@ function btn(url, label, color = '#DB2777') {
   </a>`;
 }
 
-// Libellé « sur commande » par locale — affiché sous les produits fabriqués à la demande
-const MADE_TO_ORDER_LABEL = {
-  fr: 'Sur commande — 3 à 4 semaines',
-  de: 'Auf Bestellung — 3 bis 4 Wochen',
-  en: 'Made to order — 3 to 4 weeks',
-};
+// Libellé affiché sous les produits fabriqués à la demande
+const MADE_TO_ORDER_LABEL = 'Sur commande — 3 à 4 semaines';
 
 // Ligne de récapitulatif commande
-function orderItemRow(item, locale = 'fr') {
+function orderItemRow(item) {
   const snap   = typeof item.product_snapshot_json === 'string'
     ? JSON.parse(item.product_snapshot_json)
     : (item.product_snapshot_json ?? {});
@@ -107,7 +97,7 @@ function orderItemRow(item, locale = 'fr') {
   const price  = roundCHF(parseFloat(item.unit_price) * item.quantity);
   // Mention « sur commande » figée dans le snapshot produit au moment de l'achat
   const madeToOrderNote = snap.is_made_to_order
-    ? `<br><span style="font-size:12px;font-weight:600;color:#6d28d9;">${MADE_TO_ORDER_LABEL[locale] ?? MADE_TO_ORDER_LABEL.fr}</span>`
+    ? `<br><span style="font-size:12px;font-weight:600;color:#6d28d9;">${MADE_TO_ORDER_LABEL}</span>`
     : '';
   return `<tr>
     <td style="padding:8px 0;border-bottom:1px solid #fbcfe8;font-size:13px;color:#1E1020;">
@@ -123,51 +113,27 @@ function orderItemRow(item, locale = 'fr') {
 // 1. Email de bienvenue — après inscription
 // ─────────────────────────────────────────────
 async function sendWelcome({ user }) {
-  const locale    = user.locale ?? 'fr';
   const firstName = escapeHtml(user.first_name);
 
-  const subjects = {
-    fr: 'Bienvenue chez Au Point-Compté 🧵',
-    de: 'Willkommen bei Au Point-Compté 🧵',
-    en: 'Welcome to Au Point-Compté 🧵',
-  };
-
-  const bodies = {
-    fr: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+  const body = `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
            Bienvenue, ${firstName} !
          </h1>
          <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
            Votre compte Au Point-Compté est créé. Découvrez notre catalogue de broderies suisses
-           — kits, fils, accessoires — livrés partout en Suisse en 1–2 jours.
+           — kits, fils, accessoires — livrés partout en Suisse en ${DELIVERY_DELAY}
+           pour les articles en stock.
          </p>
          <p style="margin:0;font-size:14px;color:#374151;line-height:1.7;">
            Vous pouvez dès maintenant accéder à votre espace personnel pour suivre vos commandes,
            gérer vos adresses et consulter votre programme de fidélité.
          </p>
-         ${btn(`${BASE_URL}/catalogue`, 'Découvrir la boutique')}`,
-    de: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-           Willkommen, ${firstName}!
-         </h1>
-         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
-           Ihr Au Point-Compté Konto wurde erstellt. Entdecken Sie unsere Kollektion
-           Schweizer Stickereien — Kits, Garne, Zubehör — in 1–2 Tagen schweizweit geliefert.
-         </p>
-         ${btn(`${BASE_URL}/catalogue`, 'Zum Shop')}`,
-    en: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-           Welcome, ${firstName}!
-         </h1>
-         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
-           Your Au Point-Compté account is ready. Explore our Swiss embroidery collection
-           — kits, threads, accessories — delivered across Switzerland in 1–2 days.
-         </p>
-         ${btn(`${BASE_URL}/catalogue`, 'Shop now')}`,
-  };
+         ${btn(`${BASE_URL}/catalogue`, 'Découvrir la boutique')}`;
 
   await transporter.sendMail({
     from:    FROM,
     to:      user.email,
-    subject: subjects[locale] ?? subjects.fr,
-    html:    layout(bodies[locale] ?? bodies.fr, locale),
+    subject: 'Bienvenue chez Au Point-Compté 🧵',
+    html:    layout(body),
   });
 }
 
@@ -175,31 +141,16 @@ async function sendWelcome({ user }) {
 // 2. Confirmation de commande
 // ─────────────────────────────────────────────
 async function sendOrderConfirmation({ user, order }) {
-  const locale    = user.locale ?? 'fr';
   const firstName = escapeHtml(user.first_name);
   const orderId   = parseInt(order.id, 10);
 
-  const subjects = {
-    fr: `Confirmation de votre commande #${orderId} — Au Point-Compté`,
-    de: `Bestellbestätigung #${orderId} — Au Point-Compté`,
-    en: `Order confirmation #${orderId} — Au Point-Compté`,
-  };
+  const itemsHtml = (order.items ?? []).map((item) => orderItemRow(item)).join('');
 
-  const itemsHtml = (order.items ?? []).map((item) => orderItemRow(item, locale)).join('');
-
-  const summaryRows = {
-    fr: `Sous-total|CHF ${roundCHF(order.subtotal).toFixed(2)}
+  const summaryRows = `Sous-total|CHF ${roundCHF(order.subtotal).toFixed(2)}
 Frais de port|CHF ${roundCHF(order.shipping_cost).toFixed(2)}
-TVA incluse|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n'),
-    de: `Zwischensumme|CHF ${roundCHF(order.subtotal).toFixed(2)}
-Versandkosten|CHF ${roundCHF(order.shipping_cost).toFixed(2)}
-MwSt. inkl.|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n'),
-    en: `Subtotal|CHF ${roundCHF(order.subtotal).toFixed(2)}
-Shipping|CHF ${roundCHF(order.shipping_cost).toFixed(2)}
-VAT included|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n'),
-  };
+TVA incluse|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n');
 
-  const summaryHtml = (summaryRows[locale] ?? summaryRows.fr).map(row => {
+  const summaryHtml = summaryRows.map(row => {
     const [label, val] = row.split('|');
     return `<tr>
       <td style="padding:5px 0;font-size:13px;color:#6b7280;">${label}</td>
@@ -207,35 +158,21 @@ VAT included|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n'),
     </tr>`;
   }).join('');
 
-  const titles = {
-    fr: `Merci pour votre commande, ${firstName} !`,
-    de: `Vielen Dank für Ihre Bestellung, ${firstName}!`,
-    en: `Thank you for your order, ${firstName}!`,
-  };
+  const title = `Merci pour votre commande, ${firstName} !`;
 
-  const intros = {
-    fr: `Nous avons bien reçu votre commande <strong>#${orderId}</strong>.
-         Vous serez notifié(e) dès l'expédition avec votre numéro de suivi Post CH.`,
-    de: `Wir haben Ihre Bestellung <strong>#${orderId}</strong> erhalten.
-         Sie werden benachrichtigt, sobald das Paket versendet wird.`,
-    en: `We have received your order <strong>#${orderId}</strong>.
-         You will be notified as soon as it ships with your Post CH tracking number.`,
-  };
+  const intro = `Nous avons bien reçu votre commande <strong>#${orderId}</strong>.
+         Vous serez notifié(e) dès l'expédition avec votre numéro de suivi Post CH.`;
 
-  const totalLabel = { fr: 'Total TTC', de: 'Gesamtbetrag', en: 'Total' };
-  const detailLabel = { fr: 'Voir ma commande', de: 'Meine Bestellung ansehen', en: 'View my order' };
-  const deliveryNote = {
-    fr: '🚚 Livraison estimée : 1–2 jours ouvrables · La Poste Suisse',
-    de: '🚚 Voraussichtliche Lieferung: 1–2 Werktage · Die Schweizer Post',
-    en: '🚚 Estimated delivery: 1–2 business days · Swiss Post',
-  };
+  const totalLabel   = 'Total TTC';
+  const detailLabel  = 'Voir ma commande';
+  const deliveryNote = `🚚 Livraison estimée : ${DELIVERY_DELAY} pour les articles en stock · La Poste Suisse`;
 
   const body = `
     <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-      ${titles[locale] ?? titles.fr}
+      ${title}
     </h1>
     <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
-      ${intros[locale] ?? intros.fr}
+      ${intro}
     </p>
 
     <!-- Articles -->
@@ -249,7 +186,7 @@ VAT included|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n'),
       ${summaryHtml}
       <tr>
         <td style="padding:10px 0 4px;font-size:15px;font-weight:700;color:#1E1020;border-top:1px solid #fbcfe8;">
-          ${totalLabel[locale] ?? totalLabel.fr}
+          ${totalLabel}
         </td>
         <td style="padding:10px 0 4px;font-size:15px;font-weight:700;color:#DB2777;text-align:right;border-top:1px solid #fbcfe8;">
           CHF ${roundCHF(order.total).toFixed(2)}
@@ -258,17 +195,17 @@ VAT included|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n'),
     </table>
 
     <p style="margin:16px 0 0;font-size:12px;color:#9D6480;">
-      ${deliveryNote[locale] ?? deliveryNote.fr}
+      ${deliveryNote}
     </p>
 
-    ${btn(`${BASE_URL}/mon-compte`, detailLabel[locale] ?? detailLabel.fr)}
+    ${btn(`${BASE_URL}/mon-compte`, detailLabel)}
   `;
 
   await transporter.sendMail({
     from:    FROM,
     to:      user.email,
-    subject: subjects[locale] ?? subjects.fr,
-    html:    layout(body, locale),
+    subject: `Confirmation de votre commande #${orderId} — Au Point-Compté`,
+    html:    layout(body),
   });
 }
 
@@ -280,8 +217,21 @@ async function sendAdminOrderNotification({ user, order }) {
   if (!env.mailContact) return;
 
   const orderId    = parseInt(order.id, 10);
-  const itemsHtml   = (order.items ?? []).map((item) => orderItemRow(item, 'fr')).join('');
+  const itemsHtml   = (order.items ?? []).map((item) => orderItemRow(item)).join('');
   const clientName  = `${escapeHtml(user.first_name)} ${escapeHtml(user.last_name)}`.trim() || user.email;
+
+  /* Demande de facture imprimée : encart bien visible, c'est une action manuelle
+     à faire au moment de préparer le colis — facile à manquer sinon. */
+  const printedInvoiceNotice = order.wants_printed_invoice
+    ? `<div style="margin:0 0 24px;padding:14px 18px;background:#fef3c7;border-left:4px solid #d97706;border-radius:8px;">
+         <p style="margin:0;font-size:14px;font-weight:700;color:#92400e;">
+           🖶 Facture imprimée demandée
+         </p>
+         <p style="margin:4px 0 0;font-size:13px;color:#92400e;line-height:1.6;">
+           La cliente souhaite une facture papier jointe au colis.
+         </p>
+       </div>`
+    : '';
 
   const body = `
     <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
@@ -291,6 +241,8 @@ async function sendAdminOrderNotification({ user, order }) {
       Client : <strong>${clientName}</strong> (${escapeHtml(user.email)})<br>
       Méthode de paiement : <strong>${escapeHtml(order.status)}</strong>
     </p>
+
+    ${printedInvoiceNotice}
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
       ${itemsHtml}
@@ -312,8 +264,8 @@ async function sendAdminOrderNotification({ user, order }) {
   await transporter.sendMail({
     from:    FROM,
     to:      env.mailContact,
-    subject: `🛒 Nouvelle commande #${orderId} — CHF ${roundCHF(order.total).toFixed(2)}`,
-    html:    layout(body, 'fr'),
+    subject: `🛒 Nouvelle commande #${orderId} — CHF ${roundCHF(order.total).toFixed(2)}${order.wants_printed_invoice ? ' — facture papier' : ''}`,
+    html:    layout(body),
   });
 }
 
@@ -321,66 +273,42 @@ async function sendAdminOrderNotification({ user, order }) {
 // 3. Notification d'expédition
 // ─────────────────────────────────────────────
 async function sendOrderShipped({ user, order, trackingNumber }) {
-  const locale          = user.locale ?? 'fr';
   const firstName       = escapeHtml(user.first_name);
   const orderId         = parseInt(order.id, 10);
   const safeTracking    = escapeHtml(trackingNumber);
   const trackUrl = `https://www.post.ch/fr/outils/suivi-de-colis?track=${encodeURIComponent(trackingNumber)}`;
 
-  const subjects = {
-    fr: `Votre commande #${orderId} est en route ! 📦`,
-    de: `Ihre Bestellung #${orderId} ist unterwegs! 📦`,
-    en: `Your order #${orderId} has shipped! 📦`,
-  };
+  const title = `Votre colis est parti, ${firstName} !`;
 
-  const titles = {
-    fr: `Votre colis est parti, ${firstName} !`,
-    de: `Ihr Paket ist unterwegs, ${firstName}!`,
-    en: `Your parcel is on its way, ${firstName}!`,
-  };
+  const intro = `Votre commande <strong>#${orderId}</strong> a été expédiée aujourd'hui via La Poste Suisse.
+         Votre numéro de suivi :`;
 
-  const intros = {
-    fr: `Votre commande <strong>#${orderId}</strong> a été expédiée aujourd'hui via La Poste Suisse.
-         Votre numéro de suivi :`,
-    de: `Ihre Bestellung <strong>#${orderId}</strong> wurde heute über Die Schweizer Post versandt.
-         Ihre Sendungsnummer:`,
-    en: `Your order <strong>#${orderId}</strong> has been shipped today via Swiss Post.
-         Your tracking number:`,
-  };
+  const trackBtn = 'Suivre mon colis';
 
-  const trackBtns = {
-    fr: 'Suivre mon colis',
-    de: 'Sendung verfolgen',
-    en: 'Track my parcel',
-  };
-
-  const deliveryNotes = {
-    fr: 'Délai estimé : 1–2 jours ouvrables en Suisse.',
-    de: 'Geschätzte Lieferzeit: 1–2 Werktage in der Schweiz.',
-    en: 'Estimated delivery: 1–2 business days in Switzerland.',
-  };
+  // Colis déjà remis à la poste : seul l'acheminement reste, la préparation est faite.
+  const deliveryNote = 'Délai d\'acheminement : 1 à 2 jours ouvrables en Suisse.';
 
   const body = `
     <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-      ${titles[locale] ?? titles.fr}
+      ${title}
     </h1>
     <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
-      ${intros[locale] ?? intros.fr}
+      ${intro}
     </p>
     <div style="background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:16px 24px;display:inline-block;font-size:18px;font-weight:700;color:#DB2777;letter-spacing:.08em;font-family:monospace;">
       ${safeTracking}
     </div>
     <p style="margin:16px 0 0;font-size:13px;color:#9D6480;">
-      ${deliveryNotes[locale] ?? deliveryNotes.fr}
+      ${deliveryNote}
     </p>
-    ${btn(trackUrl, trackBtns[locale] ?? trackBtns.fr)}
+    ${btn(trackUrl, trackBtn)}
   `;
 
   await transporter.sendMail({
     from:    FROM,
     to:      user.email,
-    subject: subjects[locale] ?? subjects.fr,
-    html:    layout(body, locale),
+    subject: `Votre commande #${orderId} est en route ! 📦`,
+    html:    layout(body),
   });
 }
 
@@ -388,63 +316,28 @@ async function sendOrderShipped({ user, order, trackingNumber }) {
 // 4. Réinitialisation de mot de passe
 // ─────────────────────────────────────────────
 async function sendPasswordReset({ user, resetToken }) {
-  const locale = user.locale ?? 'fr';
   const resetUrl = `${BASE_URL}/reinitialiser-mot-de-passe?token=${resetToken}`;
-
-  const subjects = {
-    fr: 'Réinitialisation de votre mot de passe — Au Point-Compté',
-    de: 'Passwort zurücksetzen — Au Point-Compté',
-    en: 'Reset your password — Au Point-Compté',
-  };
-
-  const titles = {
-    fr: 'Réinitialisation du mot de passe',
-    de: 'Passwort zurücksetzen',
-    en: 'Password reset',
-  };
-
-  const intros = {
-    fr: `Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton
-         ci-dessous pour en choisir un nouveau. Ce lien est valable <strong>1 heure</strong>.`,
-    de: `Sie haben die Zurücksetzung Ihres Passworts angefordert. Klicken Sie auf die Schaltfläche
-         unten, um ein neues zu wählen. Dieser Link ist <strong>1 Stunde</strong> gültig.`,
-    en: `You requested a password reset. Click the button below to choose a new password.
-         This link is valid for <strong>1 hour</strong>.`,
-  };
-
-  const btnLabels = {
-    fr: 'Réinitialiser mon mot de passe',
-    de: 'Mein Passwort zurücksetzen',
-    en: 'Reset my password',
-  };
-
-  const ignoreNotes = {
-    fr: `Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet email.
-         Votre mot de passe ne sera pas modifié.`,
-    de: `Wenn Sie diese Zurücksetzung nicht angefordert haben, ignorieren Sie diese E-Mail einfach.
-         Ihr Passwort wird nicht geändert.`,
-    en: `If you did not request a password reset, simply ignore this email.
-         Your password will not be changed.`,
-  };
 
   const body = `
     <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-      ${titles[locale] ?? titles.fr}
+      Réinitialisation du mot de passe
     </h1>
     <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
-      ${intros[locale] ?? intros.fr}
+      Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton
+      ci-dessous pour en choisir un nouveau. Ce lien est valable <strong>1 heure</strong>.
     </p>
-    ${btn(resetUrl, btnLabels[locale] ?? btnLabels.fr)}
+    ${btn(resetUrl, 'Réinitialiser mon mot de passe')}
     <p style="margin:24px 0 0;font-size:12px;color:#9D6480;line-height:1.7;">
-      ${ignoreNotes[locale] ?? ignoreNotes.fr}
+      Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet email.
+      Votre mot de passe ne sera pas modifié.
     </p>
   `;
 
   await transporter.sendMail({
     from:    FROM,
     to:      user.email,
-    subject: subjects[locale] ?? subjects.fr,
-    html:    layout(body, locale),
+    subject: 'Réinitialisation de votre mot de passe — Au Point-Compté',
+    html:    layout(body),
   });
 }
 
@@ -452,21 +345,12 @@ async function sendPasswordReset({ user, resetToken }) {
 // 8. Facture QR suisse — email avec QR-facture PDF en pièce jointe
 // ─────────────────────────────────────────────
 async function sendInvoice({ user, order, pdfBuffer, dueDate }) {
-  const locale = user.locale ?? 'fr';
   const firstName = escapeHtml(user.first_name);
-  const due = new Date(dueDate).toLocaleDateString(
-    locale === 'de' ? 'de-CH' : locale === 'en' ? 'en-GB' : 'fr-CH',
-    { day: '2-digit', month: '2-digit', year: 'numeric' }
-  );
+  const due = new Date(dueDate).toLocaleDateString('fr-CH', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
 
-  const subjects = {
-    fr: `Votre facture QR — commande #${order.id} — Au Point-Compté`,
-    de: `Ihre QR-Rechnung — Bestellung #${order.id} — Au Point-Compté`,
-    en: `Your QR invoice — order #${order.id} — Au Point-Compté`,
-  };
-
-  const bodies = {
-    fr: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+  const body = `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
            Votre facture, ${firstName}
          </h1>
          <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
@@ -477,38 +361,13 @@ async function sendInvoice({ user, order, pdfBuffer, dueDate }) {
          <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
            Réglez-la depuis votre application bancaire en scannant le QR code suisse,
            au plus tard le <strong>${due}</strong>.
-         </p>`,
-    de: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-           Ihre Rechnung, ${firstName}
-         </h1>
-         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
-           Im Anhang finden Sie die QR-Rechnung für Ihre Bestellung
-           <strong>#${order.id}</strong> über
-           <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
-         </p>
-         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
-           Bezahlen Sie sie über Ihre Banking-App durch Scannen des Schweizer QR-Codes,
-           spätestens bis zum <strong>${due}</strong>.
-         </p>`,
-    en: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-           Your invoice, ${firstName}
-         </h1>
-         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
-           Please find attached the QR invoice for your order
-           <strong>#${order.id}</strong> for
-           <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
-         </p>
-         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
-           Pay it from your banking app by scanning the Swiss QR code,
-           no later than <strong>${due}</strong>.
-         </p>`,
-  };
+         </p>`;
 
   await transporter.sendMail({
     from:    FROM,
     to:      user.email,
-    subject: subjects[locale] ?? subjects.fr,
-    html:    layout(bodies[locale] ?? bodies.fr, locale),
+    subject: `Votre facture QR — commande #${order.id} — Au Point-Compté`,
+    html:    layout(body),
     attachments: [
       {
         filename:    `facture-${order.id}.pdf`,
@@ -523,7 +382,6 @@ async function sendInvoice({ user, order, pdfBuffer, dueDate }) {
 // 9. Click & Collect — commande prête pour le retrait en boutique
 // ─────────────────────────────────────────────
 async function sendPickupReady({ user, order }) {
-  const locale    = user.locale ?? 'fr';
   const firstName = escapeHtml(user.first_name);
   const orderId   = parseInt(order.id, 10);
 
@@ -535,13 +393,7 @@ async function sendPickupReady({ user, order }) {
     hours:   escapeHtml(env.pickupHours),
   };
 
-  const subjects = {
-    fr: `Votre commande #${orderId} est prête — Au Point-Compté`,
-    de: `Ihre Bestellung #${orderId} ist abholbereit — Au Point-Compté`,
-    en: `Your order #${orderId} is ready — Au Point-Compté`,
-  };
-
-  // Encart adresse + horaires, commun aux 3 langues
+  // Encart adresse + horaires de la boutique
   const shopBlock = (labelAddress, labelHours) => `
     <div style="background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:16px 20px;margin:8px 0 20px;">
       <p style="margin:0 0 4px;font-size:12px;color:#9D6480;text-transform:uppercase;letter-spacing:0.04em;">${labelAddress}</p>
@@ -551,8 +403,7 @@ async function sendPickupReady({ user, order }) {
       <p style="margin:2px 0 0;font-size:14px;color:#374151;">${shop.hours}</p>
     </div>`;
 
-  const bodies = {
-    fr: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+  const body = `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
            Votre commande est prête, ${firstName} !
          </h1>
          <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
@@ -562,102 +413,44 @@ async function sendPickupReady({ user, order }) {
          ${shopBlock('Adresse de retrait', 'Horaires d\'ouverture')}
          <p style="margin:0;font-size:13px;color:#9D6480;line-height:1.7;">
            Montant à régler en boutique : <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
-         </p>`,
-    de: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-           Ihre Bestellung ist bereit, ${firstName}!
-         </h1>
-         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
-           Gute Nachrichten: Ihre Bestellung <strong>#${orderId}</strong> ist im Geschäft abholbereit.
-           Die Bezahlung erfolgt direkt vor Ort bei der Abholung.
-         </p>
-         ${shopBlock('Abholadresse', 'Öffnungszeiten')}
-         <p style="margin:0;font-size:13px;color:#9D6480;line-height:1.7;">
-           Im Geschäft zu zahlender Betrag: <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
-         </p>`,
-    en: `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-           Your order is ready, ${firstName}!
-         </h1>
-         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
-           Good news: your order <strong>#${orderId}</strong> is ready for collection in store.
-           Payment is made directly on site at pickup.
-         </p>
-         ${shopBlock('Pickup address', 'Opening hours')}
-         <p style="margin:0;font-size:13px;color:#9D6480;line-height:1.7;">
-           Amount to pay in store: <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
-         </p>`,
-  };
+         </p>`;
 
   await transporter.sendMail({
     from:    FROM,
     to:      user.email,
-    subject: subjects[locale] ?? subjects.fr,
-    html:    layout(bodies[locale] ?? bodies.fr, locale),
+    subject: `Votre commande #${orderId} est prête — Au Point-Compté`,
+    html:    layout(body),
   });
 }
 
 // Email de vérification d'adresse (double opt-in) — envoyé à l'inscription
 async function sendEmailVerification({ user, verifyToken }) {
-  const locale = user.locale ?? 'fr';
   const verifyUrl = `${BASE_URL}/verifier-email?token=${verifyToken}`;
-
-  const subjects = {
-    fr: 'Confirmez votre adresse email — Au Point-Compté',
-    de: 'Bestätigen Sie Ihre E-Mail-Adresse — Au Point-Compté',
-    en: 'Confirm your email address — Au Point-Compté',
-  };
-
-  const titles = {
-    fr: 'Confirmez votre adresse email',
-    de: 'Bestätigen Sie Ihre E-Mail-Adresse',
-    en: 'Confirm your email address',
-  };
-
-  const intros = {
-    fr: `Bienvenue chez Au Point-Compté ! Pour finaliser votre inscription, confirmez votre
-         adresse email en cliquant sur le bouton ci-dessous. Ce lien est valable <strong>24 heures</strong>.`,
-    de: `Willkommen bei Au Point-Compté! Um Ihre Registrierung abzuschliessen, bestätigen Sie Ihre
-         E-Mail-Adresse über die Schaltfläche unten. Dieser Link ist <strong>24 Stunden</strong> gültig.`,
-    en: `Welcome to Au Point-Compté! To complete your registration, confirm your email address
-         using the button below. This link is valid for <strong>24 hours</strong>.`,
-  };
-
-  const btnLabels = {
-    fr: 'Confirmer mon adresse email',
-    de: 'Meine E-Mail-Adresse bestätigen',
-    en: 'Confirm my email address',
-  };
-
-  const ignoreNotes = {
-    fr: `Si vous n'êtes pas à l'origine de cette inscription, ignorez simplement cet email.`,
-    de: `Wenn Sie diese Registrierung nicht veranlasst haben, ignorieren Sie diese E-Mail einfach.`,
-    en: `If you did not create this account, simply ignore this email.`,
-  };
 
   const body = `
     <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-      ${titles[locale] ?? titles.fr}
+      Confirmez votre adresse email
     </h1>
     <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
-      ${intros[locale] ?? intros.fr}
+      Bienvenue chez Au Point-Compté ! Pour finaliser votre inscription, confirmez votre
+      adresse email en cliquant sur le bouton ci-dessous. Ce lien est valable <strong>24 heures</strong>.
     </p>
-    ${btn(verifyUrl, btnLabels[locale] ?? btnLabels.fr)}
+    ${btn(verifyUrl, 'Confirmer mon adresse email')}
     <p style="margin:24px 0 0;font-size:12px;color:#9D6480;line-height:1.7;">
-      ${ignoreNotes[locale] ?? ignoreNotes.fr}
+      Si vous n'êtes pas à l'origine de cette inscription, ignorez simplement cet email.
     </p>
   `;
 
   await transporter.sendMail({
     from:    FROM,
     to:      user.email,
-    subject: subjects[locale] ?? subjects.fr,
-    html:    layout(body, locale),
+    subject: 'Confirmez votre adresse email — Au Point-Compté',
+    html:    layout(body),
   });
 }
 
 // ─────────────────────────────────────────────
-// MFA (admin) — FR uniquement, contrairement au reste de ce fichier :
-// le back-office admin n'est pas traduit (voir CLAUDE.md), donc ces emails,
-// adressés uniquement à des comptes admin, restent en français.
+// MFA (admin) — emails adressés uniquement aux comptes admin.
 // ─────────────────────────────────────────────
 
 // Alerte : le dernier code de récupération MFA vient d'être utilisé
@@ -679,7 +472,7 @@ async function sendMfaRecoveryCodesLow(user) {
     from:    FROM,
     to:      user.email,
     subject: 'Codes de récupération MFA épuisés — Au Point-Compté',
-    html:    layout(body, 'fr'),
+    html:    layout(body),
   });
 }
 
@@ -700,7 +493,7 @@ async function sendMfaRecoveryCodesRegenerated(user) {
     from:    FROM,
     to:      user.email,
     subject: 'Codes de récupération MFA régénérés — Au Point-Compté',
-    html:    layout(body, 'fr'),
+    html:    layout(body),
   });
 }
 
@@ -740,7 +533,7 @@ async function sendTwintQrEmail({ user, order, qrBuffer, expiresAt }) {
     from:    FROM,
     to:      user.email,
     subject: `Payer par Twint — commande #${order.id} — Au Point-Compté`,
-    html:    layout(body, 'fr'),
+    html:    layout(body),
     attachments: [
       {
         filename:    `twint-${order.id}.png`,

@@ -1,0 +1,73 @@
+/* ── Bandeau d'annonce — haut de page, au-dessus de la navbar ── */
+.banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 9px 44px 9px 20px;
+  background: var(--rose);
+  color: #fff;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.text {
+  margin: 0;
+  /* Une annonce longue passe à la ligne plutôt que d'être tronquée */
+  max-width: 900px;
+}
+
+.link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* ── Fermeture — cible tactile de 32px, hors du flux du texte ── */
+.close {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 150ms ease, background-color 150ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .close:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.16);
+  }
+}
+
+.close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+
+/* ── Mobile — le texte reste lisible, la croix garde sa cible ── */
+@media (max-width: 640px) {
+  .banner {
+    padding: 8px 40px 8px 14px;
+    font-size: 12.5px;
+    text-align: left;
+  }
+}

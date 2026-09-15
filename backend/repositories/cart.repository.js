@@ -1,4 +1,5 @@
 const { pool } = require('../config/db');
+const { effectivePriceSql, promoActiveSql } = require('../utils/promo.utils');
 
 // Récupère le panier avec ses articles — par user_id ou session_id
 const findCart = async ({ userId, sessionId }) => {
@@ -15,9 +16,18 @@ const findCart = async ({ userId, sessionId }) => {
 // Récupère les articles d'un panier avec les infos produit
 const findCartItems = async (cartId, locale = 'fr') => {
   const [items] = await pool.execute(
+    /* Le prix du panier est TOUJOURS recalculé depuis le produit, jamais lu depuis
+       price_snapshot : une promotion peut démarrer ou expirer pendant qu'un panier
+       dort. Sans ce recalcul, un panier rempli pendant une promo garderait le prix
+       promo indéfiniment (ou l'inverse, une promo démarrée ne s'appliquerait pas).
+       Le modificateur de variante, lui, reste porté par le snapshot d'origine :
+       on réapplique donc l'écart entre le snapshot et le prix produit d'alors.
+       price_snapshot est conservé en base comme trace de la saisie initiale. */
     `SELECT ci.id, ci.product_id, ci.variant_id, ci.quantity,
-            ci.price_snapshot, ci.price_snapshot AS unit_price,
+            ci.price_snapshot,
+            ${effectivePriceSql('p')} + COALESCE(pv.price_modifier, 0) AS unit_price,
             ci.tax_rate_snapshot,
+            ${promoActiveSql('p')} AS is_promo_active,
             COALESCE(pt.name, pt_fr.name) AS product_name,
             COALESCE(pt.slug, pt_fr.slug) AS product_slug,
             pi.url AS image_url,
@@ -29,6 +39,7 @@ const findCartItems = async (cartId, locale = 'fr') => {
      LEFT JOIN product_translations pt ON pt.product_id = ci.product_id AND pt.locale = ?
      LEFT JOIN product_translations pt_fr ON pt_fr.product_id = ci.product_id AND pt_fr.locale = 'fr'
      LEFT JOIN product_images pi ON pi.product_id = ci.product_id AND pi.is_primary = 1
+     LEFT JOIN product_variants pv ON pv.id = ci.variant_id
      LEFT JOIN categories c ON c.id = p.category_id
      WHERE ci.cart_id = ?`,
     [locale, cartId]

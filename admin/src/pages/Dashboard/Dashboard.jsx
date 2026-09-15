@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   ShoppingBag, Package, Users, Star,
   AlertTriangle, ChevronRight, TrendingUp, TrendingDown,
-  ShoppingCart, RefreshCw, Clock,
+  ShoppingCart, RefreshCw, Clock, FileText,
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { roundCHF, formatCHF } from '../../utils/chf.js'
@@ -174,6 +174,22 @@ export default function Dashboard() {
           trendLabel="vs semaine passée"
           sub={stats.orders_pending > 0 ? `${stats.orders_pending} en attente` : null}
           subColor="#d97706"
+          loading={loading}
+        />
+        {/* Encours : montant facturé non encaissé. Distinct du CA, qui ne compte que
+            l'argent reçu — sans cette carte, rien n'indiquait ce qui reste à percevoir. */}
+        <KpiCard
+          icon={FileText}
+          label="À encaisser"
+          value={formatCHF(stats.invoices_unpaid_total ?? 0)}
+          sub={
+            stats.invoices_overdue > 0
+              ? `${stats.invoices_overdue} facture${stats.invoices_overdue > 1 ? 's' : ''} de plus de 30 jours`
+              : stats.invoices_unpaid > 0
+                ? `${stats.invoices_unpaid} facture${stats.invoices_unpaid > 1 ? 's' : ''} en attente`
+                : 'Rien à encaisser'
+          }
+          subColor={stats.invoices_overdue > 0 ? '#dc2626' : stats.invoices_unpaid > 0 ? '#d97706' : '#10b981'}
           loading={loading}
         />
         <KpiCard

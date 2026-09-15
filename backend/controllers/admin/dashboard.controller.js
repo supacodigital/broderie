@@ -24,6 +24,11 @@ const getStats = async (req, res, next) => {
     const ordersWeek     = ordersRows.orders_week      ?? 0;
     const ordersPrevWeek = ordersRows.orders_prev_week ?? 0;
     const ordersPending  = ordersRows.orders_pending   ?? 0;
+
+    // Encours des factures émises et non réglées
+    const invoicesUnpaid      = ordersRows.invoices_unpaid  ?? 0;
+    const invoicesUnpaidTotal = parseFloat(ordersRows.invoices_unpaid_total ?? 0);
+    const invoicesOverdue     = ordersRows.invoices_overdue ?? 0;
     const ordersTrend    = ordersPrevWeek > 0
       ? Math.round(((ordersWeek - ordersPrevWeek) / ordersPrevWeek) * 1000) / 10
       : null;
@@ -74,6 +79,12 @@ const getStats = async (req, res, next) => {
           customers_trend: customersTrend,
           rating_avg:      parseFloat(reviewRows.rating_avg ?? 0),
           rating_pending:  reviewRows.rating_pending ?? 0,
+          /* Encours client : facturé mais pas encore encaissé. Distinct du CA, qui ne
+             compte que l'argent réellement reçu. `overdue` = émises il y a plus de
+             30 jours, soit le délai de paiement par défaut des factures. */
+          invoices_unpaid:       invoicesUnpaid,
+          invoices_unpaid_total: invoicesUnpaidTotal,
+          invoices_overdue:      invoicesOverdue,
         },
         chart,
         top_products: topProducts,
