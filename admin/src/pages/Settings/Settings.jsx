@@ -330,7 +330,7 @@ function ShippingTab() {
 
 /* ── Onglet Textes légaux ── */
 function LegalTab() {
-  const [values,  setValues]  = useState({ cgv: '', mentions_legales: '' })
+  const [values,  setValues]  = useState({ cgv: '', mentions_legales: '', politique_retour: '' })
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(false)
   const [status,  setStatus]  = useState(null)
@@ -377,6 +377,11 @@ function LegalTab() {
       key:   'mentions_legales',
       label: 'Mentions légales',
       desc:  'Identité de l\'entreprise, numéro IDE, responsable éditorial.',
+    },
+    {
+      key:   'politique_retour',
+      label: 'Politique de retour',
+      desc:  'Délai de rétractation et modalités de renvoi (14 jours recommandés en Suisse).',
     },
   ]
 

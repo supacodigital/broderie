@@ -15,7 +15,8 @@ const imageUrlSchema = z
   );
 
 const nameSchema = z.string().trim().min(1).max(120);
-const descriptionSchema = z.string().trim().max(2000);
+// `null` accepté : le formulaire admin envoie `null` quand la description est laissée vide.
+const descriptionSchema = z.string().trim().max(2000).nullable();
 
 // Schéma permissif : tous les champs optionnels, on ne valide que ce qui est présent.
 const categoryShapeSchema = z.object({

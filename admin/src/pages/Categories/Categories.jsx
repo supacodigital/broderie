@@ -81,6 +81,11 @@ function CategoryModal({ category, categories, onClose, onSaved }) {
           const formField = FIELD_MAP[field] ?? field
           if (formField in schema.shape) setError(formField, { type: 'server', message })
         })
+        /* Une erreur peut porter sur un champ hors formulaire (ex: translations.fr.description) —
+           sans ce bandeau, le formulaire échouerait en silence et le bouton se contenterait
+           de se réactiver, sans rien indiquer à l'utilisateur. */
+        const unmapped = fieldErrors.filter(e => !((FIELD_MAP[e.field] ?? e.field) in schema.shape))
+        setApiError(unmapped.length ? unmapped.map(e => e.message).join(' ') : '')
         return
       }
 
