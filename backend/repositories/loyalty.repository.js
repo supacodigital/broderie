@@ -277,9 +277,13 @@ const validateReward = async (code, userId, orderSubtotal) => {
     return { valid: false, error: 'Ce bon de fidélité est expiré.' };
   }
 
-  const discount = reward.type === 'percent'
-    ? roundCHF(orderSubtotal * parseFloat(reward.value) / 100)
-    : roundCHF(Math.min(parseFloat(reward.value), orderSubtotal));
+  // Plafond commun aux deux types : un bon ne peut jamais dépasser le sous-total.
+  // Sans ce plafond sur la branche 'percent', un palier mal saisi (100 %) offrait
+  // la commande entière — la branche 'fixed' était déjà bornée, pas celle-ci.
+  const rawDiscount = reward.type === 'percent'
+    ? orderSubtotal * parseFloat(reward.value) / 100
+    : parseFloat(reward.value);
+  const discount = roundCHF(Math.min(rawDiscount, orderSubtotal));
 
   return { valid: true, reward, discount };
 };

@@ -46,4 +46,9 @@ const getRewards = async (userId) => {
   return loyaltyRepository.findRewards(userId);
 };
 
-module.exports = { processOrderEarning, processRefund, getAccountSummary, getRewards };
+// Paliers actifs seuls — exposés publiquement, donc aucune donnée de compte ici.
+const getActiveTiers = async () => {
+  return loyaltyRepository.findTiers();
+};
+
+module.exports = { processOrderEarning, processRefund, getAccountSummary, getRewards, getActiveTiers };

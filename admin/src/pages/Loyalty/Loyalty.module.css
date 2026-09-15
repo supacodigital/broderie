@@ -239,6 +239,8 @@
 .input:focus { border-color: var(--rose); }
 .inputError { border-color: #ef4444; }
 .err { font-size: 11px; color: #ef4444; }
+/* Aide sous un champ — même gabarit que .err, en gris neutre */
+.hint { font-size: 11px; color: var(--text-muted); }
 .checkRow { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; margin-bottom: 20px; }
 .modalActions { display: flex; gap: 10px; justify-content: flex-end; }
 .btnCancel { padding: 9px 18px; background: none; border: 1.5px solid var(--rose-border); border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); }

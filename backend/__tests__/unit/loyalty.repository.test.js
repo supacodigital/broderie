@@ -358,3 +358,53 @@ describe('loyalty.repository — findAllRewards()', () => {
     expect(countCall[1]).toContain('available');
   });
 });
+
+// ── validateReward() — plafonnement de la remise ──────────────────────────────
+// Non-régression : un palier « percent » mal saisi (100 %) offrait la commande
+// entière. Le calcul n'était borné que pour le type « fixed ».
+
+describe('loyalty.repository — validateReward() : plafond de remise', () => {
+  const availableReward = (type, value) => ([[{
+    id: 7,
+    user_id: 42,
+    code: 'BON-TEST',
+    type,
+    value,
+    status: 'available',
+    expires_at: null,
+  }]]);
+
+  test('une remise de 100 % ne dépasse jamais le sous-total', async () => {
+    pool.execute.mockResolvedValue(availableReward('percent', '100'));
+
+    const res = await loyaltyRepository.validateReward('BON-TEST', 42, 80);
+
+    expect(res.valid).toBe(true);
+    expect(res.discount).toBe(80);
+    expect(res.discount).toBeLessThanOrEqual(80);
+  });
+
+  test('une remise en pourcentage normale reste proportionnelle', async () => {
+    pool.execute.mockResolvedValue(availableReward('percent', '10'));
+
+    const res = await loyaltyRepository.validateReward('BON-TEST', 42, 80);
+
+    expect(res.discount).toBe(8);
+  });
+
+  test('une remise fixe supérieure au panier reste plafonnée', async () => {
+    pool.execute.mockResolvedValue(availableReward('fixed', '50'));
+
+    const res = await loyaltyRepository.validateReward('BON-TEST', 42, 20);
+
+    expect(res.discount).toBe(20);
+  });
+
+  test('une remise fixe inférieure au panier est appliquée telle quelle', async () => {
+    pool.execute.mockResolvedValue(availableReward('fixed', '20'));
+
+    const res = await loyaltyRepository.validateReward('BON-TEST', 42, 50);
+
+    expect(res.discount).toBe(20);
+  });
+});

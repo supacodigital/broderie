@@ -18,4 +18,15 @@ const getRewards = async (req, res, next) => {
   }
 };
 
-module.exports = { getMe, getRewards };
+/* Paliers actifs — accessible sans authentification (voir loyalty.routes.js).
+   Sert à la boutique pour n'annoncer le programme que s'il existe réellement. */
+const getTiers = async (req, res, next) => {
+  try {
+    const tiers = await loyaltyService.getActiveTiers();
+    res.json({ success: true, data: tiers });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getMe, getRewards, getTiers };

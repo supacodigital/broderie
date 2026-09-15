@@ -23,6 +23,22 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import { useToast } from '../../contexts/ToastContext.jsx'
 import s from './Loyalty.module.css'
 
+/* Plafond des remises en pourcentage — doit rester aligné sur MAX_PERCENT
+   dans backend/validators/loyalty.validator.js. Seule la gratuité totale (100 %)
+   est écartée : une commande entièrement offerte n'est jamais l'intention d'un
+   programme de fidélité. */
+const MAX_PERCENT = 90
+
+/* Choix proposés pour une remise en pourcentage. Pas de 5 jusqu'à 50, puis de 10 :
+   les remises élevées se choisissent par paliers ronds, et une liste de 18 entrées
+   serait pénible à parcourir.
+   Une liste fermée plutôt qu'un champ libre — la cliente saisissait des valeurs
+   refusées par le serveur (ex. 100 %) et ne comprenait pas le message d'erreur. */
+const PERCENT_OPTIONS = [
+  ...Array.from({ length: 10 }, (_, i) => (i + 1) * 5),          // 5 … 50
+  ...Array.from({ length: (MAX_PERCENT - 50) / 10 }, (_, i) => 60 + i * 10), // 60 … 90
+]
+
 const schema = z.object({
   name:               z.string().min(1, 'Nom requis'),
   minSpendChf:        z.coerce.number().positive('Montant invalide'),
@@ -32,6 +48,13 @@ const schema = z.object({
   isActive:           z.boolean().optional(),
   sortOrder:          z.coerce.number().int().min(0).optional(),
 })
+  /* Le plafond est vérifié ici aussi, et pas seulement côté serveur : une saisie
+     héritée d'un ancien palier (> 50 %) doit être signalée dans le formulaire,
+     sur le champ concerné, plutôt que de repartir en erreur générique. */
+  .refine(t => t.rewardType !== 'percent' || t.rewardValue <= MAX_PERCENT, {
+    message: `Une remise en pourcentage ne peut pas dépasser ${MAX_PERCENT} %.`,
+    path: ['rewardValue'],
+  })
 
 /* ── Modale création/édition palier ── */
 function TierModal({ tier, onClose, onSaved }) {
@@ -39,7 +62,7 @@ function TierModal({ tier, onClose, onSaved }) {
   const [apiError, setApiError] = useState('')
   const [saved,    setSaved]    = useState(false)
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: isEdit ? {
       name:               tier.name               ?? '',
@@ -51,6 +74,18 @@ function TierModal({ tier, onClose, onSaved }) {
       sortOrder:          tier.sort_order          ?? 1,
     } : { rewardType: 'fixed', isActive: true, sortOrder: 1, rewardValidityDays: 90 },
   })
+
+  /* Le champ « valeur » change de nature selon le type : liste fermée pour un
+     pourcentage (plafonné), saisie libre pour un montant en CHF. */
+  const isPercent = watch('rewardType') === 'percent'
+
+  /* Valeur héritée d'un palier créé avant l'instauration du plafond (ex. 100 %) :
+     elle est conservée dans la liste pour rester lisible, mais reste refusée à
+     l'enregistrement tant qu'elle n'est pas ramenée sous le plafond. */
+  const initialPercent = isEdit && tier.reward_type === 'percent'
+    ? parseFloat(tier.reward_value)
+    : null
+  const legacyPercent = initialPercent && initialPercent > MAX_PERCENT ? initialPercent : null
 
   const onSubmit = async (data) => {
     setApiError('')
@@ -97,9 +132,30 @@ function TierModal({ tier, onClose, onSaved }) {
               </select>
             </div>
             <div className={s.field}>
-              <label className={s.label}>Valeur de la récompense *</label>
-              <input type="number" step="0.01" min="0" className={`${s.input} ${errors.rewardValue ? s.inputError : ''}`} {...register('rewardValue')} />
-              {errors.rewardValue && <span className={s.err}>{errors.rewardValue.message}</span>}
+              <label className={s.label}>
+                {isPercent ? 'Pourcentage de remise *' : 'Montant du bon (CHF) *'}
+              </label>
+              {isPercent ? (
+                <select className={`${s.input} ${errors.rewardValue ? s.inputError : ''}`} {...register('rewardValue')}>
+                  <option value="">Choisir…</option>
+                  {/* Un palier créé avant le plafond peut valoir plus que MAX_PERCENT.
+                      Sans cette option, le select retomberait sur « Choisir… » et la
+                      valeur enregistrée semblerait avoir disparu. Elle reste visible,
+                      signalée comme trop élevée, et le schéma force à en choisir une autre. */}
+                  {legacyPercent !== null && (
+                    <option value={legacyPercent}>{legacyPercent} % — au-delà du plafond</option>
+                  )}
+                  {PERCENT_OPTIONS.map(p => (
+                    <option key={p} value={p}>{p} %</option>
+                  ))}
+                </select>
+              ) : (
+                <input type="number" step="0.05" min="0" className={`${s.input} ${errors.rewardValue ? s.inputError : ''}`} {...register('rewardValue')} />
+              )}
+              {errors.rewardValue
+                ? <span className={s.err}>{errors.rewardValue.message}</span>
+                : isPercent && <span className={s.hint}>Remise plafonnée à {MAX_PERCENT} % du montant de la commande.</span>
+              }
             </div>
             <div className={s.field}>
               <label className={s.label}>Validité du bon (jours) *</label>

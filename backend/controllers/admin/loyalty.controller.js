@@ -1,5 +1,16 @@
 const loyaltyRepository = require('../../repositories/loyalty.repository');
 const { AppError } = require('../../middlewares/errorHandler');
+const { tierShapeSchema } = require('../../validators/loyalty.validator');
+
+// Valide la forme d'un palier — même format d'erreurs que les autres modules admin.
+const validateTier = (body) => {
+  const parsed = tierShapeSchema.safeParse(body);
+  if (!parsed.success) {
+    const errors = parsed.error.issues.map((e) => ({ field: e.path.join('.'), message: e.message }));
+    throw new AppError('Données invalides.', 400, errors);
+  }
+  return parsed.data;
+};
 
 const getTiers = async (req, res, next) => {
   try {
@@ -12,13 +23,7 @@ const getTiers = async (req, res, next) => {
 
 const createTier = async (req, res, next) => {
   try {
-    const { name, minSpendChf, rewardType, rewardValue, rewardValidityDays, isActive, sortOrder } = req.body;
-    if (!name || !minSpendChf || !rewardType || !rewardValue) {
-      return next(new AppError('Champs obligatoires manquants.', 400));
-    }
-    if (!['fixed', 'percent'].includes(rewardType)) {
-      return next(new AppError('Type de récompense invalide. Valeurs : fixed, percent.', 400));
-    }
+    const { name, minSpendChf, rewardType, rewardValue, rewardValidityDays, isActive, sortOrder } = validateTier(req.body);
     const id = await loyaltyRepository.createTier({ name, minSpendChf, rewardType, rewardValue, rewardValidityDays, isActive, sortOrder });
     const tiers = await loyaltyRepository.findAllTiers();
     const created = tiers.find((t) => t.id === id);
@@ -31,7 +36,7 @@ const createTier = async (req, res, next) => {
 const updateTier = async (req, res, next) => {
   try {
     const id = parseInt(req.params.id);
-    const { name, minSpendChf, rewardType, rewardValue, rewardValidityDays, isActive, sortOrder } = req.body;
+    const { name, minSpendChf, rewardType, rewardValue, rewardValidityDays, isActive, sortOrder } = validateTier(req.body);
     await loyaltyRepository.updateTier(id, { name, minSpendChf, rewardType, rewardValue, rewardValidityDays, isActive, sortOrder });
     const tiers = await loyaltyRepository.findAllTiers();
     const updated = tiers.find((t) => t.id === id);

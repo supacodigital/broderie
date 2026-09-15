@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Heart, ShoppingBag, Star, Truck, Shield, ChevronDown, ChevronUp, Gift } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { getLoyaltyTiers } from '../../services/loyalty.service.js'
 import { roundCHF } from '../../utils/chf.js'
 import s from './ProductInfo.module.css'
 
@@ -35,6 +36,17 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
   const [qty,             setQty]             = useState(1)
   const [detailsOpen,     setDetailsOpen]     = useState(false)
   const [addedFeedback,   setAddedFeedback]   = useState(false)
+  /* Existence d'un programme de fidélité — `false` par défaut : en cas d'échec de
+     l'appel, mieux vaut ne rien annoncer que promettre une récompense incertaine. */
+  const [hasLoyalty,      setHasLoyalty]      = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    getLoyaltyTiers()
+      .then(tiers => { if (!cancelled) setHasLoyalty((tiers ?? []).length > 0) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const variants    = product.variants ?? []
   const hasVariants = variants.length > 0
@@ -193,15 +205,20 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
         </button>
       </div>
 
-      {/* ── Programme de fidélité ── */}
-      <Link to="/mon-compte?tab=loyalty" className={s.loyaltyHint}>
-        <Gift size={14} className={s.loyaltyIcon} aria-hidden="true" />
-        <span>
-          Cet achat vous rapporte{' '}
-          <strong>CHF {effectivePrice.toFixed(2)}</strong>{' '}
-          dans votre programme de fidélité
-        </span>
-      </Link>
+      {/* ── Programme de fidélité ──
+           Affiché seulement si au moins un palier est actif : sans cette condition,
+           la mention promettait une récompense sur CHAQUE fiche produit même quand
+           aucun palier n'existe, et renvoyait vers un onglet de compte vide. */}
+      {hasLoyalty && (
+        <Link to="/mon-compte?tab=loyalty" className={s.loyaltyHint}>
+          <Gift size={14} className={s.loyaltyIcon} aria-hidden="true" />
+          <span>
+            Cet achat vous rapporte{' '}
+            <strong>CHF {effectivePrice.toFixed(2)}</strong>{' '}
+            dans votre programme de fidélité
+          </span>
+        </Link>
+      )}
 
       {/* ── Stock ── */}
       {/* Produit sur commande : on masque le stock et on affiche le badge de délai à la place */}
