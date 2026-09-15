@@ -18,6 +18,15 @@ const schema = z.object({
   contactName: z.string().optional(),
   email:       z.string().email('E-mail invalide').optional().or(z.literal('')),
   phone:       z.string().optional(),
+  /* Adresse en champs séparés — exploitable pour un courrier ou une étiquette,
+     contrairement à l'ancien champ texte libre (conservé le temps de la reprise). */
+  street:       z.string().optional(),
+  streetNumber: z.string().optional(),
+  zip:          z.string().optional(),
+  city:         z.string().optional(),
+  country:      z.string().optional(),
+  customerNumber: z.string().optional(),
+  website:      z.string().optional(),
   address:     z.string().optional(),
   notes:       z.string().optional(),
   madeToOrderDelayMinWeeks: z.coerce.number().int().min(1).max(255).optional().or(z.literal('')),
@@ -46,11 +55,15 @@ export default function SupplierForm() {
   })
 
   /* Charge le fournisseur (+ KPIs, produits liés) en mode édition */
+  /* `cancelled` : même protection que sur la fiche produit — une réponse tardive ne
+     doit pas écraser le formulaire d'un autre fournisseur. */
   useEffect(() => {
     if (!isEdit) return
+    let cancelled = false
     setLoading(true)
     getSupplierDetails(Number(id))
       .then(res => {
+        if (cancelled) return
         setSupplier(res)
         reset({
           name:        res.name         ?? '',
@@ -58,14 +71,22 @@ export default function SupplierForm() {
           email:       res.email        ?? '',
           phone:       res.phone        ?? '',
           address:     res.address      ?? '',
+          street:        res.street          ?? '',
+          streetNumber:  res.street_number   ?? '',
+          zip:           res.zip             ?? '',
+          city:          res.city            ?? '',
+          country:       res.country         ?? 'CH',
+          customerNumber: res.customer_number ?? '',
+          website:       res.website         ?? '',
           notes:       res.notes        ?? '',
           madeToOrderDelayMinWeeks: res.made_to_order_delay_min_weeks ?? '',
           madeToOrderDelayMaxWeeks: res.made_to_order_delay_max_weeks ?? '',
           isActive:    !!res.is_active,
         })
       })
-      .catch(() => setApiError('Impossible de charger ce fournisseur.'))
-      .finally(() => setLoading(false))
+      .catch(() => { if (!cancelled) setApiError('Impossible de charger ce fournisseur.') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [isEdit, id, reset])
 
   const goBack = () => navigate('/fournisseurs')
@@ -152,8 +173,39 @@ export default function SupplierForm() {
               </div>
 
               <div className={s.field}>
-                <label className={s.label}>Adresse</label>
-                <input className={s.input} placeholder="Rue, ville, pays" {...register('address')} />
+                <label className={s.label}>Rue</label>
+                <input className={s.input} placeholder="Chemin du Collège" {...register('street')} />
+              </div>
+
+              <div className={s.field}>
+                <label className={s.label}>Numéro</label>
+                <input className={s.input} placeholder="6" {...register('streetNumber')} />
+              </div>
+
+              <div className={s.field}>
+                <label className={s.label}>NPA / Code postal</label>
+                <input className={s.input} placeholder="1509" {...register('zip')} />
+              </div>
+
+              <div className={s.field}>
+                <label className={s.label}>Localité</label>
+                <input className={s.input} placeholder="Vucherens" {...register('city')} />
+              </div>
+
+              <div className={s.field}>
+                <label className={s.label}>Pays</label>
+                {/* Beaucoup d'éditeurs de kits sont étrangers (Danemark, Russie, France…) */}
+                <input className={s.input} placeholder="CH" maxLength={2} {...register('country')} />
+              </div>
+
+              <div className={s.field}>
+                <label className={s.label}>Mon numéro de client</label>
+                <input className={s.input} placeholder="Chez ce fournisseur" {...register('customerNumber')} />
+              </div>
+
+              <div className={s.field}>
+                <label className={s.label}>Site web</label>
+                <input className={s.input} placeholder="https://…" {...register('website')} />
               </div>
 
               <div className={`${s.field} ${s.fieldFull}`}>

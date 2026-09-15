@@ -35,7 +35,7 @@ const findAll = async ({ page = 1, limit = 20, search = '' }) => {
 
 const findById = async (id) => {
   const [rows] = await pool.execute(
-    `SELECT id, name, contact_name, email, phone, address, notes,
+    `SELECT id, name, contact_name, email, phone, address, street, street_number, zip, city, country, customer_number, website, notes,
             made_to_order_delay_min_weeks, made_to_order_delay_max_weeks, is_active, created_at
      FROM suppliers WHERE id = ? LIMIT 1`,
     [id]
@@ -43,20 +43,29 @@ const findById = async (id) => {
   return rows[0] || null;
 };
 
-const create = async ({ name, contactName, email, phone, address, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks }) => {
+const create = async ({ name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks }) => {
   const [result] = await pool.execute(
-    `INSERT INTO suppliers (name, contact_name, email, phone, address, notes, made_to_order_delay_min_weeks, made_to_order_delay_max_weeks, is_active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-    [name, contactName || null, email || null, phone || null, address || null, notes || null, madeToOrderDelayMinWeeks || null, madeToOrderDelayMaxWeeks || null]
+    `INSERT INTO suppliers (name, contact_name, email, phone, address, street, street_number, zip, city, country,
+       customer_number, website, notes, made_to_order_delay_min_weeks, made_to_order_delay_max_weeks, is_active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+    [name, contactName || null, email || null, phone || null, address || null,
+     street || null, streetNumber || null, zip || null, city || null, country || 'CH',
+     customerNumber || null, website || null, notes || null,
+     madeToOrderDelayMinWeeks || null, madeToOrderDelayMaxWeeks || null]
   );
   return result.insertId;
 };
 
-const update = async (id, { name, contactName, email, phone, address, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks, isActive }) => {
+const update = async (id, { name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks, isActive }) => {
   await pool.execute(
     `UPDATE suppliers SET name = ?, contact_name = ?, email = ?, phone = ?,
-     address = ?, notes = ?, made_to_order_delay_min_weeks = ?, made_to_order_delay_max_weeks = ?, is_active = ? WHERE id = ?`,
-    [name, contactName || null, email || null, phone || null, address || null, notes || null, madeToOrderDelayMinWeeks || null, madeToOrderDelayMaxWeeks || null, isActive ? 1 : 0, id]
+     address = ?, street = ?, street_number = ?, zip = ?, city = ?, country = ?,
+     customer_number = ?, website = ?, notes = ?,
+     made_to_order_delay_min_weeks = ?, made_to_order_delay_max_weeks = ?, is_active = ? WHERE id = ?`,
+    [name, contactName || null, email || null, phone || null, address || null,
+     street || null, streetNumber || null, zip || null, city || null, country || 'CH',
+     customerNumber || null, website || null, notes || null,
+     madeToOrderDelayMinWeeks || null, madeToOrderDelayMaxWeeks || null, isActive ? 1 : 0, id]
   );
   return findById(id);
 };
@@ -83,7 +92,7 @@ const remove = async (id) => {
 /* Fiche complète : coordonnées + produits liés + KPIs */
 const findByIdWithProducts = async (id) => {
   const [supRows] = await pool.execute(
-    `SELECT id, name, contact_name, email, phone, address, notes,
+    `SELECT id, name, contact_name, email, phone, address, street, street_number, zip, city, country, customer_number, website, notes,
             made_to_order_delay_min_weeks, made_to_order_delay_max_weeks, is_active, created_at
      FROM suppliers WHERE id = ? LIMIT 1`,
     [id]

@@ -77,9 +77,12 @@ describe('supplier.repository — create()', () => {
   test('stocke null pour les champs optionnels manquants', async () => {
     pool.execute.mockResolvedValue([{ insertId: 5 }]);
     await repo.create({ name: 'Mini' });
+    /* Ordre des paramètres : name, contact, email, phone, address, street,
+       street_number, zip, city, country, customer_number, website, notes,
+       délais min/max. `country` vaut 'CH' par défaut — la boutique est suisse. */
     expect(pool.execute).toHaveBeenCalledWith(
       expect.anything(),
-      ['Mini', null, null, null, null, null, null, null]
+      ['Mini', null, null, null, null, null, null, null, null, 'CH', null, null, null, null, null]
     );
   });
 });

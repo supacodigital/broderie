@@ -43,7 +43,7 @@ const getById = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const { name, contactName, email, phone, address, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks } = req.body;
+    const { name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks } = req.body;
     if (!name) {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'name', message: 'Le nom du fournisseur est obligatoire.' }] });
     }
@@ -51,7 +51,7 @@ const create = async (req, res, next) => {
     if (delayError) {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'madeToOrderDelayMaxWeeks', message: delayError }] });
     }
-    const id = await supplierRepository.create({ name, contactName, email, phone, address, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks });
+    const id = await supplierRepository.create({ name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks });
     const supplier = await supplierRepository.findById(id);
     res.status(201).json({ success: true, data: supplier });
   } catch (error) {
@@ -64,7 +64,7 @@ const update = async (req, res, next) => {
     const id = parseInt(req.params.id);
     const existing = await supplierRepository.findById(id);
     if (!existing) return next(new AppError('Fournisseur introuvable.', 404));
-    const { name, contactName, email, phone, address, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks, isActive } = req.body;
+    const { name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks, isActive } = req.body;
     if (!name) {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'name', message: 'Le nom du fournisseur est obligatoire.' }] });
     }
@@ -72,7 +72,7 @@ const update = async (req, res, next) => {
     if (delayError) {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'madeToOrderDelayMaxWeeks', message: delayError }] });
     }
-    const supplier = await supplierRepository.update(id, { name, contactName, email, phone, address, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks, isActive });
+    const supplier = await supplierRepository.update(id, { name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks, isActive });
     res.json({ success: true, data: supplier });
   } catch (error) {
     next(mapDbError(error));
