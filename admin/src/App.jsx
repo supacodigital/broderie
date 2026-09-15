@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext.jsx'
 import AdminLayout from './components/layout/AdminLayout.jsx'
 
@@ -51,6 +51,16 @@ function MfaRoute({ children }) {
   return children
 }
 
+/* Remonte le formulaire à chaque changement d'identifiant.
+   Sans cette clé, React Router réutilise la même instance entre /produits/12 et
+   /produits/34 (et entre un produit et « nouveau ») : l'état interne — images,
+   réduction, erreurs — survivait au changement de fiche, et une réponse réseau
+   tardive pouvait écrire les données d'un produit sous l'identifiant d'un autre. */
+function KeyedByRouteId({ children }) {
+  const { id } = useParams()
+  return <div key={id ?? 'new'} style={{ display: 'contents' }}>{children}</div>
+}
+
 export default function App() {
   return (
     <BrowserRouter basename="/admin">
@@ -70,15 +80,15 @@ export default function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard"  element={<Dashboard />} />
             <Route path="produits"   element={<Products />} />
-            <Route path="produits/nouveau" element={<ProductForm />} />
-            <Route path="produits/:id"     element={<ProductForm />} />
+            <Route path="produits/nouveau" element={<KeyedByRouteId><ProductForm /></KeyedByRouteId>} />
+            <Route path="produits/:id"     element={<KeyedByRouteId><ProductForm /></KeyedByRouteId>} />
             <Route path="commandes"  element={<Orders />} />
             <Route path="commandes/:id" element={<OrderDetail />} />
             <Route path="clients"    element={<Customers />} />
             <Route path="avis"       element={<Reviews />} />
             <Route path="fournisseurs" element={<Suppliers />} />
-            <Route path="fournisseurs/nouveau" element={<SupplierForm />} />
-            <Route path="fournisseurs/:id"     element={<SupplierForm />} />
+            <Route path="fournisseurs/nouveau" element={<KeyedByRouteId><SupplierForm /></KeyedByRouteId>} />
+            <Route path="fournisseurs/:id"     element={<KeyedByRouteId><SupplierForm /></KeyedByRouteId>} />
             <Route path="fidelite"   element={<Loyalty />} />
             <Route path="categories" element={<Categories />} />
             <Route path="coupons"    element={<Coupons />} />
