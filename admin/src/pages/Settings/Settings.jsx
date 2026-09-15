@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound, Megaphone } from 'lucide-react'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
+import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
+import { useDirtyTracker } from '../../hooks/useDirtyTracker.js'
 import RecoveryCodesModal from '../Mfa/RecoveryCodesModal.jsx'
 import { mfaGetStatus, mfaRegenerateRecoveryCodes, updatePassword } from '../../services/auth.service.js'
 import {
@@ -44,12 +47,13 @@ function SaveFeedback({ status }) {
 }
 
 /* ── Onglet Boutique ── */
-function StoreTab() {
+function StoreTab({ onDirtyChange }) {
   const [values,  setValues]  = useState({ store_name: '', store_email: '', store_phone: '', store_address: '' })
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(false)
   const [status,  setStatus]  = useState(null)
   const [saving,  setSaving]  = useState(false)
+  const { resetBaseline } = useDirtyTracker(values, loading, onDirtyChange)
 
   const load = useCallback(async () => {
     setError(false)
@@ -74,6 +78,7 @@ function StoreTab() {
     try {
       await updateStoreSettings(values)
       setStatus('saved')
+      resetBaseline()  // l'onglet n'est plus « modifié »
     } catch {
       setStatus('error')
     } finally {
@@ -129,12 +134,13 @@ function StoreTab() {
 }
 
 /* ── Onglet TVA ── */
-function TaxTab() {
+function TaxTab({ onDirtyChange }) {
   const [rates,   setRates]   = useState([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(false)
   const [status,  setStatus]  = useState(null)
   const [saving,  setSaving]  = useState(false)
+  const { resetBaseline } = useDirtyTracker(rates, loading, onDirtyChange)
 
   const load = useCallback(async () => {
     setError(false)
@@ -163,6 +169,7 @@ function TaxTab() {
       const res = await updateTaxRates(payload)
       setRates(res ?? rates)
       setStatus('saved')
+      resetBaseline()  // l'onglet n'est plus « modifié »
     } catch {
       setStatus('error')
     } finally {
@@ -225,12 +232,13 @@ function TaxTab() {
 }
 
 /* ── Onglet Livraison ── */
-function ShippingTab() {
+function ShippingTab({ onDirtyChange }) {
   const [rates,   setRates]   = useState([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(false)
   const [status,  setStatus]  = useState(null)
   const [saving,  setSaving]  = useState(false)
+  const { resetBaseline } = useDirtyTracker(rates, loading, onDirtyChange)
 
   const load = useCallback(async () => {
     setError(false)
@@ -263,6 +271,7 @@ function ShippingTab() {
       const res = await updateShippingRates(payload)
       setRates(res ?? rates)
       setStatus('saved')
+      resetBaseline()  // l'onglet n'est plus « modifié »
     } catch {
       setStatus('error')
     } finally {
@@ -331,12 +340,13 @@ function ShippingTab() {
 }
 
 /* ── Onglet Textes légaux ── */
-function LegalTab() {
+function LegalTab({ onDirtyChange }) {
   const [values,  setValues]  = useState({ cgv: '', mentions_legales: '', politique_retour: '' })
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(false)
   const [status,  setStatus]  = useState(null)
   const [saving,  setSaving]  = useState(false)
+  const { resetBaseline } = useDirtyTracker(values, loading, onDirtyChange)
 
   const load = useCallback(async () => {
     setError(false)
@@ -361,6 +371,7 @@ function LegalTab() {
     try {
       await updateLegalSettings(values)
       setStatus('saved')
+      resetBaseline()  // l'onglet n'est plus « modifié »
     } catch {
       setStatus('error')
     } finally {
@@ -428,12 +439,13 @@ function LegalTab() {
 /* ── Onglet Bandeau d'annonce ──
    Message affiché en haut de la boutique : promotion, fermeture, délais de livraison.
    Modifiable par la cliente sans intervention technique. */
-function BannerTab() {
+function BannerTab({ onDirtyChange }) {
   const [values,  setValues]  = useState({ banner_enabled: '0', banner_text: '', banner_link: '' })
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(false)
   const [status,  setStatus]  = useState(null)
   const [saving,  setSaving]  = useState(false)
+  const { resetBaseline } = useDirtyTracker(values, loading, onDirtyChange)
   const [errorMsg, setErrorMsg] = useState('')
 
   const load = useCallback(async () => {
@@ -461,6 +473,7 @@ function BannerTab() {
     try {
       await updateBannerSettings(values)
       setStatus('saved')
+      resetBaseline()  // l'onglet n'est plus « modifié »
     } catch (err) {
       /* Le message du serveur est plus utile que « une erreur est survenue » :
          il précise par exemple qu'un lien doit commencer par « / ». */
@@ -747,10 +760,53 @@ const TABS = [
 ]
 
 export default function Settings() {
-  const [tab, setTab] = useState('store')
+  /* L'onglet vit dans l'URL : un lien vers « Paramètres → TVA » devient
+     partageable, le bouton Retour ramène à l'onglet précédent, et un
+     rafraîchissement ne renvoie plus sur « Boutique ». */
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requested = searchParams.get('onglet')
+  const tab = TABS.some(t => t.key === requested) ? requested : 'store'
+
+  /* Un onglet en cours de saisie non enregistrée prévient avant qu'on le quitte.
+     Les textes légaux (CGV, mentions) sont de longs textes rédigés à la main :
+     changer d'onglet démontait le composant et les perdait sans un mot. */
+  const [dirtyTab, setDirtyTab] = useState(null)
+  const [pendingTab, setPendingTab] = useState(null)
+
+  const changeTab = (key) => {
+    if (key === tab) return
+    if (dirtyTab === tab) { setPendingTab(key); return }
+    setSearchParams(key === 'store' ? {} : { onglet: key }, { replace: true })
+  }
+
+  const confirmLeave = () => {
+    const target = pendingTab
+    setPendingTab(null)
+    setDirtyTab(null)
+    setSearchParams(target === 'store' ? {} : { onglet: target }, { replace: true })
+  }
+
+  /* Fermeture d'onglet ou rechargement — là où React Router n'a pas la main */
+  useEffect(() => {
+    if (!dirtyTab) return
+    const onBeforeUnload = (e) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [dirtyTab])
+
+  /* Passé à chaque onglet : il signale qu'il a des modifications en attente. */
+  const markDirty = (key) => (isDirty) => setDirtyTab(prev => (isDirty ? key : prev === key ? null : prev))
 
   return (
     <div className={s.page}>
+      {pendingTab && (
+        <ConfirmDialog
+          message="Vos modifications ne sont pas enregistrées. Quitter cet onglet ?"
+          onConfirm={confirmLeave}
+          onClose={() => setPendingTab(null)}
+        />
+      )}
+
       <div className={s.pageHead}>
         <h1 className={s.pageTitle}>Paramètres</h1>
         <p className={s.pageDesc}>Configuration générale de la boutique</p>
@@ -764,10 +820,15 @@ export default function Settings() {
               <button
                 key={t.key}
                 className={`${s.tab} ${tab === t.key ? s.tabActive : ''}`}
-                onClick={() => setTab(t.key)}
+                onClick={() => changeTab(t.key)}
               >
                 <Icon size={15} className={s.tabIcon} />
-                <span className={s.tabLabel}>{t.label}</span>
+                <span className={s.tabLabel}>
+                  {t.label}
+                  {/* Pastille : indique l'onglet qui porte des modifications non
+                      enregistrées, y compris une fois qu'on l'a quitté. */}
+                  {dirtyTab === t.key && <span className={s.tabDirty} title="Modifications non enregistrées" />}
+                </span>
                 <span className={s.tabDesc}>{t.desc}</span>
               </button>
             )
@@ -775,11 +836,11 @@ export default function Settings() {
         </nav>
 
         <div className={s.tabContent}>
-          {tab === 'store'    && <StoreTab />}
-          {tab === 'shipping' && <ShippingTab />}
-          {tab === 'tax'      && <TaxTab />}
-          {tab === 'legal'    && <LegalTab />}
-          {tab === 'banner'   && <BannerTab />}
+          {tab === 'store'    && <StoreTab    onDirtyChange={markDirty('store')} />}
+          {tab === 'shipping' && <ShippingTab onDirtyChange={markDirty('shipping')} />}
+          {tab === 'tax'      && <TaxTab      onDirtyChange={markDirty('tax')} />}
+          {tab === 'legal'    && <LegalTab    onDirtyChange={markDirty('legal')} />}
+          {tab === 'banner'   && <BannerTab   onDirtyChange={markDirty('banner')} />}
           {tab === 'security' && <SecurityTab />}
         </div>
       </div>

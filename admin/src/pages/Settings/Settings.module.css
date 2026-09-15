@@ -373,3 +373,15 @@
 .mfaStatusLabel { font-size: 14px; font-weight: 600; color: var(--text-dark); margin-bottom: 2px; }
 .mfaEnabledIcon  { color: #059669; flex-shrink: 0; margin-top: 1px; }
 .mfaDisabledIcon { color: #dc2626; flex-shrink: 0; margin-top: 1px; }
+
+/* Pastille « modifications non enregistrées » sur l'onglet concerné —
+   reste visible après l'avoir quitté, pour ne pas oublier d'y revenir. */
+.tabLabel { display: inline-flex; align-items: center; gap: 7px; }
+
+.tabDirty {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rose);
+  flex-shrink: 0;
+}
