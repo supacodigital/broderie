@@ -248,7 +248,7 @@ const findById = async (orderId, userId = null) => {
 
   const [orders] = await pool.execute(
     `SELECT o.id, o.status, o.subtotal, o.discount, o.coupon_code, o.shipping_cost, o.tax_amount, o.total,
-            o.qr_reference,
+            o.qr_reference, o.invoice_number, o.invoice_seq,
             o.created_at, o.updated_at, o.user_id,
             o.shipping_first_name, o.shipping_last_name,
             o.shipping_street, o.shipping_street_number, o.shipping_city,
@@ -541,8 +541,77 @@ const lockOrderForPaymentIntent = async (orderId, userId, method) => {
   }
 };
 
+/* Attribue son numéro de facture à une commande, à la première émission.
+   Le compteur est mensuel (« 2026-09/01 ») et repart à 1 chaque mois.
+
+   Atomicité : INSERT ... ON DUPLICATE KEY UPDATE incrémente la ligne du mois
+   sous verrou de la transaction, donc deux commandes simultanées ne peuvent pas
+   obtenir le même numéro — un doublon de numéro de facture serait une faute
+   comptable, pas un simple défaut d'affichage.
+
+   Idempotence : si la commande a déjà un numéro, on le renvoie sans rien
+   consommer. Régénérer un PDF ne doit jamais changer le numéro ni créer de trou
+   dans la séquence. */
+const assignInvoiceNumber = async (orderId) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [[existing]] = await connection.execute(
+      `SELECT invoice_number, invoice_seq FROM orders WHERE id = ? FOR UPDATE`,
+      [orderId]
+    );
+    if (!existing) {
+      await connection.rollback();
+      return null;
+    }
+    if (existing.invoice_number) {
+      await connection.commit();
+      return { invoiceNumber: existing.invoice_number, invoiceSeq: existing.invoice_seq };
+    }
+
+    const now    = new Date();
+    const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    await connection.execute(
+      `INSERT INTO invoice_counters (period, last_seq) VALUES (?, 1)
+       ON DUPLICATE KEY UPDATE last_seq = last_seq + 1`,
+      [period]
+    );
+    const [[counter]] = await connection.execute(
+      `SELECT last_seq FROM invoice_counters WHERE period = ?`,
+      [period]
+    );
+
+    const seq           = counter.last_seq;
+    const invoiceNumber = `${period}/${String(seq).padStart(2, '0')}`;
+
+    await connection.execute(
+      `UPDATE orders SET invoice_number = ?, invoice_seq = ? WHERE id = ?`,
+      [invoiceNumber, seq, orderId]
+    );
+
+    await connection.commit();
+    return { invoiceNumber, invoiceSeq: seq };
+  } catch (err) {
+    try { await connection.rollback(); } catch { /* connexion déjà rendue */ }
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
+// Référence QR — écrite au moment où la facture reçoit son numéro
+const saveQrReference = async (orderId, reference) => {
+  const [result] = await pool.execute(
+    `UPDATE orders SET qr_reference = ? WHERE id = ?`,
+    [reference, orderId]
+  );
+  return result.affectedRows > 0;
+};
+
 module.exports = {
   createOrder, findByUserId, findAllByUserIdWithItems, findById, findAllAdmin,
   updateStatusWithHistory, saveShippingLabel, updateTrackingNumber, markPaidFromWebhook,
-  lockOrderForPaymentIntent,
+  lockOrderForPaymentIntent, assignInvoiceNumber, saveQrReference,
 };

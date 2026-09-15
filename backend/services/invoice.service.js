@@ -2,6 +2,7 @@ const path             = require('path');
 const crypto           = require('crypto');
 const PDFDocument     = require('pdfkit');
 const { SwissQRBill } = require('swissqrbill/pdf');
+const { isQRIBAN, calculateQRReferenceChecksum } = require('swissqrbill/utils');
 const { roundCHF }    = require('../utils/chf.utils');
 const { ventilateTVAByRate } = require('../utils/tva.utils');
 const env             = require('../config/env');
@@ -43,17 +44,48 @@ const computeTaxBreakdown = (order) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// Référence de paiement interne — figée sur la commande facture QR
-// Sert au rapprochement manuel du paiement reçu (l'admin marque « payé »)
-// Format : APC + horodatage base36 + suffixe aléatoire (max 27 caractères)
-// Suffixe tiré de crypto.randomBytes — Math.random() est prévisible et deux
-// commandes de la même milliseconde pourraient collisionner.
+// Références de paiement
+//
+// Deux formats coexistent, car ils dépendent du type d'IBAN configuré :
+//
+//   • QR-IBAN  → référence QR STRUCTURÉE (27 chiffres, dont 1 de contrôle).
+//     C'est le format que la banque lit et rapproche automatiquement, et celui
+//     de la facture de référence transmise par la cliente. Le numéro de facture
+//     y est encodé, complété par des zéros à gauche.
+//
+//   • IBAN classique → la référence structurée est INTERDITE par le standard.
+//     On retombe sur une référence interne placée dans le message libre ; le
+//     rapprochement reste alors manuel.
+//
+// Le choix est automatique (isQRIBAN) : passer au QR-IBAN dans la configuration
+// suffit à activer la référence structurée, sans modifier le code.
 // ─────────────────────────────────────────────────────────────
-const generateQrReference = () => {
+
+// Référence QR structurée à partir du compteur de facture (26 chiffres + checksum)
+const buildStructuredReference = (invoiceSeq) => {
+  const base = String(invoiceSeq).replace(/\D/g, '').padStart(26, '0').slice(-26);
+  return base + calculateQRReferenceChecksum(base);
+};
+
+// Référence interne — repli quand l'IBAN n'est pas un QR-IBAN.
+// Suffixe tiré de crypto.randomBytes : Math.random() est prévisible et deux
+// commandes de la même milliseconde pourraient collisionner.
+const buildInternalReference = () => {
   const ts   = Date.now().toString(36).toUpperCase();
   const rand = crypto.randomBytes(4).toString('hex').toUpperCase();
   return `APC${ts}${rand}`;
 };
+
+// Un QR-IBAN impose une référence structurée ; un IBAN classique l'interdit.
+const usesStructuredReference = () => isQRIBAN(String(env.qrInvoiceIban || '').replace(/\s/g, ''));
+
+/* Conservé pour les commandes créées avant la numérotation des factures :
+   la référence est alors générée sans connaître le numéro de facture. */
+const generateQrReference = (invoiceSeq = null) => (
+  usesStructuredReference() && invoiceSeq
+    ? buildStructuredReference(invoiceSeq)
+    : buildInternalReference()
+);
 
 // Date d'échéance de la facture (aujourd'hui + délai configuré, défaut 30 jours)
 const computeDueDate = () => {
@@ -70,6 +102,8 @@ const formatDate = (date) => {
 // Construit l'objet de données attendu par SwissQRBill à partir d'une commande
 const buildQrBillData = (order) => {
   const dueDays = env.invoiceDueDays || 30;
+  const structured = usesStructuredReference();
+  const invoiceLabel = order.invoice_number ?? `#${order.id}`;
   // Le débiteur de la facture QR est l'adresse de FACTURATION.
   // Fallback sur la livraison pour les commandes créées avant l'ajout du billing.
   const billStreet       = order.billing_street        ?? order.shipping_street;
@@ -97,10 +131,17 @@ const buildQrBillData = (order) => {
       zip:            parseInt(billZip, 10) || billZip || 0,
       country:        'CH',
     },
-    // Message libre : référence interne pour le rapprochement (IBAN normal → pas de référence structurée)
-    message: order.qr_reference
-      ? `Commande #${order.id} — ${order.qr_reference} — payable sous ${dueDays} jours`
-      : `Commande #${order.id} — payable sous ${dueDays} jours`,
+    /* Avec un QR-IBAN, la référence part dans le champ structuré « Référence » du
+       bulletin — c'est lui que la banque rapproche automatiquement. Le champ libre
+       ne porte alors qu'un rappel lisible du numéro de facture.
+       Avec un IBAN classique, la référence structurée est refusée par le standard :
+       on remet l'identifiant dans le message, et le rapprochement reste manuel. */
+    ...(structured && order.qr_reference ? { reference: order.qr_reference } : {}),
+    message: structured
+      ? `Facture ${invoiceLabel} — payable sous ${dueDays} jours`
+      : (order.qr_reference
+        ? `Facture ${invoiceLabel} — ${order.qr_reference} — payable sous ${dueDays} jours`
+        : `Facture ${invoiceLabel} — payable sous ${dueDays} jours`),
   };
 };
 
@@ -159,11 +200,15 @@ const generateInvoicePDF = ({ order, user }) => {
          .text('FACTURE', 350, 46, { align: 'right', width: 195 });
 
       doc.fontSize(9).fillColor(muted).font('Helvetica')
-         .text(`N° ${String(order.id).padStart(6, '0')}`,           350, 78,  { align: 'right', width: 195 })
-         .text(`Date : ${formatDate(order.created_at)}`,            350, 92,  { align: 'right', width: 195 })
-         .text(`Échéance : paiement sous ${dueDays} jours`,         350, 106, { align: 'right', width: 195 });
+         /* Numéro de facture au format « 2026-09/01 » — lisible et classable en
+            comptabilité. Le numéro de commande reste affiché en dessous : c'est
+            lui que la cliente retrouve dans l'administration. */
+         .text(`N° ${order.invoice_number ?? String(order.id).padStart(6, '0')}`, 350, 78,  { align: 'right', width: 195 })
+         .text(`Commande n° ${order.id}`,                           350, 92,  { align: 'right', width: 195 })
+         .text(`Date : ${formatDate(order.created_at)}`,            350, 106, { align: 'right', width: 195 })
+         .text(`Échéance : paiement sous ${dueDays} jours`,         350, 120, { align: 'right', width: 195 });
 
-      doc.moveTo(PAGE_MARGIN, 128).lineTo(545, 128).strokeColor(border).lineWidth(1).stroke();
+      doc.moveTo(PAGE_MARGIN, 140).lineTo(545, 140).strokeColor(border).lineWidth(1).stroke();
 
       // ── Adresse de facturation complète ─────────────────────────
       const billFirst  = order.billing_first_name ?? order.shipping_first_name ?? user.first_name;
@@ -174,12 +219,12 @@ const generateInvoicePDF = ({ order, user }) => {
       const billCity   = order.billing_city ?? order.shipping_city;
 
       doc.fontSize(8).fillColor(muted).font('Helvetica-Bold')
-         .text('FACTURÉ À', PAGE_MARGIN, 144, { characterSpacing: 0.5 });
+         .text('FACTURÉ À', PAGE_MARGIN, 156, { characterSpacing: 0.5 });
 
       doc.fontSize(10).fillColor(dark).font('Helvetica-Bold')
-         .text(`${billFirst ?? ''} ${billLast ?? ''}`.trim() || 'Client', PAGE_MARGIN, 158);
+         .text(`${billFirst ?? ''} ${billLast ?? ''}`.trim() || 'Client', PAGE_MARGIN, 170);
 
-      let addrY = 173;
+      let addrY = 185;
       doc.fontSize(9.5).fillColor(dark).font('Helvetica');
       if (billStreet) {
         doc.text(`${billStreet}${billNumber ? ' ' + billNumber : ''}`, PAGE_MARGIN, addrY);
@@ -202,7 +247,9 @@ const generateInvoicePDF = ({ order, user }) => {
         return top + 24;
       };
 
-      let y = drawTableHeader(220);
+      /* Départ du tableau calé sous le bloc d'adresse, dont la hauteur varie
+         selon les lignes réellement présentes (rue, NPA/localité, email). */
+      let y = drawTableHeader(Math.max(232, addrY + 26));
       const items = order.items || [];
 
       // Nombre de lignes de TVA qui seront affichées sous les totaux — sert à
@@ -299,7 +346,10 @@ const generateInvoicePDF = ({ order, user }) => {
          );
 
       // ── QR-facture suisse — attachée en bas de la dernière page ──
-      const qrBill = new SwissQRBill(buildQrBillData(order));
+      // `language: 'FR'` est indispensable : la librairie rend le bulletin en
+      // ALLEMAND par défaut (Zahlteil, Empfangsschein, Betrag…), alors que le
+      // reste de la facture est en français.
+      const qrBill = new SwissQRBill(buildQrBillData(order), { language: 'FR' });
       qrBill.attachTo(doc);
 
       doc.end();
