@@ -33,6 +33,19 @@ export default function SearchBar({ filters, onChange, total, onToggleFilters, v
   const gridDebounce = useRef(null)
   const wrapRef      = useRef(null)
 
+  /* Réaffiche le terme recherché dans le champ quand il vient de l'extérieur : arrivée
+     depuis la barre de la navbar, lien partagé, rafraîchissement, ou retour depuis une
+     fiche produit. Sans cela les résultats étaient bien filtrés mais le champ restait
+     vide, ce qui donnait l'impression que la recherche avait été oubliée.
+     La synchronisation ne s'applique qu'au montage et aux changements venus de l'URL —
+     `inputValue` est volontairement hors dépendances pour ne pas écraser la frappe
+     en cours pendant le debounce de 300 ms. */
+  const externalQuery = filters.q ?? ''
+  useEffect(() => {
+    setInputValue(prev => (prev === externalQuery ? prev : externalQuery))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalQuery])
+
   useEffect(() => {
     setShowDropdown(suggestions.length > 0)
   }, [suggestions])

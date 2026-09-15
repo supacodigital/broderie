@@ -203,10 +203,12 @@ export default function FilterPanel({ filters, onChange, categories = [], brands
           </ul>
         </div>
 
-        {/* ── Marques — sélection unique, alignée sur le filtre ?brand=nom de l'API ── */}
+        {/* ── Gammes — sélection unique, alignée sur le filtre ?brand=nom de l'API.
+               « Gamme » est le vocabulaire métier de la cliente (colonne Nom_Gamme de
+               son ERP) ; la colonne en base reste `brand`. ── */}
         {brands.length > 0 && (
           <div className={s.group}>
-            <p className={s.groupTitle}>Marque</p>
+            <p className={s.groupTitle}>Gamme</p>
             <div className={s.tagCheckList}>
               {visibleBrands.map(brand => (
                 <label key={brand} className={s.checkRow}>

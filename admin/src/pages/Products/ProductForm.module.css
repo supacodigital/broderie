@@ -223,6 +223,15 @@
   letter-spacing: .03em;
 }
 
+/* Rappel en toutes lettres de qui paie quoi — lève la confusion entre le prix
+   encaissé et l'ancien prix barré, calculé à partir de lui. */
+.pricePreviewNote {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
 .pricePreviewRow {
   display: flex;
   align-items: baseline;

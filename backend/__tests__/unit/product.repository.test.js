@@ -196,7 +196,8 @@ describe('product.repository — search()', () => {
     expect(result.rows).toHaveLength(1);
     expect(pool.execute).toHaveBeenCalledWith(
       expect.stringContaining('MATCH(pt.name, pt.description)'),
-      expect.arrayContaining(['fr', 'fil*'])
+      // « +fil* » : chaque mot est requis (+) et ouvert en préfixe (*) — voir toBooleanQuery
+      expect.arrayContaining(['fr', '+fil*'])
     );
   });
 
@@ -233,5 +234,43 @@ describe('product.repository — findByCategoryId()', () => {
 
     const result = await repo.findByCategoryId({ categoryId: 99 });
     expect(result.total).toBe(0);
+  });
+});
+
+// ── Recherche FULLTEXT : construction de la requête booléenne ─────────────────
+// Non-régression du signalement « on ne trouve pas les cotons moulinés » :
+//  1. le joker n'était collé qu'à la fin de la phrase entière (« coton mouliné* »),
+//     donc un seul mot était ouvert en préfixe et les termes restaient en OU ;
+//  2. le pluriel saisi par le client ne retrouvait pas le singulier des fiches
+//     (« cotons » vs « échevette de coton mouliné »).
+
+describe('product.repository — requête booléenne FULLTEXT', () => {
+  const booleanQueryOf = async (q) => {
+    pool.execute.mockResolvedValue([[{ total: 0 }]]);
+    pool.query.mockResolvedValue([[]]);
+    await repo.findAll({ q, locale: 'fr', page: 1, limit: 20 });
+    // Le paramètre de recherche est passé au COUNT juste après la locale
+    const params = pool.execute.mock.calls[0][1];
+    return params.find((v) => typeof v === 'string' && v.startsWith('+'));
+  };
+
+  test('chaque mot est requis et ouvert en préfixe', async () => {
+    expect(await booleanQueryOf('coton mouliné')).toBe('+coton* +mouliné*');
+  });
+
+  test('le pluriel saisi retrouve le singulier des fiches produit', async () => {
+    expect(await booleanQueryOf('cotons moulinés')).toBe('+coton* +mouliné*');
+  });
+
+  test('les mots courts ne sont pas amputés', async () => {
+    expect(await booleanQueryOf('bas')).toBe('+bas*');
+  });
+
+  test('les caractères réservés du BOOLEAN MODE sont neutralisés', async () => {
+    expect(await booleanQueryOf('+fil* -rouge')).toBe('+fil* +rouge*');
+  });
+
+  test('les espaces multiples ne produisent pas de terme vide', async () => {
+    expect(await booleanQueryOf('  fil   rouge  ')).toBe('+fil* +rouge*');
   });
 });

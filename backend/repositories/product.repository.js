@@ -17,18 +17,56 @@ const PRODUCT_COLUMNS = `
   p.rating_count AS review_count
 `;
 
+/* Prépare la requête utilisateur pour un MATCH ... AGAINST en BOOLEAN MODE.
+   Chaque mot devient « +mot* » : « + » impose la présence du terme (sinon MySQL
+   applique un OU implicite et remonte n'importe quel produit partageant un seul
+   mot), « * » autorise le préfixe (« mouline » trouve « moulinés »).
+   Auparavant le « * » était collé à la phrase entière (« coton mouliné* »), donc
+   seul le dernier mot bénéficiait du préfixe et les termes restaient en OU.
+   Les caractères réservés du BOOLEAN MODE sont retirés : saisis tels quels par un
+   client (« + », « -», « ~ », « < », « > », « ( ) », « * », « " »), ils changent le
+   sens de la requête ou provoquent une erreur SQL. */
+const RESERVED_FT_CHARS = /[+\-~<>()*"@]/g;
+
+/* Retire la marque du pluriel français (« cotons » → « coton ») avant d'ajouter le
+   préfixe. Sans cela « cotons » ne retrouve pas « coton » : le joker « * » étend vers
+   la droite mais ne raccourcit jamais le terme. C'est le cas concret qui faisait
+   échouer la recherche « cotons moulinés » alors que les descriptions disent
+   « échevette de coton mouliné » au singulier.
+   Les mots de 3 lettres ou moins sont laissés intacts (« bas », « lps »…). */
+const singularize = (token) => (token.length > 3 ? token.replace(/[sx]$/i, '') : token);
+
+const toBooleanQuery = (q) =>
+  String(q)
+    .replace(RESERVED_FT_CHARS, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => `+${singularize(token)}*`)
+    .join(' ');
+
 // Construction dynamique des filtres WHERE pour la liste produits
 // `locale` sert uniquement au fallback FR de la recherche FULLTEXT (pt peut être vide si la traduction manque)
 const buildFilters = (filters) => {
   const conditions = ['p.is_active = 1', 'p.deleted_at IS NULL'];
   const params = [];
+  let booleanQuery = null;
 
   if (filters.q) {
     // Fallback FR : si la traduction dans la locale demandée est absente, chercher dans pt_fr
     // (même pattern que search() ci-dessous) — sinon aucun produit ne matche en de/en tant qu'il
     // n'existe pas de traduction pour cette langue.
-    conditions.push('(MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE) OR MATCH(pt_fr.name, pt_fr.description) AGAINST(? IN BOOLEAN MODE))');
-    params.push(filters.q + '*', filters.q + '*');
+    // La marque est incluse via LIKE : beaucoup de produits ne portent pas leur matière
+    // dans le nom (« DMC mouliné N° 745 » ne contient pas « coton »), et l'utilisateur
+    // cherche pourtant par marque. La marque n'est pas dans l'index FULLTEXT, d'où le LIKE.
+    booleanQuery = toBooleanQuery(filters.q);
+    if (booleanQuery) {
+      conditions.push(`(
+        MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE)
+        OR MATCH(pt_fr.name, pt_fr.description) AGAINST(? IN BOOLEAN MODE)
+        OR p.brand LIKE ?
+      )`);
+      params.push(booleanQuery, booleanQuery, `%${filters.q}%`);
+    }
   }
   if (filters.categoryIds && filters.categoryIds.length > 0) {
     conditions.push(`p.category_id IN (${filters.categoryIds.map(() => '?').join(',')})`);
@@ -71,7 +109,7 @@ const buildFilters = (filters) => {
     params.push(filters.brand);
   }
 
-  return { conditions, params };
+  return { conditions, params, booleanQuery };
 };
 
 // Champs autorisés pour le tri — protection contre l'injection
@@ -86,14 +124,21 @@ const ALLOWED_SORT_FIELDS = {
 
 // Liste paginée des produits avec filtres
 const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at', order = 'desc', ...filters }) => {
-  const { conditions, params } = buildFilters(filters);
+  const { conditions, params, booleanQuery } = buildFilters(filters);
   // Vitrine home bento : ordre défini manuellement par l'admin (featured_order), pas par sort/order —
   // garantit que l'admin et la home affichent toujours exactement le même ordre pour is_featured = 1.
   // Fallback created_at ASC pour les produits jamais réordonnés (featured_order NULL).
+  /* Recherche en cours : on trie par pertinence FULLTEXT, sauf si l'utilisateur a
+     explicitement choisi un tri (prix, nom…). Trier des résultats de recherche par date
+     de création remontait des articles sans rapport avant les correspondances évidentes :
+     chercher « cotons moulinés » affichait des kits récents avant les moulinés eux-mêmes. */
+  const relevanceSort = booleanQuery && (!sort || sort === 'created_at');
   const sortField = filters.featured
     ? 'p.featured_order IS NULL, p.featured_order, p.created_at'
-    : (ALLOWED_SORT_FIELDS[sort] || 'p.created_at');
-  const sortOrder = filters.featured ? 'ASC' : (order === 'asc' ? 'ASC' : 'DESC');
+    : relevanceSort
+      ? 'relevance'
+      : (ALLOWED_SORT_FIELDS[sort] || 'p.created_at');
+  const sortOrder = filters.featured ? 'ASC' : relevanceSort ? 'DESC' : (order === 'asc' ? 'ASC' : 'DESC');
   const offset = (page - 1) * limit;
 
   // Requête de comptage. Tout produit a toujours une traduction FR (translations.fr
@@ -120,8 +165,19 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
     total = countRows[0].total;
   }
 
+  /* Score de pertinence : le nom pèse double face à la description — un produit dont le
+     NOM contient les termes cherchés est une meilleure réponse qu'un produit qui ne les
+     mentionne que dans son texte descriptif. */
+  const relevanceSelect = relevanceSort
+    ? `, (
+         2 * COALESCE(MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE), 0)
+         + COALESCE(MATCH(pt_fr.name, pt_fr.description) AGAINST(? IN BOOLEAN MODE), 0)
+       ) AS relevance`
+    : '';
+  const relevanceParams = relevanceSort ? [booleanQuery, booleanQuery] : [];
+
   const [rows] = await pool.query(
-    `SELECT ${PRODUCT_COLUMNS}
+    `SELECT ${PRODUCT_COLUMNS}${relevanceSelect}
      FROM products p
      LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = ?
      LEFT JOIN product_translations pt_fr ON pt_fr.product_id = p.id AND pt_fr.locale = 'fr'
@@ -133,7 +189,7 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
      WHERE ${conditions.join(' AND ')} AND (pt.name IS NOT NULL OR pt_fr.name IS NOT NULL)
      ORDER BY ${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
-    [locale, locale, ...params, limit, offset]
+    [...relevanceParams, locale, locale, ...params, limit, offset]
   );
 
   return { rows, total };
@@ -193,7 +249,7 @@ const findById = async (id, locale = 'fr') => {
 const search = async ({ q, locale = 'fr', page = 1, limit = 20 }) => {
   const offset = (page - 1) * limit;
 
-  const qBoolean = q + '*';
+  const qBoolean = toBooleanQuery(q);
   const [countRows] = await pool.execute(
     `SELECT COUNT(*) AS total
      FROM products p

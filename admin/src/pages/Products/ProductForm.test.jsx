@@ -54,15 +54,15 @@ beforeEach(() => {
   getTaxRates.mockResolvedValue(TAX_RATES)
 })
 
-describe('ProductForm — champ Prix de vente', () => {
+describe('ProductForm — champ Prix payé par le client', () => {
   it('reste inchangé quand une réduction est appliquée', async () => {
     const user = userEvent.setup()
     renderForm()
 
-    const priceInput = await screen.findByLabelText(/Prix de vente/)
+    const priceInput = await screen.findByLabelText(/Prix payé par le client/)
     await user.type(priceInput, '100')
 
-    await user.selectOptions(screen.getByLabelText(/Réduction/), 'percent')
+    await user.selectOptions(screen.getByLabelText(/Afficher un ancien prix barré/), 'percent')
     const discountInput = screen.getByLabelText(/Valeur de la réduction/)
     await user.type(discountInput, '20')
 
@@ -74,7 +74,7 @@ describe('ProductForm — aperçu boutique', () => {
   it("n'affiche rien tant qu'aucune réduction n'est choisie", async () => {
     const user = userEvent.setup()
     renderForm()
-    const priceInput = await screen.findByLabelText(/Prix de vente/)
+    const priceInput = await screen.findByLabelText(/Prix payé par le client/)
     await user.type(priceInput, '80')
 
     expect(screen.queryByText('Aperçu boutique')).not.toBeInTheDocument()
@@ -84,52 +84,52 @@ describe('ProductForm — aperçu boutique', () => {
     const user = userEvent.setup()
     renderForm()
 
-    const priceInput = await screen.findByLabelText(/Prix de vente/)
+    const priceInput = await screen.findByLabelText(/Prix payé par le client/)
     await user.type(priceInput, '80')
-    await user.selectOptions(screen.getByLabelText(/Réduction/), 'percent')
+    await user.selectOptions(screen.getByLabelText(/Afficher un ancien prix barré/), 'percent')
     await user.type(screen.getByLabelText(/Valeur de la réduction/), '20')
 
     expect(await screen.findByText('Aperçu boutique')).toBeInTheDocument()
     // prix payé 80 = prix barré × (1 - 20%) → prix barré = 80 / 0.8 = 100
-    expect(screen.getByText('CHF 100.00')).toBeInTheDocument()
-    expect(screen.getByText('CHF 80.00')).toBeInTheDocument()
+    expect(screen.getAllByText('CHF 100.00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('CHF 80.00').length).toBeGreaterThan(0)
   })
 
   it('calcule le prix barré avec une réduction en montant fixe', async () => {
     const user = userEvent.setup()
     renderForm()
 
-    const priceInput = await screen.findByLabelText(/Prix de vente/)
+    const priceInput = await screen.findByLabelText(/Prix payé par le client/)
     await user.type(priceInput, '85')
-    await user.selectOptions(screen.getByLabelText(/Réduction/), 'fixed')
+    await user.selectOptions(screen.getByLabelText(/Afficher un ancien prix barré/), 'fixed')
     await user.type(screen.getByLabelText(/Valeur de la réduction/), '15')
 
     // prix barré = prix payé + montant fixe = 85 + 15 = 100
-    expect(await screen.findByText('CHF 100.00')).toBeInTheDocument()
+    expect((await screen.findAllByText('CHF 100.00')).length).toBeGreaterThan(0)
   })
 
   it('arrondit le prix barré au 0.05 CHF le plus proche', async () => {
     const user = userEvent.setup()
     renderForm()
 
-    const priceInput = await screen.findByLabelText(/Prix de vente/)
+    const priceInput = await screen.findByLabelText(/Prix payé par le client/)
     await user.type(priceInput, '84.90')
-    await user.selectOptions(screen.getByLabelText(/Réduction/), 'percent')
+    await user.selectOptions(screen.getByLabelText(/Afficher un ancien prix barré/), 'percent')
     await user.type(screen.getByLabelText(/Valeur de la réduction/), '15')
     // 84.90 / 0.85 = 99.882… → arrondi au 0.05 le plus proche = 99.90
-    expect(await screen.findByText('CHF 99.90')).toBeInTheDocument()
+    expect((await screen.findAllByText('CHF 99.90')).length).toBeGreaterThan(0)
   })
 
   it('affiche un avertissement si la réduction en pourcentage ne donne aucun prix barré valide', async () => {
     const user = userEvent.setup()
     renderForm()
 
-    const priceInput = await screen.findByLabelText(/Prix de vente/)
+    const priceInput = await screen.findByLabelText(/Prix payé par le client/)
     await user.type(priceInput, '50')
-    await user.selectOptions(screen.getByLabelText(/Réduction/), 'percent')
+    await user.selectOptions(screen.getByLabelText(/Afficher un ancien prix barré/), 'percent')
     await user.type(screen.getByLabelText(/Valeur de la réduction/), '0')
 
-    expect(await screen.findByText(/Réduction invalide/)).toBeInTheDocument()
+    expect(await screen.findByText(/Remise invalide/)).toBeInTheDocument()
   })
 })
 
@@ -140,9 +140,9 @@ describe('ProductForm — soumission avec réduction', () => {
     renderForm()
 
     await fillRequiredFields(user)
-    const priceInput = screen.getByLabelText(/Prix de vente/)
+    const priceInput = screen.getByLabelText(/Prix payé par le client/)
     await user.type(priceInput, '80')
-    await user.selectOptions(screen.getByLabelText(/Réduction/), 'percent')
+    await user.selectOptions(screen.getByLabelText(/Afficher un ancien prix barré/), 'percent')
     await user.type(screen.getByLabelText(/Valeur de la réduction/), '20')
 
     await user.click(screen.getByRole('button', { name: 'Créer le produit' }))
@@ -159,7 +159,7 @@ describe('ProductForm — soumission avec réduction', () => {
     renderForm()
 
     await fillRequiredFields(user)
-    await user.type(screen.getByLabelText(/Prix de vente/), '75')
+    await user.type(screen.getByLabelText(/Prix payé par le client/), '75')
 
     await user.click(screen.getByRole('button', { name: 'Créer le produit' }))
 
@@ -186,10 +186,10 @@ describe('ProductForm — édition d\'un produit avec réduction existante', () 
 
     renderForm({ id: 7 })
 
-    const priceInput = await screen.findByLabelText(/Prix de vente/)
+    const priceInput = await screen.findByLabelText(/Prix payé par le client/)
     expect(priceInput).toHaveValue(80)
-    expect(screen.getByLabelText(/Réduction/)).toHaveValue('percent')
-    expect(await screen.findByText('CHF 100.00')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Afficher un ancien prix barré/)).toHaveValue('percent')
+    expect((await screen.findAllByText('CHF 100.00')).length).toBeGreaterThan(0)
   })
 
   it("n'active aucune réduction si compare_price_chf est absent", async () => {
@@ -207,8 +207,8 @@ describe('ProductForm — édition d\'un produit avec réduction existante', () 
 
     renderForm({ id: 8 })
 
-    const priceInput = await screen.findByLabelText(/Prix de vente/)
+    const priceInput = await screen.findByLabelText(/Prix payé par le client/)
     expect(priceInput).toHaveValue(50)
-    expect(screen.getByLabelText(/Réduction/)).toHaveValue('none')
+    expect(screen.getByLabelText(/Afficher un ancien prix barré/)).toHaveValue('none')
   })
 })

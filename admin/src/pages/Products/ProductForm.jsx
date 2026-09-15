@@ -286,13 +286,18 @@ export default function ProductForm() {
     if (defaultTax) setValue('taxRateId', defaultTax.id)
   }, [isEdit, taxRates, setValue])
 
-  /* Charge le produit en mode édition */
+  /* Charge le produit en mode édition.
+     `cancelled` protège du retour tardif : en passant vite d'une fiche à l'autre, la
+     réponse de la première arrivait après le montage de la seconde et écrasait le
+     formulaire — les modifications partaient alors sous le mauvais identifiant. */
   useEffect(() => {
     if (!isEdit) return
+    let cancelled = false
     setLoading(true)
     setImgLoading(true)
     getProductById(Number(id))
       .then(res => {
+        if (cancelled) return
         setProduct(res)
 
         /* Si une réduction existe déjà en base, on reconstitue uniquement le
@@ -334,8 +339,9 @@ export default function ProductForm() {
         const imgs = (res?.images ?? []).map(img => ({ ...img, isPrimary: !!img.is_primary }))
         setImages(imgs)
       })
-      .catch(() => setApiError('Impossible de charger ce produit.'))
-      .finally(() => { setLoading(false); setImgLoading(false) })
+      .catch(() => { if (!cancelled) setApiError('Impossible de charger ce produit.') })
+      .finally(() => { if (!cancelled) { setLoading(false); setImgLoading(false) } })
+    return () => { cancelled = true }
   }, [isEdit, id, reset])
 
   const goBack = () => navigate('/produits')
@@ -472,7 +478,7 @@ export default function ProductForm() {
               </div>
 
               <div className={s.field}>
-                <label className={s.label} htmlFor="brand">Marque / éditeur</label>
+                <label className={s.label} htmlFor="brand">Gamme</label>
                 <input
                   id="brand"
                   className={`${s.input} ${errors.brand ? s.inputError : ''}`}
@@ -553,14 +559,14 @@ export default function ProductForm() {
             <h2 className={s.sectionTitle}>Prix & stock</h2>
             <div className={s.formGrid}>
               <div className={s.field}>
-                <label className={s.label} htmlFor="priceChf">Prix de vente (CHF) *</label>
+                <label className={s.label} htmlFor="priceChf">Prix payé par le client (CHF) *</label>
                 <input id="priceChf" type="number" step="0.05" min="0" className={`${s.input} ${errors.priceChf ? s.inputError : ''}`} {...register('priceChf')} />
-                <span className={s.hint}>Le prix normal du produit. Ne change jamais quand vous appliquez une réduction ci-dessous.</span>
+                <span className={s.hint}>C'est le montant réellement encaissé. Il ne change jamais : l'option ci-contre n'ajoute qu'un ancien prix barré à côté, pour montrer la baisse.</span>
                 {errors.priceChf && <span className={s.err}>{errors.priceChf.message}</span>}
               </div>
 
               <div className={s.field}>
-                <label className={s.label} htmlFor="discountMode">Réduction</label>
+                <label className={s.label} htmlFor="discountMode">Afficher un ancien prix barré</label>
                 <div className={s.discountRow}>
                   <select
                     id="discountMode"
@@ -568,9 +574,9 @@ export default function ProductForm() {
                     value={discountMode}
                     onChange={(e) => { setDiscountMode(e.target.value); if (e.target.value === 'none') setDiscountValue('') }}
                   >
-                    <option value="none">Aucune</option>
-                    <option value="percent">Pourcentage (%)</option>
-                    <option value="fixed">Montant fixe (CHF)</option>
+                    <option value="none">Non, aucun prix barré</option>
+                    <option value="percent">Oui — remise en %</option>
+                    <option value="fixed">Oui — remise en CHF</option>
                   </select>
                   {discountMode !== 'none' && (
                     <input
@@ -586,7 +592,7 @@ export default function ProductForm() {
                     />
                   )}
                 </div>
-                <span className={s.hint}>Optionnel. Calcule le prix barré affiché au client, en plus du prix de vente ci-contre.</span>
+                <span className={s.hint}>Optionnel. Indiquez la remise que le client est censé réaliser : l'ancien prix barré est calculé à partir de là. Le prix payé, lui, reste celui saisi à gauche.</span>
               </div>
             </div>
 
@@ -602,10 +608,19 @@ export default function ProductForm() {
                   ) : (
                     <span className={s.priceWarning}>
                       <AlertTriangle size={12} />
-                      Réduction invalide — le prix barré doit rester supérieur au prix de vente.
+                      Remise invalide — l'ancien prix doit rester supérieur au prix payé.
                     </span>
                   )}
                 </div>
+                {/* Phrase explicite : le prix barré étant calculé à partir du prix payé,
+                    l'affichage seul de deux montants laissait croire que la remise
+                    augmentait le prix du produit. */}
+                {comparePrice != null && (
+                  <p className={s.pricePreviewNote}>
+                    Le client paie <strong>CHF {Number(watchedPrice).toFixed(2)}</strong> — l'ancien prix
+                    barré affiché sera <strong>CHF {comparePrice.toFixed(2)}</strong>.
+                  </p>
+                )}
               </div>
             )}
 

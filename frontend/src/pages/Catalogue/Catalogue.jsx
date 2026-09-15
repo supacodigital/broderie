@@ -132,7 +132,7 @@ function BackToTop() {
 
 export default function Catalogue() {
   const { categorySlug }       = useParams()
-  const [searchParams]         = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { t, i18n }            = useTranslation()
 
   const [products,    setProducts]    = useState([])
@@ -156,7 +156,7 @@ export default function Catalogue() {
 
   /* Filtres synchronisés dans l'URL */
   const [filters, setFilters] = useState({
-    page:     1,
+    page:     parseInt(searchParams.get('page')) || 1,
     limit:    20,
     category: categorySlug ?? searchParams.get('category') ?? '',
     brand:    searchParams.get('brand')     ?? undefined,
@@ -176,11 +176,14 @@ export default function Catalogue() {
     setFilters(f => ({ ...f, category: categorySlug ?? '', page: 1 }))
   }, [categorySlug])
 
-  /* Synchronise les filtres quand les searchParams changent depuis l'extérieur (ex: liens navbar) */
+  /* Synchronise les filtres quand les searchParams changent depuis l'extérieur (ex: liens navbar).
+     `page` est relu depuis l'URL et non forcé à 1 : l'effet se déclenche aussi lorsque
+     c'est nous qui venons d'écrire l'URL, et forcer 1 renvoyait alors l'utilisateur à la
+     première page dès qu'il en changeait. */
   useEffect(() => {
     setFilters(f => ({
       ...f,
-      page:       1,
+      page:       parseInt(searchParams.get('page')) || 1,
       brand:      searchParams.get('brand')       ?? undefined,
       q:          searchParams.get('q')          ?? undefined,
       min_price:  searchParams.get('min_price')  ?? undefined,
@@ -228,6 +231,29 @@ export default function Catalogue() {
       .catch(err => { if (!signal.aborted) setError(true) })
       .finally(() => { if (!signal.aborted) setLoading(false) })
   }, [filters, i18n.language])
+
+  /* Recopie les filtres dans l'URL : sans cela l'adresse restait « /catalogue », et la
+     recherche était perdue au rafraîchissement comme au retour depuis une fiche produit
+     (la page est chargée en lazy, donc remontée à chaque retour). `replace` évite
+     d'empiler une entrée d'historique par frappe au clavier.
+     La catégorie est exclue : elle fait déjà partie du chemin (/catalogue/:categorySlug)
+     et l'écrire ici en ferait un doublon. */
+  useEffect(() => {
+    const next = new URLSearchParams()
+    Object.entries(filters).forEach(([key, value]) => {
+      if (key === 'category' || key === 'limit') return
+      if (value === undefined || value === '' || value === false) return
+      if (key === 'page'  && value === 1) return
+      if (key === 'sort'  && value === 'created_at') return
+      if (key === 'order' && value === 'desc') return
+      next.set(key, String(value))
+    })
+    // Comparaison de chaînes : ne réécrit l'URL que si le contenu change réellement,
+    // sinon l'effet de synchronisation inverse se redéclencherait en boucle.
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true })
+    }
+  }, [filters, searchParams, setSearchParams])
 
   const handleFiltersChange = useCallback((next) => setFilters(next), [])
   const handlePageChange    = useCallback((p)    => setFilters(f => ({ ...f, page: p })), [])
