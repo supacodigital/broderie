@@ -1,496 +1,4 @@
-/* Police serif du site vitrine — chargée ici uniquement pour l'aperçu bento (previewBento),
-   qui doit refléter fidèlement le rendu réel de la home (Cormorant Infant sur les titres produit). */
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Infant:wght@600;700&family=Montserrat:wght@500;600&display=swap');
-
 .page {}
-
-/* ── Bande vitrine home ───────────────────────────────────────────────────── */
-.featuredBar {
-  background: #fff;
-  border: 1.5px solid var(--rose-border);
-  border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 20px;
-}
-
-.featuredBarHead {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  width: 100%;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-align: left;
-}
-
-.featuredBarChevron {
-  margin-left: auto;
-  color: var(--text-muted);
-  transition: transform .2s ease;
-  flex-shrink: 0;
-}
-
-.featuredBarChevronOpen {
-  transform: rotate(180deg);
-}
-
-.featuredBarActions {
-  display: flex;
-  justify-content: flex-end;
-  margin: 12px 0 10px;
-}
-
-.featuredBarIcon { color: var(--rose); flex-shrink: 0; }
-
-.featuredBarTitle {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-dark);
-}
-
-.featuredBarCount {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 20px;
-  background: var(--rose-pale);
-  color: var(--rose);
-}
-
-.featuredBarCountFull {
-  background: #dcfce7;
-  color: #16a34a;
-}
-
-.featuredBarWarn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #d97706;
-}
-
-.featuredBarHint {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-top: 10px;
-  text-align: center;
-}
-
-/* Bouton aperçu */
-.previewBtn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-left: auto;
-  padding: 5px 12px;
-  border: 1.5px solid var(--rose-border);
-  border-radius: 6px;
-  background: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--rose);
-  cursor: pointer;
-  transition: background .15s, border-color .15s;
-}
-
-.previewBtn:hover { background: var(--rose-pale); border-color: var(--rose); }
-
-/* Slots */
-.featuredSlots {
-  display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1fr 1fr;
-  gap: 12px;
-}
-
-.featuredSlot {
-  position: relative;
-  border: 1.5px solid var(--rose-border);
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--rose-pale);
-  transition: border-color .15s, box-shadow .15s, opacity .15s;
-  cursor: grab;
-}
-
-.featuredSlot:hover { border-color: var(--rose); }
-
-.featuredSlotLarge { border-color: var(--rose); background: #fff0f6; }
-
-.featuredSlotDragging { opacity: 0.4; cursor: grabbing; }
-
-.featuredSlotDragOver {
-  border-color: var(--rose);
-  box-shadow: 0 0 0 3px rgba(244, 114, 182, .25);
-}
-
-.featuredSlotHandle {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  background: rgba(255,255,255,.85);
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
-.featuredSlotLabel {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  background: var(--rose);
-  color: #fff;
-  padding: 2px 6px;
-  border-radius: 3px;
-  z-index: 1;
-}
-
-.featuredSlotImg {
-  width: 100%;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f5e6ef;
-  color: var(--text-muted);
-  overflow: hidden;
-}
-
-.featuredSlotImg img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  pointer-events: none;
-}
-
-.featuredSlotName {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-dark);
-  padding: 6px 8px 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.featuredSlotPrice {
-  font-size: 10px;
-  color: var(--text-muted);
-  padding: 0 8px 6px;
-}
-
-.featuredSlotActions {
-  display: flex;
-  gap: 4px;
-  padding: 0 8px 8px;
-}
-
-.featuredSlotEdit,
-.featuredSlotRemove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  border: 1px solid var(--rose-border);
-  background: #fff;
-  cursor: pointer;
-  transition: background .15s, border-color .15s, color .15s;
-  color: var(--text-muted);
-}
-
-.featuredSlotEdit:hover  { background: var(--rose-pale); border-color: var(--rose); color: var(--rose); }
-.featuredSlotRemove:hover { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
-
-/* Slot vide */
-.featuredSlotEmpty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 130px;
-  cursor: default;
-  border-style: dashed;
-}
-
-.featuredSlotAddBtn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--rose);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 12px;
-  width: 100%;
-  height: 100%;
-  transition: color .15s;
-}
-
-.featuredSlotAddBtn:hover { color: var(--rose-dark); }
-
-/* Recherche inline dans slot vide */
-.slotSearch {
-  width: 100%;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.slotSearchInput {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  border: 1.5px solid var(--rose);
-  border-radius: 6px;
-  background: #fff;
-  padding: 5px 8px;
-}
-
-.slotSearchIcon { color: var(--text-muted); flex-shrink: 0; }
-
-.slotSearchField {
-  flex: 1;
-  border: none;
-  outline: none;
-  font-size: 11px;
-  color: var(--text-dark);
-  background: transparent;
-  min-width: 0;
-}
-
-.slotSearchClose {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  transition: color .15s;
-}
-
-.slotSearchClose:hover { color: #ef4444; }
-
-.slotSearchLoading,
-.slotSearchEmpty {
-  font-size: 10px;
-  color: var(--text-muted);
-  text-align: center;
-  padding: 6px 0;
-}
-
-.slotSearchResults {
-  list-style: none;
-  background: #fff;
-  border: 1px solid var(--rose-border);
-  border-radius: 6px;
-  overflow: hidden;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.slotSearchResult {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 8px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-  transition: background .12s;
-}
-
-.slotSearchResult:hover { background: var(--rose-pale); }
-
-.slotSearchThumb {
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: #f5e6ef;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-}
-
-.slotSearchThumb img { width: 100%; height: 100%; object-fit: cover; }
-
-.slotSearchName {
-  flex: 1;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-dark);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.slotSearchPrice {
-  font-size: 10px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-/* ── Aperçu bento ─────────────────────────────────────────────────────────── */
-.previewOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.45);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-
-.previewModal {
-  background: #fff;
-  border-radius: 14px;
-  width: 100%;
-  max-width: 760px;
-  max-height: 90vh;
-  overflow-y: auto;
-  padding: 24px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-}
-
-.previewHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-
-.previewTitle {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-dark);
-}
-
-.previewClose {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  transition: color .15s;
-}
-
-.previewClose:hover { color: #ef4444; }
-
-.previewSub {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-bottom: 20px;
-}
-
-.previewBento {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  grid-template-rows: auto auto;
-  gap: 20px;
-}
-
-/* Couleurs alignées sur la charte du site vitrine (frontend/src/index.css), pas celle de l'admin :
-   cet aperçu doit ressembler au vrai rendu home, pas au style back-office. */
-.previewSlot {
-  overflow: hidden;
-}
-
-.previewSlotLarge {
-  grid-row: 1 / 3;
-}
-
-.previewImg {
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f5e6ef;
-  color: var(--text-muted);
-  overflow: hidden;
-  border-radius: 4px;
-}
-
-.previewSlotLarge .previewImg { aspect-ratio: 2 / 3; }
-
-.previewImg img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.previewSlot:hover .previewImg img { transform: scale(1.05); }
-
-.previewInfo {
-  padding: 10px 2px 0;
-}
-
-.previewName {
-  font-family: 'Cormorant Infant', serif;
-  font-size: 15px;
-  font-weight: 600;
-  color: #1E1020;
-  margin-bottom: 3px;
-  line-height: 1.3;
-}
-
-.previewSlotLarge .previewName { font-size: 19px; }
-
-.previewPrice {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 12px;
-  color: #831843;
-  font-weight: 600;
-}
-
-.previewEmpty {
-  padding: 12px;
-  font-size: 11px;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-/* Responsive */
-@media (max-width: 900px) {
-  .featuredSlots { grid-template-columns: repeat(3, 1fr); }
-  .featuredSlotLarge { grid-column: 1 / 3; }
-}
-
-@media (max-width: 600px) {
-  .featuredSlots { grid-template-columns: repeat(2, 1fr); }
-  .featuredSlotLarge { grid-column: 1 / 3; }
-  .previewBento { grid-template-columns: 1fr 1fr; }
-  .previewSlotLarge { grid-column: 1 / 3; grid-row: auto; }
-}
 
 .pageHead {
   display: flex;
@@ -526,8 +34,8 @@
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
 }
 
@@ -592,14 +100,46 @@
 }
 .resetBtn:hover { border-color: var(--rose); color: var(--rose); }
 
-/* ── Panneau filtres avancés ── */
+/* ── Popover filtres avancés ── */
+.filterAnchor { position: relative; }
+
+.filterChevron {
+  color: currentColor;
+  opacity: .6;
+  transition: transform 150ms ease-out;
+}
+.filterChevronOpen { transform: rotate(180deg); }
+
 .filterPanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: min(620px, calc(100vw - 48px));
   background: #fff;
   border: 1.5px solid var(--rose-border);
   border-radius: 14px;
   padding: 18px 20px 14px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  box-shadow: 0 12px 32px rgba(0,0,0,.12);
+  /* S'ouvre depuis le bouton, pas depuis son centre : le mouvement part d'où
+     l'utilisatrice vient de cliquer. Départ à .96 et non 0 — rien n'apparaît
+     de nulle part. */
+  transform-origin: top right;
+  animation: filterPop 150ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes filterPop {
+  from { opacity: 0; transform: scale(.96) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filterPanel { animation: none; }
+}
+
+/* Sur écran étroit, le popover occupe la largeur utile sous la barre d'outils */
+@media (max-width: 760px) {
+  .filterPanel { width: calc(100vw - 48px); }
 }
 
 .filterGrid {
@@ -650,13 +190,15 @@
 
 .filterActions {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 10px;
-  padding-top: 4px;
+  padding-top: 12px;
   border-top: 1px solid var(--rose-border);
 }
 
 .filterApplyBtn {
-  padding: 9px 20px;
+  padding: 9px 18px;
   background: var(--rose);
   color: #fff;
   border: none;
@@ -664,25 +206,208 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: background .15s;
+  transition: background 150ms ease-out, transform 150ms ease-out;
 }
-.filterApplyBtn:hover { background: var(--rose-dark); }
+@media (hover: hover) and (pointer: fine) {
+  .filterApplyBtn:hover { background: var(--rose-dark); }
+}
+.filterApplyBtn:active { transform: scale(0.97); }
 
 .filterClearBtn {
-  padding: 9px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+  padding: 8px 12px;
   background: transparent;
-  border: 1.5px solid #e5e7eb;
-  border-radius: 9px;
-  font-size: 13px;
+  border: none;
+  font-size: 12px;
   color: var(--text-muted);
   cursor: pointer;
-  transition: border-color .2s, color .2s;
+  transition: color 150ms ease-out;
 }
-.filterClearBtn:hover { border-color: var(--rose); color: var(--rose); }
+@media (hover: hover) and (pointer: fine) {
+  .filterClearBtn:hover { color: var(--rose-dark); }
+}
 
 .searchWrap {
   position: relative;
-  max-width: 340px;
+  flex: 1 1 320px;
+  max-width: 460px;
+}
+
+/* Indice du raccourci « / » — masqué dès que le champ est actif pour ne pas
+   chevaucher le texte saisi. */
+.searchKbd {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px 6px;
+  border: 1px solid var(--rose-border);
+  border-radius: 5px;
+  background: var(--rose-pale);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: inherit;
+  line-height: 16px;
+  pointer-events: none;
+  transition: opacity 150ms ease-out;
+}
+.searchInput:focus ~ .searchKbd,
+.searchInput:not(:placeholder-shown) ~ .searchKbd { opacity: 0; }
+
+/* ── Raccourcis de filtre ── */
+.quickFilter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 150ms ease-out, background 150ms ease-out, color 150ms ease-out, transform 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .quickFilter:hover { border-color: var(--rose); color: var(--text-dark); }
+}
+.quickFilter:active { transform: scale(0.97); }
+.quickFilterOn {
+  background: var(--rose-pale);
+  border-color: var(--rose);
+  color: var(--rose-dark);
+}
+
+/* Séparé du groupe de filtres par une marge auto, et ses propres éléments
+   espacés : le bouton de densité collait au sélecteur « Afficher ». */
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+  padding-left: 14px;
+}
+
+.perPageLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.perPageSelect {
+  padding: 7px 8px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: border-color 150ms ease-out;
+}
+.perPageSelect:focus { outline: none; border-color: var(--rose); }
+
+/* ── État vide ── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 56px 24px;
+  text-align: center;
+}
+
+.emptyTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.emptyHint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.emptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.emptyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 9px;
+  font-size: 13px;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: border-color 150ms ease-out, background 150ms ease-out, transform 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .emptyBtn:hover { border-color: var(--rose); background: var(--rose-pale); }
+}
+.emptyBtn:active { transform: scale(0.97); }
+
+/* ── Puces de filtres actifs ── */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  background: var(--rose-pale);
+  border: 1px solid var(--rose-border);
+  border-radius: 99px;
+  font-size: 12px;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: border-color 150ms ease-out, background 150ms ease-out, transform 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover { border-color: var(--rose); background: #fff; }
+  .chip:hover .chipX { color: var(--rose-dark); }
+}
+.chip:active { transform: scale(0.97); }
+
+.chipLabel { color: var(--text-muted); }
+.chipValue { font-weight: 600; }
+.chipX     { color: var(--text-muted); transition: color 150ms ease-out; }
+
+.chipReset {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 4px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .chipReset:hover { color: var(--rose-dark); }
 }
 
 .searchIcon {
@@ -716,12 +441,23 @@
 
 .tableHead, .tableRow {
   display: grid;
-  grid-template-columns: 2fr 100px 95px 70px 80px 72px;
+  /* 7 colonnes : produit, marque, SKU, prix, stock, statut, actions */
+  grid-template-columns: 2fr 130px 100px 95px 70px 80px 72px;
   gap: 8px;
   padding: 10px 16px;
   align-items: center;
   font-size: 13px;
 }
+
+/* ── Mode compact ──
+   Réduit la hauteur de ligne pour afficher environ deux fois plus de produits
+   sans défiler. La vignette rétrécit et la ligne de méta (catégorie ·
+   fournisseur) disparaît : sur un balayage de gamme, c'est le nom et le stock
+   qu'on lit, pas le détail de chaque ligne. */
+.cardDense .tableRow { padding: 4px 16px; }
+.cardDense .thumb { width: 26px; height: 26px; }
+.cardDense .productMeta { display: none; }
+.cardDense .productCell { gap: 9px; }
 
 .tableHead {
   font-size: 11px;
@@ -763,6 +499,45 @@
 }
 
 .thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+/* La ligne entière ouvre la fiche : la cible de clic passe d'une icône de 14px
+   à toute la hauteur de ligne. `position: relative` sur .tableRow ancre le
+   ::after du lien. */
+.tableRow { position: relative; }
+
+.productInfo { min-width: 0; }
+
+.productLink {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dark);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 150ms ease-out;
+}
+
+/* Étire la zone cliquable du lien à toute la ligne, sans englober les boutons
+   d'action (qui repassent au-dessus via leur propre z-index). */
+.productLink::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tableRow:hover .productLink { color: var(--rose-dark); }
+}
+
+/* Focus clavier : l'anneau se dessine sur la ligne, pas sur le texte seul */
+.productLink:focus-visible { outline: none; }
+.tableRow:has(.productLink:focus-visible) {
+  outline: 2px solid var(--rose);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
 
 .productName {
   font-size: 13px;
@@ -818,6 +593,10 @@
   display: flex;
   gap: 4px;
   justify-content: flex-end;
+  /* Au-dessus de la zone cliquable de la ligne : supprimer un produit ne doit
+     jamais pouvoir se confondre avec l'ouverture de sa fiche. */
+  position: relative;
+  z-index: 1;
 }
 
 .iconBtn, .iconBtnDanger {
@@ -1303,3 +1082,152 @@
   white-space: nowrap;
 }
 .sortHeader:hover { color: var(--rose); }
+
+/* ── Colonne marque ── */
+.brandCell {
+  justify-self: start;
+  max-width: 100%;
+  padding: 3px 8px;
+  background: var(--rose-pale);
+  border: 1px solid transparent;
+  border-radius: 99px;
+  font-size: 11px;
+  color: var(--rose-dark);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: border-color 150ms ease-out, background 150ms ease-out, transform 150ms ease-out;
+  /* Au-dessus de la zone cliquable de la ligne, sinon le clic ouvrirait la fiche */
+  position: relative;
+  z-index: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .brandCell:hover { border-color: var(--rose); background: #fff; }
+}
+.brandCell:active { transform: scale(0.97); }
+
+.brandEmpty { color: var(--text-muted); font-size: 12px; }
+
+/* ── Vues enregistrées ── */
+/* Rangée des vues enregistrées. Elle se lisait collée aux puces de filtres
+   (12 px d'écart, moins que la marge de la toolbar) : les deux rangées
+   formaient un bloc confus. Un filet et un vrai espace les séparent. */
+.views {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  /* Dernière rangée avant le tableau quand aucune puce ne suit : même
+     respiration que les autres blocs (20 px). */
+  margin-bottom: 20px;
+}
+
+/* Le filet ne sert qu'à séparer des puces qui suivent : sans elles, il
+   flotterait sous la rangée sans rien délimiter. L'écart se resserre alors,
+   les deux rangées formant un même groupe. */
+.views:has(+ .chips) {
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--rose-border);
+}
+
+.viewsIcon { color: var(--rose); flex-shrink: 0; }
+
+.view {
+  display: inline-flex;
+  align-items: center;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 99px;
+  background: #fff;
+  overflow: hidden;
+  transition: border-color 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .view:hover { border-color: var(--rose); }
+}
+
+.viewActive {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.viewBtn {
+  padding: 5px 4px 5px 12px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dark);
+  cursor: pointer;
+}
+.viewActive .viewBtn { color: var(--rose-dark); }
+
+.viewRemove {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px 5px 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .viewRemove:hover { color: #ef4444; }
+}
+
+.viewAdd {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  background: none;
+  border: 1.5px dashed var(--rose-border);
+  border-radius: 99px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 150ms ease-out, color 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .viewAdd:hover:not(:disabled) { border-color: var(--rose); color: var(--rose-dark); }
+}
+.viewAdd:disabled { opacity: .5; cursor: not-allowed; }
+
+.viewForm { display: inline-flex; }
+
+.viewInput {
+  width: 160px;
+  padding: 5px 11px;
+  border: 1.5px solid var(--rose);
+  border-radius: 99px;
+  font-size: 12px;
+  color: var(--text-dark);
+  outline: none;
+}
+
+/* ── Bouton de densité ── */
+.densityBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 9px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 150ms ease-out, color 150ms ease-out, transform 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .densityBtn:hover { border-color: var(--rose); color: var(--rose-dark); }
+}
+.densityBtn:active { transform: scale(0.97); }
+
+/* Sur écran étroit, marque et SKU passent à la trappe avant le reste */
+@media (max-width: 1100px) {
+  .tableHead, .tableRow { grid-template-columns: 2fr 100px 95px 70px 80px 72px; }
+  .tableHead > :nth-child(2), .tableRow > :nth-child(2) { display: none; }
+}

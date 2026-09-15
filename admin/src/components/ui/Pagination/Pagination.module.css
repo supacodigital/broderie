@@ -1,38 +1,112 @@
+/* Les variables --border / --surface / --primary utilisées auparavant ici
+   n'existent pas dans le thème admin : les boutons s'affichaient donc sans
+   bordure ni fond. On s'aligne sur les tokens réels (--rose*, --text*). */
 .pagination {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 12px 16px;
   margin-top: 24px;
 }
 
-.pageBtn {
+/* « 1–20 sur 15 497 » — situe la position dans l'ensemble, ce que
+   « Page 1 / 775 » seul ne disait pas. */
+.range {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.numbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 4px;
+}
+
+.pageBtn,
+.pageNum {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
+  min-width: 32px;
   height: 32px;
-  border: 1px solid var(--border);
+  padding: 0 6px;
+  border: 1.5px solid var(--rose-border);
   border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
+  background: #fff;
+  color: var(--text-dark);
+  font-size: 13px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out, transform 150ms ease-out;
 }
 
-.pageBtn:hover:not(:disabled) {
-  background: var(--surface-hover);
-  border-color: var(--primary);
+@media (hover: hover) and (pointer: fine) {
+  .pageBtn:hover:not(:disabled),
+  .pageNum:hover:not(.pageNumActive) {
+    background: var(--rose-pale);
+    border-color: var(--rose);
+  }
 }
+
+.pageBtn:active:not(:disabled),
+.pageNum:active { transform: scale(0.97); }
 
 .pageBtn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-.pageInfo {
-  font-size: 0.8125rem;
+.pageNumActive {
+  background: var(--rose);
+  border-color: var(--rose);
+  color: #fff;
+  font-weight: 600;
+  cursor: default;
+}
+
+.gap {
+  padding: 0 2px;
   color: var(--text-muted);
-  min-width: 100px;
+  font-size: 13px;
+  user-select: none;
+}
+
+.jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.jumpInput {
+  width: 62px;
+  padding: 6px 8px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: var(--text-dark);
   text-align: center;
+  transition: border-color 150ms ease-out;
+}
+.jumpInput:focus { outline: none; border-color: var(--rose); }
+
+/* Masque les flèches natives du champ number, qui n'apportent rien ici */
+.jumpInput::-webkit-outer-spin-button,
+.jumpInput::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.jumpInput { -moz-appearance: textfield; }
+
+@media (max-width: 700px) {
+  /* Sur mobile, les numéros passent à la ligne : on garde flèches et saut direct */
+  .numbers { display: none; }
 }

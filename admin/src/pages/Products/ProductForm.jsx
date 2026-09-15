@@ -14,6 +14,7 @@ import { getCategories } from '../../services/categories.service.js'
 import { getSuppliers } from '../../services/suppliers.service.js'
 import { getTaxRates } from '../../services/settings.service.js'
 import { useToast } from '../../contexts/ToastContext.jsx'
+import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import { roundCHF } from '../../utils/chf.js'
 import s from './ProductForm.module.css'
 
@@ -233,6 +234,7 @@ export default function ProductForm() {
   const [imgLoading, setImgLoading] = useState(false)
   const [saved,      setSaved]      = useState(false)
   const [apiError,   setApiError]   = useState('')
+  const [confirmLeave, setConfirmLeave] = useState(false)
 
   /* Réduction — le champ "Prix de vente" (priceChf) est TOUJOURS le prix réellement
      payé (price_chf), y compris quand une réduction est active : il ne doit jamais
@@ -242,7 +244,7 @@ export default function ProductForm() {
   const [discountMode,  setDiscountMode]  = useState('none') // 'none' | 'percent' | 'fixed'
   const [discountValue, setDiscountValue] = useState('')
 
-  const { register, handleSubmit, reset, watch, setValue, setError, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, watch, setValue, setError, formState: { errors, isSubmitting, isDirty } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { isActive: true, isFeatured: false, isMadeToOrder: false, badge: '', stock: 0 },
   })
@@ -391,7 +393,38 @@ export default function ProductForm() {
     return () => { cancelled = true }
   }, [isEdit, id, reset])
 
-  const goBack = () => navigate('/produits')
+  /* Retour à la liste en remontant l'historique : la recherche, les filtres et la
+     page vivent dans l'URL de la liste, et un navigate('/produits') sec les
+     effaçait — on retombait sur les 15 000 références après chaque fiche ouverte.
+     Repli sur l'URL nue quand il n'y a pas d'historique (arrivée par lien direct
+     ou nouvel onglet), où il n'y a de toute façon rien à restaurer. */
+  const leave = () => {
+    if (window.history.state?.idx > 0) navigate(-1)
+    else navigate('/produits')
+  }
+
+  /* Quitter avec des modifications non enregistrées demande confirmation.
+     Le formulaire compte une trentaine de champs : partir par erreur après avoir
+     tout ressaisi n'était rattrapable d'aucune façon. `saved` neutralise la garde
+     après un enregistrement réussi, sinon la redirection qui suit déclencherait
+     l'alerte alors que tout est sauvegardé. */
+  const goBack = () => {
+    if (isDirty && !saved) {
+      setConfirmLeave(true)
+      return
+    }
+    leave()
+  }
+
+  /* Même garde pour la fermeture d'onglet ou le rechargement — là où React Router
+     n'a pas la main. Le navigateur impose son propre message, on ne peut que
+     déclencher l'invite. */
+  useEffect(() => {
+    if (!isDirty || saved) return
+    const onBeforeUnload = (e) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [isDirty, saved])
 
   const onSubmit = async (data) => {
     setApiError('')
@@ -440,7 +473,12 @@ export default function ProductForm() {
       }
       setSaved(true)
       toast.success(isEdit ? 'Produit mis à jour.' : 'Produit créé.')
-      setTimeout(goBack, 500)
+      /* Après une édition, on retourne à la liste telle qu'elle était (filtres et
+         page conservés). Après une création, on repart sur la liste vierge triée
+         par date : le nouveau produit y est en tête, alors que les filtres
+         précédents pourraient très bien l'exclure et donner l'impression que
+         l'enregistrement a échoué. */
+      setTimeout(() => (isEdit ? goBack() : navigate('/produits')), 500)
     } catch (err) {
       /* Pas de réponse serveur — coupure réseau, timeout, backend injoignable */
       if (!err.response) {
@@ -485,11 +523,25 @@ export default function ProductForm() {
 
   return (
     <div className={s.page}>
+      {confirmLeave && (
+        <ConfirmDialog
+          message="Vos modifications ne sont pas enregistrées. Quitter cette page ?"
+          onConfirm={leave}
+          onClose={() => setConfirmLeave(false)}
+        />
+      )}
       <div className={s.body}>
         {apiError && (
           <div className={s.apiError}><AlertTriangle size={13} /> {apiError}</div>
         )}
 
+        {/* Deux colonnes : la fiche descriptive à gauche, ce qui relève de la mise
+            en vente à droite (visibilité, photos). En colonne unique, la page
+            faisait 1 900 px de haut alors que la moitié de l'écran restait vide,
+            et les images — qu'on veut voir en modifiant le reste — se trouvaient
+            tout en bas. */}
+        <div className={s.layout}>
+        <div className={s.mainCol}>
         <form onSubmit={handleSubmit(onSubmit)} id="product-form" className={s.formSections}>
           {/* Informations générales */}
           <section className={s.section}>
@@ -576,32 +628,6 @@ export default function ProductForm() {
                 <input id="widthCm" type="number" step="0.1" min="0" className={s.input} placeholder="ex: 20" {...register('widthCm')} />
               </div>
 
-              <div className={`${s.field} ${s.checkGroupInline}`}>
-                <label className={s.checkRow}>
-                  <input type="checkbox" {...register('isActive')} />
-                  <span>Produit actif (visible en boutique)</span>
-                </label>
-                <label className={s.checkRow}>
-                  <input type="checkbox" {...register('isFeatured')} />
-                  <span>Mis en avant (page d'accueil)</span>
-                </label>
-                <label className={s.checkRow}>
-                  <input type="checkbox" {...register('isMadeToOrder')} />
-                  <span>
-                    Sur commande — commandable sans stock
-                    {supplierDelay && ` (délai ${supplierDelay})`}
-                  </span>
-                </label>
-              </div>
-
-              {isMadeToOrderChecked && !supplierDelay && (
-                <p className={`${s.supplierDelayWarning} ${s.fieldFull}`}>
-                  <AlertTriangle size={12} />
-                  {selectedSupplier
-                    ? `Le fournisseur « ${selectedSupplier.name} » n'a pas de délai configuré — le texte générique « 3 à 4 semaines » sera affiché en boutique. Configurez son délai dans l'onglet Fournisseurs.`
-                    : "Aucun fournisseur sélectionné — le texte générique « 3 à 4 semaines » sera affiché en boutique. Choisissez un fournisseur avec un délai configuré."}
-                </p>
-              )}
             </div>
           </section>
 
@@ -728,20 +754,57 @@ export default function ProductForm() {
           </section>
 
         </form>
+        </div>
 
-        {/* Images */}
-        <section className={s.section}>
-          <h2 className={s.sectionTitle}>Images du produit</h2>
-          {isEdit ? (
-            imgLoading
-              ? <p className={s.imgLoadingText}>Chargement des images…</p>
-              : <ImageDropZone productId={Number(id)} images={images} onImagesChange={setImages} />
-          ) : (
-            <p className={s.imgNote}>
-              Créez d'abord le produit, puis ajoutez les images depuis le bouton Modifier.
-            </p>
-          )}
-        </section>
+        <aside className={s.sideCol}>
+          {/* Visibilité — regroupée à part : ce sont les réglages qui décident si
+              et où le produit apparaît, pas des attributs descriptifs. Ils étaient
+              noyés au milieu des dimensions et du poids. */}
+          <section className={s.section}>
+            <h2 className={s.sectionTitle}>Visibilité</h2>
+            <div className={s.checkGroup}>
+              <label className={s.checkRow}>
+                <input type="checkbox" form="product-form" {...register('isActive')} />
+                <span>Produit actif (visible en boutique)</span>
+              </label>
+              <label className={s.checkRow}>
+                <input type="checkbox" form="product-form" {...register('isFeatured')} />
+                <span>Mis en avant (page d'accueil)</span>
+              </label>
+              <label className={s.checkRow}>
+                <input type="checkbox" form="product-form" {...register('isMadeToOrder')} />
+                <span>
+                  Sur commande — commandable sans stock
+                  {supplierDelay && ` (délai ${supplierDelay})`}
+                </span>
+              </label>
+            </div>
+
+            {isMadeToOrderChecked && !supplierDelay && (
+              <p className={s.supplierDelayWarning}>
+                <AlertTriangle size={12} />
+                {selectedSupplier
+                  ? `Le fournisseur « ${selectedSupplier.name} » n'a pas de délai configuré — le texte générique « 3 à 4 semaines » sera affiché en boutique. Configurez son délai dans l'onglet Fournisseurs.`
+                  : "Aucun fournisseur sélectionné — le texte générique « 3 à 4 semaines » sera affiché en boutique. Choisissez un fournisseur avec un délai configuré."}
+              </p>
+            )}
+          </section>
+
+          {/* Images */}
+          <section className={s.section}>
+            <h2 className={s.sectionTitle}>Images du produit</h2>
+            {isEdit ? (
+              imgLoading
+                ? <p className={s.imgLoadingText}>Chargement des images…</p>
+                : <ImageDropZone productId={Number(id)} images={images} onImagesChange={setImages} />
+            ) : (
+              <p className={s.imgNote}>
+                Créez d'abord le produit, puis ajoutez les images depuis le bouton Modifier.
+              </p>
+            )}
+          </section>
+        </aside>
+        </div>
       </div>
 
       <div className={s.actionBar}>

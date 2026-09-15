@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext.jsx'
 import { roundCHF, formatCHF } from '../../utils/chf.js'
 import { fetchDashboardStats } from '../../services/dashboard.service.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
+import FeaturedShowcase from '../../components/FeaturedShowcase/FeaturedShowcase.jsx'
 import s from './Dashboard.module.css'
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000
@@ -452,6 +453,12 @@ export default function Dashboard() {
           </section>
         </div>
       </div>
+
+      {/* ── Vitrine de la page d'accueil ──
+          Configuration du bento de la home, placée en fin de page : c'est un
+          réglage ponctuel, pas une information de pilotage. Les chiffres du jour
+          et les alertes restent au-dessus, visibles sans défiler. */}
+      <FeaturedShowcase />
     </div>
   )
 }

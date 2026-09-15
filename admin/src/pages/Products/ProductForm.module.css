@@ -36,12 +36,47 @@
 
 /* ── Contenu ── */
 .body {
-  max-width: 860px;
+  max-width: 1240px;
   margin: 0 auto;
-  padding-bottom: 24px;
+  /* Compense la barre d'action fixe (70 px) : sans ce dégagement, elle
+     recouvrait en permanence le bas du formulaire — le dernier champ était
+     inaccessible. */
+  padding-bottom: 28px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+/* Deux colonnes : fiche descriptive à gauche, mise en vente à droite. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  align-items: start;
+}
+
+.mainCol { min-width: 0; }
+
+.sideCol {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  /* Reste visible pendant qu'on édite la colonne principale : on veut voir la
+     photo et l'état de publication en modifiant le prix ou la description.
+     84 px = hauteur de la barre d'action + marge. */
+  position: sticky;
+  top: 20px;
+}
+
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: 1fr; }
+  .sideCol { position: static; }
+}
+
+.checkGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .formSections {
@@ -62,28 +97,38 @@
   box-shadow: 0 -4px 16px rgba(0,0,0,.06);
 }
 
+/* Toujours sur une seule ligne, et alignée sur la largeur du contenu (1240 px) :
+   elle restait à 860 px depuis la mise en deux colonnes, donc décalée par
+   rapport au formulaire, et `flex-wrap` la laissait passer sur deux lignes. */
 .actionBarInner {
-  max-width: 860px;
+  /* 1240 = largeur du contenu, + 2×28 px pour compenser le padding latéral du
+     layout : les bords de la barre tombent ainsi exactement sur ceux des
+     sections du formulaire. */
+  max-width: calc(1240px + 56px);
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 14px 28px;
-  flex-wrap: wrap;
+  gap: 32px;
+  padding: 16px 28px;
+  flex-wrap: nowrap;
 }
 
 .actionBarLeft {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
+  /* Se rétracte en premier quand la place manque, pour que les boutons d'action
+     restent entiers : le titre peut s'abréger, pas « Enregistrer ». */
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .actionBarRight {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
+  /* Ne se comprime jamais : les libellés des boutons doivent rester lisibles */
   flex-shrink: 0;
 }
 
@@ -122,7 +167,7 @@
   background: #fff;
   border: 1px solid var(--rose-border);
   border-radius: 14px;
-  padding: 22px 24px;
+  padding: 26px 28px;
   box-shadow: var(--shadow);
 }
 
@@ -130,18 +175,20 @@
   font-size: 14px;
   font-weight: 700;
   color: var(--text-dark);
-  margin-bottom: 18px;
+  margin-bottom: 22px;
 }
 
 .formGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  /* Rangées plus espacées que les colonnes : deux champs côte à côte se lisent
+     comme une paire, deux rangées comme des sujets distincts. */
+  gap: 22px 20px;
   margin-bottom: 4px;
 }
 
-.field { display: flex; flex-direction: column; gap: 5px; }
-.fieldFull { display: flex; flex-direction: column; gap: 5px; grid-column: 1 / -1; }
+.field { display: flex; flex-direction: column; gap: 7px; }
+.fieldFull { display: flex; flex-direction: column; gap: 7px; grid-column: 1 / -1; }
 
 .label { font-size: 12px; font-weight: 600; color: var(--text-dark); }
 
@@ -282,16 +329,24 @@
 
 .checkRow {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  /* La case s'aligne sur la PREMIÈRE ligne du libellé : en colonne étroite,
+     « Sur commande — commandable sans stock » passe sur deux lignes et un
+     centrage vertical décalait la case vers le bas. */
+  align-items: flex-start;
+  gap: 10px;
   font-size: 13px;
+  line-height: 1.45;
   color: var(--text-dark);
   cursor: pointer;
 }
 
+/* Recale la case sur la hauteur de la première ligne de texte */
+.checkRow input { margin-top: 2px; flex-shrink: 0; }
+
 /* ── Actions header ── */
 .btnCancel {
-  padding: 9px 18px;
+  /* Même hauteur que le bouton principal : 9 px contre 12 px les désalignait */
+  padding: 12px 22px;
   background: none;
   border: 1.5px solid var(--rose-border);
   border-radius: 8px;
