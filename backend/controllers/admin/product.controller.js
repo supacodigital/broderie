@@ -3,8 +3,10 @@ const { normalizeLocale }  = require('../../utils/locale.utils');
 
 const getAll = async (req, res, next) => {
   try {
-    const { data, pagination } = await productAdminService.list(req.query);
-    res.json({ success: true, data, pagination });
+    const { data, pagination, isFuzzy } = await productAdminService.list(req.query);
+    /* `isFuzzy` signale des résultats approchés (repli anti-faute de frappe) :
+       sans lui, l'administration laisserait croire à une correspondance exacte. */
+    res.json({ success: true, data, pagination, ...(isFuzzy && { isFuzzy: true }) });
   } catch (error) {
     next(error);
   }
