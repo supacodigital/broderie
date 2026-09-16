@@ -16,9 +16,14 @@ export function useProductSearch(language, debounceMs = 200, limit = 6) {
   const [activeIndex, setActiveIndex] = useState(-1)
   const [loading,     setLoading]     = useState(false)
   const debounceRef = useRef(null)
+  /* Annule la suggestion encore en vol : sans cela une frappe rapide laisse
+     derrière elle une requête par lettre, que le serveur exécute et met en
+     cache jusqu'au bout même si sa réponse n'intéresse plus personne. */
+  const abortRef = useRef(null)
 
   const fetchSuggestions = useCallback((val) => {
     clearTimeout(debounceRef.current)
+    abortRef.current?.abort()
     if (val.trim().length < 2) {
       setSuggestions([])
       setLoading(false)
@@ -26,14 +31,23 @@ export function useProductSearch(language, debounceMs = 200, limit = 6) {
     }
     setLoading(true)
     debounceRef.current = setTimeout(async () => {
+      const controller = new AbortController()
+      abortRef.current = controller
       try {
-        const res = await searchProducts(val.trim(), { locale: normalizeLocale(language), limit })
+        const res = await searchProducts(
+          val.trim(),
+          { locale: normalizeLocale(language), limit },
+          { signal: controller.signal }
+        )
+        if (controller.signal.aborted) return
         setSuggestions(res.data ?? [])
         setActiveIndex(-1)
       } catch {
+        // Requête annulée par une frappe plus récente : on garde l'affichage en l'état
+        if (controller.signal.aborted) return
         setSuggestions([])
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted) setLoading(false)
       }
     }, debounceMs)
   }, [language, debounceMs, limit])
@@ -55,6 +69,7 @@ export function useProductSearch(language, debounceMs = 200, limit = 6) {
 
   const clearSearch = useCallback(() => {
     clearTimeout(debounceRef.current)
+    abortRef.current?.abort()
     setValue('')
     setSuggestions([])
     setActiveIndex(-1)

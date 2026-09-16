@@ -446,6 +446,7 @@
     "resultCount": "{{count}} produit",
     "resultCount_other": "{{count}} produits",
     "noResultsQuery": "Aucun résultat pour \"{{q}}\"",
+    "fuzzyNotice": "Aucun résultat exact pour « {{q}} » — voici des articles proches.",
     "noResultsFilters": "Essayez de modifier vos filtres.",
     "chipMinPrice": "Min CHF {{price}}",
     "chipMaxPrice": "Max CHF {{price}}",

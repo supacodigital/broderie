@@ -93,12 +93,19 @@ export default function Navbar() {
 
         {/* Actions */}
         <div className={s.actions}>
-          {/* Loupe — ouvre la recherche globale */}
+          {/* Recherche — le champ se déploie à gauche de la loupe (desktop),
+              le tiroir prend le relais sous 768 px.
+              `data-nav-search-toggle` sur le bouton : NavSearch s'en sert pour
+              ne pas traiter un clic sur la loupe comme un « clic en dehors »,
+              ce qui neutraliserait la bascule. */}
+          <NavSearch open={searchOpen} onClose={closeSearch} />
+
           <button
             className={`${s.iconBtn} ${searchOpen ? s.iconBtnActive : ''}`}
             aria-label={t('nav.search')}
             aria-expanded={searchOpen}
             onClick={toggleSearch}
+            data-nav-search-toggle
           >
             <Search size={20} />
           </button>
@@ -156,9 +163,6 @@ export default function Navbar() {
           </button>
         </div>
       </nav>
-
-      {/* ── Overlay de recherche global ── */}
-      <NavSearch open={searchOpen} onClose={closeSearch} />
 
       {/* ── Menu mobile plein écran ── */}
       <div

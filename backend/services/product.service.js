@@ -1,8 +1,9 @@
 const productRepository = require('../repositories/product.repository');
 const categoryRepository = require('../repositories/category.repository');
-const { cache, TTL, keys } = require('../config/cache');
+const { cache, cacheSet, TTL, keys } = require('../config/cache');
 const { AppError } = require('../middlewares/errorHandler');
 const { normalizeLocale } = require('../utils/locale.utils');
+const searchLogService = require('./searchLog.service');
 
 // Limite max de résultats par page — protection contre les abus
 const MAX_LIMIT = 100;
@@ -44,7 +45,7 @@ const getAll = async (query) => {
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  const { rows, total } = await productRepository.findAll({ locale, page, limit, sort, order, ...filters });
+  const { rows, total, isFuzzy } = await productRepository.findAll({ locale, page, limit, sort, order, ...filters });
 
   const result = {
     data: rows,
@@ -54,9 +55,26 @@ const getAll = async (query) => {
       total,
       totalPages: Math.ceil(total / limit),
     },
+    /* Résultats approchés : la saisie exacte n'a rien donné, la boutique affiche
+       « aucun résultat pour X — voici des articles proches ». Absent des réponses
+       exactes pour ne pas alourdir le cas courant. */
+    ...(isFuzzy && { isFuzzy: true }),
   };
 
-  cache.set(cacheKey, result, TTL.PRODUCTS);
+  /* Recherche restée totalement infructueuse (même le repli anti-faute n'a rien
+     donné) : on enregistre le terme pour que l'administration sache ce qui manque
+     au catalogue. Aucune donnée personnelle — voir searchLog.service.js.
+     Volontairement hors `await` : la cliente ne doit pas attendre l'écriture d'une
+     statistique. Seule la 1re page est comptée, sinon parcourir la pagination
+     gonflerait artificiellement le compteur.
+     À noter : la réponse étant mise en cache 5 min, un même terme cherché plusieurs
+     fois d'affilée n'est compté qu'une fois par fenêtre de cache — le classement
+     relatif des termes reste juste, c'est lui qui intéresse l'administration. */
+  if (filters.q && total === 0 && page === 1) {
+    searchLogService.recordNoResult(filters.q, locale);
+  }
+
+  cacheSet(cacheKey, result, TTL.PRODUCTS);
   return result;
 };
 
@@ -68,7 +86,7 @@ const getById = async (id, locale = 'fr') => {
   const product = await productRepository.findById(id, locale);
   if (!product) throw new AppError('Produit introuvable.', 404);
 
-  cache.set(cacheKey, product, TTL.PRODUCT);
+  cacheSet(cacheKey, product, TTL.PRODUCT);
   return product;
 };
 
@@ -80,7 +98,7 @@ const getBySlug = async (slug, locale = 'fr') => {
   const product = await productRepository.findBySlug(slug, locale);
   if (!product) throw new AppError('Produit introuvable.', 404);
 
-  cache.set(cacheKey, product, TTL.PRODUCT);
+  cacheSet(cacheKey, product, TTL.PRODUCT);
   return product;
 };
 
@@ -139,7 +157,7 @@ const getBrands = async () => {
   if (cached) return cached;
 
   const brands = await productRepository.findAllBrands();
-  cache.set(cacheKey, brands, TTL.CATEGORIES);
+  cacheSet(cacheKey, brands, TTL.CATEGORIES);
   return brands;
 };
 

@@ -15,6 +15,8 @@ jest.mock('../../repositories/category.repository', () => ({
 
 jest.mock('../../config/cache', () => ({
   cache: { get: jest.fn(), set: jest.fn() },
+  // Écriture tolérante au cache plein — voir config/cache.js
+  cacheSet: jest.fn(),
   TTL:   { PRODUCTS: 300, PRODUCT: 300 },
   keys:  {
     productsList: jest.fn((...a) => `list:${a.join(':')}`),
@@ -24,7 +26,7 @@ jest.mock('../../config/cache', () => ({
 
 const productRepository  = require('../../repositories/product.repository');
 const categoryRepository = require('../../repositories/category.repository');
-const { cache }          = require('../../config/cache');
+const { cache, cacheSet } = require('../../config/cache');
 const service            = require('../../services/product.service');
 
 beforeEach(() => jest.clearAllMocks());
@@ -40,7 +42,7 @@ describe('product.service — getAll()', () => {
 
     expect(result.data).toHaveLength(1);
     expect(result.pagination.total).toBe(1);
-    expect(cache.set).toHaveBeenCalled();
+    expect(cacheSet).toHaveBeenCalled();
   });
 
   test('retourne le cache si disponible', async () => {
@@ -141,7 +143,7 @@ describe('product.service — getById()', () => {
 
     const result = await service.getById(1, 'fr');
     expect(result).toBe(product);
-    expect(cache.set).toHaveBeenCalled();
+    expect(cacheSet).toHaveBeenCalled();
   });
 
   test('retourne le cache si disponible', async () => {
@@ -171,7 +173,7 @@ describe('product.service — getBySlug()', () => {
 
     const result = await service.getBySlug('fil-dmc', 'fr');
     expect(result).toBe(product);
-    expect(cache.set).toHaveBeenCalled();
+    expect(cacheSet).toHaveBeenCalled();
   });
 
   test('retourne le cache si disponible', async () => {

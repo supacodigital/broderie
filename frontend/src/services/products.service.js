@@ -8,8 +8,8 @@ export function getProductBySlug(slug, locale = 'fr') {
   return api.get(`/products/${slug}`, { params: { locale } }).then(r => r.data)
 }
 
-export function searchProducts(q, params = {}) {
-  return api.get('/products', { params: { q, ...params } }).then(r => r.data)
+export function searchProducts(q, params = {}, axiosOptions = {}) {
+  return api.get('/products', { params: { q, ...params }, ...axiosOptions }).then(r => r.data)
 }
 
 export function getCategories(locale = 'fr') {

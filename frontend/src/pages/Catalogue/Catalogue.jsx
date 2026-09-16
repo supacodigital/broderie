@@ -140,6 +140,8 @@ export default function Catalogue() {
   const [brands,      setBrands]      = useState([])
   const [pagination,  setPagination]  = useState({ page: 1, totalPages: 1, total: 0 })
   const [loading,     setLoading]     = useState(true)
+  /* Résultats approchés (repli anti-faute côté serveur) — voir product.repository.js */
+  const [isFuzzy,     setIsFuzzy]     = useState(false)
   const [error,       setError]       = useState(false)
   const { ids: wishlist, toggle: toggleWishlist } = useWishlist()
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -226,6 +228,7 @@ export default function Catalogue() {
       .then(d => {
         if (signal.aborted) return
         setProducts(d.data ?? [])
+        setIsFuzzy(Boolean(d.isFuzzy))
         setPagination(d.pagination ?? { page: 1, totalPages: 1, total: d.data?.length ?? 0 })
       })
       .catch(err => { if (!signal.aborted) setError(true) })
@@ -369,7 +372,14 @@ export default function Catalogue() {
               onRetry={() => handleFiltersChange({ page: 1, limit: 20 })}
             />
           ) : (
-            <div className={viewMode === 'list' ? s.listView : s.grid}>
+            <>
+              {/* Recherche approchée : ne pas laisser croire à une correspondance exacte */}
+              {isFuzzy && filters.q && (
+                <p className={s.fuzzyNotice} role="status">
+                  {t('catalogue.fuzzyNotice', { q: filters.q })}
+                </p>
+              )}
+              <div className={viewMode === 'list' ? s.listView : s.grid}>
               {products.map((p, i) => (
                 <ProductCard
                   key={p.id}
@@ -380,7 +390,8 @@ export default function Catalogue() {
                   mode={viewMode}
                 />
               ))}
-            </div>
+              </div>
+            </>
           )}
 
           {!loading && products.length > 0 && (

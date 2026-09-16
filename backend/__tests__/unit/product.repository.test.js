@@ -189,6 +189,129 @@ describe('product.repository — findBySlug()', () => {
 
 // ── search() ──────────────────────────────────────────────────────────────────
 
+/* Repli anti-faute de frappe — régression.
+   « mouliner » / « moulne » ne remontaient rien alors que le catalogue est plein
+   de « mouliné » : le joker FULLTEXT ne corrige pas une lettre erronée. */
+describe('product.repository — findAll() repli anti-faute', () => {
+  test('une recherche qui aboutit n\'est jamais élargie (une seule passe)', async () => {
+    pool.execute.mockResolvedValue([[{ total: 5 }]]);
+    pool.query.mockResolvedValue([[{ id: 1 }]]);
+
+    const res = await repo.findAll({ locale: 'fr', q: 'mouliné' });
+
+    expect(res.total).toBe(5);
+    expect(res.isFuzzy).toBeUndefined();
+    // Une seule requête de comptage : pas de seconde passe
+    expect(pool.execute).toHaveBeenCalledTimes(1);
+  });
+
+  test('zéro résultat déclenche une seconde passe avec des préfixes élargis', async () => {
+    // 1re passe : aucun résultat — 2e passe : le repli en trouve
+    pool.execute
+      .mockResolvedValueOnce([[{ total: 0 }]])
+      .mockResolvedValueOnce([[{ total: 12 }]]);
+    pool.query
+      .mockResolvedValueOnce([[]])
+      .mockResolvedValueOnce([[{ id: 1 }]]);
+
+    const res = await repo.findAll({ locale: 'fr', q: 'mouliner' });
+
+    expect(res.total).toBe(12);
+    expect(res.isFuzzy).toBe(true);
+    expect(pool.execute).toHaveBeenCalledTimes(2);
+    // « mouliner » (8 lettres) est tronqué à « moulin » puis élargi
+    expect(pool.execute.mock.calls[1][1]).toContain('+moulin*');
+  });
+
+  test('les mots courts ne sont pas tronqués — pas de seconde passe inutile', async () => {
+    pool.execute.mockResolvedValue([[{ total: 0 }]]);
+    pool.query.mockResolvedValue([[]]);
+
+    const res = await repo.findAll({ locale: 'fr', q: 'chat' });
+
+    // « chat » fait moins de 6 lettres : le repli serait identique à la requête initiale
+    expect(res.total).toBe(0);
+    expect(res.isFuzzy).toBeUndefined();
+    expect(pool.execute).toHaveBeenCalledTimes(1);
+  });
+
+  test('si le repli ne donne rien non plus, le résultat vide est conservé', async () => {
+    pool.execute.mockResolvedValue([[{ total: 0 }]]);
+    pool.query.mockResolvedValue([[]]);
+
+    const res = await repo.findAll({ locale: 'fr', q: 'tronconneuse' });
+
+    expect(res.total).toBe(0);
+    expect(res.isFuzzy).toBeUndefined();
+  });
+
+  test('sans recherche texte, aucun repli — un filtre vide reste vide', async () => {
+    pool.execute.mockResolvedValue([[{ total: 0 }]]);
+    pool.query.mockResolvedValue([[]]);
+
+    await repo.findAll({ locale: 'fr', categoryId: 42 });
+
+    expect(pool.execute).toHaveBeenCalledTimes(1);
+  });
+});
+
+/* Recherche par référence produit (SKU / EAN) — régression.
+   Les références imprimées dans les catalogues des éditeurs ne remontaient
+   aucun résultat : ni sku ni ean ne figurent dans l'index FULLTEXT. */
+describe('product.repository — findAll() recherche par référence', () => {
+  test('une saisie ressemblant à une référence compare le SKU et l\'EAN', async () => {
+    pool.execute.mockResolvedValue([[{ total: 1 }]]);
+    pool.query.mockResolvedValue([[{ id: 1 }]]);
+
+    await repo.findAll({ locale: 'fr', q: 'PE5860' });
+
+    const countQuery  = pool.execute.mock.calls[0][0];
+    const countParams = pool.execute.mock.calls[0][1];
+    expect(countQuery).toMatch(/p\.sku/);
+    expect(countQuery).toMatch(/p\.ean = \?/);
+    // La référence est passée nettoyée, en plus des paramètres FULLTEXT et marque
+    expect(countParams).toContain('PE5860');
+  });
+
+  test('les séparateurs sont ignorés : « 1006-5860 » et « 1006 5860 » donnent la même référence', async () => {
+    pool.execute.mockResolvedValue([[{ total: 1 }]]);
+    pool.query.mockResolvedValue([[{ id: 1 }]]);
+
+    await repo.findAll({ locale: 'fr', q: '1006-5860' });
+    expect(pool.execute.mock.calls[0][1]).toContain('10065860');
+
+    jest.clearAllMocks();
+    pool.execute.mockResolvedValue([[{ total: 1 }]]);
+    pool.query.mockResolvedValue([[{ id: 1 }]]);
+
+    await repo.findAll({ locale: 'fr', q: '1006 5860' });
+    expect(pool.execute.mock.calls[0][1]).toContain('10065860');
+  });
+
+  test('une correspondance de référence est classée avant les correspondances de nom', async () => {
+    pool.execute.mockResolvedValue([[{ total: 1 }]]);
+    pool.query.mockResolvedValue([[{ id: 1 }]]);
+
+    await repo.findAll({ locale: 'fr', q: 'PE5860' });
+
+    const selectQuery = pool.query.mock.calls[0][0];
+    // Le score de référence (1000) domine le score FULLTEXT
+    expect(selectQuery).toMatch(/1000 \*/);
+    expect(selectQuery).toMatch(/ORDER BY relevance DESC/);
+  });
+
+  test('une saisie purement textuelle ne déclenche aucune comparaison de référence', async () => {
+    pool.execute.mockResolvedValue([[{ total: 0 }]]);
+    pool.query.mockResolvedValue([[]]);
+
+    await repo.findAll({ locale: 'fr', q: 'coton mouliné' });
+
+    const countQuery = pool.execute.mock.calls[0][0];
+    // Pas de chiffre dans la saisie → pas de test sur sku/ean, la requête reste légère
+    expect(countQuery).not.toMatch(/p\.ean = \?/);
+  });
+});
+
 describe('product.repository — search()', () => {
   test('retourne les résultats paginés avec score de pertinence', async () => {
     pool.execute.mockResolvedValue([[{ total: 1 }]]);
