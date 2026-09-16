@@ -436,6 +436,48 @@ describe('product.admin.repository — findAllAdmin()', () => {
     expect(countQuery).toContain('p.price_chf <=');
   });
 
+  /* Signalement cliente du 2026-09-16 : en cherchant « 310 » (un coloris de fil
+     DMC), les articles portant ce numéro dans leur NOM arrivaient en fin de
+     liste, derrière ceux qui ne le portaient que dans leur référence. */
+  test('classe par pertinence : le nom prime sur la référence', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 1 }]])
+      .mockResolvedValueOnce([[{ id: 5 }]]);
+
+    await repo.findAllAdmin({ search: '310' });
+
+    const [sql, params] = pool.query.mock.calls[1];
+    // Le ORDER BY porte les quatre paliers de pertinence
+    expect(sql).toMatch(/ORDER BY[\s\S]*WHEN pt\.name LIKE \? THEN 0/);
+    expect(sql).toMatch(/WHEN pt\.name LIKE \? THEN 1/);
+    expect(sql).toMatch(/WHEN p\.sku {2}LIKE \? THEN 2/);
+    // « commence par », « contient », « référence commence par »
+    expect(params).toEqual(expect.arrayContaining(['310%', '%310%']));
+  });
+
+  test('sans recherche, aucun classement par pertinence', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 1 }]])
+      .mockResolvedValueOnce([[{ id: 5 }]]);
+
+    await repo.findAllAdmin({});
+
+    expect(pool.query.mock.calls[1][0]).not.toContain('THEN 0');
+  });
+
+  test('chaque mot de la recherche pèse sur la pertinence', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 1 }]])
+      .mockResolvedValueOnce([[{ id: 5 }]]);
+
+    await repo.findAllAdmin({ search: 'DMC 310' });
+
+    const sql = pool.query.mock.calls[1][0];
+    // Deux termes → deux CASE additionnés
+    expect(sql.match(/THEN 0/g)).toHaveLength(2);
+    expect(sql).toContain('+');
+  });
+
   test('filtre les articles dont le classement reste à confirmer (ADM-04)', async () => {
     pool.query
       .mockResolvedValueOnce([[{ total: 1 }]])

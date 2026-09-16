@@ -265,6 +265,30 @@ const runFindAllAdmin = async ({
       params.push(like, like, like, like);
     }
   }
+
+  /* Classement par pertinence — signalement cliente du 2026-09-16 : en cherchant
+     « 310 » (un coloris de fil DMC), les 4 articles portant ce numéro dans leur
+     NOM arrivaient aux rangs 29, 34, 35 et 38, derrière 34 articles qui ne le
+     portaient que dans leur référence fournisseur (« PE92-1310 », « RI2310AC »).
+     Le tri se faisait uniquement par date de création, sans notion de pertinence.
+
+     Quatre paliers, du plus au moins pertinent :
+       0. le nom commence par le terme       — « 310 » → « 310 Noir »
+       1. le nom contient le terme           — « DMC mouliné N° 310 »
+       2. la référence commence par le terme — « 310-A »
+       3. le reste (référence au milieu, fournisseur, gamme)
+     Chaque terme de la recherche compte : « DMC 310 » privilégie un article dont
+     le nom porte les deux mots. */
+  const relevanceSql = searchTerms.length > 0
+    ? `(${searchTerms.map(() => `
+        CASE
+          WHEN pt.name LIKE ? THEN 0
+          WHEN pt.name LIKE ? THEN 1
+          WHEN p.sku  LIKE ? THEN 2
+          ELSE 3
+        END`).join(' + ')}) ASC, `
+    : '';
+  const relevanceParams = searchTerms.flatMap((term) => [`${term}%`, `%${term}%`, `${term}%`]);
   if (brand) {
     where += ' AND p.brand = ?';
     params.push(brand);
@@ -347,9 +371,12 @@ const runFindAllAdmin = async ({
      LEFT JOIN suppliers sup ON sup.id = p.supplier_id
      LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
      ${where}
-     ORDER BY ${imageFirstSql}${sortField} ${sortOrder}
+     ORDER BY ${imageFirstSql}${relevanceSql}${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    /* Les paramètres du ORDER BY viennent APRÈS ceux du WHERE : c'est l'ordre
+       d'apparition des « ? » dans la requête qui compte, pas l'ordre des clauses
+       dans le code. */
+    [...params, ...relevanceParams, limit, offset]
   );
 
   return { rows, total };
