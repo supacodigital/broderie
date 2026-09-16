@@ -86,6 +86,8 @@ router.get('/settings/store',      settingsController.getStoreSettings);
 router.put('/settings/store',      settingsController.updateStoreSettings);
 router.get('/settings/legal',      settingsController.getLegalSettings);
 router.put('/settings/legal',      settingsController.updateLegalSettings);
+router.get('/settings/about',      settingsController.getAboutSettings);
+router.put('/settings/about',      settingsController.updateAboutSettings);
 router.get('/settings/banner',     settingsController.getBannerSettings);
 router.put('/settings/banner',     settingsController.updateBannerSettings);
 router.get('/settings/pickup',     settingsController.getPickupSettings);

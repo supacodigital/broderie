@@ -49,6 +49,27 @@ const updateShippingRate = async (id, { priceChf, estimatedDays }) => {
 /* ── Paramètres boutique (clé/valeur) ── */
 const STORE_KEYS = ['store_name', 'store_email', 'store_phone', 'store_address'];
 const LEGAL_KEYS = ['cgv', 'mentions_legales', 'politique_retour'];
+
+/* Page « Notre Histoire » (ADM-08 — la cliente l'appelle « Qui sommes-nous »).
+   Son contenu vivait dans les fichiers de traduction, donc figé au build : le
+   modifier imposait une intervention de développement. Un champ par bloc plutôt
+   qu'un texte unique, pour que la mise en page (citation, chronologie) survive à
+   une correction de paragraphe.
+   Toute clé laissée vide retombe sur le texte d'origine côté boutique. */
+const ABOUT_KEYS = [
+  'about_title',      // titre principal
+  'about_subtitle',   // phrase d'accroche sous le titre
+  'about_quote',      // citation mise en exergue
+  'about_who_title',  // titre de la 1re section
+  'about_who',        // corps de la 1re section (paragraphes séparés par un saut de ligne)
+  'about_mission_title',
+  'about_mission',
+  'about_signature',
+  'about_year_1',     // chronologie — année puis texte
+  'about_year_1_text',
+  'about_year_2',
+  'about_year_2_text',
+];
 /* Bandeau d'annonce affiché en haut de la boutique (promotion, fermeture, délais).
    `banner_enabled` vaut '1' ou '0' — la table settings ne stocke que du texte. */
 const BANNER_KEYS = ['banner_enabled', 'banner_text', 'banner_link'];
@@ -136,5 +157,5 @@ const updateShippingRatesBulk = async (rates) => {
 module.exports = {
   findAllTaxRates, updateTaxRate, findAllShippingRates, updateShippingRate,
   updateTaxRatesBulk, updateShippingRatesBulk,
-  findSettings, upsertSettings, STORE_KEYS, LEGAL_KEYS, BANNER_KEYS, PICKUP_KEYS, INVOICE_KEYS,
+  findSettings, upsertSettings, STORE_KEYS, LEGAL_KEYS, ABOUT_KEYS, BANNER_KEYS, PICKUP_KEYS, INVOICE_KEYS,
 };

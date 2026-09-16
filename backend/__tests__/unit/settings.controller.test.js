@@ -11,6 +11,7 @@ jest.mock('../../repositories/settings.repository', () => ({
   upsertSettings:       jest.fn(),
   STORE_KEYS: ['store_name', 'store_email'],
   LEGAL_KEYS: ['cgv', 'privacy'],
+  ABOUT_KEYS: ['about_title', 'about_who', 'about_signature'],
   BANNER_KEYS: ['banner_enabled', 'banner_text', 'banner_link'],
 }));
 
@@ -29,6 +30,7 @@ const {
   getShippingRates, updateShippingRates,
   getStoreSettings, updateStoreSettings,
   getLegalSettings, updateLegalSettings,
+  getAboutSettings, updateAboutSettings,
   updateBannerSettings,
 } = require('../../controllers/admin/settings.controller');
 
@@ -260,6 +262,66 @@ describe('admin/settings.controller — updateBannerSettings()', () => {
     settingsRepository.findSettings.mockResolvedValue({});
     const res = makeRes();
     await updateBannerSettings({ body: { banner_text: 'x'.repeat(201) } }, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(settingsRepository.upsertSettings).not.toHaveBeenCalled();
+  });
+});
+
+
+// ── Page « Notre Histoire » (ADM-08) ─────────────────────────────────────────
+
+describe('admin/settings.controller — getAboutSettings()', () => {
+  test('retourne le contenu éditable de la page', async () => {
+    settingsRepository.findSettings.mockResolvedValue({ about_title: 'Qui sommes-nous ?' });
+
+    const res = makeRes();
+    await getAboutSettings({}, res, jest.fn());
+
+    expect(settingsRepository.findSettings).toHaveBeenCalledWith(settingsRepository.ABOUT_KEYS);
+    expect(res.json).toHaveBeenCalledWith({
+      success: true, data: { about_title: 'Qui sommes-nous ?' },
+    });
+  });
+});
+
+describe('admin/settings.controller — updateAboutSettings()', () => {
+  test('enregistre les champs fournis et ignore les clés inconnues', async () => {
+    settingsRepository.upsertSettings.mockResolvedValue();
+    settingsRepository.findSettings.mockResolvedValue({ about_title: 'Notre maison' });
+
+    const req = { body: { about_title: 'Notre maison', cgv: 'PIRATE', inconnu: 'x' } };
+    const res = makeRes();
+    await updateAboutSettings(req, res, jest.fn());
+
+    // Seules les clés de la page passent : un champ légal glissé ici est ignoré
+    expect(settingsRepository.upsertSettings).toHaveBeenCalledWith({ about_title: 'Notre maison' });
+    expect(res.status).not.toHaveBeenCalledWith(400);
+  });
+
+  /* Un champ vide est une valeur valide : c'est ainsi que la cliente revient au
+     texte d'origine de la boutique. */
+  test('accepte un champ vidé', async () => {
+    settingsRepository.upsertSettings.mockResolvedValue();
+    settingsRepository.findSettings.mockResolvedValue({});
+
+    const res = makeRes();
+    await updateAboutSettings({ body: { about_title: '' } }, res, jest.fn());
+
+    expect(settingsRepository.upsertSettings).toHaveBeenCalledWith({ about_title: '' });
+  });
+
+  test('refuse une valeur qui n’est pas du texte', async () => {
+    const res = makeRes();
+    await updateAboutSettings({ body: { about_title: { piège: true } } }, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(settingsRepository.upsertSettings).not.toHaveBeenCalled();
+  });
+
+  test('refuse un texte dépassant la longueur maximale', async () => {
+    const res = makeRes();
+    await updateAboutSettings({ body: { about_who: 'a'.repeat(50001) } }, res, jest.fn());
+
     expect(res.status).toHaveBeenCalledWith(400);
     expect(settingsRepository.upsertSettings).not.toHaveBeenCalled();
   });

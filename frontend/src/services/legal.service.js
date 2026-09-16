@@ -10,3 +10,11 @@ export async function getAnnouncementBanner() {
   const res = await api.get('/legal/banner')
   return res.data?.data ?? null
 }
+
+/* Contenu éditable de la page « Notre Histoire » (ADM-08).
+   Renvoie un objet dont les clés absentes ou vides signifient « garder le texte
+   d'origine » — la page décide, elle seule connaît ses valeurs par défaut. */
+export async function getAboutContent() {
+  const res = await api.get('/legal/about')
+  return res.data?.data ?? {}
+}

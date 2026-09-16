@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound, Megaphone, MapPin, Wallet } from 'lucide-react'
+import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound, Megaphone, MapPin, Wallet, BookOpen } from 'lucide-react'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import { useDirtyTracker } from '../../hooks/useDirtyTracker.js'
@@ -432,6 +432,113 @@ function LegalTab({ onDirtyChange }) {
         <button className={s.btnSave} onClick={handleSave} disabled={saving || loading}>
           <Save size={14} />
           {saving ? 'Enregistrement…' : 'Enregistrer tous les textes'}
+        </button>
+      </div>
+    </>
+  )
+}
+
+/* ── Onglet Notre Histoire ──
+   Contenu de la page « Qui sommes-nous » (ADM-08). Il vivait dans les fichiers de
+   traduction, donc figé au build : la cliente ne pouvait pas corriger une phrase
+   sans intervention de développement.
+   Un champ par bloc plutôt qu'un grand texte : la mise en page de la page
+   (citation mise en exergue, chronologie) survit ainsi à une simple correction. */
+function AboutTab({ onDirtyChange }) {
+  const [values,  setValues]  = useState({})
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(false)
+  const [status,  setStatus]  = useState(null)
+  const [saving,  setSaving]  = useState(false)
+  const { resetBaseline } = useDirtyTracker(values, loading, onDirtyChange)
+
+  const load = useCallback(async () => {
+    setError(false)
+    setLoading(true)
+    try {
+      const res = await getAboutSettings()
+      setValues(prev => ({ ...prev, ...res }))
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const handleChange = (key, val) => setValues(prev => ({ ...prev, [key]: val }))
+
+  const handleSave = async () => {
+    setSaving(true)
+    setStatus(null)
+    try {
+      await updateAboutSettings(values)
+      setStatus('saved')
+      resetBaseline()
+    } catch {
+      setStatus('error')
+    } finally {
+      setSaving(false)
+      setTimeout(() => setStatus(null), 3000)
+    }
+  }
+
+  /* `rows` distingue une ligne d'un paragraphe : un titre n'a pas besoin d'une
+     zone de huit lignes, et un texte long ne tient pas sur deux. */
+  const FIELDS = [
+    { key: 'about_title',    label: 'Titre de la page', rows: 1,
+      desc: 'Affiché en grand en haut de la page.' },
+    { key: 'about_subtitle', label: 'Phrase d’accroche', rows: 2,
+      desc: 'Juste sous le titre.' },
+    { key: 'about_quote',    label: 'Citation mise en avant', rows: 3,
+      desc: 'Encadrée et mise en valeur avant le texte principal.' },
+    { key: 'about_who_title', label: 'Titre de la première partie', rows: 1 },
+    { key: 'about_who',      label: 'Première partie', rows: 8,
+      desc: 'Laissez une ligne vide entre deux paragraphes pour les séparer.' },
+    { key: 'about_mission_title', label: 'Titre de la seconde partie', rows: 1 },
+    { key: 'about_mission',  label: 'Seconde partie', rows: 6,
+      desc: 'Laissez une ligne vide entre deux paragraphes pour les séparer.' },
+    { key: 'about_signature', label: 'Signature', rows: 1,
+      desc: 'Le prénom affiché en fin de texte.' },
+    { key: 'about_year_1',      label: 'Première date', rows: 1 },
+    { key: 'about_year_1_text', label: 'Texte de la première date', rows: 2 },
+    { key: 'about_year_2',      label: 'Seconde date', rows: 1 },
+    { key: 'about_year_2_text', label: 'Texte de la seconde date', rows: 2 },
+  ]
+
+  return (
+    <>
+      {error && <ErrorBanner onRetry={load} />}
+
+      <div className={s.legalNote}>
+        <AlertCircle size={13} />
+        Un champ laissé vide garde le texte actuellement affiché sur la boutique. Vous pouvez donc ne modifier qu’un seul paragraphe.
+      </div>
+
+      <div className={s.sections}>
+        {FIELDS.map(({ key, label, desc, rows }) => (
+          <SettingsSection key={key} title={label} desc={desc}>
+            {loading ? (
+              <div className={s.skeleton} style={{ height: rows > 2 ? 120 : 44 }} />
+            ) : (
+              <textarea
+                className={s.textarea}
+                rows={rows}
+                value={values[key] ?? ''}
+                onChange={e => handleChange(key, e.target.value)}
+                placeholder="Laisser vide pour garder le texte actuel"
+              />
+            )}
+          </SettingsSection>
+        ))}
+      </div>
+
+      <div className={s.formActions} style={{ marginTop: 8 }}>
+        <SaveFeedback status={status} />
+        <button className={s.btnSave} onClick={handleSave} disabled={saving || loading}>
+          <Save size={14} />
+          {saving ? 'Enregistrement…' : 'Enregistrer la page'}
         </button>
       </div>
     </>
@@ -964,6 +1071,7 @@ const TABS = [
   { key: 'store',    label: 'Boutique',      icon: Store,       desc: 'Nom, email, téléphone',   group: 'Boutique' },
   { key: 'pickup',   label: 'Retrait',       icon: MapPin,      desc: 'Adresse et horaires',     group: 'Boutique' },
   { key: 'banner',   label: 'Bandeau',       icon: Megaphone,   desc: 'Annonce en haut du site', group: 'Boutique' },
+  { key: 'about',    label: 'Notre Histoire', icon: BookOpen,   desc: 'Texte de la page « Qui sommes-nous »', group: 'Boutique' },
   { key: 'shipping', label: 'Livraison',     icon: Truck,       desc: 'Tarifs Swiss Post',       group: 'Vente' },
   { key: 'tax',      label: 'TVA',           icon: Receipt,     desc: 'Taux AFC suisses',        group: 'Vente' },
   { key: 'invoice',  label: 'Facturation',   icon: Wallet,      desc: 'Coordonnées, échéance',   group: 'Vente' },
@@ -1056,6 +1164,7 @@ export default function Settings() {
           {tab === 'shipping' && <ShippingTab onDirtyChange={markDirty('shipping')} />}
           {tab === 'tax'      && <TaxTab      onDirtyChange={markDirty('tax')} />}
           {tab === 'legal'    && <LegalTab    onDirtyChange={markDirty('legal')} />}
+          {tab === 'about'    && <AboutTab    onDirtyChange={markDirty('about')} />}
           {tab === 'banner'   && <BannerTab   onDirtyChange={markDirty('banner')} />}
           {tab === 'pickup'   && <PickupTab   onDirtyChange={markDirty('pickup')} />}
           {tab === 'invoice'  && <InvoiceTab  onDirtyChange={markDirty('invoice')} />}

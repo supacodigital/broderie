@@ -42,6 +42,17 @@ export async function updateLegalSettings(data) {
 }
 
 /* Bandeau d'annonce affiché en haut de la boutique */
+/* Page « Notre Histoire » — contenu éditorial modifiable par la cliente (ADM-08) */
+export async function getAboutSettings() {
+  const res = await api.get('/admin/settings/about')
+  return res.data?.data ?? {}
+}
+
+export async function updateAboutSettings(data) {
+  const res = await api.put('/admin/settings/about', data)
+  return res.data?.data ?? {}
+}
+
 export async function getBannerSettings() {
   const res = await api.get('/admin/settings/banner')
   return res.data.data ?? {}

@@ -106,28 +106,57 @@ const getLegalSettings = async (req, res, next) => {
 // pas de sanitisation HTML nécessaire tant qu'il n'y a pas de dangerouslySetInnerHTML.
 const MAX_LEGAL_LENGTH = 50000;
 
+/* Validation commune aux textes éditoriaux (légaux, page « Notre Histoire ») :
+   chaînes uniquement, bornées. Retourne un message d'erreur, ou null si tout va bien. */
+const collectTextSettings = (body, allowedKeys) => {
+  const values = {};
+  for (const key of allowedKeys) {
+    const raw = body[key];
+    if (raw === undefined) continue;
+    if (typeof raw !== 'string') {
+      return { error: { field: key, message: 'Le contenu doit être du texte.' } };
+    }
+    if (raw.length > MAX_LEGAL_LENGTH) {
+      return { error: { field: key, message: `Contenu trop long (max ${MAX_LEGAL_LENGTH} caractères).` } };
+    }
+    values[key] = raw;
+  }
+  return { values };
+};
+
 const updateLegalSettings = async (req, res, next) => {
   try {
-    const allowed = {};
-    for (const key of settingsRepository.LEGAL_KEYS) {
-      const raw = req.body[key];
-      if (raw === undefined) continue;
-      if (typeof raw !== 'string') {
-        return res.status(400).json({
-          success: false, message: 'Données invalides.',
-          errors: [{ field: key, message: 'Le contenu doit être du texte.' }],
-        });
-      }
-      if (raw.length > MAX_LEGAL_LENGTH) {
-        return res.status(400).json({
-          success: false, message: 'Données invalides.',
-          errors: [{ field: key, message: `Contenu trop long (max ${MAX_LEGAL_LENGTH} caractères).` }],
-        });
-      }
-      allowed[key] = raw;
+    const { values, error } = collectTextSettings(req.body, settingsRepository.LEGAL_KEYS);
+    if (error) {
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors: [error] });
     }
-    await settingsRepository.upsertSettings(allowed);
+    await settingsRepository.upsertSettings(values);
     const data = await settingsRepository.findSettings(settingsRepository.LEGAL_KEYS);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/* ── GET /admin/settings/about ── page « Notre Histoire » (ADM-08) ── */
+const getAboutSettings = async (req, res, next) => {
+  try {
+    const data = await settingsRepository.findSettings(settingsRepository.ABOUT_KEYS);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/* ── PUT /admin/settings/about ── */
+const updateAboutSettings = async (req, res, next) => {
+  try {
+    const { values, error } = collectTextSettings(req.body, settingsRepository.ABOUT_KEYS);
+    if (error) {
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors: [error] });
+    }
+    await settingsRepository.upsertSettings(values);
+    const data = await settingsRepository.findSettings(settingsRepository.ABOUT_KEYS);
     res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -283,6 +312,7 @@ module.exports = {
   getShippingRates, updateShippingRates,
   getStoreSettings, updateStoreSettings,
   getLegalSettings, updateLegalSettings,
+  getAboutSettings, updateAboutSettings,
   getBannerSettings, updateBannerSettings,
   getPickupSettings, updatePickupSettings,
   getInvoiceSettings, updateInvoiceSettings,

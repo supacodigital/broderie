@@ -28,4 +28,16 @@ const getBanner = async (req, res, next) => {
   }
 };
 
-module.exports = { getLegalTexts, getBanner };
+/* GET /api/v1/legal/about — contenu éditable de la page « Notre Histoire ».
+   Les clés vides sont renvoyées telles quelles : c'est la boutique qui retombe
+   sur son texte d'origine, elle seule connaît ses valeurs par défaut. */
+const getAboutContent = async (req, res, next) => {
+  try {
+    const data = await settingsRepository.findSettings(settingsRepository.ABOUT_KEYS);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getLegalTexts, getBanner, getAboutContent };
