@@ -105,17 +105,6 @@ describe('Categories — filtres', () => {
     expect(screen.queryByText('Broderie Diamant')).not.toBeInTheDocument()
   })
 
-  it('le raccourci « À reclasser » ne garde que les rayons concernés', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await screen.findByText('Broderie')
-
-    await user.click(screen.getByRole('button', { name: /À reclasser/ }))
-
-    await waitFor(() => expect(screen.getByText('Broderie Diamant')).toBeInTheDocument())
-    expect(screen.queryByText('Toiles')).not.toBeInTheDocument()
-  })
-
   it('affiche une puce retirable pour chaque filtre actif', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -178,10 +167,10 @@ describe('Categories — tri', () => {
 // ── Compteurs et actions ─────────────────────────────────────────────────────
 
 describe('Categories — affichage', () => {
-  it('affiche le nombre d’articles à reclasser sur les rayons concernés', async () => {
+  it('n’affiche pas de badge de classement — Julie pilote ce suivi dans son fichier Excel', async () => {
     renderPage()
     await screen.findByText('Broderie Diamant')
-    expect(screen.getByText(/858 à reclasser/)).toBeInTheDocument()
+    expect(screen.queryByText(/à reclasser/)).not.toBeInTheDocument()
   })
 
   it('résume les rayons vides sous le titre', async () => {

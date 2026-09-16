@@ -246,7 +246,6 @@ function CategoriesPanel() {
   const sortDir       = getParam('order', 'asc')
   const filterLevel   = getParam('level')
   const filterContent = getParam('content')   // 'empty' | 'filled'
-  const filterReview  = getParam('review') === 'true'
 
   /* Le champ de recherche garde son propre état le temps de la frappe, l'URL
      n'étant mise à jour qu'après le debounce. */
@@ -263,12 +262,12 @@ function CategoriesPanel() {
   useEffect(() => () => clearTimeout(searchTimer.current), [])
 
   const activeFilterCount = useMemo(
-    () => [filterLevel, filterContent].filter(v => v !== '').length + (filterReview ? 1 : 0),
-    [filterLevel, filterContent, filterReview]
+    () => [filterLevel, filterContent].filter(v => v !== '').length,
+    [filterLevel, filterContent]
   )
 
   /* Réinitialise les filtres mais conserve la recherche en cours */
-  const resetFilters = () => setParams({ level: '', content: '', review: '' })
+  const resetFilters = () => setParams({ level: '', content: '' })
 
   /* Popover des filtres — fermé à l'arrivée, même quand des filtres sont
      actifs : les puces les rendent déjà visibles. */
@@ -456,9 +455,8 @@ function CategoriesPanel() {
     const count = Number(c.product_count) || 0
     if (filterContent === 'empty'  && count > 0) return false
     if (filterContent === 'filled' && count === 0) return false
-    if (filterReview && !(Number(c.review_count) > 0)) return false
     return true
-  }, [filterLevel, filterContent, filterReview, depthOf])
+  }, [filterLevel, filterContent, depthOf])
 
   /* Une catégorie a-t-elle un descendant qui satisfait recherche ET filtres ?
      Sert à garder visibles les ancêtres d'un résultat, pour qu'il reste
@@ -499,9 +497,8 @@ function CategoriesPanel() {
     if (filterContent) {
       chips.push({ key: 'content', label: 'Contenu', value: filterContent === 'empty' ? 'Vides' : 'Avec produits' })
     }
-    if (filterReview) chips.push({ key: 'review', label: 'Classement', value: 'À reclasser' })
     return chips
-  }, [filterLevel, filterContent, filterReview])
+  }, [filterLevel, filterContent])
 
   /* Totaux affichés sous le titre — le nombre de rayons vides est l'information
      qui déclenche le plus souvent un rangement. */
@@ -560,16 +557,6 @@ function CategoriesPanel() {
           <PackageOpen size={13} /> Vides
         </button>
 
-        {/* Rayons contenant des articles dont le classement reste à confirmer
-            par la cliente (ADM-04) */}
-        <button
-          className={`${s.quickFilter} ${filterReview ? s.quickFilterOn : ''}`}
-          onClick={() => setParams({ review: filterReview ? '' : 'true' })}
-          aria-pressed={filterReview}
-        >
-          <AlertTriangle size={13} /> À reclasser
-        </button>
-
         <div className={s.filterAnchor} ref={filterRef}>
           <button
             className={`${s.quickFilter} ${showFilters || activeFilterCount > 0 ? s.quickFilterOn : ''}`}
@@ -612,18 +599,6 @@ function CategoriesPanel() {
                     <option value="filled">Avec produits</option>
                     <option value="empty">Vides</option>
                   </select>
-                </div>
-
-                <div className={s.filterField}>
-                  <span className={s.filterLabel}>Classement</span>
-                  <label className={s.filterCheckbox}>
-                    <input
-                      type="checkbox"
-                      checked={filterReview}
-                      onChange={e => setParams({ review: e.target.checked ? 'true' : '' })}
-                    />
-                    Contient des articles à reclasser
-                  </label>
                 </div>
               </div>
 
@@ -712,7 +687,7 @@ function CategoriesPanel() {
                 <p className={s.emptyText}>
                   Essayez un autre terme ou retirez les filtres appliqués.
                 </p>
-                <button className={s.resetBtn} onClick={() => { setParams({ q: '', level: '', content: '', review: '' }) }}>
+                <button className={s.resetBtn} onClick={() => { setParams({ q: '', level: '', content: '' }) }}>
                   <RotateCcw size={12} /> Effacer la recherche et les filtres
                 </button>
               </>
@@ -737,7 +712,6 @@ function CategoriesPanel() {
             const isExpanded  = isSearching ? true : expandedIds.has(cat.id)
             /* Compte agrégé sur toute la descendance, rayons secondaires inclus */
             const productCount = Number(cat.product_count) || 0
-            const reviewCount  = Number(cat.review_count)  || 0
             const canDelete = productCount === 0 && (byParent.get(cat.id)?.length ?? 0) === 0
 
             return (
@@ -761,14 +735,6 @@ function CategoriesPanel() {
                   )}
                   {!isChild && <div className={s.catIcon}><Tag size={13} /></div>}
                   <span className={`${s.catName} ${isChild ? s.catNameChild : ''}`}>{nameFr}</span>
-                  {reviewCount > 0 && (
-                    <span
-                      className={s.reviewBadge}
-                      title={`${reviewCount} article${reviewCount > 1 ? 's' : ''} dont le classement reste à confirmer`}
-                    >
-                      {reviewCount.toLocaleString('fr-CH')} à reclasser
-                    </span>
-                  )}
                 </div>
                 <span className={s.slug}>{cat.slug}</span>
                 <span className={s.productCount} data-zero={productCount === 0 ? 'true' : 'false'}>
