@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middlewares/auth');
 const { requireRole } = require('../middlewares/roles');
+const searchLogController = require('../controllers/admin/searchLog.controller');
 
 const dashboardController = require('../controllers/admin/dashboard.controller');
 const supplierController  = require('../controllers/admin/supplier.controller');
@@ -65,6 +66,9 @@ router.get('/orders/:id/label',     shippingAdminController.downloadLabel);
 router.put('/orders/:id/tracking',  shippingAdminController.updateTracking);
 
 // Avis clients
+// Recherches sans résultat — ce que les clientes cherchent en vain
+router.get('/search-logs/no-results', searchLogController.getNoResults);
+
 router.get('/reviews', reviewController.getAll);
 router.put('/reviews/:id/approve', reviewController.approve);
 router.delete('/reviews/:id', reviewController.remove);

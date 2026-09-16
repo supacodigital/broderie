@@ -42,12 +42,74 @@ const toBooleanQuery = (q) =>
     .map((token) => `+${token}*`)
     .join(' ');
 
+/* Repli sur préfixe tronqué — rattrape les fautes de frappe.
+   Le FULLTEXT est strict : « mouliner » ou « moulne » ne trouvent rien alors que le
+   catalogue est plein de « mouliné ». Le joker « * » ne joue qu'en fin de terme, il
+   ne corrige donc jamais une lettre en trop ou erronée.
+
+   Ce repli raccourcit chaque mot de 2 lettres pour élargir le préfixe :
+   « mouliner » → « +moulin* » (1008 résultats), « moulne » → « +moul* » (1013).
+   Il n'est utilisé QUE si la recherche normale n'a rien donné — une recherche qui
+   aboutit n'est jamais élargie, donc aucune perte de précision au quotidien.
+
+   Les mots de 5 lettres ou moins sont laissés intacts : tronquer « aida » ou « chat »
+   produirait un préfixe si court qu'il remonterait n'importe quoi. Pour la même
+   raison on ne descend jamais sous 4 lettres conservées.
+
+   Écarté au passage : passer les termes en OU au lieu de ET. Mesuré sur le catalogue,
+   « kit chat noir » serait passé de 11 à 10 896 résultats (70 % de la boutique) sans
+   rien corriger — les vraies fautes de frappe restaient à 0. */
+const MIN_LENGTH_FOR_TRUNCATION = 6;
+const MIN_KEPT_CHARS = 4;
+const TRUNCATED_CHARS = 2;
+
+const toFuzzyBooleanQuery = (q) => {
+  const terms = toSearchTerms(String(q).replace(RESERVED_FT_CHARS, ' '));
+  if (terms.length === 0) return null;
+
+  let truncated = false;
+  const tokens = terms.map((token) => {
+    if (token.length < MIN_LENGTH_FOR_TRUNCATION) return `+${token}*`;
+    truncated = true;
+    return `+${token.slice(0, Math.max(MIN_KEPT_CHARS, token.length - TRUNCATED_CHARS))}*`;
+  });
+
+  // Aucun mot assez long pour être tronqué : le repli serait identique à la requête
+  // initiale, inutile de relancer une seconde requête pour le même résultat.
+  return truncated ? tokens.join(' ') : null;
+};
+
+/* Référence produit (SKU / EAN) saisie par la cliente.
+   Les catalogues papier des éditeurs (Permin, Lanarte, Bonheur des Dames…) impriment
+   la référence de l'article : elle est donc recopiée telle quelle dans la barre de
+   recherche. Aucun de ces codes n'était trouvable — ni le SKU ni l'EAN ne figurent
+   dans l'index FULLTEXT, qui ne couvre que le nom et la description.
+
+   Les séparateurs sont retirés des deux côtés de la comparaison : 4709 SKU
+   contiennent un tiret (« 1006-5860 »), que la cliente saisit indifféremment
+   « 1006-5860 », « 1006 5860 » ou « 10065860 ».
+   La casse n'a pas à être traitée : la collation utf8mb4_unicode_ci est déjà
+   insensible à la casse. */
+const REFERENCE_SEPARATORS = /[\s.\-_/]/g;
+
+const toReference = (q) => String(q ?? '').trim().replace(REFERENCE_SEPARATORS, '');
+
+/* Une saisie n'est traitée comme une référence que si elle contient au moins un
+   chiffre et pas d'espace interne une fois nettoyée : sans cette garde, « kit »
+   ou « lin » déclencheraient une comparaison de référence inutile sur chaque
+   requête. Toutes les références du catalogue comportent des chiffres. */
+const looksLikeReference = (q) => {
+  const ref = toReference(q);
+  return ref.length >= 3 && ref.length <= 20 && /[0-9]/.test(ref);
+};
+
 // Construction dynamique des filtres WHERE pour la liste produits
 // `locale` sert uniquement au fallback FR de la recherche FULLTEXT (pt peut être vide si la traduction manque)
 const buildFilters = (filters) => {
   const conditions = ['p.is_active = 1', 'p.deleted_at IS NULL'];
   const params = [];
   let booleanQuery = null;
+  let referenceQuery = null;
 
   if (filters.q) {
     // Fallback FR : si la traduction dans la locale demandée est absente, chercher dans pt_fr
@@ -56,14 +118,35 @@ const buildFilters = (filters) => {
     // La marque est incluse via LIKE : beaucoup de produits ne portent pas leur matière
     // dans le nom (« DMC mouliné N° 745 » ne contient pas « coton »), et l'utilisateur
     // cherche pourtant par marque. La marque n'est pas dans l'index FULLTEXT, d'où le LIKE.
-    booleanQuery = toBooleanQuery(filters.q);
+    /* `fuzzyQuery` est fourni par le repli anti-faute de findAll() : la saisie reste
+       la même, seuls les préfixes FULLTEXT sont élargis. */
+    booleanQuery = filters.fuzzyQuery ?? toBooleanQuery(filters.q);
+    /* Comparaison de référence ajoutée en OU : une cliente qui saisit « PE5860 »
+       doit trouver l'article, mais « 310 » doit continuer de remonter les
+       moulinés N° 310 par le nom — d'où un OU et non un court-circuit. */
+    referenceQuery = looksLikeReference(filters.q) ? toReference(filters.q) : null;
+    const referenceSql = referenceQuery
+      ? ` OR REPLACE(REPLACE(REPLACE(p.sku, '-', ''), ' ', ''), '.', '') = ?
+          OR p.ean = ?`
+      : '';
+
     if (booleanQuery) {
       conditions.push(`(
         MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE)
         OR MATCH(pt_fr.name, pt_fr.description) AGAINST(? IN BOOLEAN MODE)
-        OR p.brand LIKE ?
+        OR p.brand LIKE ?${referenceSql}
       )`);
       params.push(booleanQuery, booleanQuery, `%${filters.q}%`);
+      if (referenceQuery) params.push(referenceQuery, referenceQuery);
+    } else {
+      /* Saisie composée uniquement de caractères réservés au BOOLEAN MODE
+         (« +++ », « *** », « " »…) : après nettoyage il ne reste aucun terme.
+         Sans cette branche aucune condition n'était ajoutée et la recherche
+         renvoyait le catalogue entier, comme si rien n'avait été demandé.
+         On se rabat sur la marque, puis le LIKE ne matche rien et la boutique
+         affiche « aucun résultat » — ce que l'utilisateur attend. */
+      conditions.push('p.brand LIKE ?');
+      params.push(`%${filters.q}%`);
     }
   }
   if (filters.categoryIds && filters.categoryIds.length > 0) {
@@ -109,7 +192,7 @@ const buildFilters = (filters) => {
     params.push(filters.brand);
   }
 
-  return { conditions, params, booleanQuery };
+  return { conditions, params, booleanQuery, referenceQuery };
 };
 
 // Champs autorisés pour le tri — protection contre l'injection
@@ -124,8 +207,10 @@ const ALLOWED_SORT_FIELDS = {
 };
 
 // Liste paginée des produits avec filtres
-const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at', order = 'desc', ...filters }) => {
-  const { conditions, params, booleanQuery } = buildFilters(filters);
+// Exécution d'une passe de recherche — appelée une seconde fois par findAll() avec
+// une requête élargie quand la saisie exacte ne donne aucun résultat.
+const runFindAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at', order = 'desc', ...filters }) => {
+  const { conditions, params, booleanQuery, referenceQuery } = buildFilters(filters);
   // Vitrine home bento : ordre défini manuellement par l'admin (featured_order), pas par sort/order —
   // garantit que l'admin et la home affichent toujours exactement le même ordre pour is_featured = 1.
   // Fallback created_at ASC pour les produits jamais réordonnés (featured_order NULL).
@@ -133,7 +218,10 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
      explicitement choisi un tri (prix, nom…). Trier des résultats de recherche par date
      de création remontait des articles sans rapport avant les correspondances évidentes :
      chercher « cotons moulinés » affichait des kits récents avant les moulinés eux-mêmes. */
-  const relevanceSort = booleanQuery && (!sort || sort === 'created_at');
+  /* La pertinence s'applique aussi quand la saisie est une référence : sans cela une
+     recherche « PE5860 » retombait sur le tri par date et noyait la correspondance
+     exacte au milieu des articles récents. */
+  const relevanceSort = (booleanQuery || referenceQuery) && (!sort || sort === 'created_at');
   const sortField = filters.featured
     ? 'p.featured_order IS NULL, p.featured_order, p.created_at'
     : relevanceSort
@@ -178,13 +266,28 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
   /* Score de pertinence : le nom pèse double face à la description — un produit dont le
      NOM contient les termes cherchés est une meilleure réponse qu'un produit qui ne les
      mentionne que dans son texte descriptif. */
+  /* Une correspondance exacte de référence vaut 1000 : elle passe devant n'importe quel
+     score FULLTEXT (qui dépasse rarement quelques unités). La cliente qui saisit une
+     référence de catalogue veut cet article précis, en première position. */
+  const referenceScoreSql = referenceQuery
+    ? `1000 * (REPLACE(REPLACE(REPLACE(p.sku, '-', ''), ' ', ''), '.', '') = ? OR p.ean = ?) + `
+    : '';
   const relevanceSelect = relevanceSort
     ? `, (
-         2 * COALESCE(MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE), 0)
+         ${referenceScoreSql}2 * COALESCE(MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE), 0)
          + COALESCE(MATCH(pt_fr.name, pt_fr.description) AGAINST(? IN BOOLEAN MODE), 0)
        ) AS relevance`
     : '';
-  const relevanceParams = relevanceSort ? [booleanQuery, booleanQuery] : [];
+  /* L'ordre des paramètres suit celui des « ? » dans le SELECT : référence d'abord.
+     `booleanQuery` peut être vide si la saisie est une pure référence (« PE5860 ») —
+     AGAINST('') renvoie simplement 0, le score de référence fait alors tout le travail. */
+  const relevanceParams = relevanceSort
+    ? [
+        ...(referenceQuery ? [referenceQuery, referenceQuery] : []),
+        booleanQuery ?? '',
+        booleanQuery ?? '',
+      ]
+    : [];
 
   const [rows] = await pool.query(
     `SELECT ${PRODUCT_COLUMNS}${relevanceSelect}
@@ -204,6 +307,26 @@ const findAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created_at
 
   return { rows, total };
 };
+
+/* Recherche produit avec repli anti-faute de frappe.
+   La saisie exacte est toujours tentée en premier : une recherche qui aboutit n'est
+   jamais élargie. Ce n'est qu'en l'absence totale de résultat qu'on relance la même
+   requête avec des préfixes raccourcis (voir toFuzzyBooleanQuery).
+   Le repli ne s'applique qu'à une vraie recherche texte : filtrer sur une catégorie
+   vide doit continuer d'afficher « aucun produit », pas des articles sans rapport. */
+const findAll = async (options) => {
+  const result = await runFindAll(options);
+  if (result.total > 0 || !options.q) return result;
+
+  const fuzzyQuery = toFuzzyBooleanQuery(options.q);
+  if (!fuzzyQuery) return result;
+
+  const fuzzyResult = await runFindAll({ ...options, q: options.q, fuzzyQuery });
+  // `isFuzzy` permet à la boutique d'annoncer « aucun résultat pour X, voici des
+  // suggestions proches » plutôt que de faire croire à une correspondance exacte.
+  return fuzzyResult.total > 0 ? { ...fuzzyResult, isFuzzy: true } : result;
+};
+
 
 // Détail d'un produit par id avec images et variantes
 const findById = async (id, locale = 'fr') => {

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, X, SlidersHorizontal, LayoutGrid, List } from 'lucide-react'
 import { useProductSearch } from '../../hooks/useProductSearch.js'
-import { roundCHF } from '../../utils/chf.js'
+import SearchSuggestion from '../../components/ui/SearchSuggestion/SearchSuggestion.jsx'
 import s from './SearchBar.module.css'
 
 const SORT_OPTIONS = [
@@ -146,15 +146,7 @@ export default function SearchBar({ filters, onChange, total, onToggleFilters, v
                   onMouseDown={() => selectSuggestion(p)}
                   onMouseEnter={() => setActiveIndex(i)}
                 >
-                  {p.image_url ? (
-                    <img src={p.image_url} alt="" className={s.suggestionImg} width="36" height="36" />
-                  ) : (
-                    <div className={s.suggestionImgFallback} aria-hidden="true">🧵</div>
-                  )}
-                  <div className={s.suggestionText}>
-                    <span className={s.suggestionName}>{p.name}</span>
-                    <span className={s.suggestionPrice}>CHF {roundCHF(p.price_chf).toFixed(2)}</span>
-                  </div>
+                  <SearchSuggestion product={p} query={inputValue} showCategory />
                 </li>
               ))}
             </ul>

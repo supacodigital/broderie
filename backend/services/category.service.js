@@ -1,5 +1,5 @@
 const categoryRepository = require('../repositories/category.repository');
-const { cache, TTL, keys } = require('../config/cache');
+const { cache, cacheSet, TTL, keys } = require('../config/cache');
 
 const getAll = async (locale) => {
   const cacheKey = keys.categories(locale);
@@ -7,7 +7,7 @@ const getAll = async (locale) => {
   if (cached) return cached;
 
   const categories = await categoryRepository.findAll(locale);
-  cache.set(cacheKey, categories, TTL.CATEGORIES);
+  cacheSet(cacheKey, categories, TTL.CATEGORIES);
   return categories;
 };
 

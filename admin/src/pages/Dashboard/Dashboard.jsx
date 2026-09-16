@@ -10,6 +10,7 @@ import { roundCHF, formatCHF } from '../../utils/chf.js'
 import { fetchDashboardStats } from '../../services/dashboard.service.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
 import FeaturedShowcase from '../../components/FeaturedShowcase/FeaturedShowcase.jsx'
+import NoResultSearches from '../../components/NoResultSearches/NoResultSearches.jsx'
 import s from './Dashboard.module.css'
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000
@@ -451,6 +452,10 @@ export default function Dashboard() {
               </Link>
             </div>
           </section>
+
+          {/* Ce que les clientes cherchent sans rien trouver — signale les
+              manques du catalogue, à côté des autres alertes de pilotage. */}
+          <NoResultSearches />
         </div>
       </div>
 

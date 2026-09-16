@@ -1,5 +1,5 @@
 const { pool } = require('../config/db');
-const { cache, keys, TTL } = require('../config/cache');
+const { cache, cacheSet, keys, TTL } = require('../config/cache');
 
 /* ── Taux TVA (cache 24 h — données quasi statiques, sur le chemin critique du checkout) ── */
 const findAllTaxRates = async () => {
@@ -8,7 +8,7 @@ const findAllTaxRates = async () => {
   const [rows] = await pool.execute(
     `SELECT id, name, rate, category, is_default FROM tax_rates ORDER BY id ASC`
   );
-  cache.set(keys.taxRates(), rows, TTL.TAX_RATES);
+  cacheSet(keys.taxRates(), rows, TTL.TAX_RATES);
   return rows;
 };
 
@@ -31,7 +31,7 @@ const findAllShippingRates = async () => {
      INNER JOIN shipping_zones sz ON sz.id = sr.zone_id
      ORDER BY sr.min_weight ASC`
   );
-  cache.set(keys.shippingRates(), rows, TTL.SHIPPING);
+  cacheSet(keys.shippingRates(), rows, TTL.SHIPPING);
   return rows;
 };
 

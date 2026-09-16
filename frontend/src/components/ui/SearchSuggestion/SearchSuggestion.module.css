@@ -1,0 +1,112 @@
+/* Suggestion de recherche — partagée par la navbar et le catalogue.
+   Les tokens de couleur proviennent de index.css : aucune valeur en dur. */
+
+.image {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--rose-pale);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.name {
+  font-size: 13px;
+  color: var(--text-dark);
+  /* Un nom long ne doit pas pousser le prix hors de la liste */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Surlignage du terme cherché — fond discret, le contraste reste porté par le texte */
+.mark {
+  background: var(--rose-border);
+  color: var(--text-dark);
+  border-radius: 2px;
+  padding: 0 1px;
+  font-weight: 600;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  min-height: 14px;
+}
+
+.category {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* États de stock — mêmes règles que ProductCard pour ne pas dérouter la cliente */
+.stockLow {
+  color: var(--gold);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stockOut {
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.madeToOrder {
+  color: var(--rose-dark);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.prices {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.price {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+  white-space: nowrap;
+}
+
+/* Prix promotionnel : le prix barré n'apparaît que pendant la fenêtre de promotion
+   (le backend met déjà compare_price_chf à NULL hors promo). */
+.pricePromo {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--rose);
+  white-space: nowrap;
+}
+
+.priceOld {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-decoration: line-through;
+  white-space: nowrap;
+}
