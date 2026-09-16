@@ -5,13 +5,17 @@
   margin-bottom: 16px;
 }
 
+/* Ligne d'accès aux filtres — ne contient que le bouton mobile.
+   `display: none` par défaut : sur desktop le panneau de filtres est déjà
+   visible en colonne, cette ligne serait un espace vide au-dessus de la barre
+   de recherche. Réaffichée sous 1024 px avec .filterToggle. */
 .row {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 12px;
 }
 
-/* ── Toolbar (ligne 2 : compteur + tri + vue) ── */
+/* ── Barre d'outils : recherche + tri + vue ── */
 .toolbar {
   display: flex;
   align-items: center;
@@ -238,6 +242,7 @@
 
 /* ── Responsive ── */
 @media (max-width: 1024px) {
+  .row          { display: flex; }
   .filterToggle { display: flex; }
 }
 
@@ -246,4 +251,8 @@
   .toolbar    { gap: 8px; }
   .sortLabel  { display: none; }
   .viewToggle { display: none; }
+
+  /* Le champ passe sur toute la largeur, au-dessus du tri : partagée avec le
+     sélecteur, la recherche se réduisait à « Recherc… » sur un écran de 375 px. */
+  .searchWrap { flex: 1 1 100%; max-width: none; }
 }

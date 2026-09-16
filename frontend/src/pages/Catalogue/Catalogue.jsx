@@ -331,7 +331,6 @@ export default function Catalogue() {
           <SearchBar
             filters={filters}
             onChange={handleFiltersChange}
-            total={pagination.total}
             onToggleFilters={() => setFiltersOpen(o => !o)}
             viewMode={viewMode}
             onViewChange={toggleView}

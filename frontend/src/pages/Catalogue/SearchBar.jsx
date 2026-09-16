@@ -14,7 +14,7 @@ const SORT_OPTIONS = [
   { value: 'name:asc',        labelKey: 'catalogue.sortNameAsc'    },
 ]
 
-export default function SearchBar({ filters, onChange, total, onToggleFilters, viewMode, onViewChange }) {
+export default function SearchBar({ filters, onChange, onToggleFilters, viewMode, onViewChange }) {
   const { t, i18n } = useTranslation()
 
   const {
@@ -107,13 +107,18 @@ export default function SearchBar({ filters, onChange, total, onToggleFilters, v
 
   return (
     <div className={s.bar}>
-      {/* ── Ligne 1 : recherche + filtres mobile ── */}
+      {/* ── Accès aux filtres — mobile uniquement (masqué en CSS sur desktop) ── */}
       <div className={s.row}>
         <button className={s.filterToggle} onClick={onToggleFilters} aria-label="Ouvrir les filtres">
           <SlidersHorizontal size={15} />
           <span>{t('catalogue.filters')}</span>
         </button>
+      </div>
 
+      {/* ── Barre d'outils : recherche + tri + vue ──
+          La recherche a remplacé le compteur de résultats : « 15 497 produits »
+          occupait la place la plus visible de la page sans aider à choisir. */}
+      <div className={s.toolbar}>
         <div className={s.searchWrap} ref={wrapRef}>
           <Search size={15} className={s.searchIcon} aria-hidden="true" />
           <input
@@ -152,13 +157,6 @@ export default function SearchBar({ filters, onChange, total, onToggleFilters, v
             </ul>
           )}
         </div>
-      </div>
-
-      {/* ── Ligne 2 : compteur + tri + vue ── */}
-      <div className={s.toolbar}>
-        {total !== undefined && (
-          <p className={s.count}>{t('catalogue.resultCount', { count: total })}</p>
-        )}
 
         <div className={s.toolbarRight}>
           {/* Tri */}

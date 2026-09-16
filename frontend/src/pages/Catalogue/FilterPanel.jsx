@@ -176,6 +176,32 @@ export default function FilterPanel({ filters, onChange, categories = [], brands
           </div>
         </div>
 
+        {/* ── Disponibilité ──
+            Placée en tête : c'est le filtre le plus décisif du catalogue, où
+            la majorité des références sont à zéro. Savoir ce qui est réellement
+            disponible prime sur le rayon dans lequel chercher. */}
+        <div className={s.group}>
+          <p className={s.groupTitle}>{t('catalogue.availability')}</p>
+          <label className={s.checkRow}>
+            <input
+              type="checkbox"
+              className={s.checkbox}
+              checked={!!filters.in_stock}
+              onChange={e => set('in_stock', e.target.checked ? true : undefined)}
+            />
+            <span>{t('catalogue.inStockOnly')}</span>
+          </label>
+          <label className={s.checkRow}>
+            <input
+              type="checkbox"
+              className={s.checkbox}
+              checked={!!filters.made_to_order}
+              onChange={e => set('made_to_order', e.target.checked ? true : undefined)}
+            />
+            <span>{t('catalogue.madeToOrderOnly')}</span>
+          </label>
+        </div>
+
         {/* ── Catégories ── */}
         <div className={s.group}>
           <p className={s.groupTitle}>{t('catalogue.category')}</p>
@@ -316,28 +342,6 @@ export default function FilterPanel({ filters, onChange, categories = [], brands
           </div>
         </div>
 
-        {/* ── Disponibilité ── */}
-        <div className={s.group}>
-          <p className={s.groupTitle}>{t('catalogue.availability')}</p>
-          <label className={s.checkRow}>
-            <input
-              type="checkbox"
-              className={s.checkbox}
-              checked={!!filters.in_stock}
-              onChange={e => set('in_stock', e.target.checked ? true : undefined)}
-            />
-            <span>{t('catalogue.inStockOnly')}</span>
-          </label>
-          <label className={s.checkRow}>
-            <input
-              type="checkbox"
-              className={s.checkbox}
-              checked={!!filters.made_to_order}
-              onChange={e => set('made_to_order', e.target.checked ? true : undefined)}
-            />
-            <span>{t('catalogue.madeToOrderOnly')}</span>
-          </label>
-        </div>
       </aside>
     </>
   )
