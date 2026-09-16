@@ -2,12 +2,12 @@ const { pool } = require('../config/db');
 
 /* Toutes les catégories avec traductions et comptages de produits (admin).
  *
- * Les totaux sont agrégés sur toute la descendance : « Broderie » affiche la
- * somme de ses sous-rayons. Cette agrégation se faisait auparavant par une
- * sous-requête corrélée exécutée pour CHAQUE catégorie — 54 balayages de la
+ * Les totaux sont agrégés sur toute la descendance : « Broderie » compte les
+ * produits de tous ses sous-rayons. Cette agrégation se faisait auparavant par
+ * une sous-requête corrélée exécutée pour CHAQUE catégorie — 54 balayages de la
  * table produits, 429 ms, et le double une fois le second compteur ajouté.
- * On compte désormais une seule fois par catégorie en SQL, puis on propage
- * vers les ancêtres en JS : l'arbre tient en 54 lignes, le coût est nul.
+ * On lit désormais les rattachements en une passe, puis on les propage vers les
+ * ancêtres en JS.
  */
 const findAll = async () => {
   const [categories] = await pool.execute(
@@ -18,17 +18,18 @@ const findAll = async () => {
 
   if (categories.length === 0) return [];
 
-  /* Comptage direct (sans descendance) par catégorie, en une passe.
+  /* Couples (produit, catégorie) bruts. On ne pré-agrège pas en SQL : un même
+     produit peut être rattaché à une catégorie ET à sa parente — l'import
+     conserve le rayon d'origine quand la cliente affine un classement — et des
+     comptages par catégorie ne pourraient alors plus être additionnés sans
+     compter ce produit deux fois dans l'ancêtre commun.
      Rattachement lu sur product_categories (ADM-04) : un produit rangé dans un
      rayon secondaire y compte, comme en boutique — sinon l'administration et le
      site afficheraient deux totaux différents pour la même catégorie. */
-  const [counts] = await pool.execute(
-    `SELECT pc.category_id,
-            COUNT(*) AS direct_count,
-            SUM(p.category_needs_review = 1) AS direct_review
+  const [links] = await pool.execute(
+    `SELECT pc.category_id, pc.product_id, p.category_needs_review
      FROM product_categories pc
-     JOIN products p ON p.id = pc.product_id AND p.deleted_at IS NULL
-     GROUP BY pc.category_id`
+     JOIN products p ON p.id = pc.product_id AND p.deleted_at IS NULL`
   );
 
   const ids = categories.map((c) => c.id);
@@ -39,13 +40,6 @@ const findAll = async () => {
     [ids]
   );
 
-  const directById = new Map(
-    counts.map((row) => [row.category_id, {
-      total:  Number(row.direct_count)  || 0,
-      review: Number(row.direct_review) || 0,
-    }])
-  );
-
   // Traductions indexées par catégorie — un filter() par ligne serait quadratique
   const translationsById = new Map();
   for (const t of translations) {
@@ -53,28 +47,28 @@ const findAll = async () => {
     translationsById.get(t.category_id)[t.locale] = { name: t.name, description: t.description };
   }
 
-  /* Propagation des totaux vers les ancêtres. Un produit rattaché à la fois à
-     une catégorie et à sa parente serait compté deux fois par une simple
-     addition : on agrège donc des ensembles de catégories, et c'est le COUNT
-     SQL par catégorie qui garantit qu'un produit n'est compté qu'une fois par
-     rayon. Pour un même ancêtre, on additionne les comptages de ses
-     descendants — un article rangé dans deux sous-rayons distincts du même
-     parent reste un cas théorique que l'arborescence métier ne produit pas. */
+  /* Agrégation sur la descendance par ENSEMBLES de produits, et non par somme
+     de comptages : un article rangé dans « Kits de Broderie » et dans
+     « Kits de Broderie > Point de croix compté » ne doit être compté qu'une fois
+     dans « Broderie ». Sur le catalogue réel, 2 897 articles sont dans ce cas et
+     une simple addition gonflait le rayon Broderie de 12 928 à 15 825, soit plus
+     que le catalogue entier.
+     Le coût mémoire reste modeste : environ 19 000 rattachements répartis sur
+     54 catégories, chacun inséré dans au plus 3 ensembles (sa catégorie et ses
+     deux ancêtres). */
   const parentById = new Map(categories.map((c) => [c.id, c.parent_id]));
-  const aggregated = new Map(categories.map((c) => [c.id, { total: 0, review: 0 }]));
+  const aggregated = new Map(categories.map((c) => [c.id, { total: new Set(), review: new Set() }]));
 
-  for (const category of categories) {
-    const direct = directById.get(category.id);
-    if (!direct) continue;
+  for (const link of links) {
     // La catégorie elle-même, puis chacun de ses ancêtres
-    let current = category.id;
+    let current = link.category_id;
     const seen = new Set();
     while (current && !seen.has(current)) {
       seen.add(current); // garde-fou : une boucle parent/enfant ne doit pas figer la requête
       const bucket = aggregated.get(current);
       if (bucket) {
-        bucket.total  += direct.total;
-        bucket.review += direct.review;
+        bucket.total.add(link.product_id);
+        if (link.category_needs_review === 1) bucket.review.add(link.product_id);
       }
       current = parentById.get(current);
     }
@@ -82,8 +76,8 @@ const findAll = async () => {
 
   return categories.map((cat) => ({
     ...cat,
-    product_count: aggregated.get(cat.id)?.total  ?? 0,
-    review_count:  aggregated.get(cat.id)?.review ?? 0,
+    product_count: aggregated.get(cat.id)?.total.size  ?? 0,
+    review_count:  aggregated.get(cat.id)?.review.size ?? 0,
     translations:  translationsById.get(cat.id) ?? {},
   }));
 };

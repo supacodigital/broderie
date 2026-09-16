@@ -48,8 +48,8 @@ describe('category.admin.repository — findAll()', () => {
   });
 
   /* Agrégation des comptages sur la descendance (ADM-04) — la partie subtile :
-     le SQL ne compte plus que le rattachement DIRECT, la remontée vers les
-     ancêtres se fait en JS. */
+     le SQL renvoie les rattachements bruts, la remontée vers les ancêtres et le
+     dédoublonnage se font en JS. */
   test('agrège les comptages des enfants vers leurs ancêtres', async () => {
     pool.execute
       // 1er appel : l'arbre (racine 1 → enfant 10 → petit-enfant 100)
@@ -59,26 +59,53 @@ describe('category.admin.repository — findAll()', () => {
         { id: 100, parent_id: 10,   slug: 'point-croix', sort_order: 1 },
         { id: 2,   parent_id: null, slug: 'fils',       sort_order: 2 },
       ]])
-      // 2e appel : comptages directs par catégorie
+      // 2e appel : un couple (produit, catégorie) par rattachement
       .mockResolvedValueOnce([[
-        { category_id: 10,  direct_count: 40, direct_review: 10 },
-        { category_id: 100, direct_count:  5, direct_review:  5 },
-        { category_id: 2,   direct_count:  7, direct_review:  0 },
+        { category_id: 10,  product_id: 1, category_needs_review: 1 },
+        { category_id: 10,  product_id: 2, category_needs_review: 0 },
+        { category_id: 100, product_id: 3, category_needs_review: 1 },
+        { category_id: 2,   product_id: 4, category_needs_review: 0 },
       ]]);
     pool.query.mockResolvedValue([[]]);
 
     const byId = Object.fromEntries((await repo.findAll()).map(c => [c.id, c]));
 
-    // La racine cumule ses deux niveaux de descendance : 40 + 5
-    expect(byId[1].product_count).toBe(45);
-    expect(byId[1].review_count).toBe(15);
+    // La racine cumule ses deux niveaux de descendance
+    expect(byId[1].product_count).toBe(3);
+    expect(byId[1].review_count).toBe(2);
     // L'intermédiaire cumule son propre total et celui de son enfant
-    expect(byId[10].product_count).toBe(45);
+    expect(byId[10].product_count).toBe(3);
     // La feuille ne compte qu'elle-même
-    expect(byId[100].product_count).toBe(5);
+    expect(byId[100].product_count).toBe(1);
     // Une racine sans enfant garde son comptage direct
-    expect(byId[2].product_count).toBe(7);
+    expect(byId[2].product_count).toBe(1);
     expect(byId[2].review_count).toBe(0);
+  });
+
+  /* Non-régression : l'import conserve le rayon d'origine quand la cliente
+     affine un classement, donc un produit est souvent rattaché à une catégorie
+     ET à sa parente. Une addition de comptages le comptait deux fois et gonflait
+     le rayon Broderie à 15 825 produits — plus que le catalogue entier. */
+  test('ne compte pas deux fois un produit rattaché à une catégorie et à sa parente', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[
+        { id: 1,   parent_id: null, slug: 'broderie', sort_order: 1 },
+        { id: 10,  parent_id: 1,    slug: 'kits',     sort_order: 1 },
+      ]])
+      .mockResolvedValueOnce([[
+        // Le produit 1 est dans le rayon ET dans sa sous-catégorie
+        { category_id: 1,  product_id: 1, category_needs_review: 1 },
+        { category_id: 10, product_id: 1, category_needs_review: 1 },
+        { category_id: 10, product_id: 2, category_needs_review: 0 },
+      ]]);
+    pool.query.mockResolvedValue([[]]);
+
+    const byId = Object.fromEntries((await repo.findAll()).map(c => [c.id, c]));
+
+    // 2 produits distincts, pas 3
+    expect(byId[1].product_count).toBe(2);
+    expect(byId[1].review_count).toBe(1);
+    expect(byId[10].product_count).toBe(2);
   });
 
   test('catégorie sans aucun produit : comptages à zéro', async () => {
@@ -100,14 +127,16 @@ describe('category.admin.repository — findAll()', () => {
         { id: 1, parent_id: 2, slug: 'a', sort_order: 1 },
         { id: 2, parent_id: 1, slug: 'b', sort_order: 2 },
       ]])
-      .mockResolvedValueOnce([[{ category_id: 1, direct_count: 3, direct_review: 1 }]]);
+      .mockResolvedValueOnce([[
+        { category_id: 1, product_id: 7, category_needs_review: 1 },
+      ]]);
     pool.query.mockResolvedValue([[]]);
 
     const result = await repo.findAll();
     expect(result).toHaveLength(2);
     // Le produit est compté une seule fois de chaque côté de la boucle
-    expect(result.find(c => c.id === 1).product_count).toBe(3);
-    expect(result.find(c => c.id === 2).product_count).toBe(3);
+    expect(result.find(c => c.id === 1).product_count).toBe(1);
+    expect(result.find(c => c.id === 2).product_count).toBe(1);
   });
 });
 
