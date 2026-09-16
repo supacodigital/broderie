@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { Plus, Edit2, Trash2, Search, Package, X, RotateCcw, Truck } from 'lucide-react'
+import SortIcon from '../../components/ui/SortIcon/SortIcon.jsx'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import { getSuppliers, deleteSupplier } from '../../services/suppliers.service.js'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
@@ -37,6 +38,16 @@ export default function Suppliers() {
   const isActive = getParam('is_active')
   const sortCol  = getParam('sort', 'name')
   const sortDir  = getParam('order', 'asc')
+
+  /* Tri par colonne — le nom monte par défaut (A→Z), les compteurs descendent
+     (le plus gros fournisseur d'abord), ce que l'on cherche en pratique. */
+  const handleSort = (col) => {
+    if (sortCol === col) {
+      setParams({ order: sortDir === 'asc' ? 'desc' : 'asc' })
+      return
+    }
+    setParams({ sort: col, order: col === 'name' ? 'asc' : 'desc' })
+  }
 
   const [searchInput, setSearchInput] = useState(search)
   const debounceRef = useRef(null)
@@ -129,23 +140,21 @@ export default function Suppliers() {
           Inactifs
         </button>
 
+        {/* Le tri par nom et par nombre de produits se fait désormais en cliquant
+            les en-têtes du tableau. Ce sélecteur ne conserve que « Ajout récent »,
+            qui n'a pas de colonne dédiée. */}
         <div className={s.toolbarRight}>
-          <label className={s.sortLabel}>
-            Trier par
-            <select
-              className={s.sortSelect}
-              value={`${sortCol}:${sortDir}`}
-              onChange={e => {
-                const [col, dir] = e.target.value.split(':')
-                setParams({ sort: col, order: dir })
-              }}
-            >
-              <option value="name:asc">Nom (A→Z)</option>
-              <option value="name:desc">Nom (Z→A)</option>
-              <option value="product_count:desc">Nombre de produits</option>
-              <option value="created_at:desc">Ajout récent</option>
-            </select>
-          </label>
+          <button
+            className={`${s.quickFilter} ${sortCol === 'created_at' ? s.quickFilterOn : ''}`}
+            onClick={() => setParams(
+              sortCol === 'created_at'
+                ? { sort: '', order: '' }
+                : { sort: 'created_at', order: 'desc' }
+            )}
+            aria-pressed={sortCol === 'created_at'}
+          >
+            Ajout récent
+          </button>
         </div>
       </div>
 
@@ -174,10 +183,12 @@ export default function Suppliers() {
       {error && <ErrorBanner onRetry={load} />}
 
       {loading ? (
-        <div className={s.grid}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className={s.skeleton} />
-          ))}
+        <div className={s.card}>
+          <div className={s.skeletonWrap}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className={s.skeleton} />
+            ))}
+          </div>
         </div>
       ) : suppliers.length === 0 ? (
         /* Deux situations distinctes : un filtre trop restrictif, ou un module
@@ -211,55 +222,84 @@ export default function Suppliers() {
           )}
         </div>
       ) : (
-        <div className={s.grid}>
-          {suppliers.map(sup => (
-            <div
-              key={sup.id}
-              className={s.supplierCard}
-              onClick={() => navigate(`/fournisseurs/${sup.id}`)}
-            >
-              <div className={s.supHead}>
-                <div className={s.supIcon}>{sup.name?.[0]?.toUpperCase() ?? '?'}</div>
-                <div className={s.supInfo}>
-                  <p className={s.supName}>{sup.name}</p>
-                  {sup.contact_name && <p className={s.supContact}>{sup.contact_name}</p>}
+        <div className={s.card}>
+          <div className={s.tableHead}>
+            <button className={s.sortHeader} onClick={() => handleSort('name')}>
+              Fournisseur <SortIcon col="name" sortCol={sortCol} sortDir={sortDir} />
+            </button>
+            <span>Coordonnées</span>
+            <button className={s.sortHeader} onClick={() => handleSort('product_count')}>
+              Produits <SortIcon col="product_count" sortCol={sortCol} sortDir={sortDir} />
+            </button>
+            <span>Statut</span>
+            <span />
+          </div>
+
+          {suppliers.map(sup => {
+            const count = sup.product_count ?? 0
+            return (
+              <div
+                key={sup.id}
+                className={s.tableRow}
+                onClick={() => navigate(`/fournisseurs/${sup.id}`)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter') navigate(`/fournisseurs/${sup.id}`) }}
+              >
+                <div className={s.supCell}>
+                  <div className={s.supIcon}>{sup.name?.[0]?.toUpperCase() ?? '?'}</div>
+                  <span className={s.supName}>{sup.name}</span>
                 </div>
+
+                {/* Une seule colonne pour toutes les coordonnées : aucune des 29
+                    fiches n'en porte aujourd'hui (elles viennent du fichier
+                    catalogue, qui ne donne que les noms). Deux colonnes de tirets
+                    prenaient un tiers de la largeur sans rien apprendre ; ici, une
+                    fiche incomplète propose directement de la compléter. */}
+                {[sup.contact_name, sup.email, sup.phone].some(Boolean) ? (
+                  <span className={s.supMeta}>
+                    {[sup.contact_name, sup.email, sup.phone].filter(Boolean).join(' · ')}
+                  </span>
+                ) : (
+                  <span className={s.toComplete}>À compléter</span>
+                )}
+
+                {/* Le compteur renvoie vers les produits du fournisseur : c'est le
+                    geste attendu après avoir repéré une ligne. */}
+                <Link
+                  className={s.countLink}
+                  to={`/produits?supplier_id=${sup.id}`}
+                  onClick={e => e.stopPropagation()}
+                  data-zero={count === 0 ? 'true' : 'false'}
+                  title={`Voir les produits de ${sup.name}`}
+                >
+                  <Package size={11} />
+                  {count.toLocaleString('fr-CH')}
+                </Link>
+
                 <span className={s.activeBadge} data-active={String(!!sup.is_active)}>
                   {sup.is_active ? 'Actif' : 'Inactif'}
                 </span>
-              </div>
 
-              <div className={s.supDetails}>
-                {sup.email   && <p className={s.supDetail}><span className={s.supDetailIcon}>@</span>{sup.email}</p>}
-                {sup.phone   && <p className={s.supDetail}><span className={s.supDetailIcon}>✆</span>{sup.phone}</p>}
-                {sup.address && <p className={s.supDetail}><span className={s.supDetailIcon}>⌖</span>{sup.address}</p>}
-              </div>
-
-              {/* Badge nombre de produits */}
-              <div className={s.supFooter}>
-                <span className={s.productCountBadge}>
-                  <Package size={11} />
-                  {sup.product_count ?? 0} produit{(sup.product_count ?? 0) !== 1 ? 's' : ''}
-                </span>
-                <div className={s.supActions} onClick={e => e.stopPropagation()}>
+                <div className={s.actions} onClick={e => e.stopPropagation()}>
                   <button
                     className={s.iconBtn}
                     onClick={e => { e.stopPropagation(); navigate(`/fournisseurs/${sup.id}`) }}
-                    aria-label="Modifier"
+                    aria-label={`Modifier ${sup.name}`}
                   >
-                    <Edit2 size={13} /> Modifier
+                    <Edit2 size={13} />
                   </button>
                   <button
                     className={s.iconBtnDanger}
                     onClick={e => handleDelete(sup.id, e)}
-                    aria-label="Supprimer"
+                    aria-label={`Supprimer ${sup.name}`}
                   >
                     <Trash2 size={13} />
                   </button>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

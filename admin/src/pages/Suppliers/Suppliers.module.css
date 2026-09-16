@@ -10,27 +10,9 @@
 }
 .btnPrimary:hover { background: var(--rose-dark); }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-}
 
-.supplierCard {
-  background: #fff;
-  border: 1px solid var(--rose-border);
-  border-radius: 14px;
-  padding: 18px 20px;
-  box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  cursor: pointer;
-}
 
-.supplierCard:hover { border-color: var(--rose-border); box-shadow: 0 4px 16px rgba(0,0,0,.08); }
 
-.supHead { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
 
 .supIcon {
   width: 40px; height: 40px;
@@ -40,27 +22,25 @@
   font-size: 18px; font-weight: 700; flex-shrink: 0;
 }
 
-.supInfo { flex: 1; min-width: 0; }
 .supName { font-size: 14px; font-weight: 600; color: var(--text-dark); }
-.supContact { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
 .activeBadge { padding: 2px 9px; border-radius: 5px; font-size: 11px; font-weight: 600; flex-shrink: 0; margin-top: 2px; }
 .activeBadge[data-active="true"]  { color: #059669; background: #ecfdf5; }
 .activeBadge[data-active="false"] { color: #6b7280; background: #f3f4f6; }
 
-.supActions { display: flex; gap: 8px; }
 
+/* Boutons d'action réduits à leur icône, sans bordure : même présentation que
+   les onglets Produits et Catégories, où ils tiennent dans une colonne étroite. */
 .iconBtn, .iconBtnDanger {
-  display: flex; align-items: center; gap: 5px;
-  padding: 6px 12px; background: none; border: 1px solid var(--rose-border);
-  border-radius: 7px; font-size: 12px; font-weight: 500; color: var(--text-muted);
-  transition: all .15s;
+  display: flex; align-items: center; justify-content: center;
+  padding: 6px; background: none; border: none;
+  border-radius: 7px; color: var(--text-muted);
+  cursor: pointer;
+  transition: background .15s, color .15s;
 }
-.iconBtn:hover { border-color: var(--rose); color: var(--rose); background: var(--rose-pale); }
-.iconBtnDanger { padding: 6px 10px; }
-.iconBtnDanger:hover { border-color: #fecaca; color: #dc2626; background: #fef2f2; }
+.iconBtn:hover { background: var(--rose-pale); color: var(--rose); }
+.iconBtnDanger:hover { background: #fef2f2; color: #dc2626; }
 
-.empty { padding: 32px; text-align: center; color: var(--text-muted); font-size: 13px; }
 
 .pageSub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
 
@@ -82,38 +62,14 @@
 .retryBtn { background: none; border: none; font-size: 13px; font-weight: 600; color: var(--rose); text-decoration: underline; cursor: pointer; padding: 0; }
 
 /* ── Détails de la carte ── */
-.supDetails { display: flex; flex-direction: column; gap: 3px; margin-bottom: 4px; }
-.supDetail { font-size: 12px; color: var(--text-muted); display: flex; align-items: baseline; gap: 6px; }
-.supDetailIcon { font-size: 11px; color: var(--rose-border); flex-shrink: 0; }
 
 /* ── Skeleton ── */
-.skeleton { height: 160px; border-radius: 14px; background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+.skeletonWrap { display: flex; flex-direction: column; gap: 0; }
+.skeleton { height: 48px; background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-bottom: 1px solid #f9fafb; }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 /* ── Footer de la carte fournisseur ── */
-.supFooter {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--rose-border);
-  gap: 8px;
-  flex-wrap: wrap;
-}
 
-.productCountBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--rose-dark);
-  background: var(--rose-pale);
-  border: 1px solid var(--rose-border);
-  padding: 3px 10px;
-  border-radius: 20px;
-}
 
 /* ── Barre d'outils ── */
 .quickFilter {
@@ -145,25 +101,6 @@
   padding-left: 14px;
 }
 
-.sortLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-.sortSelect {
-  padding: 7px 10px;
-  border: 1.5px solid var(--rose-border);
-  border-radius: 8px;
-  background: #fff;
-  font-size: 13px;
-  color: var(--text-dark);
-  cursor: pointer;
-  transition: border-color 150ms ease-out;
-}
-.sortSelect:focus { outline: none; border-color: var(--rose); }
 
 /* ── Puces de filtres actifs ── */
 .chips {
@@ -265,6 +202,150 @@
 
 /* Cartes de hauteur égale : le pied (nombre de produits + actions) se cale en
    bas, sinon des fiches plus ou moins remplies donnaient une grille en escalier. */
-.supplierCard { height: 100%; }
-.supDetails { flex: 1; }
-.supFooter { margin-top: auto; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Tableau — mêmes composants visuels que les onglets Produits, Commandes et
+   Catégories. Les fiches fournisseurs ne portent souvent qu'un nom (elles ont
+   été créées depuis le fichier catalogue) : des cartes réservaient la moitié de
+   l'écran à des champs vides, là où 29 lignes tiennent en une vue.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.card {
+  background: #fff;
+  border: 1px solid var(--rose-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.tableHead, .tableRow {
+  display: grid;
+  /* Fournisseur | Coordonnées | Produits | Statut | actions */
+  grid-template-columns: 1.4fr 1.6fr 90px 80px 78px;
+  gap: 8px;
+  padding: 10px 16px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.tableHead {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  border-bottom: 1px solid var(--rose-border);
+  background: #fafafa;
+}
+
+.tableRow {
+  border-bottom: 1px solid #f9fafb;
+  cursor: pointer;
+  transition: background .12s;
+}
+.tableRow:last-child { border-bottom: none; }
+@media (hover: hover) and (pointer: fine) {
+  .tableRow:hover { background: var(--rose-pale); }
+}
+/* La ligne entière ouvre la fiche : le focus clavier doit se voir */
+.tableRow:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: -2px;
+  background: var(--rose-pale);
+}
+
+.sortHeader {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: color .15s;
+  white-space: nowrap;
+}
+.sortHeader:hover { color: var(--rose); }
+
+.supCell { display: flex; align-items: center; gap: 9px; min-width: 0; }
+
+.supIcon {
+  width: 28px; height: 28px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--rose-pale);
+  color: var(--rose);
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.supName {
+  font-weight: 600;
+  color: var(--text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.supMeta {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fiche sans aucune coordonnée : on le dit et on invite à la compléter, plutôt
+   que d'afficher une case vide qui ferait croire à un affichage cassé. */
+.toComplete {
+  justify-self: start;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #fffbeb;
+  color: #b45309;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+/* Compteur cliquable vers les produits du fournisseur */
+.countLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  justify-self: start;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--rose-pale);
+  color: var(--rose-dark);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background .15s, color .15s;
+}
+@media (hover: hover) and (pointer: fine) {
+  .countLink:hover { background: var(--rose); color: #fff; }
+}
+.countLink[data-zero="true"] {
+  background: #f3f4f6;
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.actions { display: flex; gap: 4px; justify-content: flex-end; }
+
+/* Sur écran étroit, contact et téléphone cèdent la place avant le reste */
+/* Sur écran étroit, les coordonnées cèdent la place avant le reste — elles
+   restent consultables dans la fiche. */
+@media (max-width: 900px) {
+  .tableHead, .tableRow { grid-template-columns: 1.4fr 90px 80px 78px; }
+  .tableHead > :nth-child(2), .tableRow > :nth-child(2) { display: none; }
+}
+@media (max-width: 680px) {
+  .tableHead, .tableRow { grid-template-columns: 1fr 90px 78px; }
+  .tableHead > :nth-child(4), .tableRow > :nth-child(4) { display: none; }
+}
