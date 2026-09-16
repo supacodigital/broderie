@@ -1,4 +1,4 @@
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet, useLocation, ScrollRestoration } from 'react-router-dom'
 import Navbar from '../Navbar/Navbar.jsx'
 import CategoryNav from '../Navbar/CategoryNav.jsx'
 import Footer from '../Footer/Footer.jsx'
@@ -17,6 +17,17 @@ export default function Layout() {
 
   return (
     <div className={s.root}>
+      {/* Chaque nouvelle page s'ouvre en haut, et le bouton Retour restaure la
+          position d'où l'on venait — sans cela, on arrivait sur une fiche produit
+          au milieu du texte après avoir cliqué depuis le bas du catalogue.
+
+          `getKey` ne retient que le CHEMIN, sans les paramètres : trier le
+          catalogue ou cocher un filtre réécrit l'URL (`?sort=price_chf`) sans
+          changer de page, et la position doit être conservée. Avec la clé par
+          défaut, chaque changement de filtre renvoyait l'utilisatrice en haut
+          de la liste qu'elle était en train de parcourir. */}
+      <ScrollRestoration getKey={(location) => location.pathname} />
+
       {/* Au-dessus de la navbar : une annonce doit être vue avant la navigation */}
       <AnnouncementBanner />
       <Navbar />

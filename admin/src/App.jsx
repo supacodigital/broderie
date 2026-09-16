@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
+import ScrollToTop from './components/layout/ScrollToTop.jsx'
 import { useAuth } from './contexts/AuthContext.jsx'
 import AdminLayout from './components/layout/AdminLayout.jsx'
 
@@ -64,6 +65,8 @@ function KeyedByRouteId({ children }) {
 export default function App() {
   return (
     <BrowserRouter basename="/admin">
+      {/* Chaque page s'ouvre en haut — cf. le composant pour le détail */}
+      <ScrollToTop />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/connexion" element={<Login />} />
