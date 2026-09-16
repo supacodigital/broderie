@@ -242,7 +242,8 @@ export default function Products() {
     const chips = []
     if (filterCat) {
       chips.push({ key: 'category_id', label: 'Catégorie',
-        value: categories.find(c => String(c.id) === filterCat)?.name.replace(/^— /, '') ?? filterCat })
+        // Le nom est stocké brut : plus de tirets d'indentation à retirer ici
+        value: categories.find(c => String(c.id) === filterCat)?.name ?? filterCat })
     }
     if (filterSupplier) {
       chips.push({ key: 'supplier_id', label: 'Fournisseur',
@@ -260,7 +261,20 @@ export default function Products() {
 
   /* Catégories parentes pour le groupe optgroup */
   const parentCats = useMemo(() => categories.filter(c => !c.parentId), [categories])
-  const childrenOf = (parentId) => categories.filter(c => c.parentId === parentId)
+
+  /* Toute la descendance d'un rayon, et pas seulement ses enfants directs.
+     Auparavant les catégories de niveau 3 (« Mouliné Spécial », « Point de croix
+     compté »…) n'apparaissaient nulle part dans le filtre : impossible de s'en
+     servir alors qu'elles existent en base. `depth` sert à les indenter pour
+     qu'on lise à quel niveau on se trouve. */
+  const descendantsOf = useCallback((parentId, depth = 1) => {
+    const out = []
+    for (const child of categories.filter(c => c.parentId === parentId)) {
+      out.push({ ...child, depth })
+      out.push(...descendantsOf(child.id, depth + 1))
+    }
+    return out
+  }, [categories])
 
   /* Chargement des listes de référence (catégories, fournisseurs, TVA) */
   useEffect(() => {
@@ -271,18 +285,30 @@ export default function Products() {
         parentId: c.parent_id ?? null,
         name:     c.translations?.fr?.name ?? c.slug,
       }))
-      const parents  = raw.filter(c => !c.parentId)
-      const children = raw.filter(c =>  c.parentId)
+      /* Ordre hiérarchique (parcours en profondeur, jusqu'à 3 niveaux) : chaque
+         catégorie est suivie de ses descendants. Le NOM reste brut — c'est à
+         l'affichage de décider de son indentation, le filtre regroupant déjà par
+         <optgroup> et les puces n'ayant aucune indentation à montrer.
+         La version précédente ne parcourait que deux niveaux et rejetait les
+         catégories de niveau 3 en fin de liste, sous le mauvais parent. */
+      const byParent = new Map()
+      for (const c of raw) {
+        const key = c.parentId ?? null
+        if (!byParent.has(key)) byParent.set(key, [])
+        byParent.get(key).push(c)
+      }
       const sorted = []
-      for (const p of parents) {
-        sorted.push(p)
-        for (const ch of children.filter(c => c.parentId === p.id)) {
-          sorted.push({ ...ch, name: `— ${ch.name}` })
+      const visit = (parentId, depth) => {
+        for (const c of byParent.get(parentId) ?? []) {
+          sorted.push({ ...c, depth })
+          visit(c.id, depth + 1)
         }
       }
-      for (const ch of children.filter(c => !parents.find(p => p.id === c.parentId))) {
-        sorted.push({ ...ch, name: `— ${ch.name}` })
-      }
+      visit(null, 0)
+      /* Filet de sécurité : une catégorie dont le parent a disparu ne doit pas
+         être absente du filtre — elle est ajoutée à la fin. */
+      const placed = new Set(sorted.map(c => c.id))
+      sorted.push(...raw.filter(c => !placed.has(c.id)).map(c => ({ ...c, depth: 0 })))
       setCategories(sorted)
     }).catch(() => {})
 
@@ -427,7 +453,7 @@ export default function Products() {
           </button>
 
         {showFilters && (
-          <div className={s.filterPanel}>
+          <div className={s.filterPanel} role="dialog" aria-label="Filtres">
             <div className={s.filterGrid}>
 
               {/* Catégorie avec sous-catégories */}
@@ -442,8 +468,10 @@ export default function Products() {
                   {parentCats.map(p => (
                     <optgroup key={p.id} label={p.name}>
                       <option value={p.id}>{p.name} (tout)</option>
-                      {childrenOf(p.id).map(ch => (
-                        <option key={ch.id} value={ch.id}>&nbsp;&nbsp;{ch.name}</option>
+                      {descendantsOf(p.id).map(ch => (
+                        <option key={ch.id} value={ch.id}>
+                          {' '.repeat(ch.depth * 2)}{ch.name}
+                        </option>
                       ))}
                     </optgroup>
                   ))}
