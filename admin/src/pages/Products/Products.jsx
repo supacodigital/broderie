@@ -59,6 +59,9 @@ export default function Products() {
   }, [setSearchParams])
 
   const [products,    setProducts]    = useState([])
+  /* Résultats approchés : la recherche exacte n'a rien donné et le serveur a
+     élargi les termes (repli anti-faute, voir product.admin.repository.js). */
+  const [isFuzzy,     setIsFuzzy]     = useState(false)
   const [total,       setTotal]       = useState(0)
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState(false)
@@ -319,6 +322,7 @@ export default function Products() {
         const res = await getProducts(params)
         if (!cancelled) {
           setProducts(res.data ?? [])
+          setIsFuzzy(Boolean(res.isFuzzy))
           setTotal(res.pagination?.total ?? 0)
         }
       } catch {
@@ -695,6 +699,13 @@ export default function Products() {
           <span>Statut</span>
           <span />
         </div>
+
+        {/* Recherche approchée : ne pas laisser croire à une correspondance exacte */}
+        {!loading && isFuzzy && search && (
+          <p className={s.fuzzyNotice} role="status">
+            Aucun résultat exact pour «&nbsp;{search}&nbsp;» — voici des articles proches.
+          </p>
+        )}
 
         {loading ? (
           <SkeletonTable rows={8} cols={7} />

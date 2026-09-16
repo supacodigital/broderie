@@ -235,6 +235,59 @@ describe('product.admin.repository — findByIdAdmin()', () => {
 
 // ── findAllAdmin() ────────────────────────────────────────────────────────────
 
+/* Repli anti-faute côté administration — régression.
+   La boutique rattrapait « mouliner » depuis le 2026-09-16, pas l'admin :
+   la cliente trouvait un article en vitrine mais pas dans son back-office. */
+describe('product.admin.repository — findAllAdmin() repli anti-faute', () => {
+  test('une recherche qui aboutit n\'est pas élargie (une seule passe)', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 4 }]])
+      .mockResolvedValueOnce([[{ id: 1 }]]);
+
+    const res = await repo.findAllAdmin({ search: 'mouline' });
+
+    expect(res.total).toBe(4);
+    expect(res.isFuzzy).toBeUndefined();
+    expect(pool.query).toHaveBeenCalledTimes(2); // 1 count + 1 select
+  });
+
+  test('zéro résultat relance la recherche avec des termes raccourcis', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 0 }]])   // count 1re passe
+      .mockResolvedValueOnce([[]])               // select 1re passe
+      .mockResolvedValueOnce([[{ total: 7 }]])   // count repli
+      .mockResolvedValueOnce([[{ id: 1 }]]);     // select repli
+
+    const res = await repo.findAllAdmin({ search: 'mouliner' });
+
+    expect(res.total).toBe(7);
+    expect(res.isFuzzy).toBe(true);
+    // « mouliner » (8 lettres) est tronqué à « moulin »
+    expect(pool.query.mock.calls[2][1]).toContain('%moulin%');
+  });
+
+  test('les mots courts ne sont pas tronqués — pas de seconde passe', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 0 }]])
+      .mockResolvedValueOnce([[]]);
+
+    const res = await repo.findAllAdmin({ search: 'chat' });
+
+    expect(res.total).toBe(0);
+    expect(res.isFuzzy).toBeUndefined();
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  test('sans recherche, aucun repli', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 0 }]])
+      .mockResolvedValueOnce([[]]);
+
+    await repo.findAllAdmin({ categoryId: 42 });
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('product.admin.repository — findAllAdmin()', () => {
   test('retourne liste paginée sans filtre', async () => {
     pool.query

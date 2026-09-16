@@ -195,8 +195,9 @@ const ALLOWED_SORT_ADMIN = {
   stock:      'p.stock',
 };
 
-// Liste admin — inclut produits inactifs et soft-deleted visibles, filtres étendus
-const findAllAdmin = async ({
+// Exécution d'une passe de recherche admin — rappelée par findAllAdmin() avec
+// des termes élargis quand la saisie exacte ne donne aucun résultat.
+const runFindAllAdmin = async ({
   page = 1, limit = 20, search = '',
   categoryId = null, supplierId = null, brand = null,
   minPrice = null, maxPrice = null,
@@ -204,6 +205,7 @@ const findAllAdmin = async ({
   isActive = null, isFeatured = null,
   sort = 'created_at', order = 'desc',
   imageFirst = false,
+  fuzzyTerms = null,
 } = {}) => {
   const offset = (page - 1) * limit;
   // Vitrine home bento : même ordre que la boutique (featured_order), pas le tri générique demandé —
@@ -231,7 +233,9 @@ const findAllAdmin = async ({
      précis ».
      Les mots passent par toSearchTerms (singulier + plafond), le même découpage
      que la boutique : une recherche qui aboutit là-bas doit aboutir ici. */
-  const searchTerms = toSearchTerms(search);
+  /* `fuzzyTerms` est fourni par le repli anti-faute de findAllAdmin() : la saisie
+     reste la même, seuls les mots sont raccourcis pour élargir le LIKE. */
+  const searchTerms = fuzzyTerms ?? toSearchTerms(search);
   if (searchTerms.length > 0) {
     for (const term of searchTerms) {
       where += ' AND (pt.name LIKE ? OR p.sku LIKE ? OR sup.name LIKE ? OR p.brand LIKE ?)';
@@ -316,6 +320,51 @@ const findAllAdmin = async ({
 
   return { rows, total };
 };
+
+/* Recherche admin avec repli anti-faute de frappe.
+
+   La boutique rattrape « mouliner » ou « coussn » depuis le correctif du
+   2026-09-16 ; l'administration, elle, restait à zéro résultat. C'est
+   exactement l'écart que l'on veut éviter : une recherche qui aboutit côté
+   boutique doit aboutir ici, sinon la cliente ne comprend pas pourquoi elle
+   trouve un article en vitrine et pas dans son back-office.
+
+   Même règle que la boutique (voir product.repository.js) : on ne raccourcit
+   les mots que si la saisie exacte n'a rien donné, et jamais les mots de 5
+   lettres ou moins — tronquer « aida » ou « chat » remonterait n'importe quoi. */
+const MIN_LENGTH_FOR_TRUNCATION = 6;
+const MIN_KEPT_CHARS = 4;
+const TRUNCATED_CHARS = 2;
+
+const toFuzzyTerms = (search) => {
+  const terms = toSearchTerms(search);
+  if (terms.length === 0) return null;
+
+  let truncated = false;
+  const out = terms.map((term) => {
+    if (term.length < MIN_LENGTH_FOR_TRUNCATION) return term;
+    truncated = true;
+    return term.slice(0, Math.max(MIN_KEPT_CHARS, term.length - TRUNCATED_CHARS));
+  });
+
+  // Aucun mot assez long : le repli donnerait le même résultat, inutile de
+  // relancer une seconde requête.
+  return truncated ? out : null;
+};
+
+const findAllAdmin = async (options = {}) => {
+  const result = await runFindAllAdmin(options);
+  if (result.total > 0 || !options.search) return result;
+
+  const fuzzyTerms = toFuzzyTerms(options.search);
+  if (!fuzzyTerms) return result;
+
+  const fuzzyResult = await runFindAllAdmin({ ...options, fuzzyTerms });
+  // `isFuzzy` permet à l'administration d'annoncer des résultats approchés
+  // plutôt que de laisser croire à une correspondance exacte.
+  return fuzzyResult.total > 0 ? { ...fuzzyResult, isFuzzy: true } : result;
+};
+
 
 // Vérifie si un slug produit est déjà utilisé (optionnellement en excluant un id)
 const slugExists = async (slug, excludeId = null) => {

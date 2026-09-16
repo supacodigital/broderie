@@ -67,9 +67,12 @@ const buildListFilters = (query) => ({
 
 const list = async (query) => {
   const filters = buildListFilters(query);
-  const { rows, total } = await productAdminRepository.findAllAdmin(filters);
+  const { rows, total, isFuzzy } = await productAdminRepository.findAllAdmin(filters);
   return {
     data: rows,
+    /* Résultats approchés : la saisie exacte n'a rien donné, l'administration
+       affiche « aucun résultat exact — voici des articles proches ». */
+    ...(isFuzzy && { isFuzzy: true }),
     pagination: {
       page: filters.page, limit: filters.limit, total,
       totalPages: Math.ceil(total / filters.limit),
