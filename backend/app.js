@@ -113,20 +113,46 @@ app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
-// Rate limiting global — simple garde-fou anti-abus (large), désactivé hors production.
-// La navigation client (catalogue, fiches, panier, avis) génère beaucoup d'appels légitimes :
-// la limite doit rester confortable. La vraie protection stricte est sur les routes auth
-// (voir routes/auth.routes.js, max 10/15min) — pas ici.
-const globalLimiter = rateLimit({
+/* Rate limiting global — garde-fou anti-abus, désactivé hors production.
+ *
+ * Mesuré sur la boutique : une page de catalogue déclenche 10 appels API
+ * (bandeau, catégories, marques, produits, panier, favoris, compte…) et chaque
+ * fiche produit 4 de plus. Une cliente qui parcourt le catalogue une demi-heure
+ * atteignait donc l'ancienne limite de 1000, et se retrouvait devant une boutique
+ * entièrement en erreur — toutes les routes tombant ensemble.
+ *
+ * La lecture est donc largement ouverte : elle ne coûte que du cache et des
+ * SELECT indexés. L'écriture (commande, avis, inscription newsletter) garde une
+ * limite serrée, car c'est là qu'un abus a un coût réel. L'authentification a
+ * sa propre protection, bien plus stricte (routes/auth.routes.js, 10 / 15 min).
+ */
+const readLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 1000 : 10000,
+  max: process.env.NODE_ENV === 'production' ? 5000 : 50000,
   standardHeaders: true,
   legacyHeaders: false,
   // Actif en production ET en staging (staging = copie exacte de la prod, CLAUDE.md §3)
-  skip: () => !['production', 'staging'].includes(process.env.NODE_ENV),
-  message: { success: false, message: 'Trop de requêtes, veuillez réessayer plus tard.' },
+  skip: (req) => !['production', 'staging'].includes(process.env.NODE_ENV)
+    // Le rafraîchissement de token est automatique et invisible pour la cliente :
+    // le bloquer déconnecte quelqu'un qui n'a rien fait d'anormal.
+    || req.path === '/v1/auth/refresh-token',
+  message: { success: false, message: 'Trop de requêtes, veuillez réessayer dans quelques minutes.' },
 });
-app.use('/api/', globalLimiter);
+
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === 'production' ? 300 : 10000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => !['production', 'staging'].includes(process.env.NODE_ENV),
+  message: { success: false, message: 'Trop de requêtes, veuillez réessayer dans quelques minutes.' },
+});
+
+app.use('/api/', (req, res, next) => (
+  req.method === 'GET' || req.method === 'HEAD'
+    ? readLimiter(req, res, next)
+    : writeLimiter(req, res, next)
+));
 
 // Fichiers statiques — images produit (développement uniquement)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
