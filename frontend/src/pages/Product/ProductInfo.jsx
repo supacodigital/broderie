@@ -43,6 +43,10 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
   const minQty       = Math.ceil(minCm / stepCm)
 
   const [qty,             setQty]             = useState(soldByLength ? minQty : 1)
+  /* Texte du champ de longueur, distinct de `qty` : pendant la frappe la valeur
+     peut être vide ou invalide (« 4 » avant « 40 »). On ne la convertit qu'à la
+     validation, sinon le champ se corrigerait sous les doigts de la cliente. */
+  const [lengthInput,     setLengthInput]     = useState(String((soldByLength ? minQty : 1) * (Number(product.length_step_cm) || 10)))
   const [detailsOpen,     setDetailsOpen]     = useState(false)
   const [addedFeedback,   setAddedFeedback]   = useState(false)
   /* Existence d'un programme de fidélité — `false` par défaut : en cas d'échec de
@@ -86,6 +90,33 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
   const outOfStock = !isMadeToOrder && rawStockQty === 0
 
   const tva = formatTVA(effectivePrice, product.tax_rate ?? 8.1)
+
+  /* Valide la longueur saisie : arrondit au pas de découpe, applique le minimum
+     et borne au stock disponible. Appelé à la sortie du champ (ou sur Entrée),
+     jamais pendant la frappe. */
+  function commitLength() {
+    const saisi = parseInt(lengthInput, 10)
+    if (!Number.isFinite(saisi) || saisi <= 0) {
+      // Champ vidé : on revient au minimum plutôt que de laisser un état vide
+      setQty(minQty)
+      setLengthInput(String(minQty * stepCm))
+      return
+    }
+    // Arrondi au pas le plus proche : 55 cm devient 60 cm, pas 50
+    const troncons = Math.max(minQty, Math.min(stockQty, Math.round(saisi / stepCm)))
+    setQty(troncons)
+    setLengthInput(String(troncons * stepCm))
+  }
+
+  /* Les boutons − / + restent utilisables pour un ajustement fin : ils doivent
+     donc écrire dans le champ, sinon l'affichage et la quantité divergeraient. */
+  function stepLength(delta) {
+    setQty(q => {
+      const next = Math.max(minQty, Math.min(stockQty, q + delta))
+      setLengthInput(String(next * stepCm))
+      return next
+    })
+  }
 
   function handleAdd() {
     if (outOfStock) return
@@ -197,16 +228,34 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
         <div className={s.qtyWrap}>
           <button
             className={s.qtyBtn}
-            onClick={() => setQty(q => Math.max(soldByLength ? minQty : 1, q - 1))}
+            onClick={() => soldByLength ? stepLength(-1) : setQty(q => Math.max(1, q - 1))}
             aria-label={soldByLength ? 'Diminuer la longueur' : 'Diminuer la quantité'}
             disabled={qty <= (soldByLength ? minQty : 1)}
           >−</button>
-          <span className={s.qtyValue} aria-live="polite">
-            {soldByLength ? `${qty * stepCm} cm` : qty}
-          </span>
+          {soldByLength ? (
+            /* Saisie directe : commander 2 m au bouton « + » demanderait quinze
+               clics. Le champ accepte une longueur libre en cm ; l'arrondi au
+               pas et le respect du minimum se font à la validation (onBlur),
+               pour ne pas corriger la saisie sous les doigts de la cliente. */
+            <span className={s.qtyInputWrap}>
+              <input
+                type="text"
+                inputMode="numeric"
+                className={s.qtyInput}
+                value={lengthInput}
+                onChange={(e) => setLengthInput(e.target.value.replace(/[^\d]/g, ''))}
+                onBlur={commitLength}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                aria-label="Longueur en centimètres"
+              />
+              <span className={s.qtyUnit}>cm</span>
+            </span>
+          ) : (
+            <span className={s.qtyValue} aria-live="polite">{qty}</span>
+          )}
           <button
             className={s.qtyBtn}
-            onClick={() => setQty(q => Math.min(stockQty, q + 1))}
+            onClick={() => soldByLength ? stepLength(1) : setQty(q => Math.min(stockQty, q + 1))}
             aria-label={soldByLength ? 'Augmenter la longueur' : 'Augmenter la quantité'}
             disabled={qty >= stockQty || outOfStock}
           >+</button>

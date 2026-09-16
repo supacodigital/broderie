@@ -413,3 +413,43 @@
   font-size: 11px;
   color: var(--text-muted);
 }
+
+/* Champ de longueur saisissable — vente à la coupe.
+   S'intègre dans le sélecteur − / + existant : mêmes bordures, même hauteur,
+   pour que l'ensemble reste lu comme un seul contrôle. */
+.qtyInputWrap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 8px;
+  border-left: 1.5px solid var(--rose-border);
+  border-right: 1.5px solid var(--rose-border);
+}
+
+.qtyInput {
+  width: 44px;
+  border: none;
+  background: none;
+  outline: none;
+  text-align: right;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-dark);
+  padding: 10px 0;
+  /* Masque les flèches natives : la longueur s'ajuste avec − / + ou au clavier */
+  -moz-appearance: textfield;
+}
+
+.qtyInput::-webkit-outer-spin-button,
+.qtyInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.qtyUnit {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
