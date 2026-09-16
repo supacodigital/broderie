@@ -65,7 +65,22 @@ const validateLengthQuantity = (product, quantity) => {
    modifierait une commande déjà passée. */
 const lineTotal = (unitPrice, quantity) => roundCHF(parseFloat(unitPrice) * quantity);
 
+/* Stock disponible exprimé dans l'unité de `quantity`.
+
+   `products.stock` compte des MÈTRES pour un article vendu à la coupe, alors
+   que `quantity` compte des tronçons de 10 cm. Comparer les deux directement
+   rendait incommandable tout article de moins de 5 m en stock : une bande avec
+   1 m disponible refusait 50 cm, puisque 5 tronçons > 1.
+
+   Un stock de 1 m autorise donc 10 tronçons de 10 cm. */
+const availableQuantity = (product) => {
+  const stock = Number(product?.stock) || 0;
+  if (!isSoldByLength(product)) return stock;
+  return Math.floor((stock * 100) / stepCm(product));
+};
+
 module.exports = {
+  availableQuantity,
   isSoldByLength,
   stepCm,
   minCm,

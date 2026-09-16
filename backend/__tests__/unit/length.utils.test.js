@@ -71,6 +71,30 @@ describe('length.utils — conversions', () => {
   });
 });
 
+/* Régression : `products.stock` compte des MÈTRES, `quantity` des tronçons.
+   Comparer les deux directement rendait incommandable tout article de moins de
+   5 m en stock — 18 des 30 articles à la coupe du catalogue. */
+describe('length.utils — stock disponible', () => {
+  test('convertit un stock en mètres vers un nombre de tronçons', () => {
+    // 1 m en stock = 10 tronçons de 10 cm
+    expect(L.availableQuantity({ ...bande, stock: 1 })).toBe(10);
+    expect(L.availableQuantity({ ...bande, stock: 2.5 })).toBe(25);
+  });
+
+  test('un article à la pièce garde son stock tel quel', () => {
+    expect(L.availableQuantity({ ...kit, stock: 3 })).toBe(3);
+  });
+
+  test('1 m en stock permet bien de commander le minimum de 50 cm', () => {
+    const dispo = L.availableQuantity({ ...bande, stock: 1 });
+    expect(dispo).toBeGreaterThanOrEqual(L.minQuantity(bande));
+  });
+
+  test('un stock nul ne permet rien', () => {
+    expect(L.availableQuantity({ ...bande, stock: 0 })).toBe(0);
+  });
+});
+
 /* Le minimum est la règle métier explicite de la cliente : « le minimum est de
    50 cm ». Il est validé côté serveur car un appel direct à l'API ne doit pas
    permettre de contourner le champ de la boutique. */

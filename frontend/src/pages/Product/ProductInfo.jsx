@@ -76,8 +76,13 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
   /* Produit sur commande : fabriqué à la demande, commande possible sans stock (délai 3 à 4 semaines) */
   const isMadeToOrder = !!product.is_made_to_order
   const rawStockQty = selectedVariant ? selectedVariant.stock : (product.stock ?? 99)
-  /* Pour un produit sur commande, on ne limite pas la quantité par le stock */
-  const stockQty = isMadeToOrder ? 999 : rawStockQty
+  /* Pour un produit sur commande, on ne limite pas la quantité par le stock.
+     Vente à la coupe : `stock` compte des MÈTRES et `qty` des tronçons de 10 cm —
+     1 m en stock autorise donc 10 tronçons. Sans cette conversion, le sélecteur
+     restait bloqué sous le minimum de 50 cm pour tout article de moins de 5 m. */
+  const stockQty = isMadeToOrder
+    ? 999
+    : (soldByLength ? Math.floor((rawStockQty * 100) / stepCm) : rawStockQty)
   const outOfStock = !isMadeToOrder && rawStockQty === 0
 
   const tva = formatTVA(effectivePrice, product.tax_rate ?? 8.1)
@@ -259,7 +264,9 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
       ) : (
         <>
           {stockQty > 5 && (
-            <p className={s.inStock}>✓ En stock ({stockQty})</p>
+            <p className={s.inStock}>
+              ✓ En stock ({soldByLength ? `${stockQty * stepCm} cm` : stockQty})
+            </p>
           )}
           {stockQty <= 5 && stockQty > 0 && (
             <p className={s.stockWarning}>⚠ Plus que {stockQty} en stock</p>
