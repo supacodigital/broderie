@@ -30,6 +30,7 @@
  *   node ../database/import-catalog-updates.js --dry-run
  *   node ../database/import-catalog-updates.js
  *   node ../database/import-catalog-updates.js --excel=chemin.xlsx
+ *   node ../database/import-catalog-updates.js --skip-prices   # ignore la colonne Prix
  * ============================================================ */
 
 const path = require('path');
@@ -55,6 +56,10 @@ const value = (name, fallback) => {
 };
 
 const DRY_RUN = has('--dry-run');
+/* --skip-prices : n'applique aucun prix du fichier. Utile quand le fichier a été
+   généré avant des changements de prix faits depuis l'administration — un prix
+   est du chiffre d'affaires, on ne le réécrit pas sur un doute. */
+const SKIP_PRICES = has('--skip-prices');
 const EXCEL_PATH = path.resolve(
   value('excel', path.join(__dirname, '../donnees-client/Catalogue-articles.xlsx'))
 );
@@ -132,7 +137,7 @@ async function main() {
     const productByRef = new Map(products.map((p) => [String(p.external_ref), p]));
 
     const [categories] = await connection.execute(
-      `SELECT c.id, ct.name, pt.name AS parent_name
+      `SELECT c.id, c.parent_id, ct.name, pt.name AS parent_name
        FROM categories c
        LEFT JOIN category_translations ct ON ct.category_id = c.id AND ct.locale = 'fr'
        LEFT JOIN categories p ON p.id = c.parent_id
@@ -150,6 +155,18 @@ async function main() {
       if (!categoryIdByLabel.has(short)) categoryIdByLabel.set(short, c.id);
     });
 
+    /* Chaîne des ancêtres de chaque catégorie, pour ne jamais remplacer un
+       classement fin par son propre parent (voir plus bas). */
+    const parentById = new Map(categories.map((c) => [c.id, c.parent_id]));
+    const isAncestorOf = (ancestorId, categoryId) => {
+      let current = parentById.get(categoryId);
+      while (current) {
+        if (current === ancestorId) return true;
+        current = parentById.get(current);
+      }
+      return false;
+    };
+
     const [suppliers] = await connection.execute(`SELECT id, name FROM suppliers`);
     const supplierIdByName = new Map(
       suppliers.filter((s) => s.name).map((s) => [s.name.trim().toLowerCase(), s.id])
@@ -157,7 +174,7 @@ async function main() {
 
     const report = {
       matched: 0, unknownRef: 0, noChange: 0,
-      price: 0, category: 0, review: 0, supplier: 0, removed: 0,
+      price: 0, category: 0, keptFinerCategory: 0, review: 0, supplier: 0, removed: 0,
       unknownCategories: new Set(), unknownSuppliers: new Set(), invalidPrices: 0,
     };
 
@@ -182,11 +199,13 @@ async function main() {
 
       const fields = {};
 
-      const price = parsePrice(row[COL.price]);
+      // --skip-prices : la colonne Prix n'est pas lue du tout (ni appliquée, ni
+      // signalée comme illisible)
+      const price = SKIP_PRICES ? null : parsePrice(row[COL.price]);
       if (price !== null && price !== Number(product.price_chf)) {
         fields.price_chf = price;
         report.price++;
-      } else if (price === null && cleanStr(row[COL.price]) !== null) {
+      } else if (!SKIP_PRICES && price === null && cleanStr(row[COL.price]) !== null) {
         report.invalidPrices++;
       }
 
@@ -194,6 +213,13 @@ async function main() {
       if (categoryLabel) {
         const id = categoryIdByLabel.get(categoryLabel.toLowerCase());
         if (!id) report.unknownCategories.add(categoryLabel);
+        /* Le fichier de la cliente ne descend qu'à deux niveaux (« Parent >
+           Enfant »). Un article affiné au niveau 3 depuis l'administration
+           serait donc silencieusement remonté vers son propre parent à chaque
+           réimport : on ignore ce cas, le classement le plus précis gagne. */
+        else if (isAncestorOf(id, product.category_id)) {
+          report.keptFinerCategory++;
+        }
         else if (id !== product.category_id) {
           fields.category_id = id;
           report.category++;
@@ -230,11 +256,16 @@ async function main() {
     console.log(`Références inconnues .... ${report.unknownRef}`);
     console.log(`Sans changement ......... ${report.noChange}`);
     console.log(`\nÀ modifier :`);
-    console.log(`  prix .................. ${report.price}`);
+    console.log(`  prix .................. ${report.price}${SKIP_PRICES ? '  (colonne Prix ignorée : --skip-prices)' : ''}`);
     console.log(`  catégorie ............. ${report.category}`);
     console.log(`  drapeau « à revoir » .. ${report.review}`);
     console.log(`  fournisseur ........... ${report.supplier}`);
     console.log(`  à retirer (SUPPRIMER) . ${report.removed}`);
+
+    if (report.keptFinerCategory) {
+      console.log(`\nℹ ${report.keptFinerCategory} article(s) déjà classé(s) plus finement que ne le permet le fichier`);
+      console.log(`  (catégorie de niveau 3) — classement conservé, le fichier ne les remonte pas au parent.`);
+    }
 
     if (report.invalidPrices) {
       console.log(`\n⚠ ${report.invalidPrices} prix illisible(s) ignoré(s) — vérifiez le format (ex : 12.50).`);
