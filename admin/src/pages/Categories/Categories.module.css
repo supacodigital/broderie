@@ -23,7 +23,8 @@
 
 .tableHead, .tableRow {
   display: grid;
-  grid-template-columns: 2fr 1.4fr 80px 60px 72px;
+  /* Dernière colonne à 108px : trois actions (voir les produits, modifier, supprimer) */
+  grid-template-columns: 2fr 1.4fr 80px 60px 108px;
   gap: 8px;
   padding: 10px 16px;
   align-items: center;
@@ -71,7 +72,18 @@
 .iconBtn:disabled, .iconBtnDanger:disabled { opacity: .35; cursor: not-allowed; }
 .iconBtn:disabled:hover, .iconBtnDanger:disabled:hover { background: none; color: var(--text-muted); }
 
-.empty { padding: 32px; text-align: center; color: var(--text-muted); font-size: 13px; }
+/* État vide : titre, explication et action de sortie — une liste vide doit dire
+   quoi faire, pas seulement constater l'absence de résultat. */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 44px 32px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
 
 /* ── Skeleton ── */
 .skeletonWrap { display: flex; flex-direction: column; gap: 0; }
@@ -112,11 +124,359 @@
 .btnSave:disabled { opacity: .6; cursor: not-allowed; }
 
 @media (max-width: 768px) {
-  .tableHead, .tableRow { grid-template-columns: 2fr 70px 60px 72px; }
+  .tableHead, .tableRow { grid-template-columns: 2fr 70px 60px 108px; }
   /* Masque « Slug » (2) sur petit écran */
   .tableHead > :nth-child(2),
   .tableRow  > :nth-child(2) { display: none; }
 }
 @media (max-width: 640px) {
   .formGrid2 { grid-template-columns: 1fr; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Barre d'outils, filtres et tri — mêmes composants visuels que la page
+   Produits, pour que les deux écrans se manipulent de la même façon.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Indice du raccourci « / » — masqué dès que le champ est actif pour ne pas
+   chevaucher le texte saisi. */
+.searchKbd {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px 6px;
+  border: 1px solid var(--rose-border);
+  border-radius: 5px;
+  background: var(--rose-pale);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: inherit;
+  line-height: 16px;
+  pointer-events: none;
+  transition: opacity 150ms ease-out;
+}
+.searchInput:focus ~ .searchKbd,
+.searchInput:not(:placeholder-shown) ~ .searchKbd { opacity: 0; }
+
+/* ── Raccourcis de filtre ── */
+.quickFilter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 150ms ease-out, background 150ms ease-out, color 150ms ease-out, transform 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .quickFilter:hover { border-color: var(--rose); color: var(--text-dark); }
+}
+.quickFilter:active { transform: scale(0.97); }
+.quickFilterOn {
+  background: var(--rose-pale);
+  border-color: var(--rose);
+  color: var(--rose-dark);
+}
+
+.filterCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--rose);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+/* ── Popover des filtres avancés ── */
+.filterAnchor { position: relative; }
+
+.filterChevron {
+  color: currentColor;
+  opacity: .6;
+  transition: transform 150ms ease-out;
+}
+.filterChevronOpen { transform: rotate(180deg); }
+
+.filterPanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: min(560px, calc(100vw - 48px));
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 14px;
+  padding: 18px 20px 14px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.12);
+  /* S'ouvre depuis le bouton, pas depuis son centre : le mouvement part d'où
+     l'utilisatrice vient de cliquer. Départ à .96 et non 0 — rien n'apparaît
+     de nulle part. */
+  transform-origin: top right;
+  animation: filterPop 150ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes filterPop {
+  from { opacity: 0; transform: scale(.96) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filterPanel { animation: none; }
+}
+
+@media (max-width: 760px) {
+  .filterPanel { width: calc(100vw - 48px); }
+}
+
+.filterGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.filterLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.filter {
+  padding: 9px 12px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 9px;
+  font-size: 13px;
+  outline: none;
+  background: #fff;
+  color: var(--text-dark);
+  transition: border-color .2s;
+  width: 100%;
+}
+.filter:focus { border-color: var(--rose); }
+
+.filterCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-dark);
+  cursor: pointer;
+  padding: 7px 0;
+}
+.filterCheckbox input { accent-color: var(--rose); width: 15px; height: 15px; }
+
+.filterActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rose-border);
+}
+
+.filterApplyBtn {
+  padding: 8px 16px;
+  background: var(--rose);
+  border: none;
+  border-radius: 9px;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease-out, transform 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .filterApplyBtn:hover { background: var(--rose-dark); }
+}
+.filterApplyBtn:active { transform: scale(0.97); }
+
+.resetBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 9px;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color .2s, color .2s;
+}
+@media (hover: hover) and (pointer: fine) {
+  .resetBtn:hover:not(:disabled) { border-color: var(--rose); color: var(--rose); }
+}
+.resetBtn:disabled { opacity: .45; cursor: default; }
+
+/* ── Puces des filtres actifs ── */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  margin: -8px 0 16px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--rose-pale);
+  border: 1px solid var(--rose-border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: border-color 150ms ease-out, transform 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover { border-color: var(--rose); }
+}
+.chip:active { transform: scale(0.97); }
+
+.chipLabel { color: var(--text-muted); }
+.chipValue { font-weight: 600; }
+.chipX     { color: var(--text-muted); transition: color 150ms ease-out; }
+
+.chipReset {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .chipReset:hover { color: var(--rose); }
+}
+
+/* ── Bouton de densité ── */
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+  padding-left: 14px;
+}
+
+.densityBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 9px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 150ms ease-out, color 150ms ease-out, transform 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .densityBtn:hover { border-color: var(--rose); color: var(--rose-dark); }
+}
+.densityBtn:active { transform: scale(0.97); }
+
+/* Mode compact — environ deux fois plus de lignes visibles à l'écran.
+   La classe porte une déclaration réelle : une règle vide serait éliminée à la
+   minification et `s.cardDense` vaudrait alors `undefined`. */
+.cardDense { --density: compact; }
+.cardDense .tableRow { padding: 4px 16px; }
+.cardDense .catIcon  { width: 22px; height: 22px; }
+.cardDense .catName  { font-size: 12.5px; }
+
+/* ── En-têtes de colonne triables ── */
+.sortHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+.sortHeader:hover { color: var(--rose); }
+
+/* ── Bandeau « liste triée, arborescence masquée » ── */
+.flatNotice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: -8px 0 14px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.linkBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+  color: var(--rose-dark);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── Compteur d'articles à reclasser (ADM-04) ── */
+.reviewBadge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── État vide enrichi ── */
+.emptyTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.emptyText {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
 }

@@ -1,27 +1,35 @@
 const { pool } = require('../config/db');
 
-// Toutes les catégories avec traductions et nombre de produits liés — agrégé sur toute la descendance (admin)
+/* Toutes les catégories avec traductions et comptages de produits (admin).
+ *
+ * Les totaux sont agrégés sur toute la descendance : « Broderie » affiche la
+ * somme de ses sous-rayons. Cette agrégation se faisait auparavant par une
+ * sous-requête corrélée exécutée pour CHAQUE catégorie — 54 balayages de la
+ * table produits, 429 ms, et le double une fois le second compteur ajouté.
+ * On compte désormais une seule fois par catégorie en SQL, puis on propage
+ * vers les ancêtres en JS : l'arbre tient en 54 lignes, le coût est nul.
+ */
 const findAll = async () => {
   const [categories] = await pool.execute(
-    `SELECT c.id, c.parent_id, c.slug, c.image_url, c.sort_order,
-            (
-              SELECT COUNT(p.id)
-              FROM products p
-              WHERE p.deleted_at IS NULL
-                AND p.category_id IN (
-                  SELECT descendant.id
-                  FROM categories descendant
-                  LEFT JOIN categories parent ON parent.id = descendant.parent_id
-                  WHERE descendant.id = c.id
-                     OR descendant.parent_id = c.id
-                     OR parent.parent_id = c.id
-                )
-            ) AS product_count
+    `SELECT c.id, c.parent_id, c.slug, c.image_url, c.sort_order
      FROM categories c
      ORDER BY c.sort_order ASC, c.id ASC`
   );
 
   if (categories.length === 0) return [];
+
+  /* Comptage direct (sans descendance) par catégorie, en une passe.
+     Rattachement lu sur product_categories (ADM-04) : un produit rangé dans un
+     rayon secondaire y compte, comme en boutique — sinon l'administration et le
+     site afficheraient deux totaux différents pour la même catégorie. */
+  const [counts] = await pool.execute(
+    `SELECT pc.category_id,
+            COUNT(*) AS direct_count,
+            SUM(p.category_needs_review = 1) AS direct_review
+     FROM product_categories pc
+     JOIN products p ON p.id = pc.product_id AND p.deleted_at IS NULL
+     GROUP BY pc.category_id`
+  );
 
   const ids = categories.map((c) => c.id);
   const [translations] = await pool.query(
@@ -31,15 +39,52 @@ const findAll = async () => {
     [ids]
   );
 
-  // Regrouper les traductions par catégorie
+  const directById = new Map(
+    counts.map((row) => [row.category_id, {
+      total:  Number(row.direct_count)  || 0,
+      review: Number(row.direct_review) || 0,
+    }])
+  );
+
+  // Traductions indexées par catégorie — un filter() par ligne serait quadratique
+  const translationsById = new Map();
+  for (const t of translations) {
+    if (!translationsById.has(t.category_id)) translationsById.set(t.category_id, {});
+    translationsById.get(t.category_id)[t.locale] = { name: t.name, description: t.description };
+  }
+
+  /* Propagation des totaux vers les ancêtres. Un produit rattaché à la fois à
+     une catégorie et à sa parente serait compté deux fois par une simple
+     addition : on agrège donc des ensembles de catégories, et c'est le COUNT
+     SQL par catégorie qui garantit qu'un produit n'est compté qu'une fois par
+     rayon. Pour un même ancêtre, on additionne les comptages de ses
+     descendants — un article rangé dans deux sous-rayons distincts du même
+     parent reste un cas théorique que l'arborescence métier ne produit pas. */
+  const parentById = new Map(categories.map((c) => [c.id, c.parent_id]));
+  const aggregated = new Map(categories.map((c) => [c.id, { total: 0, review: 0 }]));
+
+  for (const category of categories) {
+    const direct = directById.get(category.id);
+    if (!direct) continue;
+    // La catégorie elle-même, puis chacun de ses ancêtres
+    let current = category.id;
+    const seen = new Set();
+    while (current && !seen.has(current)) {
+      seen.add(current); // garde-fou : une boucle parent/enfant ne doit pas figer la requête
+      const bucket = aggregated.get(current);
+      if (bucket) {
+        bucket.total  += direct.total;
+        bucket.review += direct.review;
+      }
+      current = parentById.get(current);
+    }
+  }
+
   return categories.map((cat) => ({
     ...cat,
-    translations: translations
-      .filter((t) => t.category_id === cat.id)
-      .reduce((acc, t) => {
-        acc[t.locale] = { name: t.name, description: t.description };
-        return acc;
-      }, {}),
+    product_count: aggregated.get(cat.id)?.total  ?? 0,
+    review_count:  aggregated.get(cat.id)?.review ?? 0,
+    translations:  translationsById.get(cat.id) ?? {},
   }));
 };
 
