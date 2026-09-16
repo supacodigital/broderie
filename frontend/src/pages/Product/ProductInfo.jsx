@@ -33,7 +33,16 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
   const { t } = useTranslation()
 
   const [selectedVariant, setSelectedVariant] = useState(null)
-  const [qty,             setQty]             = useState(1)
+  /* Vente à la coupe (trames, bandes à broder) : `qty` compte des tronçons de
+     10 cm et non des pièces — c'est la convention du backend, qui permet de ne
+     pas ajouter de colonne de longueur au panier (voir utils/length.utils.js).
+     L'affichage, lui, reste en centimètres : c'est ce que la cliente mesure. */
+  const soldByLength = !!product.sold_by_length
+  const stepCm       = Number(product.length_step_cm) || 10
+  const minCm        = Number(product.length_min_cm)  || 50
+  const minQty       = Math.ceil(minCm / stepCm)
+
+  const [qty,             setQty]             = useState(soldByLength ? minQty : 1)
   const [detailsOpen,     setDetailsOpen]     = useState(false)
   const [addedFeedback,   setAddedFeedback]   = useState(false)
   /* Existence d'un programme de fidélité — `false` par défaut : en cas d'échec de
@@ -128,7 +137,21 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
             -{Math.round((1 - product.price_chf / product.compare_price_chf) * 100)}%
           </span>
         )}
+        {/* Sans cette mention, « CHF 16.50 » laisse croire au prix de l'article
+            entier alors qu'il s'agit du prix au mètre. */}
+        {soldByLength && <span className={s.perMeter}>/ mètre</span>}
       </div>
+
+      {/* Prix de la longueur choisie — la cliente ne doit pas avoir à calculer
+          16.50 × 0.6 de tête pour savoir ce qu'elle va payer. */}
+      {soldByLength && (
+        <p className={s.lengthTotal}>
+          {qty * stepCm} cm — <strong>CHF {roundCHF(effectivePrice * qty * stepCm / 100).toFixed(2)}</strong>
+          <span className={s.lengthHint}>
+            minimum {minCm} cm, par tranches de {stepCm} cm
+          </span>
+        </p>
+      )}
 
       {/* ── Détail TVA — obligatoire légalement ── */}
       {tva && (
@@ -169,15 +192,17 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
         <div className={s.qtyWrap}>
           <button
             className={s.qtyBtn}
-            onClick={() => setQty(q => Math.max(1, q - 1))}
-            aria-label="Diminuer la quantité"
-            disabled={qty <= 1}
+            onClick={() => setQty(q => Math.max(soldByLength ? minQty : 1, q - 1))}
+            aria-label={soldByLength ? 'Diminuer la longueur' : 'Diminuer la quantité'}
+            disabled={qty <= (soldByLength ? minQty : 1)}
           >−</button>
-          <span className={s.qtyValue} aria-live="polite">{qty}</span>
+          <span className={s.qtyValue} aria-live="polite">
+            {soldByLength ? `${qty * stepCm} cm` : qty}
+          </span>
           <button
             className={s.qtyBtn}
             onClick={() => setQty(q => Math.min(stockQty, q + 1))}
-            aria-label="Augmenter la quantité"
+            aria-label={soldByLength ? 'Augmenter la longueur' : 'Augmenter la quantité'}
             disabled={qty >= stockQty || outOfStock}
           >+</button>
         </div>

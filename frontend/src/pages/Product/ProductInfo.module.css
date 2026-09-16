@@ -380,3 +380,36 @@
   margin-top: 4px;
   margin-bottom: 20px;
 }
+
+/* ── Vente à la coupe (trames, bandes à broder) — ticket ADM-12 ── */
+
+/* Mention « / mètre » accolée au prix : sans elle, le montant affiché passe
+   pour le prix de l'article entier. */
+.perMeter {
+  font-size: 13px;
+  color: var(--text-muted);
+  align-self: flex-end;
+  margin-bottom: 3px;
+}
+
+/* Prix de la longueur choisie, recalculé à chaque changement */
+.lengthTotal {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  background: var(--rose-pale);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-dark);
+}
+
+.lengthTotal strong {
+  color: var(--rose-dark);
+}
+
+.lengthHint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
