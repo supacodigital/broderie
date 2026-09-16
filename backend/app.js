@@ -125,18 +125,26 @@ app.use(cookieParser());
  * SELECT indexés. L'écriture (commande, avis, inscription newsletter) garde une
  * limite serrée, car c'est là qu'un abus a un coût réel. L'authentification a
  * sa propre protection, bien plus stricte (routes/auth.routes.js, 10 / 15 min).
+ *
+ * Actif en production ET en staging (staging = copie exacte de la prod, CLAUDE.md §3).
+ * Le rafraîchissement de token échappe aux DEUX limiteurs : c'est un POST, donc il
+ * tomberait sinon dans le quota d'écriture, en concurrence avec les commandes et les
+ * avis. Il est déclenché par le navigateur à l'expiration de l'access token, jamais
+ * par la cliente : l'épuiser déconnecte quelqu'un au milieu de sa visite. Sa
+ * protection propre est le refresh token lui-même, signé et en cookie httpOnly.
  */
+const skipLimiter = (req) => !['production', 'staging'].includes(process.env.NODE_ENV)
+  || req.path === '/v1/auth/refresh-token';
+
+const limiterMessage = { success: false, message: 'Trop de requêtes, veuillez réessayer dans quelques minutes.' };
+
 const readLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: process.env.NODE_ENV === 'production' ? 5000 : 50000,
   standardHeaders: true,
   legacyHeaders: false,
-  // Actif en production ET en staging (staging = copie exacte de la prod, CLAUDE.md §3)
-  skip: (req) => !['production', 'staging'].includes(process.env.NODE_ENV)
-    // Le rafraîchissement de token est automatique et invisible pour la cliente :
-    // le bloquer déconnecte quelqu'un qui n'a rien fait d'anormal.
-    || req.path === '/v1/auth/refresh-token',
-  message: { success: false, message: 'Trop de requêtes, veuillez réessayer dans quelques minutes.' },
+  skip: skipLimiter,
+  message: limiterMessage,
 });
 
 const writeLimiter = rateLimit({
@@ -144,8 +152,8 @@ const writeLimiter = rateLimit({
   max: process.env.NODE_ENV === 'production' ? 300 : 10000,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: () => !['production', 'staging'].includes(process.env.NODE_ENV),
-  message: { success: false, message: 'Trop de requêtes, veuillez réessayer dans quelques minutes.' },
+  skip: skipLimiter,
+  message: limiterMessage,
 });
 
 app.use('/api/', (req, res, next) => (

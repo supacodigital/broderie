@@ -16,14 +16,17 @@ function makeApp({ readMax, writeMax }) {
   const app = express();
   app.set('trust proxy', 1);
 
+  /* Le rafraîchissement de token est automatique : le limiter déconnecterait une
+     cliente qui n'a rien fait d'anormal. L'exclusion vaut pour les deux limiteurs,
+     car c'est un POST — il tomberait sinon dans le quota d'écriture. */
+  const skipLimiter = (req) => req.path === '/v1/auth/refresh-token';
+
   const readLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: readMax,
     standardHeaders: true,
     legacyHeaders: false,
-    // Le rafraîchissement de token est automatique : le limiter déconnecterait
-    // une cliente qui n'a rien fait d'anormal.
-    skip: (req) => req.path === '/v1/auth/refresh-token',
+    skip: skipLimiter,
   });
 
   const writeLimiter = rateLimit({
@@ -31,6 +34,7 @@ function makeApp({ readMax, writeMax }) {
     max: writeMax,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: skipLimiter,
   });
 
   app.use('/api/', (req, res, next) => (
@@ -79,6 +83,20 @@ describe('limiteurs de débit — lecture et écriture séparées', () => {
 
   /* Le rafraîchissement de token est déclenché par le navigateur, pas par la
      cliente : le bloquer revient à déconnecter quelqu'un au milieu de sa visite. */
+  test('le rafraîchissement de token échappe AUSSI au limiteur d’écriture', async () => {
+    // C'est un POST : sans exclusion explicite, il partagerait le quota des
+    // commandes et des avis.
+    const app = makeApp({ readMax: 100, writeMax: 1 });
+
+    await request(app).post('/api/v1/orders');
+    expect((await request(app).post('/api/v1/orders')).status).toBe(429);
+
+    for (let i = 0; i < 5; i += 1) {
+      const res = await request(app).post('/api/v1/auth/refresh-token');
+      expect(res.status).toBe(200);
+    }
+  });
+
   test('le rafraîchissement de token échappe au limiteur de lecture', async () => {
     const app = makeApp({ readMax: 1, writeMax: 100 });
 
