@@ -790,11 +790,10 @@ export default function Products() {
               )}
               <span className={s.sku}>{product.sku ?? '—'}</span>
               <span className={s.bold}>{formatCHF(product.price_chf)}</span>
+              {/* Stock bas signalé par la seule couleur : l'icône d'alerte répétée
+                  sur chaque ligne saturait la colonne sans rien ajouter. */}
               <span className={product.stock <= 5 ? s.stockLow : s.stockOk}>
                 {product.stock}
-                {product.stock <= 5 && product.stock > 0 && (
-                  <AlertTriangle size={11} style={{ marginLeft: 4 }} />
-                )}
               </span>
               <span className={s.activeBadge} data-active={String(!!product.is_active)}>
                 {product.is_active ? 'Actif' : 'Inactif'}
