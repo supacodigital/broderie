@@ -8,6 +8,11 @@ const translationSchema = z.object({
 
 const productBaseSchema = z.object({
   categoryId:      z.number().int().positive(),
+  /* Rayons SECONDAIRES (ADM-04) — la catégorie principale reste `categoryId`.
+     Champ absent = les rayons existants sont conservés ; tableau vide = la
+     cliente a retiré tous les rayons secondaires. Plafonné pour qu'une saisie
+     aberrante ne fasse pas gonfler la table de liaison. */
+  secondaryCategoryIds: z.array(z.number().int().positive()).max(20).optional(),
   supplierId:      z.number().int().positive().optional().nullable(),
   slug:            z.string().min(1).max(255),
   priceChf:        z.number().positive().max(99999),

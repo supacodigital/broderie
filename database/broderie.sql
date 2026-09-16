@@ -236,6 +236,10 @@ CREATE TABLE category_translations (
 CREATE TABLE products (
   id                INT UNSIGNED   NOT NULL AUTO_INCREMENT,
   category_id       INT UNSIGNED   NULL DEFAULT NULL, -- NULL possible : catégorie supprimée alors qu'un produit soft-deleted y était encore rattaché (ON DELETE SET NULL)
+  -- Catégorie PRINCIPALE ci-dessus (fil d'Ariane, URL canonique). Les rayons
+  -- supplémentaires sont portés par product_categories (ADM-04).
+  -- 1 = classement encore à confirmer par la cliente, 0 = validé par elle
+  category_needs_review TINYINT(1) NOT NULL DEFAULT 1,
   supplier_id       INT UNSIGNED   NULL DEFAULT NULL,
   slug              VARCHAR(255)   NOT NULL,
   -- price_chf : prix promotionnel quand une promo est en cours, prix normal sinon.
@@ -286,9 +290,28 @@ CREATE TABLE products (
   INDEX idx_products_active_created(is_active, created_at),          -- tri catalogue par défaut
   INDEX idx_products_promo       (promo_ends_at, promo_starts_at),   -- promos en cours / à échoir
   INDEX idx_products_stock       (is_active, stock),                 -- filtre in_stock
+  INDEX idx_products_category_review (category_needs_review),        -- articles à reclasser (admin)
   CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL,
   CONSTRAINT fk_products_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers (id) ON DELETE SET NULL,
   CONSTRAINT fk_products_tax      FOREIGN KEY (tax_rate_id) REFERENCES tax_rates (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Rattachement d'un produit à PLUSIEURS catégories (ADM-04).
+-- products.category_id reste la catégorie principale ; cette table porte les
+-- rayons supplémentaires, et duplique la principale avec is_primary = 1 pour
+-- qu'une seule requête liste tous les rayons d'un produit.
+-- L'unicité de la principale est garantie par le repository, qui réécrit tous
+-- les rattachements d'un produit dans une transaction.
+CREATE TABLE product_categories (
+  product_id  INT UNSIGNED NOT NULL,
+  category_id INT UNSIGNED NOT NULL,
+  is_primary  TINYINT(1)   NOT NULL DEFAULT 0, -- 1 = miroir de products.category_id
+  sort_order  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (product_id, category_id),
+  INDEX idx_prod_cat_category (category_id, is_primary),  -- « tous les produits de ce rayon »
+  CONSTRAINT fk_prod_cat_product  FOREIGN KEY (product_id)  REFERENCES products (id)   ON DELETE CASCADE,
+  CONSTRAINT fk_prod_cat_category FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE product_translations (

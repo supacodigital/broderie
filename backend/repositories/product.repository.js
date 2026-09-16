@@ -150,11 +150,23 @@ const buildFilters = (filters) => {
       params.push(`%${filters.q}%`);
     }
   }
+  /* Filtre catégorie sur la table de liaison (ADM-04) : un produit rattaché à un
+     rayon SECONDAIRE doit y apparaître, pas seulement dans sa catégorie
+     principale. EXISTS plutôt qu'une jointure — un produit présent dans deux
+     rayons demandés ne doit remonter qu'une fois, sans DISTINCT sur toute la
+     ligne produit. */
   if (filters.categoryIds && filters.categoryIds.length > 0) {
-    conditions.push(`p.category_id IN (${filters.categoryIds.map(() => '?').join(',')})`);
+    conditions.push(
+      `EXISTS (SELECT 1 FROM product_categories pc
+                WHERE pc.product_id = p.id
+                  AND pc.category_id IN (${filters.categoryIds.map(() => '?').join(',')}))`
+    );
     params.push(...filters.categoryIds);
   } else if (filters.categoryId) {
-    conditions.push('p.category_id = ?');
+    conditions.push(
+      `EXISTS (SELECT 1 FROM product_categories pc
+                WHERE pc.product_id = p.id AND pc.category_id = ?)`
+    );
     params.push(filters.categoryId);
   }
   /* Filtres de prix appliqués au prix RÉELLEMENT payé : un produit dont la promo
@@ -436,9 +448,12 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
   const offset = (page - 1) * limit;
 
   // Tout produit a une traduction FR → pas besoin de joindre les traductions pour le COUNT
+  // Rattachement lu sur product_categories (ADM-04) : les rayons secondaires comptent.
   const [countRows] = await pool.execute(
     `SELECT COUNT(*) AS total FROM products p
-     WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.category_id = ?`,
+     WHERE p.is_active = 1 AND p.deleted_at IS NULL
+       AND EXISTS (SELECT 1 FROM product_categories pc
+                    WHERE pc.product_id = p.id AND pc.category_id = ?)`,
     [categoryId]
   );
   const total = countRows[0].total;
@@ -453,7 +468,9 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
      LEFT JOIN categories c ON c.id = p.category_id
      LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
-     WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.category_id = ?
+     WHERE p.is_active = 1 AND p.deleted_at IS NULL
+       AND EXISTS (SELECT 1 FROM product_categories pc
+                    WHERE pc.product_id = p.id AND pc.category_id = ?)
        AND (pt.name IS NOT NULL OR pt_fr.name IS NOT NULL)
      ORDER BY ${imageFirst}${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,

@@ -18,6 +18,7 @@ const FK_MESSAGES = {
   fk_products_supplier: 'Le fournisseur sélectionné est introuvable.',
   fk_products_tax:      'Le taux de TVA sélectionné est introuvable.',
   fk_categories_parent: 'La catégorie parente sélectionnée est introuvable.',
+  fk_prod_cat_category: 'Une des catégories sélectionnées est introuvable.',
 };
 
 // Convertit une erreur MySQL connue (doublon, clé étrangère invalide) en AppError lisible.

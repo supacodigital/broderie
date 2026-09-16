@@ -600,3 +600,59 @@
   background: #fef3c7;
   color: #92400e;
 }
+
+/* ── Rayons supplémentaires (ADM-04) ────────────────────────────────────────
+   54 catégories : la liste est dense et défilante plutôt qu'un <select multiple>,
+   qui oblige à garder Ctrl enfoncé et fait perdre toute la sélection sur un clic
+   malheureux. */
+.categoryPicker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+}
+
+.categoryOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: var(--text-dark);
+  cursor: pointer;
+  /* Propriétés listées explicitement — jamais `all` */
+  transition: background-color .15s ease, color .15s ease;
+  /* Les libellés indentés (« — Sous-catégorie ») ne doivent pas se replier */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Le survol ne s'applique pas au tactile, où il se déclenche au tap */
+@media (hover: hover) and (pointer: fine) {
+  .categoryOption:hover { background: var(--rose-pale); }
+}
+
+.categoryOptionOn {
+  background: var(--rose-pale);
+  color: var(--rose-dark);
+  font-weight: 600;
+}
+
+.categoryCheckbox {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--rose);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.categoryCheckbox:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 2px;
+}

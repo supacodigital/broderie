@@ -3,11 +3,18 @@
  * Réimport du fichier catalogue complété par la cliente
  * (généré par database/export-catalog-excel.js, onglet "Catalogue").
  *
- * Traite les quatre colonnes que la cliente a demandé à pouvoir piloter :
+ * Traite les colonnes que la cliente a demandé à pouvoir piloter :
  *   Catégorie ......... rattachement à une catégorie (y compris enfant)
+ *   À revoir .......... « Complet » = classement validé, sinon à reclasser
  *   Fournisseur ....... rattachement à un fournisseur
  *   Prix CHF .......... correction du prix de vente
  *   SUPPRIMER (O/N) ... « O » retire l'article de la boutique (soft delete)
+ *
+ * Le changement de catégorie met aussi à jour product_categories (ADM-04) :
+ * la nouvelle catégorie devient le rattachement principal, l'ancienne est
+ * conservée en rayon secondaire. Le fichier ne portant qu'une catégorie par
+ * article, il ne peut pas exprimer le retrait d'un rayon — ce retrait se fait
+ * depuis l'administration.
  *
  * Volontairement NON traité ici : photos, description, poids et dimensions —
  * c'est le rôle de import-catalog-photos.js, qui gère aussi le pipeline image.
@@ -55,11 +62,13 @@ const BATCH_SIZE = 500;
 
 const COL = {
   ref:      'Référence (NArticleC)',
+  review:   'À revoir',
   category: 'Catégorie',
   supplier: 'Fournisseur',
   price:    'Prix CHF',
   remove:   'SUPPRIMER (O/N)',
 };
+
 
 // Arrondi suisse au 5 centimes — même règle que backend/utils/chf.utils.js
 const roundCHF = (amount) => Math.round(amount * 20) / 20;
@@ -68,6 +77,15 @@ const cleanStr = (v) => {
   if (v === null || v === undefined) return null;
   const s = String(v).trim();
   return s === '' ? null : s;
+};
+
+/* Colonne « À revoir » : « Complet » = classement validé par la cliente, tout
+   autre libellé (« Catégorie à affiner ») = rangement automatique encore à
+   confirmer. Une cellule vide ne dit rien : on ne touche pas au drapeau. */
+const parseReviewFlag = (raw) => {
+  const s = cleanStr(raw);
+  if (s === null) return null;
+  return s.toLowerCase().startsWith('complet') ? 0 : 1;
 };
 
 const parsePrice = (v) => {
@@ -108,7 +126,7 @@ async function main() {
   try {
     // Index de correspondance — une requête chacun, jamais dans la boucle
     const [products] = await connection.execute(
-      `SELECT id, external_ref, price_chf, category_id, supplier_id
+      `SELECT id, external_ref, price_chf, category_id, category_needs_review, supplier_id
        FROM products WHERE external_ref IS NOT NULL AND deleted_at IS NULL`
     );
     const productByRef = new Map(products.map((p) => [String(p.external_ref), p]));
@@ -139,12 +157,13 @@ async function main() {
 
     const report = {
       matched: 0, unknownRef: 0, noChange: 0,
-      price: 0, category: 0, supplier: 0, removed: 0,
+      price: 0, category: 0, review: 0, supplier: 0, removed: 0,
       unknownCategories: new Set(), unknownSuppliers: new Set(), invalidPrices: 0,
     };
 
     const updates = [];   // { id, fields: {} }
     const removals = [];  // id
+    const categoryLinks = []; // { productId, categoryId } — rattachement principal à resynchroniser
 
     for (const row of rows) {
       const ref = cleanStr(row[COL.ref]);
@@ -175,7 +194,24 @@ async function main() {
       if (categoryLabel) {
         const id = categoryIdByLabel.get(categoryLabel.toLowerCase());
         if (!id) report.unknownCategories.add(categoryLabel);
-        else if (id !== product.category_id) { fields.category_id = id; report.category++; }
+        else if (id !== product.category_id) {
+          fields.category_id = id;
+          report.category++;
+          /* La catégorie principale change : le rattachement principal de
+             product_categories doit suivre (ADM-04). Les rayons secondaires
+             éventuellement ajoutés depuis l'administration sont conservés — le
+             fichier de la cliente ne porte qu'une catégorie par article et ne
+             peut donc pas exprimer leur retrait. */
+          categoryLinks.push({ productId: product.id, categoryId: id });
+        }
+      }
+
+      /* Drapeau « À revoir » — la cliente n'a validé le classement que d'une
+         partie du catalogue ; l'information doit survivre au réimport. */
+      const reviewFlag = parseReviewFlag(row[COL.review]);
+      if (reviewFlag !== null && reviewFlag !== product.category_needs_review) {
+        fields.category_needs_review = reviewFlag;
+        report.review++;
       }
 
       const supplierLabel = cleanStr(row[COL.supplier]);
@@ -196,6 +232,7 @@ async function main() {
     console.log(`\nÀ modifier :`);
     console.log(`  prix .................. ${report.price}`);
     console.log(`  catégorie ............. ${report.category}`);
+    console.log(`  drapeau « à revoir » .. ${report.review}`);
     console.log(`  fournisseur ........... ${report.supplier}`);
     console.log(`  à retirer (SUPPRIMER) . ${report.removed}`);
 
@@ -233,6 +270,31 @@ async function main() {
             [...keys.map((k) => u.fields[k]), u.id]
           );
         }
+      }
+
+      /* Rattachement principal dans product_categories (ADM-04).
+         L'ancienne principale est d'abord dégradée en rayon secondaire plutôt
+         que supprimée : si la cliente reclasse un article, le rayon d'origine
+         reste un endroit où ses clientes le trouvaient déjà. */
+      for (let i = 0; i < categoryLinks.length; i += BATCH_SIZE) {
+        const batch = categoryLinks.slice(i, i + BATCH_SIZE);
+        const ids = batch.map((l) => l.productId);
+
+        await connection.execute(
+          `UPDATE product_categories SET is_primary = 0
+           WHERE product_id IN (${ids.map(() => '?').join(',')})`,
+          ids
+        );
+
+        // Insertion groupée — la clé primaire (product_id, category_id) absorbe
+        // le cas où le produit était déjà rattaché à cette catégorie en secondaire.
+        const placeholders = batch.map(() => '(?, ?, 1, 0)').join(', ');
+        await connection.query(
+          `INSERT INTO product_categories (product_id, category_id, is_primary, sort_order)
+           VALUES ${placeholders}
+           ON DUPLICATE KEY UPDATE is_primary = 1, sort_order = 0`,
+          batch.flatMap((l) => [l.productId, l.categoryId])
+        );
       }
 
       for (let i = 0; i < removals.length; i += BATCH_SIZE) {

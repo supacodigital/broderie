@@ -347,9 +347,10 @@ describe('product.repository — findByCategoryId()', () => {
     const result = await repo.findByCategoryId({ categoryId: 2, locale: 'fr' });
     expect(result.total).toBe(3);
     expect(result.rows).toHaveLength(3);
-    // COUNT simplifié : juste le category_id, sans jointure traduction
+    // COUNT simplifié : rattachement lu sur product_categories (ADM-04 — les
+    // rayons secondaires comptent), sans jointure traduction
     expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringMatching(/SELECT COUNT\(\*\)[\s\S]*p\.category_id = \?/),
+      expect.stringMatching(/SELECT COUNT\(\*\)[\s\S]*product_categories pc[\s\S]*pc\.category_id = \?/),
       [2]
     );
   });

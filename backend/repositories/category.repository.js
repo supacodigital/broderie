@@ -11,13 +11,20 @@ const findAll = async (locale = 'fr') => {
               SELECT COUNT(p.id)
               FROM products p
               WHERE p.is_active = 1 AND p.deleted_at IS NULL
-                AND p.category_id IN (
-                  SELECT descendant.id
-                  FROM categories descendant
-                  LEFT JOIN categories parent ON parent.id = descendant.parent_id
-                  WHERE descendant.id = c.id
-                     OR descendant.parent_id = c.id
-                     OR parent.parent_id = c.id
+                -- Rattachement lu sur product_categories (ADM-04) : un produit
+                -- rangé ici en rayon secondaire compte dans le total affiché.
+                AND EXISTS (
+                  SELECT 1
+                  FROM product_categories pc
+                  WHERE pc.product_id = p.id
+                    AND pc.category_id IN (
+                      SELECT descendant.id
+                      FROM categories descendant
+                      LEFT JOIN categories parent ON parent.id = descendant.parent_id
+                      WHERE descendant.id = c.id
+                         OR descendant.parent_id = c.id
+                         OR parent.parent_id = c.id
+                    )
                 )
             ) AS product_count
      FROM categories c

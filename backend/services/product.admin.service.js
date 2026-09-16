@@ -61,6 +61,9 @@ const buildListFilters = (query) => ({
   lowStock:   query.low_stock === 'true',
   isActive:   query.is_active === 'true' ? true : query.is_active === 'false' ? false : null,
   isFeatured: query.is_featured === 'true' ? true : query.is_featured === 'false' ? false : null,
+  // Articles dont le classement reste à confirmer par la cliente (ADM-04)
+  needsCategoryReview: query.needs_category_review === 'true' ? true
+                     : query.needs_category_review === 'false' ? false : null,
   // Remonte les produits illustrés — utilisé par le sélecteur de la vitrine home
   imageFirst: query.image_first === 'true',
 });

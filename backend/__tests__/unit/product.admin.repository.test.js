@@ -25,6 +25,8 @@ function makeConn(responses = []) {
     execute: jest.fn().mockImplementation(() =>
       Promise.resolve(responses[i++] ?? [{ insertId: 1, affectedRows: 1 }, []])
     ),
+    // Insertion groupée des rayons du produit (ADM-04) — passe par query()
+    query:    jest.fn().mockResolvedValue([{ affectedRows: 1 }, []]),
     commit:   jest.fn().mockResolvedValue(),
     rollback: jest.fn().mockResolvedValue(),
     release:  jest.fn(),
@@ -53,8 +55,8 @@ describe('product.admin.repository — create()', () => {
     });
 
     expect(id).toBe(10);
-    // 1 INSERT products + 2 INSERT translations
-    expect(conn.execute).toHaveBeenCalledTimes(3);
+    // 1 INSERT products + 2 INSERT translations + 1 DELETE des rayons (ADM-04)
+    expect(conn.execute).toHaveBeenCalledTimes(4);
     expect(conn.commit).toHaveBeenCalled();
   });
 
@@ -76,6 +78,8 @@ describe('product.admin.repository — update()', () => {
   test('met à jour le produit sans slug', async () => {
     const conn = makeConn([[[], []], [[], []]]);
     pool.getConnection.mockResolvedValue(conn);
+    // Relecture des rayons existants : secondaryCategoryIds non fourni (ADM-04)
+    pool.execute.mockResolvedValue([[]]);
 
     await repo.update(1, {
       categoryId: 1, supplierId: 2,
@@ -84,13 +88,35 @@ describe('product.admin.repository — update()', () => {
       translations: { fr: { name: 'Fil mis à jour', description: null } },
     });
 
-    expect(conn.execute).toHaveBeenCalledTimes(2);
+    // 1 UPDATE products + 1 INSERT traduction + 1 DELETE des rayons (ADM-04)
+    expect(conn.execute).toHaveBeenCalledTimes(3);
     expect(conn.commit).toHaveBeenCalled();
+  });
+
+  test('conserve les rayons existants quand secondaryCategoryIds n’est pas fourni', async () => {
+    const conn = makeConn([[[], []]]);
+    pool.getConnection.mockResolvedValue(conn);
+    // Le produit était rangé dans un rayon secondaire (115) en plus de sa principale
+    pool.execute.mockResolvedValue([[
+      { product_id: 1, category_id: 1,   is_primary: 1 },
+      { product_id: 1, category_id: 115, is_primary: 0 },
+    ]]);
+
+    await repo.update(1, {
+      categoryId: 1, supplierId: null,
+      priceChf: 5.00, taxRateId: 1, stock: 10, weightKg: null,
+      isFeatured: false, isActive: true, badge: null,
+    });
+
+    // Le rayon secondaire 115 est réinséré, pas perdu par la mise à jour partielle
+    const params = conn.query.mock.calls[0][1];
+    expect(params).toEqual([1, 1, 1, 0, 1, 115, 0, 1]);
   });
 
   test('inclut la mise à jour du slug si fourni', async () => {
     const conn = makeConn([[[], []]]);
     pool.getConnection.mockResolvedValue(conn);
+    pool.execute.mockResolvedValue([[]]);
 
     await repo.update(1, {
       categoryId: 1, supplierId: null, slug: 'nouveau-slug',
@@ -403,9 +429,33 @@ describe('product.admin.repository — findAllAdmin()', () => {
     });
 
     const countQuery = pool.query.mock.calls[0][0];
-    expect(countQuery).toContain('p.category_id IN');
+    // Filtre catégorie lu sur product_categories (ADM-04) — rayons secondaires inclus
+    expect(countQuery).toContain('pc.category_id IN');
     expect(countQuery).toContain('p.supplier_id = ?');
     expect(countQuery).toContain('p.price_chf >=');
     expect(countQuery).toContain('p.price_chf <=');
+  });
+
+  test('filtre les articles dont le classement reste à confirmer (ADM-04)', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 1 }]])
+      .mockResolvedValueOnce([[{ id: 5 }]]);
+
+    await repo.findAllAdmin({ needsCategoryReview: true });
+
+    const countQuery  = pool.query.mock.calls[0][0];
+    const countParams = pool.query.mock.calls[0][1];
+    expect(countQuery).toContain('p.category_needs_review = ?');
+    expect(countParams).toContain(1);
+  });
+
+  test('sans filtre « à revoir », aucune condition sur le drapeau', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 1 }]])
+      .mockResolvedValueOnce([[{ id: 5 }]]);
+
+    await repo.findAllAdmin({});
+
+    expect(pool.query.mock.calls[0][0]).not.toContain('category_needs_review');
   });
 });

@@ -212,3 +212,85 @@ describe('ProductForm — édition d\'un produit avec réduction existante', () 
     expect(screen.getByLabelText(/Afficher un ancien prix barré/)).toHaveValue('none')
   })
 })
+
+// ── Rayons supplémentaires (ADM-04) ──────────────────────────────────────────
+
+describe('ProductForm — rayons supplémentaires', () => {
+  const CATEGORIES = [
+    { id: 1, parent_id: null, slug: 'kits',     translations: { fr: { name: 'Kits' } } },
+    { id: 2, parent_id: null, slug: 'diamant',  translations: { fr: { name: 'Diamant' } } },
+    { id: 3, parent_id: null, slug: 'toiles',   translations: { fr: { name: 'Toiles' } } },
+  ]
+
+  it('envoie les rayons cochés à la création', async () => {
+    const user = userEvent.setup()
+    getCategories.mockResolvedValue(CATEGORIES)
+    createProduct.mockResolvedValue({ id: 20 })
+
+    renderForm()
+
+    await screen.findByRole('option', { name: 'Kits' })
+    await user.selectOptions(screen.getByLabelText(/Catégorie principale/), '1')
+    await user.type(screen.getByLabelText(/Nom du produit/), 'Kit fleurs')
+    await user.type(screen.getByLabelText(/SKU/), 'SKU-020')
+    await user.type(screen.getByLabelText(/Prix payé par le client/), '30')
+
+    // La catégorie principale n'est pas proposée comme rayon supplémentaire
+    expect(screen.queryByRole('checkbox', { name: 'Kits' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Diamant' }))
+    await user.click(screen.getByRole('button', { name: /Créer|Enregistrer/ }))
+
+    await waitFor(() => expect(createProduct).toHaveBeenCalled())
+    expect(createProduct.mock.calls[0][0]).toMatchObject({
+      categoryId: 1,
+      secondaryCategoryIds: [2],
+    })
+  })
+
+  it('reprend les rayons existants en édition', async () => {
+    getCategories.mockResolvedValue(CATEGORIES)
+    getProductById.mockResolvedValue({
+      id: 9, name: 'Kit existant', sku: 'SKU-009',
+      price_chf: 40, stock: 2, category_id: 1, tax_rate_id: 1,
+      secondary_category_ids: [3],
+      images: [],
+    })
+
+    renderForm({ id: 9 })
+
+    const toiles = await screen.findByRole('checkbox', { name: 'Toiles' })
+    expect(toiles).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Diamant' })).not.toBeChecked()
+  })
+
+  it('retire des rayons supplémentaires la catégorie promue en principale', async () => {
+    const user = userEvent.setup()
+    getCategories.mockResolvedValue(CATEGORIES)
+    getProductById.mockResolvedValue({
+      id: 10, name: 'Kit existant', sku: 'SKU-010',
+      price_chf: 40, stock: 2, category_id: 1, tax_rate_id: 1,
+      secondary_category_ids: [2],
+      images: [],
+    })
+    updateProduct.mockResolvedValue({ id: 10 })
+
+    renderForm({ id: 10 })
+
+    expect(await screen.findByRole('checkbox', { name: 'Diamant' })).toBeChecked()
+
+    // Diamant devient la catégorie principale : il ne doit plus être un rayon secondaire
+    await user.selectOptions(screen.getByLabelText(/Catégorie principale/), '2')
+
+    await waitFor(() =>
+      expect(screen.queryByRole('checkbox', { name: 'Diamant' })).not.toBeInTheDocument()
+    )
+
+    await user.click(screen.getByRole('button', { name: /Enregistrer|Créer/ }))
+    await waitFor(() => expect(updateProduct).toHaveBeenCalled())
+    expect(updateProduct.mock.calls[0][1]).toMatchObject({
+      categoryId: 2,
+      secondaryCategoryIds: [],
+    })
+  })
+})

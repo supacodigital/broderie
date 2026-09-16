@@ -236,6 +236,19 @@ export default function ProductForm() {
   const [apiError,   setApiError]   = useState('')
   const [confirmLeave, setConfirmLeave] = useState(false)
 
+  /* Rayons secondaires (ADM-04) — hors React Hook Form : ce sont des cases à
+     cocher multiples, pas un champ de saisie, et la liste est envoyée telle
+     quelle au serveur. */
+  const [secondaryCategoryIds, setSecondaryCategoryIds] = useState([])
+
+  const toggleSecondaryCategory = (categoryId) => {
+    setSecondaryCategoryIds(current =>
+      current.includes(categoryId)
+        ? current.filter(existing => existing !== categoryId)
+        : [...current, categoryId]
+    )
+  }
+
   /* Réduction — le champ "Prix de vente" (priceChf) est TOUJOURS le prix réellement
      payé (price_chf), y compris quand une réduction est active : il ne doit jamais
      être remplacé par l'ancien prix barré. La réduction (% ou CHF) ne sert qu'à
@@ -249,7 +262,20 @@ export default function ProductForm() {
     defaultValues: { isActive: true, isFeatured: false, isMadeToOrder: false, badge: '', stock: 0 },
   })
 
+  const categoryId = watch('categoryId')
   const selectedSupplierId = watch('supplierId')
+
+  /* La catégorie principale ne peut pas figurer aussi dans les rayons
+     supplémentaires : si la cliente la promeut en principale, on la retire de la
+     sélection secondaire — sinon elle resterait cochée sans être visible. */
+  useEffect(() => {
+    if (!categoryId) return
+    setSecondaryCategoryIds(current =>
+      current.includes(Number(categoryId))
+        ? current.filter(existing => existing !== Number(categoryId))
+        : current
+    )
+  }, [categoryId])
   const isMadeToOrderChecked = watch('isMadeToOrder')
   const watchedPrice = watch('priceChf')
 
@@ -374,6 +400,7 @@ export default function ProductForm() {
           lengthCm:        res.length_cm ?? '',
           widthCm:         res.width_cm ?? '',
           categoryId:      res.category_id ?? '',
+          // secondary_category_ids est hors formulaire — repris juste après via setSecondaryCategoryIds
           supplierId:      res.supplier_id ?? '',
           taxRateId:       res.tax_rate_id ?? '',
           isFeatured:      !!res.is_featured,
@@ -385,6 +412,7 @@ export default function ProductForm() {
           promoStartsAt:   toDateTimeLocal(res.promo_starts_at),
           promoEndsAt:     toDateTimeLocal(res.promo_ends_at),
         })
+        setSecondaryCategoryIds(res.secondary_category_ids ?? [])
         const imgs = (res?.images ?? []).map(img => ({ ...img, isPrimary: !!img.is_primary }))
         setImages(imgs)
       })
@@ -442,6 +470,9 @@ export default function ProductForm() {
          en boutique en plus du prix de vente réel */
       const payload = {
         categoryId:      Number(data.categoryId),
+        // Rayons supplémentaires (ADM-04) — toujours envoyés, tableau vide compris :
+        // le serveur doit pouvoir enregistrer le retrait du dernier rayon.
+        secondaryCategoryIds: secondaryCategoryIds,
         supplierId:      data.supplierId ? Number(data.supplierId) : null,
         taxRateId:       Number(data.taxRateId),
         slug:            isEdit ? undefined : slug,
@@ -558,7 +589,7 @@ export default function ProductForm() {
               </div>
 
               <div className={s.field}>
-                <label className={s.label} htmlFor="categoryId">Catégorie *</label>
+                <label className={s.label} htmlFor="categoryId">Catégorie principale *</label>
                 <select id="categoryId" className={`${s.input} ${errors.categoryId ? s.inputError : ''}`} {...register('categoryId')}>
                   <option value="">— Choisir —</option>
                   {categories.map(c => (
@@ -566,6 +597,34 @@ export default function ProductForm() {
                   ))}
                 </select>
                 {errors.categoryId && <span className={s.err}>{errors.categoryId.message}</span>}
+                <span className={s.hint}>Rayon principal du produit — celui affiché sur sa fiche.</span>
+              </div>
+
+              {/* Rayons supplémentaires (ADM-04) — un même article peut être rangé
+                  dans plusieurs rayons de la boutique. */}
+              <div className={s.fieldFull}>
+                <span className={s.label}>Autres rayons</span>
+                <span className={s.hint}>
+                  Le produit apparaîtra aussi dans ces rayons. Laissez vide s’il n’appartient qu’à sa catégorie principale.
+                </span>
+                <div className={s.categoryPicker}>
+                  {categories
+                    .filter(c => c.id !== Number(categoryId))
+                    .map(c => {
+                      const checked = secondaryCategoryIds.includes(c.id)
+                      return (
+                        <label key={c.id} className={`${s.categoryOption} ${checked ? s.categoryOptionOn : ''}`}>
+                          <input
+                            type="checkbox"
+                            className={s.categoryCheckbox}
+                            checked={checked}
+                            onChange={() => toggleSecondaryCategory(c.id)}
+                          />
+                          <span>{c.name}</span>
+                        </label>
+                      )
+                    })}
+                </div>
               </div>
 
               <div className={s.field}>
