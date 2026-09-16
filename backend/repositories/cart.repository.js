@@ -25,13 +25,21 @@ const findCartItems = async (cartId, locale = 'fr') => {
        price_snapshot est conservé en base comme trace de la saisie initiale. */
     `SELECT ci.id, ci.product_id, ci.variant_id, ci.quantity,
             ci.price_snapshot,
-            ${effectivePriceSql('p')} + COALESCE(pv.price_modifier, 0) AS unit_price,
+            /* Vente à la coupe : quantity compte des tronçons de length_step_cm,
+               donc le prix unitaire doit être celui du tronçon et non du mètre.
+               Sans cette division, une bande à 3.00/m facturait 3.00 par tranche
+               de 10 cm — soit 18.00 pour 60 cm au lieu de 1.80. */
+            (CASE WHEN p.sold_by_length = 1
+                  THEN (${effectivePriceSql('p')} * p.length_step_cm / 100)
+                  ELSE ${effectivePriceSql('p')} END)
+              + COALESCE(pv.price_modifier, 0) AS unit_price,
             ci.tax_rate_snapshot,
             ${promoActiveSql('p')} AS is_promo_active,
             COALESCE(pt.name, pt_fr.name) AS product_name,
             COALESCE(pt.slug, pt_fr.slug) AS product_slug,
             pi.url AS image_url,
             p.stock, p.weight_kg, p.is_active, p.is_made_to_order, p.deleted_at,
+            p.sold_by_length, p.length_step_cm, p.length_min_cm,
             p.category_id,
             c.slug AS category_slug
      FROM cart_items ci

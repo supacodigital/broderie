@@ -12,6 +12,18 @@ import { useCart } from "../../contexts/CartContext.jsx";
 import { roundCHF } from "../../utils/chf.js";
 import { getShippingRate } from "../../services/shipping.service.js";
 import { normalizeLocale } from "../../utils/locale.js";
+
+/* Quantité minimale d'une ligne de panier.
+   Les articles vendus à la coupe (trames, bandes à broder) comptent des tronçons
+   de 10 cm : leur minimum est de 50 cm, soit 5 tronçons — pas 1. Sans cette
+   borne, le bouton « − » laissait descendre sous le minimum et le serveur
+   refusait la mise à jour, ce qui donnait un bouton actif mais sans effet. */
+function minQtyOf(item) {
+  if (!item.sold_by_length) return 1;
+  const step = Number(item.length_step_cm) || 10;
+  const min  = Number(item.length_min_cm)  || 50;
+  return Math.ceil(min / step);
+}
 import EmptyState from "../../components/ui/EmptyState/EmptyState.jsx";
 import CartSuggestions from "./CartSuggestions.jsx";
 import s from "./Cart.module.css";
@@ -124,13 +136,15 @@ export default function Cart() {
                     <button
                       className={s.qtyBtn}
                       onClick={() => updateQty(item.id, item.quantity - 1)}
-                      disabled={item.quantity <= 1}
+                      disabled={item.quantity <= minQtyOf(item)}
                       aria-label="Diminuer la quantité"
                     >
                       <Minus size={14} />
                     </button>
                     <span className={s.qtyValue} aria-live="polite">
-                      {item.quantity}
+                      {item.sold_by_length
+                        ? `${item.quantity * (item.length_step_cm || 10)} cm`
+                        : item.quantity}
                     </span>
                     <button
                       className={s.qtyBtn}
