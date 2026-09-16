@@ -84,7 +84,7 @@ export default function Navbar() {
             <Link to="/catalogue">{t('nav.collections')}</Link>
           </li>
           <li>
-            <Link to="/catalogue?badge=nouveaute">{t('nav.newArrivals')}</Link>
+            <Link to="/catalogue?sort=created_at&order=desc">{t('nav.newArrivals')}</Link>
           </li>
           <li>
             <Link to="/notre-histoire">{t('nav.about')}</Link>
@@ -205,7 +205,7 @@ export default function Navbar() {
             <ChevronRight size={18} className={s.mobileLinkArrow} />
           </NavLink>
 
-          <NavLink to="/catalogue?badge=nouveaute" className={s.mobileLink} onClick={closeMenu}>
+          <NavLink to="/catalogue?sort=created_at&order=desc" className={s.mobileLink} onClick={closeMenu}>
             <span className={s.mobileLinkContent}>
               <span className={s.mobileLinkText}>{t('nav.newArrivals')}</span>
               <span className={s.mobileLinkSub}>Dernières arrivées</span>

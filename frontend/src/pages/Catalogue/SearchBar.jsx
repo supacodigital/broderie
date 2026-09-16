@@ -5,9 +5,11 @@ import { useProductSearch } from '../../hooks/useProductSearch.js'
 import SearchSuggestion from '../../components/ui/SearchSuggestion/SearchSuggestion.jsx'
 import s from './SearchBar.module.css'
 
+/* L'option « Nouveautés » filtrait sur le badge `nouveaute`, qu'aucun produit
+   ne porte (0 sur 15 496) : elle vidait la page. Elle faisait de toute façon
+   doublon avec « Les plus récents », qui trie sur la date d'ajout. */
 const SORT_OPTIONS = [
   { value: 'created_at:desc', labelKey: 'catalogue.sortNewest'      },
-  { value: 'badge:nouveaute', labelKey: 'catalogue.sortNewBadge'    },
   { value: 'price_chf:asc',   labelKey: 'catalogue.sortPriceAsc'   },
   { value: 'price_chf:desc',  labelKey: 'catalogue.sortPriceDesc'  },
   { value: 'avg_rating:desc', labelKey: 'catalogue.sortRating'     },
@@ -90,20 +92,14 @@ export default function SearchBar({ filters, onChange, onToggleFilters, viewMode
     onChange({ ...filters, q: undefined, page: 1 })
   }
 
+  /* Le badge n'est plus piloté depuis le tri — il reste filtrable par les puces
+     « Sélection » du panneau de filtres, qui ne l'écrasent pas ici. */
   function handleSort(e) {
-    const val = e.target.value
-    if (val.startsWith('badge:')) {
-      const badge = val.split(':')[1]
-      onChange({ ...filters, badge, sort: 'created_at', order: 'desc', page: 1 })
-    } else {
-      const [sort, order] = val.split(':')
-      onChange({ ...filters, badge: undefined, sort, order, page: 1 })
-    }
+    const [sort, order] = e.target.value.split(':')
+    onChange({ ...filters, sort, order, page: 1 })
   }
 
-  const currentSort = filters.badge === 'nouveaute'
-    ? 'badge:nouveaute'
-    : `${filters.sort ?? 'created_at'}:${filters.order ?? 'desc'}`
+  const currentSort = `${filters.sort ?? 'created_at'}:${filters.order ?? 'desc'}`
 
   return (
     <div className={s.bar}>

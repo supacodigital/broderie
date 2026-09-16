@@ -24,7 +24,7 @@ export default function HeroSection() {
           <Link to="/catalogue" className={s.btnPrimary}>
             {t("hero.cta")}
           </Link>
-          <Link to="/catalogue?badge=nouveaute" className={s.btnSecondary}>
+          <Link to="/catalogue?sort=created_at&order=desc" className={s.btnSecondary}>
             {t("hero.ctaKits")} <ChevronRight size={16} aria-hidden="true" />
           </Link>
         </div>

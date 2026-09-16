@@ -69,7 +69,7 @@ export default function Footer() {
               </Link>
             </li>
             <li>
-              <Link to="/catalogue?badge=nouveaute">
+              <Link to="/catalogue?sort=created_at&order=desc">
                 {t("footer.shopLinks.new")}
               </Link>
             </li>
