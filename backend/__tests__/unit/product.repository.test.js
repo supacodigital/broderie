@@ -337,22 +337,43 @@ describe('product.repository — search()', () => {
   });
 });
 
-// ── findByCategoryId() ────────────────────────────────────────────────────────
+// ── findByCategoryIds() ───────────────────────────────────────────────────────
 
-describe('product.repository — findByCategoryId()', () => {
+describe('product.repository — findByCategoryIds()', () => {
   test('retourne les produits paginés d\'une catégorie', async () => {
     pool.execute.mockResolvedValue([[{ total: 3 }]]);
     pool.query.mockResolvedValue([[{ id: 1 }, { id: 2 }, { id: 3 }]]);
 
-    const result = await repo.findByCategoryId({ categoryId: 2, locale: 'fr' });
+    const result = await repo.findByCategoryIds({ categoryId: 2, locale: 'fr' });
     expect(result.total).toBe(3);
     expect(result.rows).toHaveLength(3);
     // COUNT simplifié : rattachement lu sur product_categories (ADM-04 — les
     // rayons secondaires comptent), sans jointure traduction
     expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringMatching(/SELECT COUNT\(\*\)[\s\S]*product_categories pc[\s\S]*pc\.category_id = \?/),
+      expect.stringMatching(/SELECT COUNT\(\*\)[\s\S]*product_categories pc[\s\S]*pc\.category_id IN \(\?\)/),
       [2]
     );
+  });
+
+  /* Un rayon interroge sa descendance complète : la liste d'ids doit se
+     retrouver telle quelle dans le IN, sans quoi les sous-catégories seraient
+     ignorées. */
+  test('interroge toute la descendance quand plusieurs ids sont fournis', async () => {
+    pool.execute.mockResolvedValue([[{ total: 5 }]]);
+    pool.query.mockResolvedValue([[]]);
+
+    await repo.findByCategoryIds({ categoryIds: [2, 20, 200], locale: 'fr' });
+
+    expect(pool.execute).toHaveBeenCalledWith(
+      expect.stringMatching(/pc\.category_id IN \(\?,\?,\?\)/),
+      [2, 20, 200]
+    );
+  });
+
+  test('liste vide : aucune requête, résultat vide', async () => {
+    const result = await repo.findByCategoryIds({ categoryIds: [], locale: 'fr' });
+    expect(result).toEqual({ rows: [], total: 0 });
+    expect(pool.execute).not.toHaveBeenCalled();
   });
 
   test('retourne 0 produits si catégorie vide', async () => {

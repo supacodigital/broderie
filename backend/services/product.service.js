@@ -133,8 +133,17 @@ const getByCategorySlug = async (slug, query) => {
   const category = await categoryRepository.findBySlug(slug, locale);
   if (!category) throw new AppError('Catégorie introuvable.', 404);
 
-  const { rows, total } = await productRepository.findByCategoryId({
-    categoryId: category.id,
+  /* Un rayon montre TOUTE sa descendance, comme le filtre catégorie du
+     catalogue : sans cela, les articles rangés dans une sous-catégorie
+     n'apparaissaient pas dans leur rayon parent. Le défaut passait inaperçu
+     tant que les sous-catégories servaient peu ; la cliente en utilise
+     désormais pour 3 682 articles, qui devenaient introuvables en boutique. */
+  const allCats = await categoryRepository.findAll(locale);
+  const children = allCats.filter(c => c.parent_id === category.id).map(c => c.id);
+  const grandchildren = allCats.filter(c => children.includes(c.parent_id)).map(c => c.id);
+
+  const { rows, total } = await productRepository.findByCategoryIds({
+    categoryIds: [category.id, ...children, ...grandchildren],
     locale, page, limit, sort, order,
   });
 

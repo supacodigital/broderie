@@ -439,8 +439,14 @@ const search = async ({ q, locale = 'fr', page = 1, limit = 20 }) => {
   return { rows, total };
 };
 
-// Produits par catégorie (id de la catégorie)
-const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 20, sort = 'created_at', order = 'desc' }) => {
+/* Produits d'un rayon — `categoryIds` porte la catégorie ET toute sa descendance,
+   résolue par le service : un rayon doit montrer les articles rangés dans ses
+   sous-catégories, sinon ils sont introuvables en boutique.
+   `categoryId` (au singulier) reste accepté pour les appels existants. */
+const findByCategoryIds = async ({ categoryIds, categoryId, locale = 'fr', page = 1, limit = 20, sort = 'created_at', order = 'desc' }) => {
+  const ids = (categoryIds ?? [categoryId]).filter((id) => id != null);
+  if (ids.length === 0) return { rows: [], total: 0 };
+  const idPlaceholders = ids.map(() => '?').join(',');
   const sortField = ALLOWED_SORT_FIELDS[sort] || 'p.created_at';
   const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
   // Produits illustrés en premier — même raison que dans findAll()
@@ -453,8 +459,8 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
     `SELECT COUNT(*) AS total FROM products p
      WHERE p.is_active = 1 AND p.deleted_at IS NULL
        AND EXISTS (SELECT 1 FROM product_categories pc
-                    WHERE pc.product_id = p.id AND pc.category_id = ?)`,
-    [categoryId]
+                    WHERE pc.product_id = p.id AND pc.category_id IN (${idPlaceholders}))`,
+    ids
   );
   const total = countRows[0].total;
 
@@ -470,11 +476,11 @@ const findByCategoryId = async ({ categoryId, locale = 'fr', page = 1, limit = 2
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      WHERE p.is_active = 1 AND p.deleted_at IS NULL
        AND EXISTS (SELECT 1 FROM product_categories pc
-                    WHERE pc.product_id = p.id AND pc.category_id = ?)
+                    WHERE pc.product_id = p.id AND pc.category_id IN (${idPlaceholders}))
        AND (pt.name IS NOT NULL OR pt_fr.name IS NOT NULL)
      ORDER BY ${imageFirst}${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
-    [locale, locale, categoryId, limit, offset]
+    [locale, locale, ...ids, limit, offset]
   );
 
   return { rows, total };
@@ -547,4 +553,5 @@ const findAllBrands = async () => {
   return rows.map((r) => r.brand);
 };
 
-module.exports = { findAll, findById, findBySlug, search, findByCategoryId, findAllBrands };
+// findByCategoryId : alias conservé, la fonction accepte un id seul ou une liste
+module.exports = { findAll, findById, findBySlug, search, findByCategoryIds, findByCategoryId: findByCategoryIds, findAllBrands };

@@ -5,7 +5,7 @@ jest.mock('../../repositories/product.repository', () => ({
   findById:         jest.fn(),
   findBySlug:       jest.fn(),
   search:           jest.fn(),
-  findByCategoryId: jest.fn(),
+  findByCategoryIds: jest.fn(),
 }));
 
 jest.mock('../../repositories/category.repository', () => ({
@@ -229,12 +229,35 @@ describe('product.service — search()', () => {
 describe('product.service — getByCategorySlug()', () => {
   test('retourne les produits de la catégorie avec pagination', async () => {
     categoryRepository.findBySlug.mockResolvedValue({ id: 2, slug: 'fils', name: 'Fils' });
-    productRepository.findByCategoryId.mockResolvedValue({ rows: [{ id: 1 }], total: 1 });
+    categoryRepository.findAll.mockResolvedValue([]);
+    productRepository.findByCategoryIds.mockResolvedValue({ rows: [{ id: 1 }], total: 1 });
 
     const result = await service.getByCategorySlug('fils', { locale: 'fr', page: '1', limit: '20' });
     expect(result.category.slug).toBe('fils');
     expect(result.data).toHaveLength(1);
     expect(result.pagination.total).toBe(1);
+  });
+
+  /* Un rayon montre TOUTE sa descendance : sans cela, les articles rangés dans
+     une sous-catégorie n'apparaissaient pas dans leur rayon parent — 8 produits
+     concernés au moment du constat, et bien plus dès que la cliente affine son
+     classement. */
+  test('inclut les sous-catégories et petites-sous-catégories du rayon', async () => {
+    categoryRepository.findBySlug.mockResolvedValue({ id: 2, slug: 'fils' });
+    categoryRepository.findAll.mockResolvedValue([
+      { id: 2,  parent_id: null },
+      { id: 20, parent_id: 2 },    // sous-catégorie
+      { id: 21, parent_id: 2 },
+      { id: 200, parent_id: 20 },  // petite-sous-catégorie
+      { id: 99, parent_id: null }, // rayon voisin, à ne pas inclure
+    ]);
+    productRepository.findByCategoryIds.mockResolvedValue({ rows: [], total: 0 });
+
+    await service.getByCategorySlug('fils', { locale: 'fr' });
+
+    const { categoryIds } = productRepository.findByCategoryIds.mock.calls[0][0];
+    expect(categoryIds).toEqual([2, 20, 21, 200]);
+    expect(categoryIds).not.toContain(99);
   });
 
   test('lève AppError 404 si catégorie introuvable', async () => {
@@ -246,10 +269,11 @@ describe('product.service — getByCategorySlug()', () => {
 
   test('applique les paramètres sort et order', async () => {
     categoryRepository.findBySlug.mockResolvedValue({ id: 3 });
-    productRepository.findByCategoryId.mockResolvedValue({ rows: [], total: 0 });
+    categoryRepository.findAll.mockResolvedValue([]);
+    productRepository.findByCategoryIds.mockResolvedValue({ rows: [], total: 0 });
 
     await service.getByCategorySlug('fils', { locale: 'de', sort: 'price_chf', order: 'asc' });
-    const call = productRepository.findByCategoryId.mock.calls[0][0];
+    const call = productRepository.findByCategoryIds.mock.calls[0][0];
     expect(call.sort).toBe('price_chf');
     expect(call.order).toBe('asc');
   });

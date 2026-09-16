@@ -15,6 +15,7 @@
     "export:catalog": "node ../database/export-catalog-excel.js",
     "import:catalog-updates": "node ../database/import-catalog-updates.js",
     "import:suppliers": "node ../database/import-suppliers.js",
+    "categories:flatten": "node ../database/flatten-category-roots.js",
     "prices:dmc": "node ../database/update-prices-dmc.js"
   },
   "keywords": [],
