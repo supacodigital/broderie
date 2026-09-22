@@ -693,7 +693,11 @@ function TwintForm({ orderId, onPaid, t }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <PaymentElement />
+      {/* Le pays de facturation est proposé sur la Suisse : sans consigne, Stripe
+          le déduit de l'adresse réseau et affichait « France » à des clientes
+          suisses. La liste reste ouverte — la boutique livre en Suisse mais une
+          carte peut être émise ailleurs. */}
+      <PaymentElement options={{ defaultValues: { billingDetails: { address: { country: 'CH' } } } }} />
       {error && (
         <div className={s.twintError} role="alert">
           <AlertCircle size={16} />{error}
@@ -837,7 +841,11 @@ function CardForm({ orderId, total, onPaid, t }) {
 
   return (
     <form onSubmit={handleSubmit} className={s.cardForm}>
-      <PaymentElement />
+      {/* Le pays de facturation est proposé sur la Suisse : sans consigne, Stripe
+          le déduit de l'adresse réseau et affichait « France » à des clientes
+          suisses. La liste reste ouverte — la boutique livre en Suisse mais une
+          carte peut être émise ailleurs. */}
+      <PaymentElement options={{ defaultValues: { billingDetails: { address: { country: 'CH' } } } }} />
       {error && (
         <div className={s.cardError} role="alert">
           <AlertCircle size={14} />{error}
@@ -1008,10 +1016,26 @@ export default function Checkout() {
   const [shippingLoading, setShippingLoading] = useState(false)
   const [shippingError,   setShippingError]   = useState(false)
   const [shippingRetry,   setShippingRetry]   = useState(0)
-  /* Sous-total brut avant remise — figé lors de la création de commande */
-  const [subtotalSnapshot, setSubtotalSnapshot] = useState(0)
+  /* Sous-total brut avant remise — figé lors de la création de commande, et
+     restauré après un rechargement au même titre que le total : le panier est
+     vidé dès la commande créée, donc sans cette reprise le récapitulatif
+     affichait « CHF 0.00 » à côté d'un montant à payer correct. */
+  const [subtotalSnapshot, setSubtotalSnapshot] = useState(() => {
+    return parseFloat(sessionStorage.getItem('checkout_subtotal') || '0')
+  })
   /* Snapshot des articles avant vidage du panier */
-  const [itemsSnapshot,  setItemsSnapshot]  = useState([])
+  const [itemsSnapshot,  setItemsSnapshot]  = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem('checkout_items') || '[]')
+    } catch {
+      return []
+    }
+  })
+  /* Frais de port figés à la création de commande — même raison */
+  const [shippingSnapshot, setShippingSnapshot] = useState(() => {
+    const saved = sessionStorage.getItem('checkout_shipping')
+    return saved === null ? null : parseFloat(saved)
+  })
 
   /* Préremplissage depuis le compte utilisateur */
   useEffect(() => {
@@ -1116,12 +1140,16 @@ export default function Checkout() {
       setOrderTotal(newTotal)
       setSubtotalSnapshot(subtotal)
       setItemsSnapshot([...items])
+      setShippingSnapshot(shipping ?? 0)
 
       if (payment_method === 'twint' || payment_method === 'card') {
         /* Persistance pour survie au refresh */
         sessionStorage.setItem('checkout_step',        payment_method)
         sessionStorage.setItem('checkout_order_id',    String(newOrderId))
         sessionStorage.setItem('checkout_order_total', String(newTotal))
+        sessionStorage.setItem('checkout_subtotal',    String(subtotal))
+        sessionStorage.setItem('checkout_items',       JSON.stringify(items))
+        sessionStorage.setItem('checkout_shipping',    String(shipping ?? 0))
       }
 
       /* Transition vers l'étape de paiement AVANT clearCart() pour éviter
@@ -1173,6 +1201,25 @@ export default function Checkout() {
       {(step === 'twint' || step === 'card') && (
         <div className={s.layout}>
           <div>
+            {/* Sortie de l'étape paiement.
+                Sans elle, une cliente arrivée sur le formulaire de paiement ne
+                pouvait plus changer d'avis : l'étape est mémorisée pour survivre
+                à un rechargement, et rien ne l'effaçait tant que le paiement
+                n'avait pas abouti. Revenir en arrière n'annule pas la commande —
+                elle reste en attente de paiement et son numéro est conservé. */}
+            <button
+              type="button"
+              className={s.changePaymentBtn}
+              onClick={() => {
+                sessionStorage.removeItem('checkout_step')
+                setStep(2)
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
+            >
+              <ChevronLeft size={14} aria-hidden="true" />
+              Choisir un autre moyen de paiement
+            </button>
+
             {step === 'twint' && (
               <StepTwint
                 orderId={orderId}
@@ -1181,6 +1228,9 @@ export default function Checkout() {
                   sessionStorage.removeItem('checkout_step')
                   sessionStorage.removeItem('checkout_order_id')
                   sessionStorage.removeItem('checkout_order_total')
+                  sessionStorage.removeItem('checkout_subtotal')
+                  sessionStorage.removeItem('checkout_items')
+                  sessionStorage.removeItem('checkout_shipping')
                   setStep(3)
                   window.scrollTo({ top: 0, behavior: 'smooth' })
                 }}
@@ -1195,6 +1245,9 @@ export default function Checkout() {
                   sessionStorage.removeItem('checkout_step')
                   sessionStorage.removeItem('checkout_order_id')
                   sessionStorage.removeItem('checkout_order_total')
+                  sessionStorage.removeItem('checkout_subtotal')
+                  sessionStorage.removeItem('checkout_items')
+                  sessionStorage.removeItem('checkout_shipping')
                   setStep(3)
                   window.scrollTo({ top: 0, behavior: 'smooth' })
                 }}
@@ -1202,7 +1255,7 @@ export default function Checkout() {
               />
             )}
           </div>
-          <OrderSummary items={itemsSnapshot} subtotal={subtotalSnapshot} discount={discount} couponCode={couponCode} shipping={shipping} shippingLoading={false} t={t} />
+          <OrderSummary items={itemsSnapshot} subtotal={subtotalSnapshot} discount={discount} couponCode={couponCode} shipping={shippingSnapshot ?? shipping} shippingLoading={false} t={t} />
         </div>
       )}
 

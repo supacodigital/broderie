@@ -1162,3 +1162,29 @@
 }
 
 .shippingRetryBtn:hover { background: rgba(185, 28, 28, 0.08); }
+
+/* Retour au choix du moyen de paiement.
+   Discret : c'est une porte de sortie, pas l'action principale de l'écran —
+   celle-ci reste le paiement. Mais elle doit rester visible, sinon la cliente
+   se croit engagée sur un moyen qu'elle n'a peut-être pas choisi. */
+.changePaymentBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 16px;
+  padding: 7px 12px 7px 8px;
+  border: 1px solid var(--rose-border, #fbcfe8);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-muted, #6b7280);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+
+.changePaymentBtn:hover {
+  color: var(--rose-dark, #be185d);
+  border-color: var(--rose, #f472b6);
+  background: var(--rose-pale, #fdf2f8);
+}
