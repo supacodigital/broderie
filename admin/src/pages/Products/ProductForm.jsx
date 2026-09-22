@@ -249,11 +249,17 @@ export default function ProductForm() {
     )
   }
 
-  /* Réduction — le champ "Prix de vente" (priceChf) est TOUJOURS le prix réellement
-     payé (price_chf), y compris quand une réduction est active : il ne doit jamais
-     être remplacé par l'ancien prix barré. La réduction (% ou CHF) ne sert qu'à
-     calculer comparePriceChf (prix barré, affiché en boutique) à partir de priceChf —
-     jamais l'inverse. */
+  /* Réduction (ADM-03) — le champ de prix est le PRIX CATALOGUE, celui qui figure
+     sur l'étiquette avant toute promotion. La remise s'en déduit vers le BAS : saisir
+     100 CHF et -25 % donne un prix barré de 100.00 et un prix payé de 75.00.
+
+     L'inverse était appliqué jusqu'ici (le champ valait le prix payé, la remise
+     remontait le prix barré à 133.35) : arithmétiquement correct, mais contraire à
+     ce que la cliente saisit — d'où son constat « appliquer un rabais majore le prix ».
+
+     En base, le modèle ne change pas : price_chf = prix payé pendant la promotion,
+     compare_price_chf = prix normal barré. Seul le sens de saisie est rétabli, et
+     c'est à l'enregistrement que les deux prix sont répartis dans les bonnes colonnes. */
   const [discountMode,  setDiscountMode]  = useState('none') // 'none' | 'percent' | 'fixed'
   const [discountValue, setDiscountValue] = useState('')
 
@@ -279,17 +285,20 @@ export default function ProductForm() {
   const isMadeToOrderChecked = watch('isMadeToOrder')
   const watchedPrice = watch('priceChf')
 
-  /* Prix barré (comparePriceChf), dérivé du prix de vente saisi + de la réduction —
-     null si aucune réduction active. Le prix de vente (priceChf) n'est jamais
-     recalculé à partir de ce prix barré : la réduction est purement informative,
-     affichée en boutique en plus du prix de vente réel. */
-  const comparePrice = (() => {
+  /* Prix réellement payé pendant la promotion, dérivé du prix catalogue saisi moins
+     la remise — null si aucune réduction active. Arrondi au 0.05 CHF (règle suisse).
+     Une remise qui annulerait le prix ou le rendrait négatif est refusée : le prix
+     payé doit rester strictement positif et inférieur au prix catalogue. */
+  const promoPrice = (() => {
     if (discountMode === 'none' || !discountValue) return null
-    const price = Number(watchedPrice)
+    const catalogPrice = Number(watchedPrice)
     const value = Number(discountValue)
-    if (!(price > 0) || !(value > 0)) return null
-    const computed = discountMode === 'percent' ? price / (1 - value / 100) : price + value
-    return computed > price ? roundCHF(computed) : null
+    if (!(catalogPrice > 0) || !(value > 0)) return null
+    const computed = discountMode === 'percent'
+      ? catalogPrice * (1 - value / 100)
+      : catalogPrice - value
+    const rounded = roundCHF(computed)
+    return rounded > 0 && rounded < catalogPrice ? rounded : null
   })()
 
   /* État de la promotion d'après les dates saisies — retour immédiat à l'admin :
@@ -297,7 +306,7 @@ export default function ProductForm() {
   const watchedPromoStart = watch('promoStartsAt')
   const watchedPromoEnd   = watch('promoEndsAt')
   const promoStatus = (() => {
-    if (discountMode === 'none' || comparePrice == null) return null
+    if (discountMode === 'none' || promoPrice == null) return null
     const now   = new Date()
     const start = watchedPromoStart ? new Date(watchedPromoStart) : null
     const end   = watchedPromoEnd   ? new Date(watchedPromoEnd)   : null
@@ -373,9 +382,11 @@ export default function ProductForm() {
         if (cancelled) return
         setProduct(res)
 
-        /* Si une réduction existe déjà en base, on reconstitue uniquement le
-           sélecteur réduction (le % affiché) à partir des deux prix stockés — le
-           "Prix de vente" affiché reste toujours price_chf, jamais l'ancien prix barré.
+        /* Reconstitution à l'ouverture d'une fiche (ADM-03).
+           Le champ de prix affiche le PRIX CATALOGUE : c'est compare_price_chf quand
+           une promotion est en cours, price_chf sinon. Afficher price_chf dans tous
+           les cas remonterait le prix promo dans le champ catalogue, et un simple
+           enregistrement sans rien changer ferait baisser le prix à chaque passage.
            mysql2 renvoie les DECIMAL sous forme de chaînes ("119.00") : comparer avec
            > sans convertir donne un résultat lexicographique erroné (ex: "119.00" >
            "84.50" vaut false), d'où le Number() explicite avant comparaison. */
@@ -390,11 +401,13 @@ export default function ProductForm() {
           setDiscountMode('none')
           setDiscountValue('')
         }
+        // Prix catalogue à afficher dans le champ, selon qu'une promo est active ou non
+        const catalogPriceToShow = hasDiscount ? res.compare_price_chf : res.price_chf
 
         reset({
           name:            res.name ?? '',
           sku:             res.sku ?? '',
-          priceChf:        res.price_chf ?? '',
+          priceChf:        catalogPriceToShow ?? '',
           stock:           res.stock ?? 0,
           weightKg:        res.weight_kg ?? '',
           lengthCm:        res.length_cm ?? '',
@@ -465,9 +478,12 @@ export default function ProductForm() {
         .replace(/^-+|-+$/g, '')
       const slug = slugBase || `produit-${Date.now()}`
 
-      /* Le prix de vente saisi (priceChf) est toujours envoyé tel quel — la
-         réduction ne fait que dériver le prix barré (comparePriceChf) à afficher
-         en boutique en plus du prix de vente réel */
+      /* Répartition dans les colonnes de la base (ADM-03).
+         Le champ saisi est le prix CATALOGUE. Le modèle en base, lui, est inchangé :
+           - promotion active : price_chf = prix promo, compare_price_chf = prix catalogue
+           - sans promotion   : price_chf = prix catalogue, compare_price_chf = null
+         C'est donc ici, et seulement ici, que les deux prix prennent leur place. */
+      const catalogPrice = Number(data.priceChf)
       const payload = {
         categoryId:      Number(data.categoryId),
         // Rayons supplémentaires (ADM-04) — toujours envoyés, tableau vide compris :
@@ -476,12 +492,12 @@ export default function ProductForm() {
         supplierId:      data.supplierId ? Number(data.supplierId) : null,
         taxRateId:       Number(data.taxRateId),
         slug:            isEdit ? undefined : slug,
-        priceChf:        Number(data.priceChf),
-        comparePriceChf: comparePrice,
+        priceChf:        promoPrice != null ? promoPrice : catalogPrice,
+        comparePriceChf: promoPrice != null ? catalogPrice : null,
         /* Bornes envoyées uniquement s'il y a une remise : sans prix barré, des
            dates seules n'auraient aucun effet (le serveur les remet à null). */
-        promoStartsAt:   comparePrice != null ? fromDateTimeLocal(data.promoStartsAt) : null,
-        promoEndsAt:     comparePrice != null ? fromDateTimeLocal(data.promoEndsAt)   : null,
+        promoStartsAt:   promoPrice != null ? fromDateTimeLocal(data.promoStartsAt) : null,
+        promoEndsAt:     promoPrice != null ? fromDateTimeLocal(data.promoEndsAt)   : null,
         sku:             data.sku,
         stock:           Number(data.stock),
         weightKg:        data.weightKg ? Number(data.weightKg) : null,
@@ -695,14 +711,14 @@ export default function ProductForm() {
             <h2 className={s.sectionTitle}>Prix & stock</h2>
             <div className={s.formGrid}>
               <div className={s.field}>
-                <label className={s.label} htmlFor="priceChf">Prix payé par le client (CHF) *</label>
+                <label className={s.label} htmlFor="priceChf">Prix de vente (CHF) *</label>
                 <input id="priceChf" type="number" step="0.05" min="0" className={`${s.input} ${errors.priceChf ? s.inputError : ''}`} {...register('priceChf')} />
-                <span className={s.hint}>C'est le montant réellement encaissé. Il ne change jamais : l'option ci-contre n'ajoute qu'un ancien prix barré à côté, pour montrer la baisse.</span>
+                <span className={s.hint}>Le prix normal de l'article, hors promotion. Sans remise, c'est ce que paie le client.</span>
                 {errors.priceChf && <span className={s.err}>{errors.priceChf.message}</span>}
               </div>
 
               <div className={s.field}>
-                <label className={s.label} htmlFor="discountMode">Afficher un ancien prix barré</label>
+                <label className={s.label} htmlFor="discountMode">Appliquer une remise</label>
                 <div className={s.discountRow}>
                   <select
                     id="discountMode"
@@ -710,9 +726,9 @@ export default function ProductForm() {
                     value={discountMode}
                     onChange={(e) => { setDiscountMode(e.target.value); if (e.target.value === 'none') setDiscountValue('') }}
                   >
-                    <option value="none">Non, aucun prix barré</option>
-                    <option value="percent">Oui — remise en %</option>
-                    <option value="fixed">Oui — remise en CHF</option>
+                    <option value="none">Aucune remise</option>
+                    <option value="percent">Remise en %</option>
+                    <option value="fixed">Remise en CHF</option>
                   </select>
                   {discountMode !== 'none' && (
                     <input
@@ -728,7 +744,7 @@ export default function ProductForm() {
                     />
                   )}
                 </div>
-                <span className={s.hint}>Optionnel. Indiquez la remise que le client est censé réaliser : l'ancien prix barré est calculé à partir de là. Le prix payé, lui, reste celui saisi à gauche.</span>
+                <span className={s.hint}>Optionnel. La remise est déduite du prix de vente : le client paie moins, et le prix normal s'affiche barré à côté.</span>
               </div>
             </div>
 
@@ -736,25 +752,25 @@ export default function ProductForm() {
               <div className={s.pricePreview}>
                 <span className={s.pricePreviewLabel}>Aperçu boutique</span>
                 <div className={s.pricePreviewRow}>
-                  {comparePrice != null ? (
+                  {promoPrice != null ? (
                     <>
-                      <span className={s.priceOld}>CHF {comparePrice.toFixed(2)}</span>
-                      <span className={s.priceNew}>CHF {Number(watchedPrice).toFixed(2)}</span>
+                      <span className={s.priceOld}>CHF {Number(watchedPrice).toFixed(2)}</span>
+                      <span className={s.priceNew}>CHF {promoPrice.toFixed(2)}</span>
                     </>
                   ) : (
                     <span className={s.priceWarning}>
                       <AlertTriangle size={12} />
-                      Remise invalide — l'ancien prix doit rester supérieur au prix payé.
+                      Remise invalide — elle doit rester inférieure au prix de vente.
                     </span>
                   )}
                 </div>
                 {/* Phrase explicite : le prix barré étant calculé à partir du prix payé,
                     l'affichage seul de deux montants laissait croire que la remise
                     augmentait le prix du produit. */}
-                {comparePrice != null && (
+                {promoPrice != null && (
                   <p className={s.pricePreviewNote}>
-                    Le client paie <strong>CHF {Number(watchedPrice).toFixed(2)}</strong> — l'ancien prix
-                    barré affiché sera <strong>CHF {comparePrice.toFixed(2)}</strong>.
+                    Le client paie <strong>CHF {promoPrice.toFixed(2)}</strong> — le prix
+                    barré affiché sera <strong>CHF {Number(watchedPrice).toFixed(2)}</strong>.
                   </p>
                 )}
               </div>
@@ -772,7 +788,7 @@ export default function ProductForm() {
                 <p className={s.promoDatesHint}>
                   Laissez vide pour une promotion sans limite. À la date de fin, le produit
                   revient automatiquement à son prix normal
-                  {comparePrice != null ? ` (CHF ${comparePrice.toFixed(2)})` : ''} — aucune
+                  {promoPrice != null ? ` (CHF ${Number(watchedPrice).toFixed(2)})` : ''} — aucune
                   action de votre part.
                 </p>
                 <div className={s.formGrid}>
