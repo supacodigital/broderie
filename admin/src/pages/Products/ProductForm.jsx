@@ -32,6 +32,10 @@ const schema = z.object({
   taxRateId:        z.coerce.number().int().positive('Taxe requise'),
   isFeatured:       z.boolean().optional(),
   isMadeToOrder:    z.boolean().optional(),
+  // Vente à la coupe — trames et bandes à broder (ADM-12)
+  soldByLength:     z.boolean().optional(),
+  lengthStepCm:     z.coerce.number().int().min(1).max(100).optional().or(z.literal('')),
+  lengthMinCm:      z.coerce.number().int().min(1).max(1000).optional().or(z.literal('')),
   isActive:         z.boolean().optional(),
   badge:            z.string().optional(),
   brand:            z.string().max(120).optional(),
@@ -266,7 +270,7 @@ export default function ProductForm() {
 
   const { register, handleSubmit, reset, watch, setValue, setError, formState: { errors, isSubmitting, isDirty } } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { isActive: true, isFeatured: false, isMadeToOrder: false, badge: '', stock: 0 },
+    defaultValues: { isActive: true, isFeatured: false, isMadeToOrder: false, soldByLength: false, lengthStepCm: 10, lengthMinCm: 50, badge: '', stock: 0 },
   })
 
   const categoryId = watch('categoryId')
@@ -284,6 +288,9 @@ export default function ProductForm() {
     )
   }, [categoryId])
   const isMadeToOrderChecked = watch('isMadeToOrder')
+  const soldByLengthChecked  = watch('soldByLength')
+  const lengthStep = watch('lengthStepCm')
+  const lengthMin  = watch('lengthMinCm')
   const watchedPrice = watch('priceChf')
 
   /* Prix réellement payé pendant la promotion, dérivé du prix catalogue saisi moins
@@ -300,6 +307,37 @@ export default function ProductForm() {
       : catalogPrice - value
     const rounded = roundCHF(computed)
     return rounded > 0 && rounded < catalogPrice ? rounded : null
+  })()
+
+  /* Aperçu de la vente à la coupe (ADM-12) — montre à l'administration ce que
+     la cliente paiera réellement. Sans lui, un prix au mètre saisi par erreur
+     comme prix à l'unité ne se remarque qu'une fois la commande passée.
+     Un minimum qui n'est pas un multiple du pas est signalé ici : le serveur le
+     refuse, autant le dire avant l'enregistrement. */
+  const cutPreview = (() => {
+    if (!soldByLengthChecked) return null
+    const perMeter = Number(watchedPrice)
+    const step = Number(lengthStep) || 10
+    const min  = Number(lengthMin)  || 50
+    if (!(perMeter > 0)) return null
+
+    if (min % step !== 0) {
+      return (
+        <p className={s.cutWarning}>
+          <AlertTriangle size={12} aria-hidden="true" />
+          La longueur minimale doit être un multiple de {step} cm.
+        </p>
+      )
+    }
+
+    const perStep = roundCHF((perMeter * step) / 100)
+    const minTotal = roundCHF((perMeter * min) / 100)
+    return (
+      <p className={s.cutPreview}>
+        Commande minimale : <strong>{min} cm</strong> pour <strong>CHF {minTotal.toFixed(2)}</strong>.
+        Chaque tranche de {step} cm coûte CHF {perStep.toFixed(2)}.
+      </p>
+    )
   })()
 
   /* État de la promotion d'après les dates saisies — retour immédiat à l'admin :
@@ -419,6 +457,9 @@ export default function ProductForm() {
           taxRateId:       res.tax_rate_id ?? '',
           isFeatured:      !!res.is_featured,
           isMadeToOrder:   !!res.is_made_to_order,
+          soldByLength:    !!res.sold_by_length,
+          lengthStepCm:    res.length_step_cm ?? 10,
+          lengthMinCm:     res.length_min_cm  ?? 50,
           isActive:        !!res.is_active,
           badge:           res.badge ?? '',
           brand:           res.brand ?? '',
@@ -506,6 +547,11 @@ export default function ProductForm() {
         widthCm:         data.widthCm ? Number(data.widthCm) : null,
         isFeatured:      !!data.isFeatured,
         isMadeToOrder:   !!data.isMadeToOrder,
+        /* Vente à la coupe (ADM-12) — les paramètres ne partent que si la case
+           est cochée : un pas sur un article vendu à l'unité n'a aucun sens. */
+        soldByLength:    !!data.soldByLength,
+        lengthStepCm:    data.soldByLength ? (Number(data.lengthStepCm) || 10) : null,
+        lengthMinCm:     data.soldByLength ? (Number(data.lengthMinCm)  || 50) : null,
         isActive:        !!data.isActive,
         badge:           data.badge || null,
         brand:           data.brand?.trim() || null,
@@ -827,6 +873,55 @@ export default function ProductForm() {
               <input id="stock" type="number" min="0" className={`${s.input} ${errors.stock ? s.inputError : ''}`} {...register('stock')} />
               {errors.stock && <span className={s.err}>{errors.stock.message}</span>}
             </div>
+
+          {/* ── Vente à la coupe (ADM-12) ──
+              Trames et bandes à broder : le prix saisi est alors un prix AU
+              MÈTRE, et la cliente commande la longueur dont elle a besoin. */}
+          <div className={s.cutSection}>
+            <label className={s.checkRow}>
+              <input type="checkbox" form="product-form" {...register('soldByLength')} />
+              <span>Vendu à la coupe (au mètre)</span>
+            </label>
+
+            {soldByLengthChecked && (
+              <>
+                <p className={s.fieldHint}>
+                  Le prix ci-dessus devient un <strong>prix au mètre</strong>, et le stock se
+                  compte en <strong>mètres</strong>.
+                </p>
+
+                <div className={s.formGrid}>
+                  <div className={s.field}>
+                    <label className={s.label} htmlFor="lengthStepCm">Vendu par tranches de (cm)</label>
+                    <input
+                      id="lengthStepCm"
+                      type="number"
+                      min="1"
+                      max="100"
+                      className={`${s.input} ${errors.lengthStepCm ? s.inputError : ''}`}
+                      {...register('lengthStepCm')}
+                    />
+                    {errors.lengthStepCm && <span className={s.err}>{errors.lengthStepCm.message}</span>}
+                  </div>
+
+                  <div className={s.field}>
+                    <label className={s.label} htmlFor="lengthMinCm">Longueur minimale (cm)</label>
+                    <input
+                      id="lengthMinCm"
+                      type="number"
+                      min="1"
+                      max="1000"
+                      className={`${s.input} ${errors.lengthMinCm ? s.inputError : ''}`}
+                      {...register('lengthMinCm')}
+                    />
+                    {errors.lengthMinCm && <span className={s.err}>{errors.lengthMinCm.message}</span>}
+                  </div>
+                </div>
+
+                {cutPreview}
+              </>
+            )}
+          </div>
 
           {/* Historique des prix (ADM-21) — visible sur une fiche existante
               uniquement : un produit en cours de création n'a pas de passé. */}

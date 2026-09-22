@@ -656,3 +656,38 @@
   outline: 2px solid var(--rose);
   outline-offset: 2px;
 }
+
+/* ── Vente à la coupe — trames et bandes à broder (ADM-12) ──
+   Bloc détaché du reste de la section : cocher cette case change le sens du
+   prix saisi (au mètre, plus à l'unité), ce qui mérite d'être visuellement
+   séparé des champs ordinaires. */
+.cutSection {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rose-border);
+}
+
+.cutSection .formGrid {
+  margin-top: 12px;
+}
+
+/* Aperçu du prix réellement payé — c'est lui qui permet de vérifier qu'un prix
+   au mètre n'a pas été saisi comme un prix à l'unité. */
+.cutPreview {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--rose-pale);
+  color: var(--text-dark);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.cutWarning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: #92400e;
+}

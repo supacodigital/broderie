@@ -335,3 +335,118 @@ describe('ProductForm — rayons supplémentaires', () => {
     })
   })
 })
+
+/* Vente à la coupe — trames et bandes à broder (ADM-12).
+
+   Le backend savait déjà vendre au mètre par tranches de 10 cm, mais rien n'en
+   était accessible depuis l'administration : ni affichage, ni réglage. Julie ne
+   pouvait pas ajuster le pas ni le minimum d'une bande, d'où son « non conforme ». */
+describe('ProductForm — vente à la coupe (ADM-12)', () => {
+  it('masque les réglages de découpe tant que la case n\'est pas cochée', async () => {
+    renderForm()
+    await screen.findByLabelText(/Prix de vente/)
+
+    expect(screen.queryByLabelText(/Vendu par tranches de/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/Longueur minimale/)).not.toBeInTheDocument()
+  })
+
+  it('révèle le pas et le minimum quand la vente à la coupe est activée', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await screen.findByLabelText(/Prix de vente/)
+
+    await user.click(screen.getByLabelText(/Vendu à la coupe/))
+
+    expect(await screen.findByLabelText(/Vendu par tranches de/)).toHaveValue(10)
+    expect(screen.getByLabelText(/Longueur minimale/)).toHaveValue(50)
+  })
+
+  /* L'aperçu est ce qui permet de repérer un prix au mètre saisi par erreur
+     comme un prix à l'unité : 16.50/m donne 8.25 pour la longueur minimale. */
+  it('annonce le prix réellement payé pour la longueur minimale', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.type(await screen.findByLabelText(/Prix de vente/), '16.50')
+    await user.click(screen.getByLabelText(/Vendu à la coupe/))
+
+    // 16.50/m × 50 cm = 8.25, et une tranche de 10 cm vaut 1.65
+    expect(await screen.findByText(/CHF 8\.25/)).toBeInTheDocument()
+    expect(screen.getByText(/CHF 1\.65/)).toBeInTheDocument()
+  })
+
+  /* Un minimum qui n'est pas un multiple du pas est refusé par le serveur :
+     avec un pas de 10 et un minimum de 55, la boutique vendrait 60 cm alors que
+     la fiche annonce 55. Autant le signaler avant l'enregistrement. */
+  it('signale un minimum qui n\'est pas un multiple du pas', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.type(await screen.findByLabelText(/Prix de vente/), '16.50')
+    await user.click(screen.getByLabelText(/Vendu à la coupe/))
+
+    const minInput = await screen.findByLabelText(/Longueur minimale/)
+    await user.clear(minInput)
+    await user.type(minInput, '55')
+
+    expect(await screen.findByText(/multiple de 10 cm/)).toBeInTheDocument()
+  })
+
+  it('envoie les paramètres de découpe quand la case est cochée', async () => {
+    const user = userEvent.setup()
+    createProduct.mockResolvedValue({ id: 51 })
+    renderForm()
+
+    await fillRequiredFields(user)
+    await user.type(screen.getByLabelText(/Prix de vente/), '16.50')
+    await user.click(screen.getByLabelText(/Vendu à la coupe/))
+    await user.click(screen.getByRole('button', { name: 'Créer le produit' }))
+
+    await waitFor(() => expect(createProduct).toHaveBeenCalledTimes(1))
+    const payload = createProduct.mock.calls.at(-1)[0]
+    expect(payload.soldByLength).toBe(true)
+    expect(payload.lengthStepCm).toBe(10)
+    expect(payload.lengthMinCm).toBe(50)
+  })
+
+  /* Un article vendu à l'unité ne doit pas emporter de pas de découpe : la
+     valeur traînerait en base et réapparaîtrait si la case était cochée plus tard. */
+  it('n\'envoie aucun paramètre de découpe pour un article vendu à l\'unité', async () => {
+    const user = userEvent.setup()
+    createProduct.mockResolvedValue({ id: 52 })
+    renderForm()
+
+    await fillRequiredFields(user)
+    await user.type(screen.getByLabelText(/Prix de vente/), '24.90')
+    await user.click(screen.getByRole('button', { name: 'Créer le produit' }))
+
+    await waitFor(() => expect(createProduct).toHaveBeenCalledTimes(1))
+    const payload = createProduct.mock.calls.at(-1)[0]
+    expect(payload.soldByLength).toBe(false)
+    expect(payload.lengthStepCm).toBeNull()
+    expect(payload.lengthMinCm).toBeNull()
+  })
+
+  it('recharge les paramètres de découpe d\'une fiche existante', async () => {
+    getProductById.mockResolvedValue({
+      id: 620,
+      name: 'Bande à broder lin',
+      sku: 'SKU-620',
+      price_chf: 26.00,
+      compare_price_chf: null,
+      sold_by_length: 1,
+      length_step_cm: 5,
+      length_min_cm: 25,
+      stock: 4,
+      category_id: 1,
+      tax_rate_id: 1,
+      images: [],
+    })
+
+    renderForm({ id: 620 })
+
+    expect(await screen.findByLabelText(/Vendu à la coupe/)).toBeChecked()
+    expect(screen.getByLabelText(/Vendu par tranches de/)).toHaveValue(5)
+    expect(screen.getByLabelText(/Longueur minimale/)).toHaveValue(25)
+  })
+})

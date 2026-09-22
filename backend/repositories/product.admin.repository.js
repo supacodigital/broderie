@@ -47,15 +47,20 @@ const deleteImageFiles = (row) => {
 };
 
 // Création d'un produit avec ses traductions — transaction atomique
-const create = async ({ categoryId, secondaryCategoryIds, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, badge, brand, translations }) => {
+const create = async ({ categoryId, secondaryCategoryIds, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, soldByLength, lengthStepCm, lengthMinCm, badge, brand, translations }) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
+    // Vente à la coupe (ADM-12) — voir update() pour le détail des valeurs par défaut
+    const cut = soldByLength ? 1 : 0;
+    const step = cut ? (Number(lengthStepCm) || 10) : 10;
+    const minLen = cut ? (Number(lengthMinCm) || 50) : 50;
+
     const [result] = await connection.execute(
-      `INSERT INTO products (category_id, supplier_id, slug, price_chf, compare_price_chf, promo_starts_at, promo_ends_at, tax_rate_id, sku, stock, weight_kg, length_cm, width_cm, is_featured, is_made_to_order, badge, brand, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock || 0, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, brand || null]
+      `INSERT INTO products (category_id, supplier_id, slug, price_chf, compare_price_chf, promo_starts_at, promo_ends_at, tax_rate_id, sku, stock, weight_kg, length_cm, width_cm, is_featured, is_made_to_order, sold_by_length, length_step_cm, length_min_cm, badge, brand, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock || 0, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, cut, step, minLen, badge || null, brand || null]
     );
     const productId = result.insertId;
 
@@ -83,7 +88,7 @@ const create = async ({ categoryId, secondaryCategoryIds, supplierId, slug, pric
 };
 
 // Mise à jour d'un produit avec ses traductions
-const update = async (id, { categoryId, secondaryCategoryIds, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, isActive, badge, brand, translations }, { changedBy = null } = {}) => {
+const update = async (id, { categoryId, secondaryCategoryIds, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, soldByLength, lengthStepCm, lengthMinCm, isActive, badge, brand, translations }, { changedBy = null } = {}) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -97,15 +102,24 @@ const update = async (id, { categoryId, secondaryCategoryIds, supplierId, slug, 
 
     /* slug non modifiable en édition — on ne le met à jour que s'il est fourni */
     const slugClause = slug ? 'slug = ?,' : '';
+    /* Vente à la coupe (ADM-12) — les valeurs par défaut (10 cm / 50 cm) ne
+       s'appliquent que si l'article est bien vendu au mètre : laisser un pas sur
+       un article vendu à l'unité n'aurait aucun sens et brouillerait la fiche. */
+    const cut = soldByLength ? 1 : 0;
+    const step = cut ? (Number(lengthStepCm) || 10) : 10;
+    const minLen = cut ? (Number(lengthMinCm) || 50) : 50;
+
     const baseParams = slug
-      ? [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, brand || null, isActive ? 1 : 0, id]
-      : [categoryId, supplierId || null,       priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, badge || null, brand || null, isActive ? 1 : 0, id];
+      ? [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, cut, step, minLen, badge || null, brand || null, isActive ? 1 : 0, id]
+      : [categoryId, supplierId || null,       priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, cut, step, minLen, badge || null, brand || null, isActive ? 1 : 0, id];
 
     await connection.execute(
       `UPDATE products SET category_id = ?, supplier_id = ?, ${slugClause} price_chf = ?,
        compare_price_chf = ?, promo_starts_at = ?, promo_ends_at = ?,
        tax_rate_id = ?, sku = ?, stock = ?, weight_kg = ?, length_cm = ?, width_cm = ?,
-       is_featured = ?, is_made_to_order = ?, badge = ?, brand = ?, is_active = ? WHERE id = ?`,
+       is_featured = ?, is_made_to_order = ?,
+       sold_by_length = ?, length_step_cm = ?, length_min_cm = ?,
+       badge = ?, brand = ?, is_active = ? WHERE id = ?`,
       baseParams
     );
 
@@ -220,6 +234,9 @@ const findByIdAdmin = async (id, locale = 'fr') => {
             p.promo_starts_at, p.promo_ends_at, ${promoActiveSql('p')} AS is_promo_active,
             p.sku, p.stock,
             p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.is_active, p.badge, p.brand, p.category_id, p.category_needs_review, p.supplier_id,
+            -- Vente à la coupe (ADM-12) : sans ces colonnes, l'administration ne
+            -- pouvait ni afficher ni régler le pas et le minimum de découpe
+            p.sold_by_length, p.length_step_cm, p.length_min_cm,
             p.tax_rate_id, p.created_at,
             pt.name, pt.description,
             tr.rate AS tax_rate, tr.name AS tax_name
