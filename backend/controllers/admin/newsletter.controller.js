@@ -1,5 +1,6 @@
 const newsletterRepository = require('../../repositories/newsletter.repository');
 const { buildCsv } = require('../../utils/csv.utils');
+const { buildUnsubscribeUrl } = require('../../utils/newsletter.utils');
 
 const getAll = async (req, res, next) => {
   try {
@@ -41,7 +42,12 @@ const exportCsv = async (req, res, next) => {
 
     // Chaque valeur est neutralisée (anti-injection de formule + échappement) par buildCsv —
     // l'email d'un abonné est une entrée utilisateur, ne jamais l'écrire brut dans un CSV.
-    const headers = ['id', 'email', 'locale', 'actif', 'inscrit_le', 'desabonne_le'];
+    /* Le lien de désinscription accompagne chaque adresse (CLI-05).
+       Les envois partent d'Infomaniak Newsletter, pas de l'application : c'est
+       donc dans l'outil d'envoi que ce lien doit figurer, et il doit être propre
+       à chaque destinataire pour qu'un clic suffise à se désinscrire — exigence
+       de la LCD (art. 3 al. 1 let. o : moyen de refus simple et gratuit). */
+    const headers = ['id', 'email', 'locale', 'actif', 'inscrit_le', 'desabonne_le', 'lien_desinscription'];
     const csvRows = rows.map((r) => [
       r.id,
       r.email,
@@ -49,6 +55,7 @@ const exportCsv = async (req, res, next) => {
       r.is_active ? 'oui' : 'non',
       r.subscribed_at   ? new Date(r.subscribed_at).toISOString().slice(0, 10)   : '',
       r.unsubscribed_at ? new Date(r.unsubscribed_at).toISOString().slice(0, 10) : '',
+      buildUnsubscribeUrl(r.email),
     ]);
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');

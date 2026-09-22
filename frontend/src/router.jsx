@@ -19,6 +19,7 @@ const VerifyEmail      = lazy(() => import('./pages/VerifyEmail/VerifyEmail.jsx'
 const ResetPassword  = lazy(() => import('./pages/ResetPassword/ResetPassword.jsx'))
 const OrderDetail    = lazy(() => import('./pages/OrderDetail/OrderDetail.jsx'))
 const NotreHistoire  = lazy(() => import('./pages/NotreHistoire/NotreHistoire.jsx'))
+const Unsubscribe    = lazy(() => import('./pages/Unsubscribe/Unsubscribe.jsx'))
 
 /* Fallback pendant le chargement des chunks */
 function PageLoader() {
@@ -70,6 +71,8 @@ export const router = createBrowserRouter([
       { path: '/reinitialiser-mot-de-passe',    element: <S><ResetPassword /></S> },
       { path: '/verifier-email',                element: <S><VerifyEmail /></S> },
       { path: '/notre-histoire',                element: <S><NotreHistoire /></S> },
+      // Atterrissage du lien de désinscription newsletter (CLI-05)
+      { path: '/desinscription',                element: <S><Unsubscribe /></S> },
 
       /* Routes protégées — nécessitent une authentification */
       {

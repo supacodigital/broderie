@@ -1,0 +1,84 @@
+/* Page de désinscription newsletter (CLI-05) — même traitement que la
+   confirmation d'adresse e-mail : une carte centrée, lisible sans contexte,
+   souvent ouverte depuis un téléphone. */
+.page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 48px 16px;
+}
+
+.card {
+  width: 100%;
+  max-width: 460px;
+  padding: 36px 28px;
+  border: 1px solid var(--rose-border);
+  border-radius: 14px;
+  background: #fff;
+  text-align: center;
+}
+
+.stateIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.stateIcon[data-type="success"] { color: #16a34a; }
+.stateIcon[data-type="error"]   { color: #dc2626; }
+.stateIcon[data-type="loading"] { color: var(--rose); }
+
+.spin { animation: spin 1s linear infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Le chargement est bref : le faire tourner sans fin agiterait l'écran pour
+   rien chez les personnes sensibles au mouvement. */
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: none; }
+}
+
+.title {
+  margin: 0 0 12px;
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--text-dark, #1f2937);
+}
+
+.text {
+  margin: 0 0 14px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--text-dark, #1f2937);
+}
+
+/* Précision rassurante : une cliente qui se désinscrit ne doit pas croire
+   qu'elle perd aussi ses confirmations de commande. */
+.note {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 7px;
+  margin: 0 0 22px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted, #6b7280);
+}
+
+.note a { color: var(--rose-dark, #be185d); }
+
+.btn {
+  display: inline-block;
+  padding: 11px 22px;
+  border-radius: 9px;
+  background: var(--rose, #f472b6);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background .15s;
+}
+
+.btn:hover { background: var(--rose-dark, #be185d); }
