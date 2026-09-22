@@ -469,14 +469,25 @@ const updateTrackingNumber = async (orderId, trackingNumber) => {
 
 // Passe une commande à "paid" si elle ne l'est pas déjà + met à jour le paiement.
 // Utilisé par le webhook Stripe. Retourne { statusChanged }.
+/* Statuts depuis lesquels une commande peut légitimement passer à « payée ».
+   Une commande annulée ou remboursée a rendu son stock : la marquer payée
+   laisserait Julie avec une commande à honorer dont les articles sont retournés
+   en rayon. Une commande déjà expédiée ou livrée n'a plus à changer d'état. */
+const PAYABLE_STATUSES = ['pending', 'awaiting_payment', 'pending_invoice'];
+
 const markPaidFromWebhook = async (orderId, providerPaymentId, method) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
+    /* Le passage à « payée » n'est autorisé que depuis un statut en attente de
+       paiement. `status != 'paid'` seul laissait une commande ANNULÉE devenir
+       payée — le cas se produit quand une cliente paie un lien Twint reçu par
+       e-mail après que la commande a été annulée. */
     const [upd] = await connection.execute(
-      `UPDATE orders SET status = 'paid' WHERE id = ? AND status != 'paid'`,
-      [orderId]
+      `UPDATE orders SET status = 'paid'
+       WHERE id = ? AND status IN (${PAYABLE_STATUSES.map(() => '?').join(', ')})`,
+      [orderId, ...PAYABLE_STATUSES]
     );
     const statusChanged = upd.affectedRows > 0;
 

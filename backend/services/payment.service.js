@@ -283,8 +283,60 @@ const handleWebhook = async (rawBody, signature) => {
 
     const method = intent.payment_method_types?.includes('card') ? 'card' : 'twint';
 
+    /* Le montant encaissé doit couvrir la commande.
+
+       Rien ne le vérifiait : une commande passait à « payée » sur la seule
+       présence de son numéro dans les métadonnées du paiement. Un paiement créé
+       pour un autre montant — commande modifiée entre-temps, ou métadonnées
+       forgées via un compte Stripe tiers — aurait soldé la commande pour une
+       somme inférieure.
+
+       Comparaison en centimes, l'unité de Stripe : comparer des francs en
+       virgule flottante ferait échouer des paiements justes (0.1 + 0.2 ≠ 0.3).
+       Un encaissement SUPÉRIEUR est accepté — refuser une commande trop payée
+       pénaliserait la cliente ; l'écart se règle par un remboursement. */
+    const order = await orderRepository.findById(orderId);
+    if (!order) {
+      console.error('[Stripe] Webhook pour une commande inconnue :', orderId);
+      await paymentRepository.registerWebhookEvent(event.id, event.type);
+      return;
+    }
+
+    const expectedCents = Math.round(roundCHF(parseFloat(order.total)) * 100);
+    const paidCents     = intent.amount_received ?? intent.amount ?? 0;
+
+    if (paidCents < expectedCents) {
+      console.error(
+        `[Stripe] Montant insuffisant pour la commande ${orderId} : ` +
+        `${paidCents} centimes reçus pour ${expectedCents} attendus — commande NON validée.`
+      );
+      await paymentRepository.updateStatusByOrder(orderId, method, 'failed');
+      await paymentRepository.registerWebhookEvent(event.id, event.type);
+      return;
+    }
+
+    if (intent.currency && intent.currency.toLowerCase() !== 'chf') {
+      console.error(`[Stripe] Devise inattendue (${intent.currency}) pour la commande ${orderId} — commande NON validée.`);
+      await paymentRepository.registerWebhookEvent(event.id, event.type);
+      return;
+    }
+
     // Transaction : passage à "paid" + historique + mise à jour du paiement
     const { statusChanged } = await orderRepository.markPaidFromWebhook(orderId, intent.id, method);
+
+    /* Le statut n'a pas bougé : soit la commande était déjà payée (retry Stripe,
+       cas normal), soit elle n'était plus payable — annulée ou remboursée. Ce
+       second cas mérite un signalement : de l'argent a été encaissé pour une
+       commande qui ne sera pas honorée. */
+    if (!statusChanged) {
+      const current = await orderRepository.findById(orderId);
+      if (current && current.status !== 'paid') {
+        console.error(
+          `[Stripe] Paiement reçu pour la commande ${orderId} au statut « ${current.status} » : ` +
+          'elle ne peut plus être validée. Vérifier s\'il faut rembourser.'
+        );
+      }
+    }
 
     // Crédit des points de fidélité — hors transaction (processOrderEarning gère
     // ses propres transactions internes), et SEULEMENT si la commande vient de

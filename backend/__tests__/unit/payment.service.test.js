@@ -190,12 +190,18 @@ describe('payment.service — createTwintIntent()', () => {
 
 // ── handleWebhook() ───────────────────────────────────────────────────────────
 
+/* Le webhook contrôle désormais le montant et la devise avant de valider une
+   commande (audit du 22/09). Les événements simulés portent donc par défaut un
+   montant qui couvre la commande de référence (makeOrder → 15.50) et des francs
+   suisses ; les tests qui éprouvent ces contrôles fournissent leurs propres
+   valeurs, qui priment. */
 const mockEvent = (obj) => {
   stripe.webhooks = {
     constructEvent: jest.fn().mockReturnValue({
       id: obj.id ?? `evt_${Math.random().toString(36).slice(2)}`,
       type: obj.type,
-      data: { object: obj.data },
+      // 5840 centimes = 58.40, le total de makeOrder()
+      data: { object: { amount_received: 5840, currency: 'chf', ...obj.data } },
     }),
   };
 };
@@ -310,5 +316,100 @@ describe('payment.service — handleWebhook()', () => {
 
     await paymentService.handleWebhook('raw', 'sig');
     expect(orderRepository.markPaidFromWebhook).not.toHaveBeenCalled();
+  });
+});
+
+/* ── Contrôles du webhook avant validation d'une commande ──
+   Audit du 22/09 : la commande passait à « payée » sur la seule présence de son
+   numéro dans les métadonnées du paiement. Ni le montant, ni la devise, ni le
+   statut de la commande n'étaient vérifiés. */
+describe('payment.service — le webhook vérifie ce qu\'il encaisse', () => {
+  beforeEach(() => {
+    paymentRepository.hasProcessedWebhookEvent.mockResolvedValue(false);
+    paymentRepository.registerWebhookEvent.mockResolvedValue(true);
+    orderRepository.markPaidFromWebhook.mockResolvedValue({ statusChanged: true });
+    loyaltyService.processOrderEarning.mockResolvedValue();
+  });
+
+  /* Une commande soldée pour moins que son montant laisserait la boutique
+     livrer sans avoir été payée. */
+  test('refuse un paiement inférieur au montant de la commande', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder({ total: '56.50' }));
+    mockEvent({ id: 'evt_short', type: 'payment_intent.succeeded',
+      data: { id: 'pi_short', amount_received: 500, currency: 'chf',
+              metadata: { order_id: '1' }, payment_method_types: ['card'] } });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(orderRepository.markPaidFromWebhook).not.toHaveBeenCalled();
+    expect(paymentRepository.updateStatusByOrder).toHaveBeenCalledWith(1, 'card', 'failed');
+  });
+
+  test('accepte un paiement du montant exact', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder({ total: '56.50' }));
+    mockEvent({ id: 'evt_exact', type: 'payment_intent.succeeded',
+      data: { id: 'pi_exact', amount_received: 5650, currency: 'chf',
+              metadata: { order_id: '1' }, payment_method_types: ['card'] } });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(orderRepository.markPaidFromWebhook).toHaveBeenCalledWith(1, 'pi_exact', 'card');
+  });
+
+  /* Refuser un trop-perçu pénaliserait la cliente : la commande est honorée et
+     l'écart se règle par un remboursement. */
+  test('accepte un paiement supérieur au montant dû', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder({ total: '56.50' }));
+    mockEvent({ id: 'evt_over', type: 'payment_intent.succeeded',
+      data: { id: 'pi_over', amount_received: 6000, currency: 'chf',
+              metadata: { order_id: '1' }, payment_method_types: ['card'] } });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(orderRepository.markPaidFromWebhook).toHaveBeenCalled();
+  });
+
+  // La boutique n'encaisse qu'en francs suisses
+  test('refuse un paiement dans une autre devise', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder({ total: '56.50' }));
+    mockEvent({ id: 'evt_eur', type: 'payment_intent.succeeded',
+      data: { id: 'pi_eur', amount_received: 5650, currency: 'eur',
+              metadata: { order_id: '1' }, payment_method_types: ['card'] } });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(orderRepository.markPaidFromWebhook).not.toHaveBeenCalled();
+  });
+
+  test('acquitte l\'event même quand la commande est inconnue', async () => {
+    orderRepository.findById.mockResolvedValue(null);
+    mockEvent({ id: 'evt_ghost', type: 'payment_intent.succeeded',
+      data: { id: 'pi_ghost', amount_received: 1000, currency: 'chf',
+              metadata: { order_id: '999' }, payment_method_types: ['card'] } });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    // Sans acquittement, Stripe retenterait indéfiniment un event insoluble
+    expect(paymentRepository.registerWebhookEvent).toHaveBeenCalledWith('evt_ghost', 'payment_intent.succeeded');
+    expect(orderRepository.markPaidFromWebhook).not.toHaveBeenCalled();
+  });
+
+  /* Une commande annulée a rendu son stock : la marquer payée laisserait Julie
+     avec une commande à honorer dont les articles sont retournés en rayon.
+     Le refus vient du repository ; le service doit le signaler, pas le masquer. */
+  test('signale un paiement reçu pour une commande qui ne peut plus être validée', async () => {
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    orderRepository.markPaidFromWebhook.mockResolvedValue({ statusChanged: false });
+    orderRepository.findById
+      .mockResolvedValueOnce(makeOrder({ total: '14.00' }))      // contrôle du montant
+      .mockResolvedValueOnce(makeOrder({ status: 'cancelled' })); // relecture après refus
+    mockEvent({ id: 'evt_cancelled', type: 'payment_intent.succeeded',
+      data: { id: 'pi_cancelled', amount_received: 1400, currency: 'chf',
+              metadata: { order_id: '1' }, payment_method_types: ['twint'] } });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(spy.mock.calls.flat().join(' ')).toMatch(/cancelled/);
+    spy.mockRestore();
   });
 });
