@@ -16,6 +16,7 @@ import { getTaxRates } from '../../services/settings.service.js'
 import { useToast } from '../../contexts/ToastContext.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import { roundCHF } from '../../utils/chf.js'
+import PriceHistory from '../../components/PriceHistory/PriceHistory.jsx'
 import s from './ProductForm.module.css'
 
 const schema = z.object({
@@ -826,7 +827,11 @@ export default function ProductForm() {
               <input id="stock" type="number" min="0" className={`${s.input} ${errors.stock ? s.inputError : ''}`} {...register('stock')} />
               {errors.stock && <span className={s.err}>{errors.stock.message}</span>}
             </div>
-          </section>
+
+          {/* Historique des prix (ADM-21) — visible sur une fiche existante
+              uniquement : un produit en cours de création n'a pas de passé. */}
+          <PriceHistory productId={isEdit ? Number(id) : null} />
+        </section>
 
         </form>
         </div>

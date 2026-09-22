@@ -4,6 +4,35 @@ const { promoActiveSql } = require('../utils/promo.utils');
 const { toSearchTerms } = require('../utils/search.utils');
 const productCategoryRepository = require('./productCategory.repository');
 
+/* Journalise un changement de prix (ADM-21).
+   N'écrit QUE si un prix a réellement bougé : réenregistrer une fiche sans
+   toucher au prix ne doit rien produire, sinon la table grossirait à chaque
+   correction de libellé sur 15 000 articles.
+
+   Les montants viennent de MySQL sous forme de chaînes ('15.50') et du
+   formulaire sous forme de nombres : la comparaison passe donc par Number(),
+   sinon '15.50' !== 15.5 déclencherait une écriture à chaque enregistrement.
+
+   Reçoit la connexion de la transaction en cours : l'historique et le nouveau
+   prix doivent être écrits ensemble ou pas du tout. */
+const recordPriceChange = async (connection, productId, before, after, { source = 'admin', changedBy = null } = {}) => {
+  const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+
+  const oldPrice   = num(before?.price_chf);
+  const oldCompare = num(before?.compare_price_chf);
+  const newPrice   = num(after?.priceChf);
+  const newCompare = num(after?.comparePriceChf);
+
+  if (oldPrice === newPrice && oldCompare === newCompare) return;
+
+  await connection.execute(
+    `INSERT INTO product_price_history
+       (product_id, old_price_chf, old_compare_price_chf, new_price_chf, new_compare_price_chf, source, changed_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [productId, oldPrice, oldCompare, newPrice, newCompare, source, changedBy]
+  );
+};
+
 // Supprime du disque les 3 variantes d'une ligne product_images (best-effort — un
 // fichier absent ne doit jamais faire échouer la suppression en base).
 const deleteImageFiles = (row) => {
@@ -54,10 +83,17 @@ const create = async ({ categoryId, secondaryCategoryIds, supplierId, slug, pric
 };
 
 // Mise à jour d'un produit avec ses traductions
-const update = async (id, { categoryId, secondaryCategoryIds, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, isActive, badge, brand, translations }) => {
+const update = async (id, { categoryId, secondaryCategoryIds, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, isActive, badge, brand, translations }, { changedBy = null } = {}) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+
+    /* Prix AVANT modification, lu dans la transaction (ADM-21). La lecture doit
+       précéder l'UPDATE, sinon l'ancienne valeur est déjà perdue. */
+    const [[previous]] = await connection.execute(
+      'SELECT price_chf, compare_price_chf FROM products WHERE id = ?',
+      [id]
+    );
 
     /* slug non modifiable en édition — on ne le met à jour que s'il est fourni */
     const slugClause = slug ? 'slug = ?,' : '';
@@ -72,6 +108,9 @@ const update = async (id, { categoryId, secondaryCategoryIds, supplierId, slug, 
        is_featured = ?, is_made_to_order = ?, badge = ?, brand = ?, is_active = ? WHERE id = ?`,
       baseParams
     );
+
+    // Historique du prix — dans la même transaction que le changement lui-même
+    await recordPriceChange(connection, id, previous, { priceChf, comparePriceChf }, { source: 'admin', changedBy });
 
     if (translations) {
       for (const [locale, trans] of Object.entries(translations)) {
@@ -482,4 +521,31 @@ const updateFeaturedOrder = async (productIds) => {
   }
 };
 
-module.exports = { create, update, softDelete, addImage, removeImage, setPrimaryImage, findAllAdmin, findByIdAdmin, slugExists, skuExists, updateFeaturedOrder };
+/* Historique des prix d'un produit, du plus récent au plus ancien (ADM-21).
+   Jointure sur users pour nommer l'auteur du changement — LEFT JOIN car
+   `changed_by` est NULL pour les imports et les scripts en masse, et le compte
+   peut avoir été supprimé depuis (ON DELETE SET NULL). */
+const findPriceHistory = async (productId, { limit = 50, offset = 0 } = {}) => {
+  const [[{ total }]] = await pool.query(
+    'SELECT COUNT(*) AS total FROM product_price_history WHERE product_id = ?',
+    [productId]
+  );
+
+  const [rows] = await pool.query(
+    `SELECT h.id, h.old_price_chf, h.old_compare_price_chf,
+            h.new_price_chf, h.new_compare_price_chf,
+            h.source, h.changed_at,
+            u.first_name AS changed_by_first_name,
+            u.last_name  AS changed_by_last_name
+     FROM product_price_history h
+     LEFT JOIN users u ON u.id = h.changed_by
+     WHERE h.product_id = ?
+     ORDER BY h.changed_at DESC, h.id DESC
+     LIMIT ? OFFSET ?`,
+    [productId, limit, offset]
+  );
+
+  return { rows, total };
+};
+
+module.exports = { create, update, softDelete, addImage, removeImage, setPrimaryImage, findAllAdmin, findByIdAdmin, slugExists, skuExists, updateFeaturedOrder, findPriceHistory };

@@ -1,0 +1,114 @@
+/* Historique des prix (ADM-21) — replié par défaut : c'est une pièce
+   justificative que l'on consulte, pas une information de travail quotidienne. */
+.section {
+  margin-top: 18px;
+  border-top: 1px solid var(--rose-border);
+  padding-top: 16px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-dark);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color .15s;
+}
+
+.toggle:hover { color: var(--rose-dark); }
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--rose-pale);
+  color: var(--rose-dark);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.panel { margin-top: 14px; }
+
+.muted {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  margin: 8px 0 0;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 12.5px;
+}
+
+.retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #b91c1c;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.table th {
+  text-align: left;
+  padding: 8px 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  border-bottom: 1px solid var(--rose-border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 10px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+
+.table tr:last-child td { border-bottom: none; }
+
+.date { color: var(--text-muted); white-space: nowrap; }
+
+/* L'ancien prix reste lisible mais s'efface devant le nouveau : c'est la valeur
+   qui s'applique aujourd'hui qui doit ressortir. */
+.oldValue { color: var(--text-muted); }
+
+.arrow { margin: 0 6px; color: var(--rose); }
+
+.newValue { color: var(--text-dark); font-weight: 600; }
+
+.source { color: var(--text-muted); }
+
+/* Sur mobile, le tableau défile plutôt que de comprimer les colonnes de prix
+   au point de couper les montants. */
+@media (max-width: 768px) {
+  .panel { overflow-x: auto; }
+  .table { min-width: 520px; }
+}

@@ -44,7 +44,17 @@ describe('admin/product.controller — délégation au service', () => {
     service.update.mockResolvedValue({ id: 3 });
     const res = makeRes();
     await controller.update({ params: { id: '3' }, body: {} }, res, jest.fn());
-    expect(service.update).toHaveBeenCalledWith(3, {});
+    // `changedBy` alimente l'historique des prix (ADM-21) — null hors session admin
+    expect(service.update).toHaveBeenCalledWith(3, {}, { changedBy: null });
+  });
+
+  /* L'historique doit nommer l'auteur du changement : c'est ce qui distingue une
+     décision commerciale d'une modification venue d'un import (ADM-21). */
+  test("update : transmet l'admin connecté au service", async () => {
+    service.update.mockResolvedValue({ id: 3 });
+    const res = makeRes();
+    await controller.update({ params: { id: '3' }, body: {}, user: { id: 42 } }, res, jest.fn());
+    expect(service.update).toHaveBeenCalledWith(3, {}, { changedBy: 42 });
   });
 
   test('uploadImage : passe le fichier et les options au service', async () => {

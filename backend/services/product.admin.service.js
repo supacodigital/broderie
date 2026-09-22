@@ -116,7 +116,7 @@ const create = async (body) => {
   }
 };
 
-const update = async (id, body) => {
+const update = async (id, body, { changedBy = null } = {}) => {
   if (!id || id < 1) throw new AppError('ID produit invalide.', 400);
   const data = parseOrThrow(productUpdateSchema, body);
 
@@ -132,7 +132,8 @@ const update = async (id, body) => {
   }
 
   try {
-    await productAdminRepository.update(id, normalizePromo(data));
+    // `changedBy` alimente l'historique des prix (ADM-21) — qui a changé quoi
+    await productAdminRepository.update(id, normalizePromo(data), { changedBy });
     invalidateProducts();
     const product = await productAdminRepository.findByIdAdmin(id, 'fr');
     if (!product) throw new AppError('Produit introuvable.', 404);
@@ -193,7 +194,19 @@ const updateFeaturedOrder = async (body) => {
   }
 };
 
+/* Historique des prix d'un produit (ADM-21) — l'ordonnance sur l'indication des
+   prix impose de pouvoir justifier un prix barré par un prix réellement pratiqué. */
+const getPriceHistory = async (id, { page = 1, limit = 50 } = {}) => {
+  if (!id || id < 1) throw new AppError('ID produit invalide.', 400);
+  const safeLimit = Math.min(100, Math.max(1, limit));
+  const { rows, total } = await productAdminRepository.findPriceHistory(id, {
+    limit: safeLimit,
+    offset: (Math.max(1, page) - 1) * safeLimit,
+  });
+  return { rows, total, page: Math.max(1, page), limit: safeLimit };
+};
+
 module.exports = {
   list, getById, create, update, remove,
-  addImage, removeImage, setPrimaryImage, updateFeaturedOrder,
+  addImage, removeImage, setPrimaryImage, updateFeaturedOrder, getPriceHistory,
 };

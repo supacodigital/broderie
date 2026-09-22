@@ -21,6 +21,12 @@ export async function getProductById(id) {
   return res.data.data ?? null
 }
 
+/* Historique des prix d'un produit (ADM-21) */
+export async function getPriceHistory(id, params = {}) {
+  const res = await api.get(`/admin/products/${id}/price-history`, { params })
+  return res.data
+}
+
 export async function createProduct(data) {
   const res = await api.post('/admin/products', data)
   return res.data.data ?? null

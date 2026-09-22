@@ -88,8 +88,10 @@ describe('product.admin.repository — update()', () => {
       translations: { fr: { name: 'Fil mis à jour', description: null } },
     });
 
-    // 1 UPDATE products + 1 INSERT traduction + 1 DELETE des rayons (ADM-04)
-    expect(conn.execute).toHaveBeenCalledTimes(3);
+    /* 1 SELECT de l'ancien prix (ADM-21) + 1 UPDATE products + 1 INSERT dans
+       l'historique des prix + 1 INSERT traduction + 1 DELETE des rayons (ADM-04).
+       Le SELECT précède l'UPDATE : sans lui, l'ancien prix serait déjà perdu. */
+    expect(conn.execute).toHaveBeenCalledTimes(5);
     expect(conn.commit).toHaveBeenCalled();
   });
 
@@ -124,7 +126,11 @@ describe('product.admin.repository — update()', () => {
       isFeatured: false, isActive: true, badge: null,
     });
 
-    const updateCall = conn.execute.mock.calls[0][0];
+    /* On cible l'UPDATE par son contenu et non par sa position : le premier
+       appel est désormais la lecture de l'ancien prix (ADM-21). */
+    const updateCall = conn.execute.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) => sql.includes('UPDATE products SET'));
     expect(updateCall).toContain('slug = ?');
   });
 

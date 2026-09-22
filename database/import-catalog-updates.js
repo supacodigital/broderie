@@ -178,7 +178,11 @@ async function main() {
       unknownCategories: new Set(), unknownSuppliers: new Set(), invalidPrices: 0,
     };
 
-    const updates = [];   // { id, fields: {} }
+    const updates = [];
+
+    /* Changements de prix à journaliser (ADM-21) — collectés pendant l'analyse,
+       écrits par lots dans la transaction. */
+    const priceChanges = []; // { productId, oldPrice, oldCompare, newPrice }
     const removals = [];  // id
     const categoryLinks = []; // { productId, categoryId } — rattachement principal à resynchroniser
 
@@ -204,6 +208,13 @@ async function main() {
       const price = SKIP_PRICES ? null : parsePrice(row[COL.price]);
       if (price !== null && price !== Number(product.price_chf)) {
         fields.price_chf = price;
+        // Ancien prix retenu pour l'historique (ADM-21) — voir l'écriture par lots
+        priceChanges.push({
+          productId: product.id,
+          oldPrice: product.price_chf,
+          oldCompare: product.compare_price_chf ?? null,
+          newPrice: price,
+        });
         report.price++;
       } else if (!SKIP_PRICES && price === null && cleanStr(row[COL.price]) !== null) {
         report.invalidPrices++;
@@ -301,6 +312,21 @@ async function main() {
             [...keys.map((k) => u.fields[k]), u.id]
           );
         }
+      }
+
+      /* Historique des prix (ADM-21). Insertion groupée par lots — jamais un
+         INSERT par article : un import touche potentiellement des centaines de
+         références. `changed_by` est NULL, un import n'a pas d'auteur ; c'est
+         `source` qui le distingue d'une décision saisie dans l'administration. */
+      for (let i = 0; i < priceChanges.length; i += BATCH_SIZE) {
+        const batch = priceChanges.slice(i, i + BATCH_SIZE);
+        const placeholders = batch.map(() => '(?, ?, ?, ?, ?, ?, NULL)').join(', ');
+        await connection.query(
+          `INSERT INTO product_price_history
+             (product_id, old_price_chf, old_compare_price_chf, new_price_chf, new_compare_price_chf, source, changed_by)
+           VALUES ${placeholders}`,
+          batch.flatMap((c) => [c.productId, c.oldPrice, c.oldCompare, c.newPrice, c.oldCompare, 'import'])
+        );
       }
 
       /* Rattachement principal dans product_categories (ADM-04).

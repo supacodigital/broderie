@@ -126,6 +126,21 @@ async function main() {
 
     // Transaction : soit toute la grille tarifaire bascule, soit rien.
     await connection.beginTransaction();
+
+    /* Historique des prix (ADM-21) — enregistré AVANT la mise à jour, tant que
+       l'ancien prix est encore lisible. Une ligne par article concerné, en une
+       seule requête : jamais d'INSERT dans une boucle sur 500 références.
+       `changed_by` reste NULL — un script n'a pas d'auteur ; c'est `source` qui
+       distingue ce changement d'une décision saisie dans l'administration. */
+    await connection.execute(
+      `INSERT INTO product_price_history
+         (product_id, old_price_chf, old_compare_price_chf, new_price_chf, new_compare_price_chf, source, changed_by)
+       SELECT id, price_chf, compare_price_chf, ?, ?, 'script', NULL
+       FROM products
+       WHERE brand = ? AND deleted_at IS NULL AND price_chf = ?`,
+      [price, compare, BRAND, OLD_PRICE]
+    );
+
     const [result] = await connection.execute(
       `UPDATE products
        SET price_chf = ?, compare_price_chf = ?, updated_at = NOW()

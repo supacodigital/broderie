@@ -32,7 +32,7 @@ const create = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
-    const product = await productAdminService.update(parseInt(req.params.id, 10), req.body);
+    const product = await productAdminService.update(parseInt(req.params.id, 10), req.body, { changedBy: req.user?.id ?? null });
     res.json({ success: true, data: product });
   } catch (error) {
     next(error);
@@ -88,7 +88,30 @@ const updateFeaturedOrder = async (req, res, next) => {
   }
 };
 
+/* Historique des prix d'un produit (ADM-21) */
+const getPriceHistory = async (req, res, next) => {
+  try {
+    const result = await productAdminService.getPriceHistory(parseInt(req.params.id, 10), {
+      page:  parseInt(req.query.page, 10)  || 1,
+      limit: parseInt(req.query.limit, 10) || 50,
+    });
+    res.json({
+      success: true,
+      data: result.rows,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / result.limit) || 1,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAll, getById, create, update, remove,
   uploadImage, removeImage, setPrimaryImage, updateFeaturedOrder,
+  getPriceHistory,
 };

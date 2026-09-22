@@ -186,6 +186,36 @@ CREATE TABLE suppliers (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
+-- HISTORIQUE DES PRIX (ADM-21)
+-- L'ordonnance suisse sur l'indication des prix encadre l'annonce d'un rabais :
+-- un prix barré doit correspondre à un prix réellement pratiqué. Une ligne par
+-- CHANGEMENT effectif — réenregistrer une fiche sans toucher au prix n'écrit rien.
+-- (migration 2026-09-22_product_price_history)
+-- ============================================================
+CREATE TABLE product_price_history (
+  id                INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  product_id        INT UNSIGNED NOT NULL,
+  -- Prix AVANT le changement — NULL à la création du produit
+  old_price_chf     DECIMAL(10, 2) NULL DEFAULT NULL,
+  old_compare_price_chf DECIMAL(10, 2) NULL DEFAULT NULL,
+  new_price_chf     DECIMAL(10, 2) NOT NULL,
+  new_compare_price_chf DECIMAL(10, 2) NULL DEFAULT NULL,
+  -- Origine : saisie dans l'administration, import de catalogue, script en masse
+  source            ENUM('admin', 'import', 'script') NOT NULL DEFAULT 'admin',
+  -- NULL pour les imports et scripts : un traitement automatique n'a pas d'auteur
+  changed_by        INT UNSIGNED NULL DEFAULT NULL,
+  changed_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  INDEX idx_price_history_product (product_id, changed_at),
+  INDEX idx_price_history_date (changed_at),
+  CONSTRAINT fk_price_history_product FOREIGN KEY (product_id)
+    REFERENCES products (id) ON DELETE CASCADE,
+  -- La suppression d'un compte admin ne doit pas effacer l'historique comptable
+  CONSTRAINT fk_price_history_user FOREIGN KEY (changed_by)
+    REFERENCES users (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
 -- TVA SUISSE
 -- ============================================================
 CREATE TABLE tax_rates (

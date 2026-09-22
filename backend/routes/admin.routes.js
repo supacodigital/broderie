@@ -31,7 +31,10 @@ router.get('/dashboard/stats', dashboardController.getStats);
 router.get('/products', productAdminController.getAll);
 router.post('/products', productAdminController.create);
 router.put('/products/featured-order', productAdminController.updateFeaturedOrder);
+/* Avant /products/:id ? Non : les deux chemins ne se recouvrent pas, mais on
+   garde l'historique à côté de la fiche qu'il documente (ADM-21). */
 router.get('/products/:id', productAdminController.getById);
+router.get('/products/:id/price-history', productAdminController.getPriceHistory);
 router.put('/products/:id', productAdminController.update);
 router.delete('/products/:id', productAdminController.remove);
 router.post('/products/:id/images', upload.single('image'), productAdminController.uploadImage);
