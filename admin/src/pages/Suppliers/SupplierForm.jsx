@@ -29,6 +29,9 @@ const schema = z.object({
   website:      z.string().optional(),
   address:     z.string().optional(),
   notes:       z.string().optional(),
+  // Conditions commerciales du fournisseur, en JOURS (réassort et paiement)
+  supplyDelayDays:  z.coerce.number().int().min(0).max(999).optional().or(z.literal('')),
+  paymentTermsDays: z.coerce.number().int().min(0).max(999).optional().or(z.literal('')),
   madeToOrderDelayMinWeeks: z.coerce.number().int().min(1).max(255).optional().or(z.literal('')),
   madeToOrderDelayMaxWeeks: z.coerce.number().int().min(1).max(255).optional().or(z.literal('')),
   isActive:    z.boolean().optional(),
@@ -79,6 +82,8 @@ export default function SupplierForm() {
           customerNumber: res.customer_number ?? '',
           website:       res.website         ?? '',
           notes:       res.notes        ?? '',
+          supplyDelayDays:  res.supply_delay_days  ?? '',
+          paymentTermsDays: res.payment_terms_days ?? '',
           madeToOrderDelayMinWeeks: res.made_to_order_delay_min_weeks ?? '',
           madeToOrderDelayMaxWeeks: res.made_to_order_delay_max_weeks ?? '',
           isActive:    !!res.is_active,
@@ -96,6 +101,8 @@ export default function SupplierForm() {
     try {
       const data = {
         ...formData,
+        supplyDelayDays:  formData.supplyDelayDays  === '' ? null : formData.supplyDelayDays,
+        paymentTermsDays: formData.paymentTermsDays === '' ? null : formData.paymentTermsDays,
         madeToOrderDelayMinWeeks: formData.madeToOrderDelayMinWeeks || null,
         madeToOrderDelayMaxWeeks: formData.madeToOrderDelayMaxWeeks || null,
       }
@@ -222,6 +229,38 @@ export default function SupplierForm() {
                 <input type="checkbox" {...register('isActive')} />
                 <span>Fournisseur actif</span>
               </label>
+            </div>
+          </section>
+
+          {/* Conditions commerciales — relation avec le fournisseur */}
+          <section className={s.section}>
+            <h2 className={s.sectionTitle}>Conditions commerciales</h2>
+            <div className={s.formGrid}>
+              <div className={s.field}>
+                <label className={s.label}>Délai de livraison (jours)</label>
+                <input
+                  type="number"
+                  className={`${s.input} ${errors.supplyDelayDays ? s.inputError : ''}`}
+                  placeholder="Optionnel — ex: 15"
+                  {...register('supplyDelayDays')}
+                />
+                {errors.supplyDelayDays && <span className={s.err}>{errors.supplyDelayDays.message}</span>}
+              </div>
+
+              <div className={s.field}>
+                <label className={s.label}>Délai de paiement (jours)</label>
+                <input
+                  type="number"
+                  className={`${s.input} ${errors.paymentTermsDays ? s.inputError : ''}`}
+                  placeholder="Optionnel — ex: 30"
+                  {...register('paymentTermsDays')}
+                />
+                {errors.paymentTermsDays && <span className={s.err}>{errors.paymentTermsDays.message}</span>}
+              </div>
+
+              <p className={`${s.fieldHint} ${s.fieldFull}`}>
+                Délai sous lequel ce fournisseur livre un réassort, et délai dont vous disposez pour régler sa facture.
+              </p>
             </div>
           </section>
 

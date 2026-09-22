@@ -15,6 +15,17 @@ const validateDelay = (madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks) => {
   return null;
 };
 
+/* Valide un délai de la relation fournisseur, exprimé en JOURS (réassort, paiement).
+   À ne pas confondre avec validateDelay ci-dessus, qui porte sur les SEMAINES
+   annoncées à la cliente pour un produit « sur commande ». */
+const validateDays = (value, label) => {
+  if (value == null || value === '') return null;
+  if (!Number.isInteger(value) || value < 0 || value > 999) {
+    return `${label} doit être un nombre entier de jours valide.`;
+  }
+  return null;
+};
+
 const getAll = async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -48,7 +59,7 @@ const getById = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const { name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks } = req.body;
+    const { name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, supplyDelayDays, paymentTermsDays, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks } = req.body;
     if (!name) {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'name', message: 'Le nom du fournisseur est obligatoire.' }] });
     }
@@ -56,7 +67,12 @@ const create = async (req, res, next) => {
     if (delayError) {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'madeToOrderDelayMaxWeeks', message: delayError }] });
     }
-    const id = await supplierRepository.create({ name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks });
+    const supplyError = validateDays(supplyDelayDays, 'Le délai de livraison')
+      || validateDays(paymentTermsDays, 'Le délai de paiement');
+    if (supplyError) {
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'supplyDelayDays', message: supplyError }] });
+    }
+    const id = await supplierRepository.create({ name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, supplyDelayDays, paymentTermsDays, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks });
     const supplier = await supplierRepository.findById(id);
     res.status(201).json({ success: true, data: supplier });
   } catch (error) {
@@ -69,7 +85,7 @@ const update = async (req, res, next) => {
     const id = parseInt(req.params.id);
     const existing = await supplierRepository.findById(id);
     if (!existing) return next(new AppError('Fournisseur introuvable.', 404));
-    const { name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks, isActive } = req.body;
+    const { name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, supplyDelayDays, paymentTermsDays, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks, isActive } = req.body;
     if (!name) {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'name', message: 'Le nom du fournisseur est obligatoire.' }] });
     }
@@ -77,7 +93,12 @@ const update = async (req, res, next) => {
     if (delayError) {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'madeToOrderDelayMaxWeeks', message: delayError }] });
     }
-    const supplier = await supplierRepository.update(id, { name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks, isActive });
+    const supplyError = validateDays(supplyDelayDays, 'Le délai de livraison')
+      || validateDays(paymentTermsDays, 'Le délai de paiement');
+    if (supplyError) {
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors: [{ field: 'supplyDelayDays', message: supplyError }] });
+    }
+    const supplier = await supplierRepository.update(id, { name, contactName, email, phone, address, street, streetNumber, zip, city, country, customerNumber, website, notes, supplyDelayDays, paymentTermsDays, madeToOrderDelayMinWeeks, madeToOrderDelayMaxWeeks, isActive });
     res.json({ success: true, data: supplier });
   } catch (error) {
     next(mapDbError(error));

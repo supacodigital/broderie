@@ -157,7 +157,24 @@ CREATE TABLE suppliers (
   contact_name VARCHAR(255) NULL DEFAULT NULL,
   email        VARCHAR(255) NULL DEFAULT NULL,
   phone        VARCHAR(50)  NULL DEFAULT NULL,
+  -- Adresse libre historique — conservée : d'anciennes saisies peuvent s'y trouver
   address      TEXT         NULL DEFAULT NULL,
+  -- Adresse en champs séparés (migration 2026-09-15_suppliers_address_fields)
+  street        VARCHAR(255) NULL DEFAULT NULL,
+  street_number VARCHAR(20)  NULL DEFAULT NULL,
+  zip           VARCHAR(10)  NULL DEFAULT NULL,
+  city          VARCHAR(100) NULL DEFAULT NULL,
+  -- La plupart des éditeurs de kits sont étrangers (Danemark, France, Italie…)
+  country       CHAR(2)      NULL DEFAULT 'CH',
+  -- Numéro de client chez le fournisseur — nécessaire pour passer commande
+  customer_number VARCHAR(50) NULL DEFAULT NULL,
+  -- Site web — souvent le canal de commande réel
+  website       VARCHAR(255) NULL DEFAULT NULL,
+  -- Délais de la relation FOURNISSEUR, en jours (migration 2026-09-22_suppliers_supply_terms).
+  -- À ne pas confondre avec made_to_order_delay_*_weeks ci-dessous, qui sont en
+  -- SEMAINES et s'affichent à la cliente pour un produit « sur commande ».
+  supply_delay_days  SMALLINT UNSIGNED NULL DEFAULT NULL,
+  payment_terms_days SMALLINT UNSIGNED NULL DEFAULT NULL,
   notes        TEXT         NULL DEFAULT NULL,
   -- Délai "sur commande" (produits is_made_to_order) propre à ce fournisseur, en semaines
   made_to_order_delay_min_weeks TINYINT UNSIGNED NULL DEFAULT NULL,

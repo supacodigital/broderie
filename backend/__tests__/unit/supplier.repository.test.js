@@ -79,11 +79,40 @@ describe('supplier.repository — create()', () => {
     await repo.create({ name: 'Mini' });
     /* Ordre des paramètres : name, contact, email, phone, address, street,
        street_number, zip, city, country, customer_number, website, notes,
-       délais min/max. `country` vaut 'CH' par défaut — la boutique est suisse. */
+       délais fournisseur (livraison/paiement, en jours), délais sur commande
+       min/max (en semaines). `country` vaut 'CH' par défaut — la boutique est suisse. */
     expect(pool.execute).toHaveBeenCalledWith(
       expect.anything(),
-      ['Mini', null, null, null, null, null, null, null, null, 'CH', null, null, null, null, null]
+      ['Mini', null, null, null, null, null, null, null, null, 'CH', null, null, null, null, null, null, null]
     );
+  });
+  /* Non-régression — import des coordonnées fournisseurs du 2026-09-22.
+     Les délais de la relation fournisseur sont en JOURS et doivent atterrir dans
+     supply_delay_days / payment_terms_days, jamais dans made_to_order_delay_*_weeks
+     qui sont en SEMAINES et s'affichent à la cliente. Une confusion afficherait
+     « 30 semaines » sur un délai de 30 jours. */
+  test('écrit les délais fournisseur en jours, sans toucher aux délais sur commande', async () => {
+    pool.execute.mockResolvedValue([{ insertId: 6 }]);
+    await repo.create({ name: 'Permin', supplyDelayDays: 15, paymentTermsDays: 30 });
+
+    const [sql, params] = pool.execute.mock.calls[0];
+    expect(sql).toContain('supply_delay_days');
+    expect(sql).toContain('payment_terms_days');
+    expect(params).toContain(15);
+    expect(params).toContain(30);
+    // Les colonnes « sur commande » (semaines) restent vides
+    expect(params[params.length - 1]).toBeNull();
+    expect(params[params.length - 2]).toBeNull();
+  });
+
+  // Un délai de 0 jour est une valeur légitime (livraison le jour même) : il ne
+  // doit pas être confondu avec « non renseigné » par un `||`.
+  test('conserve un délai de 0 jour', async () => {
+    pool.execute.mockResolvedValue([{ insertId: 7 }]);
+    await repo.create({ name: 'Local', supplyDelayDays: 0, paymentTermsDays: 0 });
+
+    const [, params] = pool.execute.mock.calls[0];
+    expect(params).toContain(0);
   });
 });
 
