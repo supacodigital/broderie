@@ -441,8 +441,19 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
   const [couponError, setCouponError] = useState('')
   const [couponLoading, setCouponLoading] = useState(false)
 
-  /* Carte et Twint désactivés en phase 1 (paiement Stripe non configuré) — réactiver en phase 2 */
+  /* Moyens de paiement proposés à la cliente.
+
+     Twint d'abord : c'est le moyen le plus utilisé en Suisse, et le premier
+     attendu par la boutique. La facture reste en bonne place, très demandée en
+     vente à distance suisse.
+
+     Twint et la carte passent par Stripe. Si la clé Stripe manque côté serveur,
+     la création du paiement échoue avec un message clair plutôt que de laisser
+     la cliente sur un écran vide — mais ces deux options ne doivent être
+     ouvertes qu'une fois le compte Stripe en production réellement actif. */
   const PAYMENT_OPTIONS = [
+    { value: 'twint',      label: t('checkout.paymentTwint'),   badge: '📱' },
+    { value: 'card',       label: t('checkout.paymentCard'),    badge: '💳' },
     { value: 'invoice_qr', label: t('checkout.paymentInvoice'), badge: '🧾' },
     { value: 'pickup',     label: t('checkout.paymentPickup'),  badge: '🏬' },
   ]

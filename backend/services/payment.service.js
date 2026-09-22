@@ -7,6 +7,40 @@ const { AppError }      = require('../middlewares/errorHandler');
 const { roundCHF }      = require('../utils/chf.utils');
 const env               = require('../config/env');
 
+/* Traduit une erreur Stripe en message exploitable par la cliente.
+
+   Une clé absente, expirée ou révoquée, ou un moyen de paiement non activé sur
+   le compte Stripe, sont des problèmes de configuration de la boutique — pas des
+   fautes de la cliente. Sans ce garde-fou, elle se retrouve devant un « une
+   erreur est survenue » générique au moment de payer, et abandonne sa commande
+   sans que personne ne sache pourquoi.
+
+   Le détail technique reste dans les logs du serveur ; la cliente reçoit une
+   consigne utile : choisir un autre moyen de paiement. */
+const asPaymentError = (err) => {
+  const type = err?.type ?? '';
+  const code = err?.code ?? '';
+
+  if (type === 'StripeAuthenticationError' || code === 'api_key_expired') {
+    console.error('[Stripe] clé API refusée — paiements par carte et Twint indisponibles:', err.message);
+    return new AppError(
+      'Le paiement en ligne est momentanément indisponible. Choisissez « Facture » ou « Retrait en boutique », ou réessayez plus tard.',
+      503
+    );
+  }
+
+  if (code === 'payment_method_not_available' || /not activated|not available/i.test(err?.message ?? '')) {
+    console.error('[Stripe] moyen de paiement non activé sur le compte:', err.message);
+    return new AppError(
+      "Ce moyen de paiement n'est pas disponible pour le moment. Choisissez « Facture » ou « Retrait en boutique ».",
+      503
+    );
+  }
+
+  return err;
+};
+
+
 // ─────────────────────────────────────────────────────────────
 // Carte — crée un PaymentIntent Stripe et retourne le client_secret
 // `userId` : scope la commande à son propriétaire (un client ne peut pas
@@ -35,7 +69,7 @@ const createCardIntent = async (orderId, userId) => {
     // L'appel Stripe a échoué — libère la réservation pour ne pas bloquer un retry
     // légitime pendant toute la fenêtre de 30s.
     await paymentRepository.updateStatusByOrder(orderId, 'card', 'failed');
-    throw err;
+    throw asPaymentError(err);
   }
 
   await paymentRepository.updateStatusByOrder(orderId, 'card', 'pending', intent.id);
@@ -67,7 +101,7 @@ const createTwintIntent = async (orderId, userId) => {
     });
   } catch (err) {
     await paymentRepository.updateStatusByOrder(orderId, 'twint', 'failed');
-    throw err;
+    throw asPaymentError(err);
   }
 
   await paymentRepository.updateStatusByOrder(orderId, 'twint', 'pending', intent.id);
