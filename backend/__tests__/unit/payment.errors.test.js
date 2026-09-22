@@ -11,6 +11,8 @@ jest.mock('../../config/stripe', () => ({
 
 jest.mock('../../repositories/order.repository', () => ({
   lockOrderForPaymentIntent: jest.fn(async () => ({ order: { id: 1, total: '15.50' } })),
+  // Filtre sur le propriétaire quand un userId est fourni (voir order.repository.js)
+  findById: jest.fn(async () => ({ id: 1, total: '15.50' })),
 }));
 
 jest.mock('../../repositories/payment.repository', () => ({
@@ -79,5 +81,40 @@ describe('paiement — clé Stripe refusée', () => {
 
     await expect(createTwintIntent(1, 7)).rejects.toBeDefined();
     expect(paymentRepository.updateStatusByOrder).toHaveBeenCalledWith(1, 'twint', 'failed');
+  });
+});
+
+/* Cloisonnement des commandes — une cliente ne doit jamais atteindre le paiement
+   d'une autre.
+
+   La réutilisation d'un paiement déjà ouvert court-circuite le verrou qui portait
+   jusqu'ici la vérification d'appartenance : sans contrôle propre, essayer des
+   numéros de commande aurait suffi à obtenir le secret de paiement et le montant
+   d'une commande tierce. */
+describe('paiement — une commande appartient à une seule cliente', () => {
+  const orderRepository = require('../../repositories/order.repository');
+
+  beforeEach(() => jest.clearAllMocks());
+
+  test.each([
+    ['carte', createCardIntent],
+    ['Twint', createTwintIntent],
+  ])('%s : refuse la commande d\'une autre cliente', async (_label, createIntent) => {
+    // findById filtre sur le propriétaire : rien ne remonte pour un autre compte
+    orderRepository.findById.mockResolvedValue(null);
+
+    await expect(createIntent(1, 999)).rejects.toMatchObject({ statusCode: 404 });
+
+    // Aucun paiement n'est lu ni créé pour une commande qui n'est pas la sienne
+    expect(paymentRepository.findByOrderIdAndMethod).not.toHaveBeenCalled();
+    expect(stripe.paymentIntents.create).not.toHaveBeenCalled();
+  });
+
+  test('la vérification précède la lecture du paiement existant', async () => {
+    orderRepository.findById.mockResolvedValue(null);
+
+    await expect(createCardIntent(1, 999)).rejects.toBeDefined();
+
+    expect(orderRepository.findById).toHaveBeenCalledWith(1, 999);
   });
 });

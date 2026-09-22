@@ -23,7 +23,15 @@ const orderRepository   = require('../../repositories/order.repository');
 const loyaltyService    = require('../../services/loyalty.service');
 const paymentService    = require('../../services/payment.service');
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  /* Par défaut, la commande appartient bien à la cliente qui la paie.
+     `createCardIntent` / `createTwintIntent` vérifient l'appartenance AVANT de
+     réutiliser un paiement déjà ouvert : ce raccourci court-circuite
+     lockOrderForPaymentIntent, qui portait seul cette vérification. Les tests de
+     cloisonnement (payment.errors.test.js) couvrent le cas inverse. */
+  orderRepository.findById.mockResolvedValue({ id: 1, user_id: 10, total: '15.50' });
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

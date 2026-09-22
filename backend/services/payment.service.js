@@ -75,11 +75,21 @@ const reuseExistingIntent = async (orderId, method) => {
 const createCardIntent = async (orderId, userId) => {
   if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
 
-  // Paiement déjà ouvert pour cette commande — on le rend plutôt que d'en créer un second
+  /* Paiement déjà ouvert pour cette commande — on le rend plutôt que d'en créer
+     un second.
+
+     La commande est lue AVEC son propriétaire : ce raccourci court-circuite
+     lockOrderForPaymentIntent, qui portait jusqu'ici la seule vérification
+     d'appartenance. Sans ce filtre, une cliente connectée pouvait obtenir le
+     secret de paiement et le montant de la commande d'une autre en essayant des
+     numéros. Une commande qui n'est pas la sienne est introuvable, comme
+     ailleurs dans l'application. */
+  const ownOrder = await orderRepository.findById(orderId, userId);
+  if (!ownOrder) throw new AppError('Commande introuvable.', 404);
+
   const reusable = await reuseExistingIntent(orderId, 'card');
   if (reusable) {
-    const order = await orderRepository.findById(orderId);
-    return { clientSecret: reusable.client_secret, amount: order?.total };
+    return { clientSecret: reusable.client_secret, amount: ownOrder.total };
   }
 
   // Verrouille la commande et réserve la ligne payments avant l'appel Stripe —
@@ -118,11 +128,21 @@ const createCardIntent = async (orderId, userId) => {
 const createTwintIntent = async (orderId, userId) => {
   if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
 
-  // Même logique que pour la carte : un paiement déjà ouvert est réutilisé
+  /* Paiement déjà ouvert pour cette commande — on le rend plutôt que d'en créer
+     un second.
+
+     La commande est lue AVEC son propriétaire : ce raccourci court-circuite
+     lockOrderForPaymentIntent, qui portait jusqu'ici la seule vérification
+     d'appartenance. Sans ce filtre, une cliente connectée pouvait obtenir le
+     secret de paiement et le montant de la commande d'une autre en essayant des
+     numéros. Une commande qui n'est pas la sienne est introuvable, comme
+     ailleurs dans l'application. */
+  const ownOrder = await orderRepository.findById(orderId, userId);
+  if (!ownOrder) throw new AppError('Commande introuvable.', 404);
+
   const reusable = await reuseExistingIntent(orderId, 'twint');
   if (reusable) {
-    const order = await orderRepository.findById(orderId);
-    return { clientSecret: reusable.client_secret, amount: order?.total };
+    return { clientSecret: reusable.client_secret, amount: ownOrder.total };
   }
 
   // Voir le commentaire de createCardIntent — même protection contre la double
