@@ -349,11 +349,13 @@ function DataPrivacySection({ user }) {
   )
 }
 
-/* ── Onglet Profil ── */
-function TabProfile({ user, onSaved }) {
+/* ── Onglet Profil ──
+   Exporté nommément pour les tests : la page complète tire le panier, la liste
+   d'envies et les commandes, hors sujet pour vérifier ce formulaire. */
+export function TabProfile({ user, onSaved }) {
   const { t } = useTranslation()
   const profileSchema = useMemo(() => makeProfileSchema(t), [t])
-  const { register, handleSubmit, formState: { errors, isSubmitting, isDirty } } = useForm({
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       first_name: user?.firstName ?? user?.first_name ?? '',
@@ -361,6 +363,22 @@ function TabProfile({ user, onSaved }) {
       email:      user?.email     ?? '',
     },
   })
+
+  /* CLI-06 — la session se restaure par un appel réseau : au premier rendu de la
+     page, `user` est encore null. React Hook Form ne lit `defaultValues` qu'une
+     fois, le formulaire restait donc vide même une fois le compte chargé, et la
+     cliente ne pouvait pas modifier ses informations. On le réalimente dès que
+     l'utilisateur arrive. */
+  const firstName = user?.firstName ?? user?.first_name ?? ''
+  const lastName  = user?.lastName  ?? user?.last_name  ?? ''
+  const email     = user?.email ?? ''
+  useEffect(() => {
+    if (!user) return
+    /* keepDirtyValues : si la cliente a déjà commencé à taper pendant le
+       chargement, sa saisie est conservée — la remplacer serait la perte de
+       saisie que le ticket décrit ailleurs. */
+    reset({ first_name: firstName, last_name: lastName, email }, { keepDirtyValues: true })
+  }, [user, firstName, lastName, email, reset])
   const [saved,  setSaved]  = useState(false)
   const [apiErr, setApiErr] = useState('')
 
@@ -422,7 +440,12 @@ function TabProfile({ user, onSaved }) {
         </div>
 
         <div className={s.formActions} style={{ marginBottom: 0 }}>
-          <button type="submit" className={s.btnPrimary} disabled={isSubmitting || !isDirty}>
+          {/* Le bouton ne dépend plus de `isDirty` (CLI-06). Tant que le compte
+              n'était pas chargé, le formulaire vide n'était jamais « modifié » et
+              le bouton restait grisé sans explication : la page paraissait en
+              lecture seule. Il n'est désactivé que le temps du chargement du
+              compte et de l'envoi. */}
+          <button type="submit" className={s.btnPrimary} disabled={isSubmitting || !user}>
             {saved
               ? <><Check size={15} /> {t('account.saved')}</>
               : isSubmitting ? t('account.saving') : t('account.saveChanges')}
@@ -1045,6 +1068,13 @@ export default function Account() {
   const initialTab = VALID_TABS.includes(requestedTab ?? '') ? requestedTab : 'profile'
   const [tab, setTab] = useState(initialTab)
   const [userData, setUserData] = useState(user ?? {})
+
+  /* `userData` est une copie locale, enrichie après un enregistrement. Elle était
+     figée à la valeur du contexte au premier rendu — donc vide tant que la session
+     n'était pas restaurée, et jamais rattrapée ensuite (CLI-06). */
+  useEffect(() => {
+    if (user) setUserData(prev => ({ ...prev, ...user }))
+  }, [user])
   const { ids: wishlistIds } = useWishlist()
   const [counts, setCounts] = useState({ orders: null })
   const tabs = useTabs(t, { ...counts, wishlist: wishlistIds.size || undefined })
