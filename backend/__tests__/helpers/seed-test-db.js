@@ -12,7 +12,18 @@ const ensureTestProduct = async () => {
     'SELECT id FROM products WHERE sku = ?',
     [TEST_SKU]
   );
-  if (existing) return existing.id;
+  /* Le produit existe déjà : on RÉARME son stock. Les tests d'intégration passent
+     de vraies commandes, qui décrémentent le stock dans la même transaction. Sans
+     cette remise à niveau, le seed finit par tomber à 0 au fil des exécutions et
+     les suites panier/commandes échouent sur « Le panier est vide » — un échec
+     qui dépend du nombre de fois où les tests ont déjà tourné, donc déroutant. */
+  if (existing) {
+    await pool.query(
+      'UPDATE products SET stock = 100, is_active = 1, deleted_at = NULL WHERE id = ?',
+      [existing.id]
+    );
+    return existing.id;
+  }
 
   const [result] = await pool.query(
     `INSERT INTO products

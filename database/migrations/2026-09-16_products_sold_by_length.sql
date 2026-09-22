@@ -24,18 +24,44 @@
 -- depuis l'administration sans intervention de développement.
 -- ============================================================
 
-ALTER TABLE products
-  -- Vente à la coupe : 0 = article vendu à l'unité (comportement par défaut)
-  ADD COLUMN sold_by_length TINYINT(1) NOT NULL DEFAULT 0 AFTER is_made_to_order,
-  -- Pas de découpe en centimètres (10 = la cliente commande par tranches de 10 cm)
-  ADD COLUMN length_step_cm SMALLINT UNSIGNED NOT NULL DEFAULT 10 AFTER sold_by_length,
-  -- Longueur minimale commandable, en centimètres
-  ADD COLUMN length_min_cm  SMALLINT UNSIGNED NOT NULL DEFAULT 50 AFTER length_step_cm;
+-- Gardes information_schema : les colonnes ont pu être créées à la main avant que
+-- la migration ne soit enregistrée (constaté en développement le 2026-09-22, où
+-- elles existaient déjà alors que schema_migrations l'ignorait). Sans ces gardes,
+-- la migration échoue sur « Duplicate column name » et bloque toutes les suivantes.
+
+-- Vente à la coupe : 0 = article vendu à l'unité (comportement par défaut)
+SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'sold_by_length');
+SET @sql := IF(@col = 0,
+  'ALTER TABLE products ADD COLUMN sold_by_length TINYINT(1) NOT NULL DEFAULT 0 AFTER is_made_to_order',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Pas de découpe en centimètres (10 = la cliente commande par tranches de 10 cm)
+SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'length_step_cm');
+SET @sql := IF(@col = 0,
+  'ALTER TABLE products ADD COLUMN length_step_cm SMALLINT UNSIGNED NOT NULL DEFAULT 10 AFTER sold_by_length',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Longueur minimale commandable, en centimètres
+SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'length_min_cm');
+SET @sql := IF(@col = 0,
+  'ALTER TABLE products ADD COLUMN length_min_cm SMALLINT UNSIGNED NOT NULL DEFAULT 50 AFTER length_step_cm',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Index partiel impossible en MySQL : on indexe la colonne seule. Elle est très
 -- peu sélective (34 produits sur 15 497), mais la boutique doit
 -- pouvoir lister les articles vendus à la coupe sans parcourir la table.
-CREATE INDEX idx_products_sold_by_length ON products (sold_by_length);
+SET @idx := (SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND INDEX_NAME = 'idx_products_sold_by_length');
+SET @sql := IF(@idx = 0,
+  'CREATE INDEX idx_products_sold_by_length ON products (sold_by_length)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Activation sur les trames et bandes à broder existantes.
 -- Le ciblage se fait sur le libellé FR : ces articles n'ont ni catégorie ni
