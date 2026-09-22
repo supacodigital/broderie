@@ -101,10 +101,16 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
   // Statut initial selon la méthode (Stripe : pending — facture/retrait : statut dédié)
   const initialStatus = INITIAL_STATUS_BY_METHOD[paymentMethod] ?? 'pending';
 
-  /* Facture QR : le numéro de facture et la référence de paiement sont attribués
-     juste APRÈS la création (ils dépendent de l'identifiant de commande et du
-     compteur mensuel). La commande part donc sans référence, puis la reçoit. */
-  const isInvoiceOrder = paymentMethod === 'invoice_qr';
+  /* Le numéro de facture et la référence de paiement sont attribués juste APRÈS
+     la création : ils dépendent de l'identifiant de commande et du compteur
+     annuel. La commande part donc sans référence, puis la reçoit.
+
+     Toute commande est numérotée, quel que soit son moyen de paiement. Seules
+     les commandes par facture QR l'étaient auparavant : une commande réglée par
+     carte pouvait malgré tout donner lieu à une facture depuis l'administration,
+     qui portait alors un numéro dérivé de l'identifiant de commande. Ce numéro
+     de repli finissait par rattraper le compteur, et deux factures distinctes
+     auraient porté le même numéro — une faute comptable. */
 
   const orderId = await orderRepository.createOrder({
     userId,
@@ -129,17 +135,15 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
      1er janvier, et référence de paiement dérivée de ce numéro. Échec non
      bloquant — la commande existe et reste payable ; c'est la facture qui
      serait à régénérer. */
-  if (isInvoiceOrder) {
-    try {
-      const assigned = await orderRepository.assignInvoiceNumber(orderId);
-      const reference = invoiceService.generateQrReference(
-        assigned?.invoiceSeq ?? null,
-        assigned?.year ?? new Date().getFullYear()
-      );
-      await orderRepository.saveQrReference(orderId, reference);
-    } catch (err) {
-      console.error('[Facture] Numérotation échouée — commande', orderId, ':', err.message);
-    }
+  try {
+    const assigned = await orderRepository.assignInvoiceNumber(orderId);
+    const reference = invoiceService.generateQrReference(
+      assigned?.invoiceSeq ?? null,
+      assigned?.year ?? new Date().getFullYear()
+    );
+    await orderRepository.saveQrReference(orderId, reference);
+  } catch (err) {
+    console.error('[Facture] Numérotation échouée — commande', orderId, ':', err.message);
   }
 
   // Consommation du bon de fidélité — après création de la commande (on a besoin de
