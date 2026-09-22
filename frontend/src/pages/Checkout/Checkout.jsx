@@ -743,8 +743,10 @@ function StepTwint({ orderId, total, onPaid, t }) {
   }
 
   useEffect(() => {
-    if (requestedRef.current === orderId) return
-    requestedRef.current = orderId
+    // `orderId` vient de sessionStorage sous forme de chaîne après un rechargement,
+    // et de l'état sous forme de nombre : on compare les deux en texte.
+    if (requestedRef.current === String(orderId)) return
+    requestedRef.current = String(orderId)
     fetchIntent()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])
@@ -752,7 +754,7 @@ function StepTwint({ orderId, total, onPaid, t }) {
   /* Réessai manuel : on relâche le garde-fou, la fenêtre serveur de 30 s ayant
      le temps de se libérer pendant que la personne lit le message d'erreur. */
   const retry = () => {
-    requestedRef.current = orderId
+    requestedRef.current = String(orderId)
     fetchIntent()
   }
 
@@ -866,8 +868,8 @@ function StepCard({ orderId, total, onPaid, t }) {
   const requestedRef = useRef(null)
 
   useEffect(() => {
-    if (requestedRef.current === orderId) return
-    requestedRef.current = orderId
+    if (requestedRef.current === String(orderId)) return
+    requestedRef.current = String(orderId)
     createCardIntent(orderId)
       .then(res => setClientSecret(res.clientSecret))
       .catch(() => setError('Impossible d\'initialiser le paiement. Veuillez réessayer.'))

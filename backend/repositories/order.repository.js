@@ -538,11 +538,19 @@ const lockOrderForPaymentIntent = async (orderId, userId, method) => {
       throw new AppError('Cette commande ne peut pas être payée.', 400);
     }
 
-    // Une création de PaymentIntent pour cette méthode est déjà en cours (< 30s) —
-    // la requête concurrente s'arrête ici plutôt que de créer un second PaymentIntent.
+    /* Une création de PaymentIntent pour cette méthode est déjà en cours (< 30s) —
+       la requête concurrente s'arrête ici plutôt que de créer un second PaymentIntent.
+
+       `provider_payment_id IS NULL` est essentiel : seule une réservation qui
+       n'a PAS encore abouti bloque. Sans cette condition, une personne qui
+       recharge sa page de paiement dans les 30 secondes se heurtait à un 409
+       alors que son paiement était déjà prêt côté Stripe — l'écran restait vide
+       et aucune nouvelle tentative ne passait. Une réservation déjà complétée
+       est au contraire réutilisable : c'est le même paiement. */
     const [inFlight] = await connection.execute(
       `SELECT id FROM payments
        WHERE order_id = ? AND method = ? AND status = 'pending'
+         AND provider_payment_id IS NULL
          AND created_at > (NOW() - INTERVAL ? SECOND)
        LIMIT 1`,
       [orderId, method, IN_FLIGHT_WINDOW_SECONDS]

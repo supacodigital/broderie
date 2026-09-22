@@ -41,6 +41,32 @@ const asPaymentError = (err) => {
 };
 
 
+/* Réutilise le paiement déjà créé pour cette commande, s'il est encore utilisable.
+
+   Recharger la page de paiement, revenir en arrière ou rouvrir l'onglet ne doit
+   pas créer un second paiement pour la même commande : on rend le premier. Stripe
+   est interrogé pour connaître son état réel — un paiement annulé, échoué ou déjà
+   réglé ne peut pas resservir.
+
+   Sans cela, chaque rechargement produisait soit un paiement de plus chez Stripe,
+   soit un refus, et l'écran de paiement restait vide. */
+const reuseExistingIntent = async (orderId, method) => {
+  const existing = await paymentRepository.findByOrderIdAndMethod(orderId, method);
+  if (!existing?.provider_payment_id) return null;
+
+  try {
+    const intent = await stripe.paymentIntents.retrieve(existing.provider_payment_id);
+    const reusable = ['requires_payment_method', 'requires_confirmation', 'requires_action'];
+    if (!reusable.includes(intent.status)) return null;
+    return intent;
+  } catch (err) {
+    // Paiement introuvable chez Stripe (clé changée, environnement différent) :
+    // on repart sur un nouveau plutôt que de bloquer la cliente.
+    console.warn('[Stripe] PaymentIntent existant illisible, un nouveau sera créé :', err.message);
+    return null;
+  }
+};
+
 // ─────────────────────────────────────────────────────────────
 // Carte — crée un PaymentIntent Stripe et retourne le client_secret
 // `userId` : scope la commande à son propriétaire (un client ne peut pas
@@ -48,6 +74,13 @@ const asPaymentError = (err) => {
 // ─────────────────────────────────────────────────────────────
 const createCardIntent = async (orderId, userId) => {
   if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
+
+  // Paiement déjà ouvert pour cette commande — on le rend plutôt que d'en créer un second
+  const reusable = await reuseExistingIntent(orderId, 'card');
+  if (reusable) {
+    const order = await orderRepository.findById(orderId);
+    return { clientSecret: reusable.client_secret, amount: order?.total };
+  }
 
   // Verrouille la commande et réserve la ligne payments avant l'appel Stripe —
   // ferme la fenêtre de course entre deux requêtes concurrentes (double-clic,
@@ -84,6 +117,13 @@ const createCardIntent = async (orderId, userId) => {
 // ─────────────────────────────────────────────────────────────
 const createTwintIntent = async (orderId, userId) => {
   if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
+
+  // Même logique que pour la carte : un paiement déjà ouvert est réutilisé
+  const reusable = await reuseExistingIntent(orderId, 'twint');
+  if (reusable) {
+    const order = await orderRepository.findById(orderId);
+    return { clientSecret: reusable.client_secret, amount: order?.total };
+  }
 
   // Voir le commentaire de createCardIntent — même protection contre la double
   // création concurrente de PaymentIntent.
