@@ -719,6 +719,16 @@ function StepTwint({ orderId, total, onPaid, t }) {
   const [loading,      setLoading]      = useState(true)
   const [error,        setError]        = useState('')
 
+  /* Le serveur n'autorise qu'UNE demande de paiement par commande dans une fenêtre
+     de 30 secondes : deux appels simultanés créeraient deux paiements pour la même
+     commande. Le second reçoit donc un 409, et c'est sa réponse qui pilote
+     l'affichage — le formulaire de paiement ne s'affichait jamais.
+
+     React exécute les effets deux fois au montage en mode strict, et un remontage
+     du composant produit le même résultat. Ce garde-fou n'autorise donc qu'un seul
+     appel pour une commande donnée. */
+  const requestedRef = useRef(null)
+
   const fetchIntent = async () => {
     setLoading(true)
     setError('')
@@ -732,7 +742,19 @@ function StepTwint({ orderId, total, onPaid, t }) {
     }
   }
 
-  useEffect(() => { fetchIntent() }, [orderId])
+  useEffect(() => {
+    if (requestedRef.current === orderId) return
+    requestedRef.current = orderId
+    fetchIntent()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId])
+
+  /* Réessai manuel : on relâche le garde-fou, la fenêtre serveur de 30 s ayant
+     le temps de se libérer pendant que la personne lit le message d'erreur. */
+  const retry = () => {
+    requestedRef.current = orderId
+    fetchIntent()
+  }
 
   const stripeAppearance = {
     theme: 'stripe',
@@ -761,7 +783,7 @@ function StepTwint({ orderId, total, onPaid, t }) {
       {!loading && error && (
         <div className={s.twintError}>
           <AlertCircle size={16} />{error}
-          <button onClick={fetchIntent} className={s.twintRetryBtn}>
+          <button onClick={retry} className={s.twintRetryBtn}>
             <RefreshCw size={14} /> Réessayer
           </button>
         </div>
@@ -839,7 +861,13 @@ function StepCard({ orderId, total, onPaid, t }) {
   const [loading,      setLoading]      = useState(true)
   const [error,        setError]        = useState('')
 
+  /* Même garde-fou que pour Twint : un seul appel par commande, sinon le second
+     se heurte au verrou serveur (409) et le formulaire Stripe ne s'affiche pas. */
+  const requestedRef = useRef(null)
+
   useEffect(() => {
+    if (requestedRef.current === orderId) return
+    requestedRef.current = orderId
     createCardIntent(orderId)
       .then(res => setClientSecret(res.clientSecret))
       .catch(() => setError('Impossible d\'initialiser le paiement. Veuillez réessayer.'))
