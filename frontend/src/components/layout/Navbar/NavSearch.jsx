@@ -31,17 +31,29 @@ export default function NavSearch({ open, onClose }) {
     clearSearch,
   } = useProductSearch(i18n.language, 200, 5)
 
-  const inputRef = useRef(null)
-  const wrapRef  = useRef(null)
+  const inputRef       = useRef(null)  // champ desktop, dans la barre
+  const drawerInputRef = useRef(null)  // champ mobile, dans le tiroir
+  const wrapRef        = useRef(null)
 
-  /* Focus à l'ouverture + reset.
+  /* Focus à l'ouverture + reset (CLI-01).
      Le délai laisse le champ atteindre sa largeur avant d'y poser le curseur :
      focaliser un champ de 0 px pousse certains navigateurs à faire défiler la
-     page pour le ramener dans le viewport. */
+     page pour le ramener dans le viewport.
+
+     Les deux champs coexistent dans le DOM et c'est le CSS qui masque l'un ou
+     l'autre selon la largeur. On focalise donc celui qui est réellement affiché :
+     viser le champ desktop depuis un téléphone posait le curseur dans un élément
+     en `display: none`, le clavier ne s'ouvrait pas et la frappe n'arrivait nulle
+     part — le champ paraissait inopérant. */
   useEffect(() => {
     if (!open) return
     clearSearch()
-    const id = setTimeout(() => inputRef.current?.focus(), 80)
+    const id = setTimeout(() => {
+      const target = drawerInputRef.current?.offsetParent !== null
+        ? drawerInputRef.current
+        : inputRef.current
+      target?.focus()
+    }, 80)
     return () => clearTimeout(id)
   }, [open, clearSearch])
 
@@ -76,6 +88,16 @@ export default function NavSearch({ open, onClose }) {
   function go(q) {
     onClose()
     navigate(`/catalogue?q=${encodeURIComponent(q.trim())}`)
+  }
+
+  /* Soumission du formulaire mobile (touche « Rechercher » du clavier tactile).
+     Le champ perd le focus d'abord : sans cela le clavier reste ouvert par-dessus
+     la page de résultats qui vient de s'afficher. */
+  function handleSubmit(e) {
+    e.preventDefault()
+    if (value.trim().length < 2) return
+    drawerInputRef.current?.blur()
+    go(value)
   }
 
   function handleKeyDown(e) {
@@ -170,12 +192,17 @@ export default function NavSearch({ open, onClose }) {
         <>
           <div className={s.backdrop} onClick={onClose} aria-hidden="true" />
 
-          <div className={s.drawer} role="search" aria-label="Recherche produits">
+          <div className={s.drawer}>
             <div className={s.drawerHandle} />
 
-            <div className={s.drawerInputRow}>
+            {/* Un vrai <form> : sur un clavier tactile, la touche « Rechercher »
+                soumet le formulaire et n'émet pas toujours d'événement clavier
+                exploitable. Sans formulaire, appuyer dessus ne faisait rien et la
+                saisie semblait perdue. */}
+            <form className={s.drawerInputRow} onSubmit={handleSubmit} role="search">
               <Search size={18} className={s.searchIcon} aria-hidden="true" />
               <input
+                ref={drawerInputRef}
                 type="text"
                 className={s.input}
                 placeholder={t('catalogue.searchPlaceholder')}
@@ -183,12 +210,19 @@ export default function NavSearch({ open, onClose }) {
                 onChange={handleInput}
                 onKeyDown={handleKeyDown}
                 autoComplete="off"
+                /* Le clavier tactile propose « Rechercher » plutôt que « Entrée »,
+                   et le champ reste hors des corrections automatiques : « moulinés »
+                   corrigé en « moulines » ne ramènerait aucun résultat. */
+                enterKeyHint="search"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
               />
               {value
-                ? <button className={s.clearBtn} onClick={clearSearch} aria-label="Effacer"><X size={16} /></button>
-                : <button className={s.closeBtn} onClick={onClose} aria-label="Fermer"><X size={20} /></button>
+                ? <button type="button" className={s.clearBtn} onClick={clearSearch} aria-label="Effacer"><X size={16} /></button>
+                : <button type="button" className={s.closeBtn} onClick={onClose} aria-label="Fermer"><X size={20} /></button>
               }
-            </div>
+            </form>
 
             {hasResults && (
               <ul className={s.drawerResults} role="listbox">
@@ -198,7 +232,11 @@ export default function NavSearch({ open, onClose }) {
                     className={`${s.drawerResult} ${activeIndex === i ? s.resultActive : ''}`}
                     role="option"
                     aria-selected={activeIndex === i}
-                    onMouseDown={() => go(p.name)}
+                    /* onClick et non onMouseDown : au tactile, `mousedown` n'est
+                       émis qu'en fin de séquence et seulement si le navigateur
+                       décide de simuler la souris — un appui sur une suggestion
+                       restait donc sans effet sur un téléphone. */
+                    onClick={() => go(p.name)}
                   >
                     <SearchSuggestion product={p} query={value} />
                     <ArrowRight size={14} className={s.resultArrow} aria-hidden="true" />
@@ -208,7 +246,7 @@ export default function NavSearch({ open, onClose }) {
             )}
 
             {hasResults && (
-              <button className={s.seeAll} type="button" onMouseDown={() => go(value)}>
+              <button className={s.seeAll} type="button" onClick={() => go(value)}>
                 <Search size={13} aria-hidden="true" />
                 Voir tous les résultats pour <strong>«&nbsp;{value}&nbsp;»</strong>
               </button>

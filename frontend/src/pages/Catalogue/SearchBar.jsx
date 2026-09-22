@@ -58,8 +58,15 @@ export default function SearchBar({ filters, onChange, onToggleFilters, viewMode
         setShowDropdown(false)
       }
     }
+    /* `touchstart` en plus de `mousedown` : sur un téléphone, toucher hors du
+       panneau n'émet pas `mousedown` et les suggestions restaient ouvertes
+       par-dessus les résultats. */
     document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
+    document.addEventListener('touchstart', onClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside)
+      document.removeEventListener('touchstart', onClickOutside)
+    }
   }, [])
 
   function handleInput(e) {
@@ -83,6 +90,18 @@ export default function SearchBar({ filters, onChange, onToggleFilters, viewMode
   function handleKeyDown(e) {
     if (e.key === 'Escape') { setShowDropdown(false); return }
     handleSearchKeyDown(e, selectSuggestion)
+  }
+
+  /* Touche « Rechercher » du clavier tactile : elle soumet le formulaire sans
+     émettre d'événement clavier exploitable. On applique le terme immédiatement,
+     sans attendre le debounce de 300 ms, et on referme le clavier pour laisser
+     voir les résultats. */
+  function handleSubmit(e) {
+    e.preventDefault()
+    setShowDropdown(false)
+    clearTimeout(gridDebounce.current)
+    onChange({ ...filters, q: inputValue.trim() || undefined, page: 1 })
+    e.target.querySelector('input')?.blur()
   }
 
   function clearSearch() {
@@ -115,7 +134,7 @@ export default function SearchBar({ filters, onChange, onToggleFilters, viewMode
           La recherche a remplacé le compteur de résultats : « 15 497 produits »
           occupait la place la plus visible de la page sans aider à choisir. */}
       <div className={s.toolbar}>
-        <div className={s.searchWrap} ref={wrapRef}>
+        <form className={s.searchWrap} ref={wrapRef} onSubmit={handleSubmit} role="search">
           <Search size={15} className={s.searchIcon} aria-hidden="true" />
           <input
             type="text"
@@ -129,9 +148,15 @@ export default function SearchBar({ filters, onChange, onToggleFilters, viewMode
             aria-autocomplete="list"
             aria-expanded={showDropdown}
             autoComplete="off"
+            /* Clavier tactile : touche « Rechercher », et pas de correction
+               automatique — « moulinés » corrigé en « moulines » ne ramène rien. */
+            enterKeyHint="search"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
           />
           {inputValue && (
-            <button className={s.clearSearch} onClick={clearSearch} aria-label="Effacer la recherche">
+            <button type="button" className={s.clearSearch} onClick={clearSearch} aria-label="Effacer la recherche">
               <X size={14} />
             </button>
           )}
@@ -144,7 +169,10 @@ export default function SearchBar({ filters, onChange, onToggleFilters, viewMode
                   className={`${s.suggestion} ${activeIndex === i ? s.suggestionActive : ''}`}
                   role="option"
                   aria-selected={activeIndex === i}
-                  onMouseDown={() => selectSuggestion(p)}
+                  /* onClick et non onMouseDown : au tactile, `mousedown` n'est
+                     pas émis de façon fiable — un appui sur une suggestion
+                     restait sans effet depuis un téléphone (CLI-01). */
+                  onClick={() => selectSuggestion(p)}
                   onMouseEnter={() => setActiveIndex(i)}
                 >
                   <SearchSuggestion product={p} query={inputValue} showCategory />
@@ -152,7 +180,7 @@ export default function SearchBar({ filters, onChange, onToggleFilters, viewMode
               ))}
             </ul>
           )}
-        </div>
+        </form>
 
         <div className={s.toolbarRight}>
           {/* Tri */}
