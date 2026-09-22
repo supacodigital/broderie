@@ -1,7 +1,50 @@
 // Tests unitaires invoice.service — génération PDF facture
 
+const zlib = require('zlib');
 const { generateInvoicePDF, computeTaxBreakdown, generateQrReference } = require('../../services/invoice.service');
 const { roundCHF } = require('../../utils/chf.utils');
+
+/* Lit le texte réellement imprimé dans un PDF produit par PDFKit.
+   Les tests existants ne vérifiaient que la signature et la taille du fichier :
+   une facture peut être un PDF parfaitement valide et afficher les mauvais
+   libellés. Les tickets ADM-13 à ADM-19 portent précisément sur ce qui est
+   écrit, d'où cette lecture du contenu.
+   PDFKit encode le texte en hexadécimal dans les opérateurs de flux. */
+function extractPdfText(buffer) {
+  const raw = buffer.toString('latin1');
+  const out = [];
+  const streamRe = /stream\r?\n/g;
+  let match;
+  while ((match = streamRe.exec(raw)) !== null) {
+    const start = match.index + match[0].length;
+    const end = raw.indexOf('endstream', start);
+    if (end < 0) continue;
+    let content;
+    try {
+      content = zlib.inflateSync(buffer.subarray(start, end)).toString('latin1');
+    } catch {
+      continue; // flux binaire (image du QR code)
+    }
+    if (!/T[jJ]/.test(content)) continue;
+    /* Un bloc BT..ET = une ligne imprimée. PDFKit y découpe le texte en
+       plusieurs fragments hexadécimaux pour appliquer le crénage : il faut donc
+       les recoller sans séparateur, sinon « Date de facture » ressort en
+       morceaux et aucune recherche de libellé ne fonctionne. */
+    for (const block of content.split('BT').slice(1)) {
+      const body = block.split('ET')[0];
+      let line = '';
+      const hexRe = /<([0-9a-fA-F]+)>/g;
+      let hex;
+      while ((hex = hexRe.exec(body)) !== null) {
+        line += Buffer.from(hex[1], 'hex').toString('latin1');
+      }
+      if (line.trim()) out.push(line);
+    }
+  }
+  /* Les caractères accentués sortent en Latin-1 ; « · » sert de séparateur
+     d'adresse. On garde le texte brut, ligne à ligne. */
+  return out.join('\n');
+}
 
 function makeOrder(overrides = {}) {
   return {
@@ -201,5 +244,107 @@ describe('invoice.service — computeTaxBreakdown()', () => {
     const order = makeOrder({ items, subtotal: '90.00', discount: '10.00', tax_amount: '6.75' });
     const parts = computeTaxBreakdown(order);
     expect(roundCHF(parts.reduce((s, p) => s + p.tvaAmount, 0))).toBe(6.75);
+  });
+});
+
+/* ── Mentions obligatoires de la facture — tickets ADM-13 à ADM-19 ──
+   La cliente a relevé huit manquements sur le document remis à ses clientes.
+   Ces tests lisent le texte imprimé, seul moyen de vérifier ce qu'elle voit. */
+describe('invoice.service — mentions légales de la facture', () => {
+  const ORDER = {
+    id: 32,
+    user_id: 161,
+    created_at: new Date('2026-09-14'),
+    invoice_number: '2026-000032',
+    invoice_seq: 32,
+    subtotal: '15.50',
+    shipping_cost: '0.00',
+    tax_amount: '1.15',
+    total: '15.50',
+    items: [{
+      product_id: 1, quantity: 1, unit_price: '15.50', tax_rate_snapshot: '8.10',
+      product_snapshot_json: JSON.stringify({ name: 'Kit diamant', sku: 'WIWD2432' }),
+    }],
+  };
+
+  let text;
+  beforeAll(async () => {
+    text = extractPdfText(await generateInvoicePDF({ order: ORDER, user: makeUser() }));
+  });
+
+  // ADM-15 — « Date » seul ne suffit pas en comptabilité
+  test('porte la mention « Date de facture »', () => {
+    expect(text).toContain('Date de facture :');
+  });
+
+  // ADM-17 — traçabilité comptable
+  test('porte un numéro de client', () => {
+    expect(text).toMatch(/N° client : C\d{6}/);
+  });
+
+  /* ADM-18 — l'année fait partie du numéro : sans elle, le compteur repartant à 1
+     chaque janvier produirait deux factures « 000032 » à un an d'intervalle. */
+  test('numérote la facture avec son année', () => {
+    expect(text).toContain('N° 2026-000032');
+  });
+
+  /* ADM-14 — « TVA incluse » ne permet pas de lire le montant hors taxe, que la
+     LTVA art. 26 impose de faire figurer. 15.50 TTC à 8.1 % → 14.35 HT + 1.15. */
+  test('détaille le montant hors taxe, la TVA et le total TTC', () => {
+    expect(text).toContain('Total hors taxe (HT)');
+    expect(text).toContain('CHF 14.35');
+    expect(text).toContain('TVA 8.10 % sur CHF 14.35');
+    expect(text).toContain('TOTAL TTC');
+    expect(text).not.toContain('TVA 8.10 % incluse');
+  });
+
+  // ADM-13 — le logo est une image, il ne vaut pas mention de l'émetteur
+  test('porte la raison sociale en toutes lettres', () => {
+    expect(text).toContain('Au Point-Compté');
+  });
+});
+
+/* ADM-19 — le champ « Informations supplémentaires » du bulletin est limité à
+   140 caractères par les spécifications SIX et attend une référence de facture,
+   pas une phrase. */
+describe('invoice.service — champ « Informations supplémentaires » (ADM-19)', () => {
+  test('ne porte que le numéro de facture, sans délai de paiement', async () => {
+    const order = {
+      id: 32, user_id: 161, created_at: new Date('2026-09-14'),
+      invoice_number: '2026-000032', invoice_seq: 32,
+      subtotal: '15.50', shipping_cost: '0.00', tax_amount: '1.15', total: '15.50',
+      items: [],
+    };
+    const text = extractPdfText(await generateInvoicePDF({ order, user: makeUser() }));
+
+    expect(text).toContain('Facture 2026-000032');
+    // La phrase précédente débordait du cadre prévu par la norme
+    expect(text).not.toContain('Facture 2026-000032 — payable sous');
+  });
+});
+
+/* Non-régression — bascule vers le QR-IBAN.
+   Avec un QR-IBAN, le standard EXIGE une référence structurée : sans elle la
+   génération échoue. Les commandes antérieures n'en ont pas, ou portent une
+   ancienne référence interne « APC… » non numérique. Régénérer leur facture ne
+   doit pas planter. */
+describe('invoice.service — factures antérieures à la numérotation', () => {
+  const base = {
+    id: 29, user_id: 161, created_at: new Date('2026-09-10'),
+    subtotal: '22.50', shipping_cost: '0.00', tax_amount: '1.69', total: '22.50',
+    items: [],
+  };
+
+  test('génère la facture d\'une commande sans référence', async () => {
+    const buf = await generateInvoicePDF({ order: { ...base, qr_reference: null }, user: makeUser() });
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.length).toBeGreaterThan(0);
+  });
+
+  test('génère la facture d\'une commande portant une ancienne référence interne', async () => {
+    const order = { ...base, qr_reference: 'APCMU0WJ7F1C842FCA2' };
+    const buf = await generateInvoicePDF({ order, user: makeUser() });
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.length).toBeGreaterThan(0);
   });
 });

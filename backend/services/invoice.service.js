@@ -100,6 +100,32 @@ const computeDueDate = (dueDays = null) => {
   return due;
 };
 
+/* Numéro de client imprimé sur la facture (ADM-17). Dérivé de l'identifiant du
+   compte, complété à 6 chiffres — une cliente doit pouvoir le citer au téléphone
+   et le retrouver dans l'administration. */
+const formatCustomerNumber = (userId) => `C${String(userId ?? 0).padStart(6, '0')}`;
+
+/* Repli de numéro de facture pour les commandes créées avant la numérotation.
+   Porte l'année de la commande, comme un vrai numéro (ADM-18) : un « 000032 » nu
+   ne se classe pas et se répète d'une année sur l'autre. */
+const invoiceFallbackNumber = (order) => {
+  const year = new Date(order.created_at ?? Date.now()).getFullYear();
+  return `${year}-${String(order.id).padStart(6, '0')}`;
+};
+
+/* Référence structurée utilisable pour ce bulletin, quelle que soit l'histoire
+   de la commande. Une référence déjà stockée n'est réutilisée que si elle est
+   bien numérique : les anciennes références internes « APC… » ne le sont pas. */
+const resolveStructuredReference = (order) => {
+  const stored = String(order.qr_reference ?? '');
+  if (/^\d{27}$/.test(stored)) return stored;
+  const year = new Date(order.created_at ?? Date.now()).getFullYear();
+  const seq  = order.invoice_seq
+    ?? String(order.invoice_number ?? '').split('-').pop()
+    ?? order.id;
+  return buildStructuredReference(seq || order.id, year);
+};
+
 const formatDate = (date) => {
   const d = new Date(date);
   return d.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -107,9 +133,9 @@ const formatDate = (date) => {
 
 // Construit l'objet de données attendu par SwissQRBill à partir d'une commande
 const buildQrBillData = (order, issuer = null) => {
-  const dueDays = issuer?.dueDays ?? env.invoiceDueDays ?? 30;
   const structured = usesStructuredReference();
-  const invoiceLabel = order.invoice_number ?? `#${order.id}`;
+  // Numéro de facture porté par le bulletin — l'année en fait partie (ADM-18)
+  const invoiceLabel = order.invoice_number ?? invoiceFallbackNumber(order);
   // Le débiteur de la facture QR est l'adresse de FACTURATION.
   // Fallback sur la livraison pour les commandes créées avant l'ajout du billing.
   const billStreet       = order.billing_street        ?? order.shipping_street;
@@ -143,12 +169,24 @@ const buildQrBillData = (order, issuer = null) => {
        ne porte alors qu'un rappel lisible du numéro de facture.
        Avec un IBAN classique, la référence structurée est refusée par le standard :
        on remet l'identifiant dans le message, et le rapprochement reste manuel. */
-    ...(structured && order.qr_reference ? { reference: order.qr_reference } : {}),
-    message: structured
-      ? `Facture ${invoiceLabel} — payable sous ${dueDays} jours`
-      : (order.qr_reference
-        ? `Facture ${invoiceLabel} — ${order.qr_reference} — payable sous ${dueDays} jours`
-        : `Facture ${invoiceLabel} — payable sous ${dueDays} jours`),
+    /* Avec un QR-IBAN, le standard EXIGE une référence structurée : sans elle la
+       génération échoue (« If there is no reference, a conventional IBAN must be
+       used »). Deux cas laissent une commande sans référence utilisable :
+         - commande créée avant la mise en place de la numérotation ;
+         - commande créée du temps d'un IBAN classique, qui porte alors une
+           référence interne « APC… », non numérique et refusée par le standard.
+       Dans ces deux cas on reconstruit une référence structurée à partir du
+       numéro de facture — régénérer une ancienne facture ne doit pas planter. */
+    ...(structured ? { reference: resolveStructuredReference(order) } : {}),
+    /* Champ « Informations supplémentaires » du bulletin (ADM-19).
+       Les spécifications SIX le limitent à 140 caractères et attendent une
+       référence de facture, pas une phrase : le délai de paiement ne s'y met pas,
+       il figure déjà sur la facture et dans le champ « Payable jusqu'au ». Un
+       tiret cadratin et les caractères hors du jeu latin autorisé sont évités —
+       ils font échouer la lecture du QR chez certaines banques.
+       Tronqué par sécurité : un numéro anormalement long ne doit pas produire un
+       bulletin invalide. */
+    message: `Facture ${invoiceLabel}`.slice(0, 140),
   };
 };
 
@@ -206,12 +244,17 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
       // Logo redimensionné à une hauteur fixe, ratio préservé (source 2720×1360)
       doc.image(LOGO_PATH, PAGE_MARGIN, 44, { height: 46 });
 
+      /* Raison sociale en toutes lettres (ADM-13) — le logo est une image, il ne
+         vaut pas mention de l'émetteur sur un document comptable. */
+      doc.fontSize(10).fillColor(dark).font('Helvetica-Bold')
+         .text(issuer.name, PAGE_MARGIN, 96);
+
       doc.fontSize(9).fillColor(muted).font('Helvetica')
-         .text(`${issuer.address} · ${issuer.zip} ${issuer.city}`, PAGE_MARGIN, 96);
+         .text(`${issuer.address} · ${issuer.zip} ${issuer.city}`, PAGE_MARGIN, 110);
 
       // N° TVA du vendeur — imprimé seulement si la boutique est assujettie (LTVA art. 26)
       if (issuer.vatNumber) {
-        doc.text(issuer.vatNumber, PAGE_MARGIN, 108);
+        doc.text(`N° TVA : ${issuer.vatNumber}`, PAGE_MARGIN, 122);
       }
 
       doc.fontSize(24).fillColor(dark).font('Helvetica-Bold')
@@ -221,12 +264,19 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
          /* Numéro de facture au format « 2026-000001 » — lisible et classable en
             comptabilité. Le numéro de commande reste affiché en dessous : c'est
             lui que la cliente retrouve dans l'administration. */
-         .text(`N° ${order.invoice_number ?? String(order.id).padStart(6, '0')}`, 350, 78,  { align: 'right', width: 195 })
+         /* Numéro de facture au format « 2026-000001 » (ADM-18) — l'année fait
+            partie du numéro : sans elle, le compteur repartant à 1 chaque janvier
+            produirait deux factures « 000032 » à un an d'intervalle. Le repli ne
+            sert qu'aux commandes antérieures à la numérotation. */
+         .text(`N° ${order.invoice_number ?? invoiceFallbackNumber(order)}`, 350, 78,  { align: 'right', width: 195 })
          .text(`Commande n° ${order.id}`,                           350, 92,  { align: 'right', width: 195 })
-         .text(`Date : ${formatDate(order.created_at)}`,            350, 106, { align: 'right', width: 195 })
-         .text(`Échéance : paiement sous ${dueDays} jours`,         350, 120, { align: 'right', width: 195 });
+         // « Date de facture » et non « Date » : exigence comptable (ADM-15)
+         .text(`Date de facture : ${formatDate(order.created_at)}`, 350, 106, { align: 'right', width: 195 })
+         // Numéro de client — traçabilité comptable (ADM-17)
+         .text(`N° client : ${formatCustomerNumber(order.user_id ?? user.id)}`, 350, 120, { align: 'right', width: 195 })
+         .text(`Échéance : paiement sous ${dueDays} jours`,         350, 134, { align: 'right', width: 195 });
 
-      doc.moveTo(PAGE_MARGIN, 140).lineTo(545, 140).strokeColor(border).lineWidth(1).stroke();
+      doc.moveTo(PAGE_MARGIN, 152).lineTo(545, 152).strokeColor(border).lineWidth(1).stroke();
 
       // ── Adresse de facturation complète ─────────────────────────
       const billFirst  = order.billing_first_name ?? order.shipping_first_name ?? user.first_name;
@@ -237,12 +287,12 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
       const billCity   = order.billing_city ?? order.shipping_city;
 
       doc.fontSize(8).fillColor(muted).font('Helvetica-Bold')
-         .text('FACTURÉ À', PAGE_MARGIN, 156, { characterSpacing: 0.5 });
+         .text('FACTURÉ À', PAGE_MARGIN, 168, { characterSpacing: 0.5 });
 
       doc.fontSize(10).fillColor(dark).font('Helvetica-Bold')
-         .text(`${billFirst ?? ''} ${billLast ?? ''}`.trim() || 'Client', PAGE_MARGIN, 170);
+         .text(`${billFirst ?? ''} ${billLast ?? ''}`.trim() || 'Client', PAGE_MARGIN, 182);
 
-      let addrY = 185;
+      let addrY = 197;
       doc.fontSize(9.5).fillColor(dark).font('Helvetica');
       if (billStreet) {
         doc.text(`${billStreet}${billNumber ? ' ' + billNumber : ''}`, PAGE_MARGIN, addrY);
@@ -267,7 +317,7 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
 
       /* Départ du tableau calé sous le bloc d'adresse, dont la hauteur varie
          selon les lignes réellement présentes (rue, NPA/localité, email). */
-      let y = drawTableHeader(Math.max(232, addrY + 26));
+      let y = drawTableHeader(Math.max(244, addrY + 26));
       const items = order.items || [];
 
       // Nombre de lignes de TVA qui seront affichées sous les totaux — sert à
@@ -288,7 +338,7 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
         // Saut de page si la ligne dépasserait la zone réservée au bulletin QR
         // (uniquement sur la dernière page — les pages intermédiaires vont jusqu'au bas)
         const isLastItem = idx === items.length - 1;
-        // +18pt par ligne de TVA au-delà de la première (base = 90 pour 1 ligne)
+        // +18pt par ligne de TVA au-delà de la première (base = 108 : 1 ligne de TVA + la ligne HT)
         const reserved = isLastItem ? QR_BILL_HEIGHT + 90 + (taxLineCount - 1) * 18 : 40;
         if (y + rowHeight > PAGE_BOTTOM - reserved) {
           doc.addPage();
@@ -334,8 +384,17 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
         ty += 18;
       };
 
-      rowTotals('Sous-total', `CHF ${subtotal.toFixed(2)}`);
+      rowTotals('Sous-total TTC', `CHF ${subtotal.toFixed(2)}`);
       rowTotals('Frais de livraison', `CHF ${shipping.toFixed(2)}`);
+
+      /* Détail hors taxe / TVA / TTC (ADM-14).
+         Les prix affichés en boutique sont TTC — obligation suisse envers le
+         consommateur — donc la TVA y est déjà comprise et se retranche du total
+         pour obtenir le montant hors taxe. Une facture qui n'indiquait que
+         « TVA incluse » ne permettait pas de lire le montant hors taxe, que la
+         LTVA art. 26 impose de faire figurer. */
+      const totalHT = roundCHF(total - taxAmount);
+      rowTotals('Total hors taxe (HT)', `CHF ${totalHT.toFixed(2)}`);
 
       // TVA détaillée par taux (LTVA art. 26). Les frais de port ne portent pas de TVA
       // dans ce modèle (order.tax_amount est calculé sur les seuls articles) — les
@@ -343,11 +402,17 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
       const taxParts = computeTaxBreakdown(order);
       if (taxParts.length > 0) {
         for (const part of taxParts) {
-          rowTotals(`TVA ${part.ratePercent.toFixed(2)} % incluse`, `CHF ${part.tvaAmount.toFixed(2)}`);
+          /* Base hors taxe de ce taux : le montant TTC de ses lignes moins sa TVA.
+             `baseTTC` est fourni par ventilateTVAByRate (utils/tva.utils.js). */
+          const partHT = roundCHF(part.baseTTC - part.tvaAmount);
+          rowTotals(
+            `TVA ${part.ratePercent.toFixed(2)} % sur CHF ${partHT.toFixed(2)}`,
+            `CHF ${part.tvaAmount.toFixed(2)}`
+          );
         }
       } else {
         // Repli : commande sans lignes détaillées
-        rowTotals('TVA incluse', `CHF ${taxAmount.toFixed(2)}`);
+        rowTotals('TVA', `CHF ${taxAmount.toFixed(2)}`);
       }
 
       doc.rect(totalsLeft, ty - 2, totalsWidth, 26).fillColor(roseLight).fill();
