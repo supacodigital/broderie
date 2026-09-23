@@ -63,6 +63,7 @@ describe('NavSearch — recherche mobile (CLI-01)', () => {
     suggestionsValue = []
     locationValue = { pathname: '/', search: '' }
     sessionStorage.clear()
+    localStorage.clear()
   })
 
   test('la saisie est conservée dans le champ du tiroir', async () => {
@@ -150,6 +151,7 @@ describe('NavSearch — reprise de la recherche en cours (CLI-01)', () => {
     navigateMock.mockClear()
     suggestionsValue = []
     sessionStorage.clear()
+    localStorage.clear()
   })
 
   test('sur le catalogue, la loupe reprend la recherche affichée', async () => {
@@ -184,5 +186,69 @@ describe('NavSearch — reprise de la recherche en cours (CLI-01)', () => {
 
     render(<NavSearch open onClose={vi.fn()} />)
     await waitFor(() => expect(getDrawerInput()).toHaveValue(''))
+  })
+})
+
+// Historique des recherches, conservé sur l'appareil
+describe('NavSearch — recherches récentes', () => {
+  beforeEach(() => {
+    navigateMock.mockClear()
+    fetchSuggestionsMock.mockClear()
+    suggestionsValue = []
+    locationValue = { pathname: '/', search: '' }
+    sessionStorage.clear()
+    localStorage.clear()
+    localStorage.setItem('search_history', JSON.stringify(['aida 14', 'coton mouliné']))
+  })
+
+  test('champ vide : les recherches récentes s\'affichent, un tap relance la recherche', async () => {
+    const user = userEvent.setup()
+    render(<NavSearch open onClose={vi.fn()} />)
+
+    expect(screen.getAllByText('Recherches récentes').length).toBeGreaterThan(0)
+    await user.click(screen.getAllByRole('button', { name: /coton mouliné/ })[0])
+
+    expect(navigateMock).toHaveBeenCalledWith('/catalogue?q=coton%20moulin%C3%A9')
+    // Relancée, elle remonte en tête de l'historique
+    expect(JSON.parse(localStorage.getItem('search_history'))[0]).toBe('coton mouliné')
+  })
+
+  test('une recherche lancée rejoint l\'historique', async () => {
+    const user = userEvent.setup()
+    render(<NavSearch open onClose={vi.fn()} />)
+    await user.type(getDrawerInput(), 'perlé 5')
+    fireEvent.submit(getDrawerInput().closest('form'))
+
+    expect(JSON.parse(localStorage.getItem('search_history'))).toEqual(['perlé 5', 'aida 14', 'coton mouliné'])
+  })
+
+  test('la croix retire une recherche de l\'historique', async () => {
+    const user = userEvent.setup()
+    render(<NavSearch open onClose={vi.fn()} />)
+
+    await user.click(screen.getAllByRole('button', { name: 'Retirer « aida 14 » des recherches récentes' })[0])
+
+    expect(screen.queryAllByRole('button', { name: /aida 14/ })).toHaveLength(0)
+    expect(JSON.parse(localStorage.getItem('search_history'))).toEqual(['coton mouliné'])
+  })
+
+  test('dès que la cliente tape, l\'historique laisse place aux suggestions', async () => {
+    const user = userEvent.setup()
+    render(<NavSearch open onClose={vi.fn()} />)
+    await user.type(getDrawerInput(), 'fil')
+
+    expect(screen.queryAllByText('Recherches récentes')).toHaveLength(0)
+  })
+
+  test('loupe reprise sur une recherche en cours : historique affiché, pas de faux « aucun produit »', async () => {
+    locationValue = { pathname: '/catalogue', search: '?q=aida%2014' }
+    render(<NavSearch open onClose={vi.fn()} />)
+
+    await waitFor(() => expect(getDrawerInput()).toHaveValue('aida 14'))
+    expect(screen.getAllByText('Recherches récentes').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/Aucun produit trouvé/)).toBeNull()
+    // Le terme déjà dans le champ n'est pas répété dans la liste
+    expect(screen.queryAllByRole('button', { name: 'aida 14' })).toHaveLength(0)
+    expect(screen.getAllByRole('button', { name: 'coton mouliné' }).length).toBeGreaterThan(0)
   })
 })

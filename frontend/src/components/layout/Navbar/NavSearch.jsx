@@ -1,8 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Search, X, ArrowRight } from 'lucide-react'
+import { Search, X, ArrowRight, Clock } from 'lucide-react'
 import { useProductSearch } from '../../../hooks/useProductSearch.js'
+import {
+  readSearchHistory, addToSearchHistory, removeFromSearchHistory, clearSearchHistory,
+} from '../../../utils/searchHistory.js'
 import SearchSuggestion from '../../ui/SearchSuggestion/SearchSuggestion.jsx'
 import s from './NavSearch.module.css'
 
@@ -61,6 +64,21 @@ export default function NavSearch({ open, onClose }) {
   const drawerInputRef = useRef(null)  // champ mobile, dans le tiroir
   const wrapRef        = useRef(null)
 
+  /* Historique des recherches et « la cliente a-t-elle tapé depuis l'ouverture ».
+     Réinitialisés à chaque ouverture, pendant le rendu (et non dans un effet) :
+     c'est le schéma React pour recaler un état sur une prop, sans rendu
+     intermédiaire où l'ancien historique s'afficherait. */
+  const [history,     setHistory]     = useState(() => (open ? readSearchHistory() : []))
+  const [hasTyped,    setHasTyped]    = useState(false)
+  const [lastOpen,    setLastOpen]    = useState(open)
+  if (open !== lastOpen) {
+    setLastOpen(open)
+    if (open) {
+      setHistory(readSearchHistory())
+      setHasTyped(false)
+    }
+  }
+
   /* Focus à l'ouverture + reset (CLI-01).
      Le délai laisse le champ atteindre sa largeur avant d'y poser le curseur :
      focaliser un champ de 0 px pousse certains navigateurs à faire défiler la
@@ -118,6 +136,7 @@ export default function NavSearch({ open, onClose }) {
 
   function handleInput(e) {
     const val = e.target.value
+    setHasTyped(true)
     setValue(val)
     fetchSuggestions(val)
   }
@@ -125,7 +144,18 @@ export default function NavSearch({ open, onClose }) {
   function go(q) {
     onClose()
     writeLastSearch(q.trim())
+    addToSearchHistory(q)
     navigate(`/catalogue?q=${encodeURIComponent(q.trim())}`)
+  }
+
+  function removeHistoryItem(term) {
+    removeFromSearchHistory(term)
+    setHistory(readSearchHistory())
+  }
+
+  function clearHistory() {
+    clearSearchHistory()
+    setHistory([])
   }
 
   // Effacer à la croix : le terme est aussi oublié, il ne reviendra pas à la prochaine ouverture
@@ -154,7 +184,48 @@ export default function NavSearch({ open, onClose }) {
   }
 
   const hasResults = suggestions.length > 0
-  const showEmpty  = !loading && value.trim().length >= 2 && !hasResults
+  /* « Aucun produit » seulement si la cliente a tapé : à l'ouverture, la loupe
+     reprend la recherche en cours sans charger de suggestions, et ce message
+     s'affichait à tort sous « coton mouliné ». */
+  const showEmpty  = hasTyped && !loading && value.trim().length >= 2 && !hasResults
+  /* Recherches récentes : champ vide, ou recherche en cours reprise telle quelle —
+     dès que la cliente tape, les suggestions produits prennent le relais. */
+  // Le terme déjà dans le champ n'est pas répété en tête de liste
+  const currentTerm    = value.trim().toLocaleLowerCase('fr')
+  const visibleHistory = history.filter((t) => t.trim().toLocaleLowerCase('fr') !== currentTerm)
+  const showHistory    = visibleHistory.length > 0 && (!hasTyped || !value.trim())
+
+  /* Liste des recherches récentes, commune aux deux écrans. Un tap relance la
+     recherche ; la croix la retire de l'historique. onClick et non onMouseDown :
+     au tactile, `mousedown` n'est pas émis de façon fiable. */
+  const historyBlock = showHistory && (
+    <div className={s.history}>
+      <div className={s.historyHead}>
+        <span className={s.historyTitle} id="nav-search-history-title">Recherches récentes</span>
+        <button type="button" className={s.historyClearAll} onClick={clearHistory}>
+          Tout effacer
+        </button>
+      </div>
+      <ul className={s.historyList} aria-labelledby="nav-search-history-title">
+        {visibleHistory.map((term) => (
+          <li key={term} className={s.historyItem}>
+            <button type="button" className={s.historyTerm} onClick={() => go(term)}>
+              <Clock size={14} className={s.historyIcon} aria-hidden="true" />
+              <span className={s.historyText}>{term}</span>
+            </button>
+            <button
+              type="button"
+              className={s.historyRemove}
+              onClick={() => removeHistoryItem(term)}
+              aria-label={`Retirer « ${term} » des recherches récentes`}
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
 
   return (
     <>
@@ -195,8 +266,10 @@ export default function NavSearch({ open, onClose }) {
         )}
 
         {/* Panneau de suggestions — ancré sous le champ */}
-        {open && (hasResults || showEmpty) && (
+        {open && (hasResults || showEmpty || showHistory) && (
           <div className={s.panel}>
+            {historyBlock}
+
             {hasResults && (
               <ul className={s.results} role="listbox">
                 {suggestions.map((p, i) => (
@@ -267,6 +340,8 @@ export default function NavSearch({ open, onClose }) {
                 : <button type="button" className={s.closeBtn} onClick={onClose} aria-label="Fermer"><X size={20} /></button>
               }
             </form>
+
+            {historyBlock}
 
             {hasResults && (
               <ul className={s.drawerResults} role="listbox">

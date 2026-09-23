@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, X, SlidersHorizontal, LayoutGrid, List } from 'lucide-react'
 import { useProductSearch } from '../../hooks/useProductSearch.js'
+import { addToSearchHistory } from '../../utils/searchHistory.js'
 import SearchSuggestion from '../../components/ui/SearchSuggestion/SearchSuggestion.jsx'
 import s from './SearchBar.module.css'
 
@@ -79,7 +80,9 @@ export default function SearchBar({ filters, onChange, onToggleFilters, viewMode
     }, 300)
   }
 
+  // Recherche choisie : elle rejoint les recherches récentes de la loupe
   function selectSuggestion(product) {
+    addToSearchHistory(product.name)
     setInputValue(product.name)
     setSuggestions([])
     setShowDropdown(false)
@@ -100,6 +103,8 @@ export default function SearchBar({ filters, onChange, onToggleFilters, viewMode
     e.preventDefault()
     setShowDropdown(false)
     clearTimeout(gridDebounce.current)
+    // Recherche validée (et non frappe en cours) : elle rejoint les recherches récentes
+    addToSearchHistory(inputValue)
     onChange({ ...filters, q: inputValue.trim() || undefined, page: 1 })
     e.target.querySelector('input')?.blur()
   }
