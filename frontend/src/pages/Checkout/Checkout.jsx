@@ -875,13 +875,24 @@ function StepCard({ orderId, total, onPaid, t }) {
      se heurte au verrou serveur (409) et le formulaire Stripe ne s'affiche pas. */
   const requestedRef = useRef(null)
 
+  const fetchIntent = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await createCardIntent(orderId)
+      setClientSecret(res.clientSecret)
+    } catch {
+      setError('Impossible d\'initialiser le paiement. Veuillez réessayer.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (requestedRef.current === String(orderId)) return
     requestedRef.current = String(orderId)
-    createCardIntent(orderId)
-      .then(res => setClientSecret(res.clientSecret))
-      .catch(() => setError('Impossible d\'initialiser le paiement. Veuillez réessayer.'))
-      .finally(() => setLoading(false))
+    fetchIntent()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])
 
   const stripeAppearance = {
@@ -914,9 +925,14 @@ function StepCard({ orderId, total, onPaid, t }) {
         </div>
       )}
 
+      {/* Réessai manuel, comme pour Twint : sans lui, un incident passager au
+          chargement laissait la cliente devant une page de paiement vide. */}
       {!loading && error && (
         <div className={s.cardError} role="alert">
           <AlertCircle size={14} />{error}
+          <button type="button" onClick={fetchIntent} className={s.twintRetryBtn}>
+            <RefreshCw size={14} /> Réessayer
+          </button>
         </div>
       )}
 

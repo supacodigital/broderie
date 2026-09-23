@@ -76,7 +76,7 @@ describe('payment.repository — findByOrderId()', () => {
     const result = await repo.findByOrderId(1);
     expect(result).toEqual(fakePayment);
     expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining('ORDER BY created_at DESC LIMIT 1'), [1]
+      expect.stringContaining('ORDER BY created_at DESC, id DESC LIMIT 1'), [1]
     );
   });
 

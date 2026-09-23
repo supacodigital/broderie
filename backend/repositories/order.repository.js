@@ -562,13 +562,20 @@ const lockOrderForPaymentIntent = async (orderId, userId, method) => {
        alors que son paiement était déjà prêt côté Stripe — l'écran restait vide
        et aucune nouvelle tentative ne passait. Une réservation déjà complétée
        est au contraire réutilisable : c'est le même paiement. */
+    /* La PREMIÈRE ligne `payments` de la commande n'est pas une réservation :
+       createOrder l'enregistre pour mémoriser le moyen de paiement choisi, en
+       attente et sans identifiant Stripe. Comptée comme « demande en cours », elle
+       faisait refuser en 409 la toute première demande de paiement — toujours
+       faite dans les 30 s qui suivent la commande. Le formulaire de carte ne
+       s'ouvrait jamais, et la commande restait créée sans paiement. */
     const [inFlight] = await connection.execute(
       `SELECT id FROM payments
        WHERE order_id = ? AND method = ? AND status = 'pending'
          AND provider_payment_id IS NULL
          AND created_at > (NOW() - INTERVAL ? SECOND)
+         AND id > (SELECT MIN(p0.id) FROM payments p0 WHERE p0.order_id = ?)
        LIMIT 1`,
-      [orderId, method, IN_FLIGHT_WINDOW_SECONDS]
+      [orderId, method, IN_FLIGHT_WINDOW_SECONDS, orderId]
     );
     if (inFlight[0]) {
       throw new AppError('Une demande de paiement est déjà en cours pour cette commande.', 409);

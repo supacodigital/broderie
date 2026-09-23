@@ -30,7 +30,7 @@ const updateStatusByOrder = async (orderId, method, status, providerPaymentId = 
 const findByOrderId = async (orderId) => {
   const [rows] = await pool.execute(
     `SELECT id, order_id, provider, provider_payment_id, amount, currency, method, status, created_at
-     FROM payments WHERE order_id = ? ORDER BY created_at DESC LIMIT 1`,
+     FROM payments WHERE order_id = ? ORDER BY created_at DESC, id DESC LIMIT 1`,
     [orderId]
   );
   return rows[0] || null;
@@ -38,10 +38,14 @@ const findByOrderId = async (orderId) => {
 
 // Récupère le paiement d'une commande pour une méthode précise (ex: annuler l'ancien
 // PaymentIntent Twint en attente avant d'en générer un nouveau QR)
+// `id DESC` départage les lignes de la même seconde : la ligne créée avec la
+// commande et la réservation Stripe le sont souvent. Sans lui, la ligne de la
+// commande (sans paiement Stripe) pouvait sortir, et recharger la page de
+// paiement créait un SECOND PaiementIntent au lieu de reprendre le premier.
 const findByOrderIdAndMethod = async (orderId, method) => {
   const [rows] = await pool.execute(
     `SELECT id, order_id, provider, provider_payment_id, amount, currency, method, status, created_at
-     FROM payments WHERE order_id = ? AND method = ? ORDER BY created_at DESC LIMIT 1`,
+     FROM payments WHERE order_id = ? AND method = ? ORDER BY created_at DESC, id DESC LIMIT 1`,
     [orderId, method]
   );
   return rows[0] || null;

@@ -5,6 +5,7 @@ const { pool } = require('../../config/db');
 const { registerVerifiedUser } = require('../helpers/auth.helper');
 const unpaidOrderService = require('../../services/unpaidOrder.service');
 const orderRepository = require('../../repositories/order.repository');
+const paymentRepository = require('../../repositories/payment.repository');
 const dashboardRepository = require('../../repositories/dashboard.repository');
 
 /* Non-régression CLI-07 — « une commande validée par carte refusée est tout de
@@ -268,3 +269,48 @@ describe('CLI-07 — commandes carte / Twint impayées', () => {
       .set('Authorization', `Bearer ${freshToken}`);
   });
 });
+
+/* Non-régression — « le modal Stripe ne s'ouvre même pas » (409 en production).
+   createOrder enregistre une première ligne `payments` (moyen choisi, sans
+   identifiant Stripe). Le verrou anti double-paiement la prenait pour une demande
+   en cours : la première demande de paiement, toujours faite dans les 30 s qui
+   suivent la commande, était refusée en 409. */
+describe('Verrou de paiement carte / Twint', () => {
+  let token;
+  let userId;
+  let product;
+
+  beforeAll(async () => {
+    ({ token, userId } = await registerVerifiedUser('lock.jest'));
+    product = await pickProduct();
+  });
+
+  test('la première demande de paiement, juste après la commande, est acceptée', async () => {
+    if (!product) return;
+    const order = await placeOrder(token, product.id, 'card');
+
+    await expect(orderRepository.lockOrderForPaymentIntent(order.id, userId, 'card')).resolves.toBeTruthy();
+  });
+
+  test('une seconde demande simultanée reste bloquée (vraie réservation en cours)', async () => {
+    if (!product) return;
+    const order = await placeOrder(token, product.id, 'twint');
+
+    await orderRepository.lockOrderForPaymentIntent(order.id, userId, 'twint');
+    await expect(orderRepository.lockOrderForPaymentIntent(order.id, userId, 'twint'))
+      .rejects.toMatchObject({ statusCode: 409 });
+  });
+
+  test('le paiement à reprendre est la réservation la plus récente, pas la ligne de la commande', async () => {
+    if (!product) return;
+    const order = await placeOrder(token, product.id, 'card');
+    const { paymentId } = await orderRepository.lockOrderForPaymentIntent(order.id, userId, 'card');
+    await paymentRepository.updateStatusByOrder(order.id, 'card', 'pending', 'pi_test_reprise');
+
+    // Même seconde que la ligne de la commande : l'ordre doit tenir par l'identifiant
+    const latest = await paymentRepository.findByOrderIdAndMethod(order.id, 'card');
+    expect(latest.id).toBe(paymentId);
+    expect(latest.provider_payment_id).toBe('pi_test_reprise');
+  });
+});
+
