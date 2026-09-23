@@ -3,12 +3,14 @@ const router = express.Router();
 const userController = require('../controllers/user.controller');
 const wishlistController = require('../controllers/wishlist.controller');
 const { requireAuth } = require('../middlewares/auth');
+const { validate } = require('../middlewares/validate');
+const { updateProfileSchema } = require('../validators/user.validator');
 
 // Toutes les routes utilisateur nécessitent une authentification
 router.use(requireAuth);
 
 router.get('/me', userController.getMe);
-router.put('/me', userController.updateMe);
+router.put('/me', validate(updateProfileSchema), userController.updateMe);
 router.put('/me/password', userController.changePassword);
 // Droits LPD — export des données personnelles et suppression du compte
 router.get('/me/export', userController.exportMyData);

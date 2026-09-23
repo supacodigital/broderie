@@ -1,5 +1,6 @@
 const bcrypt = require('bcrypt');
 const { z } = require('zod');
+const { phoneField } = require('../validators/user.validator');
 const userRepository = require('../repositories/user.repository');
 const userService = require('../services/user.service');
 const authService = require('../services/auth.service');
@@ -12,6 +13,8 @@ const SWISS_CANTONS = ['AG','AI','AR','BE','BL','BS','FR','GE','GL','GR','JU','L
 
 // Schéma d'adresse du compte — validé côté serveur
 const accountAddressSchema = z.object({
+  // Téléphone (CLI-06) : aucun champ ne permettait de l'enregistrer dans le compte
+  phone:        phoneField,
   label:        z.string().trim().min(1).max(100),
   address_type: z.enum(['shipping', 'billing', 'both']).optional(),
   first_name:   z.string().trim().max(100).optional().nullable(),
@@ -45,9 +48,9 @@ const getMe = async (req, res, next) => {
 
 const updateMe = async (req, res, next) => {
   try {
-    /* Accepte camelCase et snake_case pour la compatibilité frontend */
-    const firstName = req.body.firstName ?? req.body.first_name;
-    const lastName  = req.body.lastName  ?? req.body.last_name;
+    // Corps déjà validé et normalisé par updateProfileSchema (routes/users.routes.js)
+    const firstName = req.body.first_name;
+    const lastName  = req.body.last_name;
     /* Site 100 % francophone — la locale du compte est toujours 'fr' */
     const user = await userRepository.update(req.user.id, { firstName, lastName, locale: 'fr' });
     res.json({ success: true, data: user });
@@ -72,10 +75,11 @@ const createAddress = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Adresse invalide.' });
     }
     const isDefault = req.body.isDefault ?? req.body.is_default ?? false;
-    const { label, address_type, first_name, last_name, street, street_number, city, zip, canton } = parsed.data;
+    const { label, address_type, first_name, last_name, street, street_number, city, zip, canton, phone } = parsed.data;
     const addressId = await userRepository.createAddress(req.user.id, {
       label, addressType: address_type, firstName: first_name, lastName: last_name,
       street, streetNumber: street_number, city, zip, country: 'CH', canton, isDefault,
+      phone: phone || null,
     });
     const addresses = await userRepository.findAddresses(req.user.id);
     const created = addresses.find((a) => a.id === addressId);
@@ -92,11 +96,14 @@ const updateAddress = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Adresse invalide.' });
     }
     const addressId = parseInt(req.params.id);
-    const isDefault = req.body.isDefault ?? req.body.is_default ?? false;
-    const { label, address_type, first_name, last_name, street, street_number, city, zip, canton } = parsed.data;
+    /* Absent du corps = inchangé. Le formulaire du compte ne l'envoie pas : le
+       ramener à `false` retirait le statut « par défaut » à chaque modification. */
+    const isDefault = req.body.isDefault ?? req.body.is_default ?? null;
+    const { label, address_type, first_name, last_name, street, street_number, city, zip, canton, phone } = parsed.data;
     await userRepository.updateAddress(addressId, req.user.id, {
       label, addressType: address_type, firstName: first_name, lastName: last_name,
       street, streetNumber: street_number, city, zip, country: 'CH', canton, isDefault,
+      phone: phone || null,
     });
     const addresses = await userRepository.findAddresses(req.user.id);
     const updated = addresses.find((a) => a.id === addressId);

@@ -92,7 +92,7 @@ const generateDataExportPDF = ({ data }) => {
           doc.fontSize(9).fillColor(dark).font('Helvetica-Bold')
              .text(a.label || `Adresse #${a.id}`, PAGE_MARGIN + 6, y);
           doc.fontSize(8.5).fillColor(muted).font('Helvetica')
-             .text(`${a.street ?? ''} — ${a.zip ?? ''} ${a.city ?? ''}, ${a.country ?? ''}`, PAGE_MARGIN + 6, y + 13);
+             .text(`${[a.street, a.street_number].filter(Boolean).join(' ')} — ${a.zip ?? ''} ${a.city ?? ''}, ${a.country ?? ''}${a.phone ? ` — Tél. ${a.phone}` : ''}`, PAGE_MARGIN + 6, y + 13);
           y += 34;
         });
       }

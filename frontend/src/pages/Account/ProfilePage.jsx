@@ -73,6 +73,9 @@ const makeAddressSchema = (t) => z.object({
   zip:          z.string().regex(/^\d{4}$/, t('account.val.zipInvalid')),
   city:         z.string().min(1, t('account.val.cityRequired')),
   canton:       z.string().refine(v => CANTON_CODES.includes(v), t('account.val.cantonRequired')),
+  // Facultatif — repris au checkout pour prévenir la destinataire (CLI-06)
+  phone:        z.string().trim().max(30, 'Le numéro de téléphone ne peut pas dépasser 30 caractères.')
+                  .regex(/^[+0-9 ()./-]*$/, 'Numéro de téléphone invalide.').optional(),
 })
 
 function PasswordField({
@@ -329,7 +332,7 @@ function DataPrivacySection({ user }) {
 export function TabProfile({ user, onSaved }) {
   const { t } = useTranslation()
   const profileSchema = useMemo(() => makeProfileSchema(t), [t])
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, setError, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       first_name: user?.firstName ?? user?.first_name ?? '',
@@ -363,8 +366,16 @@ export function TabProfile({ user, onSaved }) {
       setSaved(true)
       onSaved?.(data)
       setTimeout(() => setSaved(false), 3000)
-    } catch {
-      setApiErr(t('account.genericErrorRetry'))
+    } catch (err) {
+      /* Erreurs de validation du serveur : affichées sous le champ concerné.
+         Sinon, le message du serveur, et seulement à défaut le message générique. */
+      const fieldErrors = err.response?.data?.errors ?? []
+      fieldErrors.forEach(({ field, message }) => {
+        if (field === 'first_name' || field === 'last_name') setError(field, { message })
+      })
+      if (fieldErrors.length === 0) {
+        setApiErr(err.response?.data?.message ?? t('account.genericErrorRetry'))
+      }
     }
   }
 
@@ -444,18 +455,34 @@ function AddressModal({ initial, onSave, onClose }) {
   const addressSchema = useMemo(() => makeAddressSchema(t), [t])
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(addressSchema),
-    defaultValues: initial ?? { label: '', address_type: 'both', street: '', street_number: '', zip: '', city: '', canton: '' },
+    defaultValues: initial
+      ? { ...initial, phone: initial.phone ?? '' }
+      : { label: '', address_type: 'both', street: '', street_number: '', zip: '', city: '', canton: '', phone: '' },
   })
+  const [apiErr, setApiErr] = useState('')
 
+  /* La fenêtre ne se ferme qu'une fois l'adresse réellement enregistrée. Elle se
+     fermait avant même la réponse du serveur, et une adresse refusée s'affichait
+     comme enregistrée puis disparaissait au rechargement (CLI-06). */
   const onSubmit = async (data) => {
-    await onSave(data)
-    onClose()
+    setApiErr('')
+    try {
+      await onSave(data)
+      onClose()
+    } catch (err) {
+      setApiErr(err.response?.data?.message ?? t('account.genericErrorRetry'))
+    }
   }
 
   return (
     <div className={s.modalOverlay} role="dialog" aria-modal="true" onClick={onClose}>
       <div className={s.modal} onClick={e => e.stopPropagation()}>
         <h3 className={s.modalTitle}>{initial ? 'Modifier l\'adresse' : 'Nouvelle adresse'}</h3>
+        {apiErr && (
+          <div className={s.alertError} role="alert">
+            <AlertCircle size={15} /> {apiErr}
+          </div>
+        )}
         <form onSubmit={handleSubmit(onSubmit)} noValidate className={s.form}>
           <div className={s.formRow}>
             <div className={s.field}>
@@ -518,6 +545,15 @@ function AddressModal({ initial, onSave, onClose }) {
               {errors.canton && <span className={s.fieldError}><AlertCircle size={11} />{errors.canton.message}</span>}
             </div>
           </div>
+          <div className={s.field}>
+            <label htmlFor="addr-phone" className={s.label}>Téléphone</label>
+            <input id="addr-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="079 123 45 67"
+              aria-describedby="addr-phone-hint"
+              className={`${s.input} ${errors.phone ? s.inputError : ''}`}
+              {...register('phone')} />
+            <span id="addr-phone-hint" className={s.fieldHint}>Facultatif — utile au transporteur en cas de souci de livraison.</span>
+            {errors.phone && <span className={s.fieldError}><AlertCircle size={11} />{errors.phone.message}</span>}
+          </div>
           <div className={s.formActions} style={{ marginTop: 8 }}>
             <button type="button" className={s.btnSecondary} onClick={onClose}>Annuler</button>
             <button type="submit" className={s.btnPrimary} disabled={isSubmitting}>
@@ -535,6 +571,7 @@ function TabAddresses() {
   const [addresses, setAddresses] = useState([])
   const [loading,   setLoading]   = useState(true)
   const [modal,     setModal]     = useState(null) /* null | 'new' | {address} */
+  const [listErr,   setListErr]   = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -545,26 +582,28 @@ function TabAddresses() {
     return () => { cancelled = true }
   }, [])
 
+  /* L'erreur remonte à la fenêtre d'adresse, qui l'affiche et reste ouverte.
+     Elle était avalée ici : l'adresse s'affichait comme enregistrée alors que le
+     serveur l'avait refusée (CLI-06). La liste reprend la version du serveur. */
   const handleSave = async (data) => {
-    try {
-      if (modal?.id) {
-        await updateAddress(modal.id, data)
-        setAddresses(prev => prev.map(a => a.id === modal.id ? { ...a, ...data } : a))
-      } else {
-        const res = await createAddress(data)
-        const newAddr = res.data ?? { ...data, id: Date.now(), is_default: false }
-        setAddresses(prev => [...prev, newAddr])
-      }
-    } catch {
-      /* continue sans bloquer l'UI */
+    if (modal?.id) {
+      const res = await updateAddress(modal.id, data)
+      setAddresses(prev => prev.map(a => a.id === modal.id ? (res.data ?? { ...a, ...data }) : a))
+    } else {
+      const res = await createAddress(data)
+      if (res.data) setAddresses(prev => [...prev, res.data])
     }
   }
 
+  // Retirée de la liste seulement si le serveur l'a bien supprimée
   const handleDelete = async (id) => {
+    setListErr('')
     try {
       await deleteAddress(id)
-    } catch { /* continue même si l'API échoue */ }
-    setAddresses(prev => prev.filter(a => a.id !== id))
+      setAddresses(prev => prev.filter(a => a.id !== id))
+    } catch (err) {
+      setListErr(err.response?.data?.message ?? 'La suppression a échoué. Veuillez réessayer.')
+    }
   }
 
   if (loading) {
@@ -583,6 +622,12 @@ function TabAddresses() {
           <Plus size={14} /> Ajouter
         </button>
       </div>
+
+      {listErr && (
+        <div className={s.alertError} role="alert">
+          <AlertCircle size={15} /> {listErr}
+        </div>
+      )}
 
       {addresses.length === 0 ? (
         <div className={s.emptyState}>
@@ -619,6 +664,7 @@ function TabAddresses() {
                 </td>
                 <td className={s.dataRowMuted}>
                   {addr.street} {addr.street_number}, {addr.zip} {addr.city}{addr.canton ? ` (${addr.canton})` : ''}
+                  {addr.phone && <><br />Tél. {addr.phone}</>}
                 </td>
                 <td className={s.dataRowMuted}>
                   {!addr.address_type || addr.address_type === 'both'

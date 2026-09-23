@@ -110,7 +110,9 @@ describe('user.controller — updateMe()', () => {
     const updated = { id: 1, first_name: 'Marc', locale: 'fr' };
     userRepository.update.mockResolvedValue(updated);
 
-    const req = { user: { id: 1 }, body: { firstName: 'Marc', lastName: 'Dupont', locale: 'de' } };
+    // Corps tel que le livre updateProfileSchema (routes/users.routes.js) : les
+    // variantes camelCase y sont déjà ramenées au snake_case — voir user.validator.test.js
+    const req = { user: { id: 1 }, body: { first_name: 'Marc', last_name: 'Dupont', locale: 'de' } };
     const res = makeRes();
     const next = jest.fn();
 

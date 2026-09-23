@@ -47,6 +47,7 @@ vi.mock('../../services/loyalty.service.js', () => ({
 }))
 
 import { TabProfile } from './ProfilePage.jsx'
+import { createAddress, getAddresses } from '../../services/addresses.service.js'
 
 const JULIE = { firstName: 'Julie', lastName: 'Guerle', email: 'julie@broderie.ch' }
 
@@ -112,5 +113,66 @@ describe('TabProfile — modification des informations (CLI-06)', () => {
 
     await waitFor(() => expect(screen.getByLabelText('Nom')).toHaveValue('Guerle'))
     expect(screen.getByLabelText('Prénom')).toHaveValue('Juliette')
+  })
+})
+
+describe('TabProfile — erreurs du serveur (CLI-06)', () => {
+  test('affiche sous le champ l\'erreur de validation renvoyée par le serveur', async () => {
+    const user = userEvent.setup()
+    updateProfileMock.mockRejectedValueOnce({
+      response: { data: { message: 'Données invalides.', errors: [{ field: 'last_name', message: 'Le nom ne peut pas dépasser 100 caractères.' }] } },
+    })
+    render(<TabProfile user={JULIE} />)
+
+    await screen.findByLabelText('Prénom')
+    await user.click(screen.getByRole('button', { name: /account.saveChanges/ }))
+
+    expect(await screen.findByText('Le nom ne peut pas dépasser 100 caractères.')).toBeInTheDocument()
+  })
+})
+
+/* Une adresse refusée par le serveur s'affichait comme enregistrée : la fenêtre
+   se fermait sans attendre la réponse et l'erreur était avalée. */
+describe('Adresses du compte (CLI-06)', () => {
+  const fillAddress = async (user) => {
+    await user.type(screen.getByLabelText(/Libellé/), 'Maison')
+    await user.type(screen.getByLabelText(/Rue/), 'Rue du Bourg')
+    await user.type(screen.getByLabelText(/Numéro/), '12')
+    await user.type(screen.getByLabelText(/NPA/), '1510')
+    await user.type(screen.getByLabelText(/Localité/), 'Moudon')
+    await user.selectOptions(screen.getByLabelText(/Canton/), 'VD')
+    await user.type(screen.getByLabelText(/Téléphone/), '079 123 45 67')
+  }
+
+  beforeEach(() => {
+    getAddresses.mockResolvedValue({ data: [] })
+    createAddress.mockReset()
+  })
+
+  test('garde la fenêtre ouverte et affiche l\'erreur si le serveur refuse', async () => {
+    const user = userEvent.setup()
+    createAddress.mockRejectedValueOnce({ response: { data: { message: 'Adresse invalide.' } } })
+    render(<TabProfile user={JULIE} />)
+
+    await user.click(await screen.findByRole('button', { name: /Ajouter une adresse/ }))
+    await fillAddress(user)
+    await user.click(screen.getByRole('button', { name: 'account.save' }))
+
+    expect(await screen.findByText('Adresse invalide.')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  test('enregistre le téléphone et l\'affiche dans la liste', async () => {
+    const user = userEvent.setup()
+    createAddress.mockImplementation(async (data) => ({ data: { id: 1, is_default: 0, ...data } }))
+    render(<TabProfile user={JULIE} />)
+
+    await user.click(await screen.findByRole('button', { name: /Ajouter une adresse/ }))
+    await fillAddress(user)
+    await user.click(screen.getByRole('button', { name: 'account.save' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(createAddress.mock.calls[0][0]).toMatchObject({ phone: '079 123 45 67' })
+    expect(screen.getByText(/Tél\. 079 123 45 67/)).toBeInTheDocument()
   })
 })

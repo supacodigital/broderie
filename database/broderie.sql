@@ -105,6 +105,7 @@ CREATE TABLE addresses (
   zip        VARCHAR(10)  NOT NULL,
   country    CHAR(2)      NOT NULL DEFAULT 'CH',
   canton     CHAR(2)      NULL DEFAULT NULL,
+  phone      VARCHAR(30)  NULL DEFAULT NULL,
   is_default TINYINT(1)   NOT NULL DEFAULT 0,
   PRIMARY KEY (id),
   INDEX idx_addresses_user (user_id),
