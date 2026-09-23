@@ -11,6 +11,10 @@ const Cart      = lazy(() => import('./pages/Cart/Cart.jsx'))
 const Checkout  = lazy(() => import('./pages/Checkout/Checkout.jsx'))
 const AuthLayout = lazy(() => import('./pages/Auth/AuthLayout.jsx'))
 const Account   = lazy(() => import('./pages/Account/Account.jsx'))
+const AccountIndex  = lazy(() => import('./pages/Account/Account.jsx').then(m => ({ default: m.AccountIndex })))
+const ProfilePage   = lazy(() => import('./pages/Account/ProfilePage.jsx'))
+const OrdersPage    = lazy(() => import('./pages/Account/OrdersPage.jsx'))
+const WishlistPage  = lazy(() => import('./pages/Account/WishlistPage.jsx'))
 const NotFound  = lazy(() => import('./pages/NotFound/NotFound.jsx'))
 const CGV              = lazy(() => import('./pages/CGV/CGV.jsx'))
 const MentionsLegales  = lazy(() => import('./pages/MentionsLegales/MentionsLegales.jsx'))
@@ -83,9 +87,16 @@ export const router = createBrowserRouter([
         path: '/commande',
         element: <S><PrivateRoute><Checkout /></PrivateRoute></S>,
       },
+      /* Espace client : une page par section, sous un en-tête commun */
       {
         path: '/mon-compte',
         element: <S><PrivateRoute><Account /></PrivateRoute></S>,
+        children: [
+          { index: true,         element: <S><AccountIndex /></S> },
+          { path: 'profil',      element: <S><ProfilePage /></S> },
+          { path: 'commandes',   element: <S><OrdersPage /></S> },
+          { path: 'favoris',     element: <S><WishlistPage /></S> },
+        ],
       },
       {
         path: '/commandes/:id',

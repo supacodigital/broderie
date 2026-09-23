@@ -289,7 +289,7 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
            la mention promettait une récompense sur CHAQUE fiche produit même quand
            aucun palier n'existe, et renvoyait vers un onglet de compte vide. */}
       {hasLoyalty && (
-        <Link to="/mon-compte?tab=loyalty" className={s.loyaltyHint}>
+        <Link to="/mon-compte/profil" className={s.loyaltyHint}>
           <Gift size={14} className={s.loyaltyIcon} aria-hidden="true" />
           <span>
             Cet achat vous rapporte{' '}

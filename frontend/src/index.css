@@ -22,6 +22,8 @@
   --shadow-md:   0 8px 32px rgba(219,39,119,0.13);
   --shadow-lg:   0 20px 60px rgba(219,39,119,0.18);
   --nav-h:       72px;
+  /* Courbe de sortie franche — menus, popovers (démarre vite, se pose en douceur) */
+  --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 html { scroll-behavior: smooth; }

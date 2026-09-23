@@ -472,5 +472,25 @@
     "accountTitle": "Mon compte",
     "checkoutTitle": "Commande",
     "notFoundTitle": "Page introuvable"
+  },
+  "accountNav": {
+    "label": "Sections du compte",
+    "menuLabel": "Menu du compte",
+    "profile": "Mon profil",
+    "profileSub": "Infos, adresses, fidélité",
+    "orders": "Mes commandes",
+    "ordersSub": "Suivi et factures",
+    "ordersCount": "{{count}} commande",
+    "ordersCount_other": "{{count}} commandes",
+    "wishlist": "Mes favoris",
+    "wishlistSub": "Vos coups de cœur",
+    "wishlistCount": "{{count}} article",
+    "wishlistCount_other": "{{count}} articles",
+    "logout": "Déconnexion",
+    "hello": "Bonjour {{name}}",
+    "guestTitle": "Mon compte",
+    "guestSub": "Connectez-vous pour suivre vos commandes et retrouver vos favoris.",
+    "login": "Se connecter",
+    "register": "Créer un compte"
   }
 }

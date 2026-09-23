@@ -46,7 +46,7 @@ vi.mock('../../services/loyalty.service.js', () => ({
   getLoyaltyTiers:   vi.fn().mockResolvedValue({ data: [] }),
 }))
 
-import { TabProfile } from './Account.jsx'
+import { TabProfile } from './ProfilePage.jsx'
 
 const JULIE = { firstName: 'Julie', lastName: 'Guerle', email: 'julie@broderie.ch' }
 

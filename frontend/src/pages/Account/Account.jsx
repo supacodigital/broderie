@@ -1,1072 +1,30 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useState, useEffect, useCallback } from 'react'
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import {
-  User, Package, MapPin, Heart, LogOut, ChevronRight,
-  Check, AlertCircle, Plus, Pencil, Trash2, Star, X, Gift, Copy, Eye, EyeOff,
-  Download, ShieldAlert, BadgeCheck, MailWarning,
-} from 'lucide-react'
+import { LogOut, ChevronRight, Check, BadgeCheck, MailWarning } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { useWishlist } from '../../contexts/WishlistContext.jsx'
 import { getMyOrders } from '../../services/orders.service.js'
-import { updateProfile, updatePassword, downloadMyData, deleteMyAccount } from '../../services/profile.service.js'
-import { getAddresses, createAddress, updateAddress, deleteAddress } from '../../services/addresses.service.js'
-import { getLoyaltyAccount, getLoyaltyRewards } from '../../services/loyalty.service.js'
-import { getWishlist } from '../../services/wishlist.service.js'
-import Pagination from '../../components/ui/Pagination/Pagination.jsx'
-import { roundCHF } from '../../utils/chf.js'
-import { normalizeLocale } from '../../utils/locale.js'
-import { formatDate } from '../../utils/date.js'
-import { STATUS_CFG } from '../../utils/orderStatus.js'
+import { ACCOUNT_SECTIONS, LEGACY_TAB_PATHS } from '../../components/account/accountSections.js'
+import Seo from '../../components/seo/Seo.jsx'
 import s from './Account.module.css'
 
-function useTabs(t, counts = {}) {
-  return [
-    { key: 'profile',  icon: User,    label: t('account.tabProfile') },
-    { key: 'orders',   icon: Package, label: t('account.tabOrders'),   count: counts.orders },
-    { key: 'wishlist', icon: Heart,   label: t('account.tabWishlist'), count: counts.wishlist },
-  ]
+/* /mon-compte seul → « Mon profil ». Les anciennes URLs à onglets (?tab=orders…)
+   restent valides : elles mènent à la page équivalente. */
+export function AccountIndex() {
+  const [searchParams] = useSearchParams()
+  const target = LEGACY_TAB_PATHS[searchParams.get('tab')] ?? '/mon-compte/profil'
+  return <Navigate to={target} replace />
 }
 
-/* ── Schémas Zod construits avec les messages traduits (t).
-      Factory functions instanciées via useMemo dans chaque composant pour suivre la langue. ── */
-const makeProfileSchema = (t) => z.object({
-  first_name: z.string().min(1, t('account.val.firstNameRequired')),
-  last_name:  z.string().min(1, t('account.val.lastNameRequired')),
-  email:      z.string().email(t('account.val.emailInvalid')),
-})
-
-const makePasswordSchema = (t) => z.object({
-  current_password: z.string().min(1, t('account.val.currentPasswordRequired')),
-  new_password:     z.string()
-    .min(5, t('account.val.passwordMin'))
-    .regex(/[A-Z]/, t('account.val.passwordUppercase'))
-    .regex(/[^A-Za-z0-9]/, t('account.val.passwordSymbol')),
-  confirm_password: z.string().min(1, t('account.val.confirmRequired')),
-}).refine(d => d.new_password === d.confirm_password, {
-  message: t('account.val.passwordsMismatch'),
-  path: ['confirm_password'],
-})
-
-/* Force du mot de passe — évaluation simple par paliers cumulés (longueur, casse, chiffre, symbole) */
-function getPasswordStrength(value) {
-  if (!value) return 0
-  let score = 0
-  if (value.length >= 5) score++
-  if (value.length >= 12) score++
-  if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score++
-  if (/\d/.test(value)) score++
-  if (/[^A-Za-z0-9]/.test(value)) score++
-  return Math.min(score, 4)
-}
-
-/* Cantons suisses officiels — code + nom (identique au checkout) */
-const SWISS_CANTONS = [
-  { code: 'AG', name: 'Argovie' }, { code: 'AI', name: 'Appenzell Rh.-Int.' },
-  { code: 'AR', name: 'Appenzell Rh.-Ext.' }, { code: 'BE', name: 'Berne' },
-  { code: 'BL', name: 'Bâle-Campagne' }, { code: 'BS', name: 'Bâle-Ville' },
-  { code: 'FR', name: 'Fribourg' }, { code: 'GE', name: 'Genève' },
-  { code: 'GL', name: 'Glaris' }, { code: 'GR', name: 'Grisons' },
-  { code: 'JU', name: 'Jura' }, { code: 'LU', name: 'Lucerne' },
-  { code: 'NE', name: 'Neuchâtel' }, { code: 'NW', name: 'Nidwald' },
-  { code: 'OW', name: 'Obwald' }, { code: 'SG', name: 'Saint-Gall' },
-  { code: 'SH', name: 'Schaffhouse' }, { code: 'SO', name: 'Soleure' },
-  { code: 'SZ', name: 'Schwytz' }, { code: 'TG', name: 'Thurgovie' },
-  { code: 'TI', name: 'Tessin' }, { code: 'UR', name: 'Uri' },
-  { code: 'VD', name: 'Vaud' }, { code: 'VS', name: 'Valais' },
-  { code: 'ZG', name: 'Zoug' }, { code: 'ZH', name: 'Zurich' },
-]
-const CANTON_CODES = SWISS_CANTONS.map(c => c.code)
-
-const makeAddressSchema = (t) => z.object({
-  label:        z.string().min(1, t('account.val.labelRequired')),
-  address_type: z.enum(['shipping', 'billing', 'both']),
-  street:        z.string().min(1, t('account.val.streetRequired')),
-  street_number: z.string().min(1, t('account.val.streetNumberRequired')),
-  zip:          z.string().regex(/^\d{4}$/, t('account.val.zipInvalid')),
-  city:         z.string().min(1, t('account.val.cityRequired')),
-  canton:       z.string().refine(v => CANTON_CODES.includes(v), t('account.val.cantonRequired')),
-})
-
-function StatusBadge({ status }) {
-  const cfg = STATUS_CFG[status] ?? { label: status, color: '#6b7280', bg: '#f3f4f6' }
-  return (
-    <span className={s.statusBadge} style={{ color: cfg.color, background: cfg.bg }}>
-      {cfg.label}
-    </span>
-  )
-}
-
-/* Champ mot de passe accessible — label, bouton afficher/masquer, description et erreur reliés via aria-describedby */
-function PasswordField({
-  id, label, autoComplete, register, name, error, hintId, visible, onToggleVisible,
-}) {
-  const errorId = `${id}-error`
-  const describedBy = [hintId, error ? errorId : null].filter(Boolean).join(' ') || undefined
-
-  return (
-    <div className={s.field}>
-      <label htmlFor={id} className={s.label}>{label}</label>
-      <div className={s.inputWrap}>
-        <input
-          id={id}
-          type={visible ? 'text' : 'password'}
-          autoComplete={autoComplete}
-          className={`${s.input} ${s.inputWithEye} ${error ? s.inputError : ''}`}
-          aria-invalid={error ? 'true' : undefined}
-          aria-describedby={describedBy}
-          {...register(name)}
-        />
-        <button
-          type="button"
-          className={s.eyeBtn}
-          onClick={onToggleVisible}
-          aria-label={visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-        >
-          {visible ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
-        </button>
-      </div>
-      {error && (
-        <span id={errorId} className={s.fieldError} role="alert">
-          <AlertCircle size={11} aria-hidden="true" />{error.message}
-        </span>
-      )}
-    </div>
-  )
-}
-
-const STRENGTH_LABELS = ['Très faible', 'Faible', 'Moyen', 'Bon', 'Excellent']
-const STRENGTH_COLORS = ['#dc2626', '#f97316', '#eab308', '#65a30d', '#16a34a']
-
-/* ── Formulaire changement de mot de passe ── */
-function PasswordForm() {
-  const { t } = useTranslation()
-  const passwordSchema = useMemo(() => makePasswordSchema(t), [t])
-  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm({
-    resolver: zodResolver(passwordSchema),
-  })
-  const [saved,  setSaved]  = useState(false)
-  const [apiErr, setApiErr] = useState('')
-  const [showCurrent, setShowCurrent] = useState(false)
-  const [showNew,     setShowNew]     = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
-
-  const newPasswordValue = watch('new_password', '')
-  const strength = getPasswordStrength(newPasswordValue)
-
-  const onSubmit = async (data) => {
-    setApiErr('')
-    try {
-      await updatePassword(data.current_password, data.new_password)
-      setSaved(true)
-      reset()
-      setTimeout(() => setSaved(false), 3000)
-    } catch (err) {
-      setApiErr(err.response?.data?.message ?? t('account.genericError'))
-    }
-  }
-
-  return (
-    <>
-      <h3 className={s.subTitle}>{t('account.changePassword')}</h3>
-      <p className={s.fieldHint}>
-        Utilisez un mot de passe d'au moins 5 caractères, avec au moins une majuscule et un symbole.
-      </p>
-
-      {apiErr && (
-        <div className={s.alertError} role="alert">
-          <AlertCircle size={15} /> {apiErr}
-        </div>
-      )}
-      {saved && (
-        <div className={s.alertSuccess} role="status">
-          <Check size={15} /> Mot de passe modifié avec succès.
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className={s.form}>
-        <PasswordField
-          id="pwd-current" label="Mot de passe actuel" autoComplete="current-password"
-          register={register} name="current_password" error={errors.current_password}
-          visible={showCurrent} onToggleVisible={() => setShowCurrent(v => !v)}
-        />
-
-        <div className={s.formRow}>
-          <div>
-            <PasswordField
-              id="pwd-new" label="Nouveau mot de passe" autoComplete="new-password"
-              register={register} name="new_password" error={errors.new_password}
-              hintId="pwd-new-hint" visible={showNew} onToggleVisible={() => setShowNew(v => !v)}
-            />
-            <p id="pwd-new-hint" className={s.fieldHint}>Minimum 5 caractères, avec une majuscule et un symbole.</p>
-            {newPasswordValue && (
-              <div className={s.strengthWrap}>
-                <div className={s.strengthBar} aria-hidden="true">
-                  <div
-                    className={s.strengthBarFill}
-                    style={{ width: `${(strength / 4) * 100}%`, background: STRENGTH_COLORS[strength] }}
-                  />
-                </div>
-                <span className={s.strengthLabel} style={{ color: STRENGTH_COLORS[strength] }} aria-live="polite">
-                  Sécurité : {STRENGTH_LABELS[strength]}
-                </span>
-              </div>
-            )}
-          </div>
-          <PasswordField
-            id="pwd-confirm" label="Confirmer le nouveau mot de passe" autoComplete="new-password"
-            register={register} name="confirm_password" error={errors.confirm_password}
-            visible={showConfirm} onToggleVisible={() => setShowConfirm(v => !v)}
-          />
-        </div>
-
-        <div className={s.formActions}>
-          <button type="submit" className={s.btnPrimary} disabled={isSubmitting}>
-            {isSubmitting ? t('account.changingPassword') : t('account.changePassword')}
-          </button>
-        </div>
-      </form>
-    </>
-  )
-}
-
-/* ── Section « Mes données » — export + suppression de compte (LPD) ── */
-function DataPrivacySection({ user }) {
-  const { logout } = useAuth()
-  const navigate = useNavigate()
-  const hasPassword = user?.hasPassword !== false // par défaut on suppose un compte classique
-
-  const [downloading, setDownloading] = useState(false)
-  const [dlErr, setDlErr] = useState('')
-  const [showDelete, setShowDelete] = useState(false)
-  const [pwd, setPwd] = useState('')
-  const [confirmWord, setConfirmWord] = useState('')
-  const [deleting, setDeleting] = useState(false)
-  const [delErr, setDelErr] = useState('')
-
-  const handleDownload = async () => {
-    setDlErr('')
-    setDownloading(true)
-    try {
-      await downloadMyData()
-    } catch {
-      setDlErr('Le téléchargement a échoué. Veuillez réessayer.')
-    } finally {
-      setDownloading(false)
-    }
-  }
-
-  const handleDelete = async (e) => {
-    e.preventDefault()
-    setDelErr('')
-    setDeleting(true)
-    try {
-      await deleteMyAccount(
-        hasPassword ? { password: pwd } : { confirm: confirmWord.trim().toUpperCase() },
-      )
-      await logout()
-      navigate('/', { replace: true })
-    } catch (err) {
-      setDelErr(err.response?.data?.message ?? 'La suppression a échoué. Veuillez réessayer.')
-      setDeleting(false)
-    }
-  }
-
-  const canDelete = hasPassword ? pwd.length > 0 : confirmWord.trim().toUpperCase() === 'SUPPRIMER'
-
-  return (
-    <>
-      <h3 className={s.subTitle}>Mes données personnelles</h3>
-      <p className={s.fieldHint}>
-        Conformément à la loi suisse sur la protection des données, vous pouvez
-        télécharger l'ensemble de vos données ou supprimer votre compte.
-      </p>
-
-      {dlErr && <div className={s.alertError} role="alert"><AlertCircle size={15} /> {dlErr}</div>}
-
-      <div className={s.formActions}>
-        <button type="button" className={s.btnSecondary} onClick={handleDownload} disabled={downloading}>
-          <Download size={15} /> {downloading ? 'Préparation…' : 'Télécharger mes données'}
-        </button>
-      </div>
-
-      <div className={s.formActions} style={{ marginTop: 4 }}>
-        <button type="button" className={s.btnOutline} onClick={() => setShowDelete(true)}
-          style={{ color: '#b91c1c', borderColor: '#fca5a5' }}>
-          <ShieldAlert size={15} /> Supprimer mon compte
-        </button>
-      </div>
-
-      {showDelete && (
-        <div className={s.modalOverlay} role="dialog" aria-modal="true"
-          onClick={() => !deleting && setShowDelete(false)}>
-          <div className={s.modal} onClick={(e) => e.stopPropagation()}>
-            <h3 className={s.modalTitle}>Supprimer votre compte</h3>
-            <p className={s.fieldHint}>
-              Cette action est <strong>définitive</strong>. Vos données personnelles
-              (profil, adresses, favoris, avis) seront supprimées. Vos commandes sont
-              conservées de façon anonymisée pour des raisons comptables (obligation légale).
-            </p>
-
-            {delErr && <div className={s.alertError} role="alert"><AlertCircle size={15} /> {delErr}</div>}
-
-            <form onSubmit={handleDelete} noValidate className={s.form}>
-              {hasPassword ? (
-                <div className={s.field}>
-                  <label htmlFor="del-pwd" className={s.label}>
-                    Confirmez avec votre mot de passe <span className={s.requiredMark} aria-hidden="true">*</span>
-                  </label>
-                  <input id="del-pwd" type="password" autoComplete="current-password" className={s.input}
-                    value={pwd} onChange={(e) => setPwd(e.target.value)} aria-required="true" />
-                </div>
-              ) : (
-                <div className={s.field}>
-                  <label htmlFor="del-confirm" className={s.label}>
-                    Tapez <strong>SUPPRIMER</strong> pour confirmer <span className={s.requiredMark} aria-hidden="true">*</span>
-                  </label>
-                  <input id="del-confirm" type="text" autoComplete="off" className={s.input}
-                    value={confirmWord} onChange={(e) => setConfirmWord(e.target.value)} aria-required="true" />
-                </div>
-              )}
-
-              <div className={s.formActions}>
-                <button type="button" className={s.btnSecondary} onClick={() => setShowDelete(false)} disabled={deleting}>
-                  Annuler
-                </button>
-                <button type="submit" className={s.btnPrimary} disabled={!canDelete || deleting}
-                  style={{ background: '#b91c1c' }}>
-                  {deleting ? 'Suppression…' : 'Supprimer définitivement'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </>
-  )
-}
-
-/* ── Onglet Profil ──
-   Exporté nommément pour les tests : la page complète tire le panier, la liste
-   d'envies et les commandes, hors sujet pour vérifier ce formulaire. */
-export function TabProfile({ user, onSaved }) {
-  const { t } = useTranslation()
-  const profileSchema = useMemo(() => makeProfileSchema(t), [t])
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      first_name: user?.firstName ?? user?.first_name ?? '',
-      last_name:  user?.lastName  ?? user?.last_name  ?? '',
-      email:      user?.email     ?? '',
-    },
-  })
-
-  /* CLI-06 — la session se restaure par un appel réseau : au premier rendu de la
-     page, `user` est encore null. React Hook Form ne lit `defaultValues` qu'une
-     fois, le formulaire restait donc vide même une fois le compte chargé, et la
-     cliente ne pouvait pas modifier ses informations. On le réalimente dès que
-     l'utilisateur arrive. */
-  const firstName = user?.firstName ?? user?.first_name ?? ''
-  const lastName  = user?.lastName  ?? user?.last_name  ?? ''
-  const email     = user?.email ?? ''
-  useEffect(() => {
-    if (!user) return
-    /* keepDirtyValues : si la cliente a déjà commencé à taper pendant le
-       chargement, sa saisie est conservée — la remplacer serait la perte de
-       saisie que le ticket décrit ailleurs. */
-    reset({ first_name: firstName, last_name: lastName, email }, { keepDirtyValues: true })
-  }, [user, firstName, lastName, email, reset])
-  const [saved,  setSaved]  = useState(false)
-  const [apiErr, setApiErr] = useState('')
-
-  const onSubmit = async (data) => {
-    setApiErr('')
-    try {
-      await updateProfile(data)
-      setSaved(true)
-      onSaved?.(data)
-      setTimeout(() => setSaved(false), 3000)
-    } catch {
-      setApiErr(t('account.genericErrorRetry'))
-    }
-  }
-
-  return (
-    <section className={s.panel}>
-      {/* Le séparateur appartient à TabLoyalty : sans palier configuré, le composant
-          ne rend rien et un <hr> laissé ici ouvrirait le panneau sur un trait
-          horizontal isolé. */}
-      <TabLoyalty />
-
-      <TabAddresses />
-
-      <hr className={s.sectionDivider} />
-
-      <h3 className={s.subTitle}>Mes informations</h3>
-
-      {apiErr && (
-        <div className={s.alertError} role="alert">
-          <AlertCircle size={15} /> {apiErr}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className={s.form}>
-        <div className={s.formRow}>
-          <div className={s.field}>
-            <label htmlFor="acc-first" className={s.label}>Prénom</label>
-            <input id="acc-first" type="text" autoComplete="given-name"
-              className={`${s.input} ${errors.first_name ? s.inputError : ''}`}
-              {...register('first_name')} />
-            {errors.first_name && <span className={s.fieldError}><AlertCircle size={11} />{errors.first_name.message}</span>}
-          </div>
-          <div className={s.field}>
-            <label htmlFor="acc-last" className={s.label}>Nom</label>
-            <input id="acc-last" type="text" autoComplete="family-name"
-              className={`${s.input} ${errors.last_name ? s.inputError : ''}`}
-              {...register('last_name')} />
-            {errors.last_name && <span className={s.fieldError}><AlertCircle size={11} />{errors.last_name.message}</span>}
-          </div>
-        </div>
-
-        <div className={s.field}>
-          <label htmlFor="acc-email" className={s.label}>Adresse e-mail</label>
-          <input id="acc-email" type="email" autoComplete="email" disabled
-            className={s.input}
-            {...register('email')} />
-          <span className={s.fieldHint}>L'adresse e-mail ne peut pas être modifiée. Contactez-nous si besoin.</span>
-        </div>
-
-        <div className={s.formActions} style={{ marginBottom: 0 }}>
-          {/* Le bouton ne dépend plus de `isDirty` (CLI-06). Tant que le compte
-              n'était pas chargé, le formulaire vide n'était jamais « modifié » et
-              le bouton restait grisé sans explication : la page paraissait en
-              lecture seule. Il n'est désactivé que le temps du chargement du
-              compte et de l'envoi. */}
-          <button type="submit" className={s.btnPrimary} disabled={isSubmitting || !user}>
-            {saved
-              ? <><Check size={15} /> {t('account.saved')}</>
-              : isSubmitting ? t('account.saving') : t('account.saveChanges')}
-          </button>
-        </div>
-      </form>
-
-      <hr className={s.sectionDivider} />
-
-      <PasswordForm />
-
-      <hr className={s.sectionDivider} />
-
-      <DataPrivacySection user={user} />
-    </section>
-  )
-}
-
-/* Nombre de commandes par page dans l'onglet « Mes commandes » */
-const PAGE_SIZE = 20
-
-/* ── Section Commandes — tableau ── */
-function TabOrders() {
-  const navigate = useNavigate()
-  const [orders,  setOrders]  = useState([])
-  const [loading, setLoading] = useState(true)
-  /* `error` distinct de la liste vide : un échec réseau ou une session expirée
-     affichait « Aucune commande », laissant croire que les commandes avaient disparu. */
-  const [error,      setError]      = useState(false)
-  const [page,       setPage]       = useState(1)
-  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 })
-
-  const loadOrders = useCallback((targetPage) => {
-    let cancelled = false
-    setLoading(true)
-    setError(false)
-    getMyOrders({ page: targetPage, limit: PAGE_SIZE })
-      .then(d => {
-        if (cancelled) return
-        setOrders(d.data ?? [])
-        setPagination(d.pagination ?? { page: targetPage, totalPages: 1, total: d.data?.length ?? 0 })
-      })
-      .catch(() => { if (!cancelled) { setOrders([]); setError(true) } })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [])
-
-  useEffect(() => loadOrders(page), [page, loadOrders])
-
-  if (loading) {
-    return (
-      <section className={s.panel}>
-        <h2 className={s.panelTitle}>Mes commandes</h2>
-        <div className={s.skeletonList}>
-          {[1,2,3].map(i => <div key={i} className={s.skeletonRow} />)}
-        </div>
-      </section>
-    )
-  }
-
-  if (error) {
-    return (
-      <section className={s.panel}>
-        <h2 className={s.panelTitle}>Mes commandes</h2>
-        <div className={s.emptyState}>
-          <Package size={40} className={s.emptyIcon} />
-          <p className={s.emptyTitle}>Impossible d'afficher vos commandes</p>
-          <p className={s.emptyDesc}>La connexion au serveur a échoué. Vos commandes ne sont pas perdues.</p>
-          <button type="button" className={s.btnPrimary} onClick={() => loadOrders(page)}>Réessayer</button>
-        </div>
-      </section>
-    )
-  }
-
-  if (!orders.length) {
-    return (
-      <section className={s.panel}>
-        <h2 className={s.panelTitle}>Mes commandes</h2>
-        <div className={s.emptyState}>
-          <Package size={40} className={s.emptyIcon} />
-          <p className={s.emptyTitle}>Aucune commande</p>
-          <p className={s.emptyDesc}>Vous n'avez pas encore passé de commande.</p>
-          <Link to="/catalogue" className={s.btnPrimary}>Découvrir le catalogue</Link>
-        </div>
-      </section>
-    )
-  }
-
-  return (
-    <section className={s.panel}>
-      {/* Compteur global, pas le nombre de lignes de la page courante */}
-      <h2 className={s.panelTitle}>Mes commandes <span className={s.countBadge}>{pagination.total ?? orders.length}</span></h2>
-      <table className={s.dataTable}>
-        <thead>
-          <tr>
-            <th>Commande</th>
-            <th>Date</th>
-            <th>Articles</th>
-            <th>Total</th>
-            <th>Statut</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {orders.map(o => (
-            <tr key={o.id} className={s.dataRow} onClick={() => navigate(`/commandes/${o.id}`)}>
-              <td className={s.dataRowStrong}>#{o.id}</td>
-              <td className={s.dataRowMuted}>{formatDate(o.created_at)}</td>
-              <td className={s.dataRowMuted}>{o.items_count} article{o.items_count > 1 ? 's' : ''}</td>
-              <td className={s.dataRowStrong}>CHF {roundCHF(o.total).toFixed(2)}</td>
-              <td><StatusBadge status={o.status} /></td>
-              <td>
-                <Link to={`/commandes/${o.id}`} className={s.orderDetailBtn} onClick={e => e.stopPropagation()}>
-                  Détail <ChevronRight size={13} />
-                </Link>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Au-delà d'une page, les commandes plus anciennes étaient inaccessibles */}
-      <Pagination
-        page={pagination.page ?? page}
-        totalPages={pagination.totalPages ?? 1}
-        onChange={setPage}
-      />
-    </section>
-  )
-}
-
-/* ── Modal adresse ── */
-function AddressModal({ initial, onSave, onClose }) {
-  const { t } = useTranslation()
-  const addressSchema = useMemo(() => makeAddressSchema(t), [t])
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
-    resolver: zodResolver(addressSchema),
-    defaultValues: initial ?? { label: '', address_type: 'both', street: '', street_number: '', zip: '', city: '', canton: '' },
-  })
-
-  const onSubmit = async (data) => {
-    await onSave(data)
-    onClose()
-  }
-
-  return (
-    <div className={s.modalOverlay} role="dialog" aria-modal="true" onClick={onClose}>
-      <div className={s.modal} onClick={e => e.stopPropagation()}>
-        <h3 className={s.modalTitle}>{initial ? 'Modifier l\'adresse' : 'Nouvelle adresse'}</h3>
-        <form onSubmit={handleSubmit(onSubmit)} noValidate className={s.form}>
-          <div className={s.formRow}>
-            <div className={s.field}>
-              <label htmlFor="addr-label" className={s.label}>Libellé <span className={s.requiredMark} aria-hidden="true">*</span></label>
-              <input id="addr-label" type="text" placeholder="ex : Domicile, Bureau…" aria-required="true"
-                className={`${s.input} ${errors.label ? s.inputError : ''}`}
-                {...register('label')} />
-              {errors.label && <span className={s.fieldError}><AlertCircle size={11} />{errors.label.message}</span>}
-            </div>
-            <div className={s.field}>
-              <label htmlFor="addr-type" className={s.label}>Type d'adresse</label>
-              <select id="addr-type" className={s.input} {...register('address_type')}>
-                <option value="both">Livraison et facturation</option>
-                <option value="shipping">Livraison uniquement</option>
-                <option value="billing">Facturation uniquement</option>
-              </select>
-            </div>
-          </div>
-          <div className={s.formRowStreet}>
-            <div className={s.field}>
-              <label htmlFor="addr-street" className={s.label}>Rue <span className={s.requiredMark} aria-hidden="true">*</span></label>
-              <input id="addr-street" type="text" placeholder="Rue de la Paix" aria-required="true"
-                className={`${s.input} ${errors.street ? s.inputError : ''}`}
-                {...register('street')} />
-              {errors.street && <span className={s.fieldError}><AlertCircle size={11} />{errors.street.message}</span>}
-            </div>
-            <div className={s.field}>
-              <label htmlFor="addr-street-number" className={s.label}>Numéro <span className={s.requiredMark} aria-hidden="true">*</span></label>
-              <input id="addr-street-number" type="text" placeholder="12" aria-required="true"
-                className={`${s.input} ${errors.street_number ? s.inputError : ''}`}
-                {...register('street_number')} />
-              {errors.street_number && <span className={s.fieldError}><AlertCircle size={11} />{errors.street_number.message}</span>}
-            </div>
-          </div>
-          <div className={s.formRow}>
-            <div className={s.field}>
-              <label htmlFor="addr-zip" className={s.label}>NPA <span className={s.requiredMark} aria-hidden="true">*</span></label>
-              <input id="addr-zip" type="text" maxLength={4} placeholder="1000" aria-required="true"
-                className={`${s.input} ${errors.zip ? s.inputError : ''}`}
-                {...register('zip')} />
-              {errors.zip && <span className={s.fieldError}><AlertCircle size={11} />{errors.zip.message}</span>}
-            </div>
-            <div className={s.field}>
-              <label htmlFor="addr-city" className={s.label}>Localité <span className={s.requiredMark} aria-hidden="true">*</span></label>
-              <input id="addr-city" type="text" placeholder="Lausanne" aria-required="true"
-                className={`${s.input} ${errors.city ? s.inputError : ''}`}
-                {...register('city')} />
-              {errors.city && <span className={s.fieldError}><AlertCircle size={11} />{errors.city.message}</span>}
-            </div>
-            <div className={s.field}>
-              <label htmlFor="addr-canton" className={s.label}>Canton <span className={s.requiredMark} aria-hidden="true">*</span></label>
-              <select id="addr-canton" aria-required="true"
-                className={`${s.input} ${errors.canton ? s.inputError : ''}`}
-                {...register('canton')}>
-                <option value="" disabled>Sélectionnez…</option>
-                {SWISS_CANTONS.map(c => (
-                  <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
-                ))}
-              </select>
-              {errors.canton && <span className={s.fieldError}><AlertCircle size={11} />{errors.canton.message}</span>}
-            </div>
-          </div>
-          <div className={s.formActions} style={{ marginTop: 8 }}>
-            <button type="button" className={s.btnSecondary} onClick={onClose}>Annuler</button>
-            <button type="submit" className={s.btnPrimary} disabled={isSubmitting}>
-              {isSubmitting ? t('account.saving') : t('account.save')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-/* ── Onglet Adresses ── */
-function TabAddresses() {
-  const [addresses, setAddresses] = useState([])
-  const [loading,   setLoading]   = useState(true)
-  const [modal,     setModal]     = useState(null) /* null | 'new' | {address} */
-
-  useEffect(() => {
-    let cancelled = false
-    getAddresses()
-      .then(d => { if (!cancelled) setAddresses(d.data ?? []) })
-      .catch(() => { if (!cancelled) setAddresses([]) })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [])
-
-  const handleSave = async (data) => {
-    try {
-      if (modal?.id) {
-        await updateAddress(modal.id, data)
-        setAddresses(prev => prev.map(a => a.id === modal.id ? { ...a, ...data } : a))
-      } else {
-        const res = await createAddress(data)
-        const newAddr = res.data ?? { ...data, id: Date.now(), is_default: false }
-        setAddresses(prev => [...prev, newAddr])
-      }
-    } catch {
-      /* continue sans bloquer l'UI */
-    }
-  }
-
-  const handleDelete = async (id) => {
-    try {
-      await deleteAddress(id)
-    } catch { /* continue même si l'API échoue */ }
-    setAddresses(prev => prev.filter(a => a.id !== id))
-  }
-
-  if (loading) {
-    return (
-      <div className={s.skeletonList}>
-        {[1,2].map(i => <div key={i} className={s.skeletonRow} />)}
-      </div>
-    )
-  }
-
-  return (
-    <>
-      <div className={s.panelHead}>
-        <h3 className={s.subTitle}>Mes adresses</h3>
-        <button className={s.btnOutline} onClick={() => setModal('new')}>
-          <Plus size={14} /> Ajouter
-        </button>
-      </div>
-
-      {addresses.length === 0 ? (
-        <div className={s.emptyState}>
-          <MapPin size={40} className={s.emptyIcon} />
-          <p className={s.emptyTitle}>Aucune adresse</p>
-          <p className={s.emptyDesc}>Ajoutez une adresse de livraison pour accélérer votre prochain achat.</p>
-          <button className={s.btnPrimary} onClick={() => setModal('new')}>
-            <Plus size={14} /> Ajouter une adresse
-          </button>
-        </div>
-      ) : (
-        <table className={s.dataTable}>
-          <thead>
-            <tr>
-              <th>Libellé</th>
-              <th>Adresse</th>
-              <th>Type</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {addresses.map(addr => (
-              <tr
-                key={addr.id}
-                className={s.dataRow}
-                onClick={() => setModal(addr)}
-                tabIndex={0}
-                onKeyDown={e => e.key === 'Enter' && setModal(addr)}
-                aria-label={`Modifier l'adresse ${addr.label || addr.street}`}
-              >
-                <td className={s.dataRowStrong}>
-                  {addr.label || addr.street}
-                  {!!addr.is_default && <span className={s.defaultBadgeInline}>Par défaut</span>}
-                </td>
-                <td className={s.dataRowMuted}>
-                  {addr.street} {addr.street_number}, {addr.zip} {addr.city}{addr.canton ? ` (${addr.canton})` : ''}
-                </td>
-                <td className={s.dataRowMuted}>
-                  {!addr.address_type || addr.address_type === 'both'
-                    ? 'Livraison et facturation'
-                    : addr.address_type === 'billing' ? 'Facturation' : 'Livraison'}
-                </td>
-                <td>
-                  <div className={s.addressActions} onClick={e => e.stopPropagation()}>
-                    <button className={s.iconActionBtn} onClick={() => setModal(addr)} aria-label="Modifier">
-                      <Pencil size={13} /> Modifier
-                    </button>
-                    {!addr.is_default && (
-                      <button className={`${s.iconActionBtn} ${s.iconActionBtnDanger}`}
-                        onClick={() => handleDelete(addr.id)} aria-label="Supprimer">
-                        <Trash2 size={13} /> Supprimer
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {modal && (
-        <AddressModal
-          initial={modal === 'new' ? null : modal}
-          onSave={handleSave}
-          onClose={() => setModal(null)}
-        />
-      )}
-    </>
-  )
-}
-
-/* ── Onglet Wishlist ── */
-function TabWishlist() {
-  const { i18n } = useTranslation()
-  const { toggle } = useWishlist()
-  const [items,   setItems]   = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let cancelled = false
-    getWishlist(normalizeLocale(i18n.language))
-      .then(d => { if (!cancelled) setItems(d.data ?? []) })
-      .catch(() => { if (!cancelled) setItems([]) })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [i18n.language])
-
-  const handleRemove = async (productId) => {
-    setItems(prev => prev.filter(i => i.product_id !== productId))
-    toggle(productId)
-  }
-
-  if (loading) {
-    return (
-      <section className={s.panel}>
-        <h2 className={s.panelTitle}>Mes favoris</h2>
-        <div className={s.skeletonList}>
-          {[1,2,3].map(i => <div key={i} className={s.skeletonRow} />)}
-        </div>
-      </section>
-    )
-  }
-
-  if (!items.length) {
-    return (
-      <section className={s.panel}>
-        <h2 className={s.panelTitle}>Mes favoris</h2>
-        <div className={s.emptyState}>
-          <Heart size={40} className={s.emptyIcon} />
-          <p className={s.emptyTitle}>Aucun favori</p>
-          <p className={s.emptyDesc}>Ajoutez des produits à vos favoris depuis le catalogue.</p>
-          <Link to="/catalogue" className={s.btnPrimary}>Découvrir le catalogue</Link>
-        </div>
-      </section>
-    )
-  }
-
-  return (
-    <section className={s.panel}>
-      <h2 className={s.panelTitle}>Mes favoris <span className={s.countBadge}>{items.length}</span></h2>
-      <div className={s.wishlistGrid}>
-        {items.map(item => (
-          <div key={item.id} className={s.wishlistCard}>
-            <button
-              className={s.wishlistRemove}
-              onClick={() => handleRemove(item.product_id)}
-              aria-label={`Retirer ${item.product_name} des favoris`}
-            >
-              <X size={14} />
-            </button>
-            <Link to={`/produit/${item.slug}`} className={s.wishlistImgWrap}>
-              {item.image_url
-                ? <img src={item.image_url} alt={item.product_name} className={s.wishlistImg} loading="lazy" />
-                : <div className={s.wishlistImgFallback} aria-hidden="true">🧵</div>
-              }
-              {item.stock === 0 && <span className={s.outOfStockBadge}>Épuisé</span>}
-            </Link>
-            <div className={s.wishlistInfo}>
-              <Link to={`/produit/${item.slug}`} className={s.wishlistName}>{item.product_name}</Link>
-              <div className={s.wishlistPrices}>
-                <span className={s.wishlistPrice}>CHF {roundCHF(parseFloat(item.price_chf)).toFixed(2)}</span>
-                {item.compare_price_chf && (
-                  <span className={s.wishlistOldPrice}>CHF {roundCHF(parseFloat(item.compare_price_chf)).toFixed(2)}</span>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-/* ── Onglet Fidélité ── */
-function TabLoyalty() {
-  const { t, i18n } = useTranslation()
-  const locale = normalizeLocale(i18n.language)
-  const [data,    setData]    = useState(null)
-  const [rewards, setRewards] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [copiedId, setCopiedId] = useState(null)
-
-  function copyCode(id, code) {
-    navigator.clipboard.writeText(code).then(() => {
-      setCopiedId(id)
-      setTimeout(() => setCopiedId(null), 2000)
-    })
-  }
-
-  useEffect(() => {
-    let cancelled = false
-    Promise.all([getLoyaltyAccount(), getLoyaltyRewards()])
-      .then(([meRes, rewardsRes]) => {
-        if (cancelled) return
-        setData(meRes ?? null)
-        setRewards(rewardsRes ?? [])
-      })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [])
-
-  if (loading) return (
-    <>
-      <h3 className={s.subTitle}>{t('account.loyaltyTitle')}</h3>
-      <div className={`${s.skeletonRow}`} style={{ height: 80, borderRadius: 10, marginBottom: 12 }} />
-      <div className={`${s.skeletonRow}`} style={{ height: 80, borderRadius: 10 }} />
-    </>
-  )
-
-  const account    = data?.account ?? null
-  const tiers      = data?.tiers ?? []
-
-  /* Aucun palier actif : il n'y a ni progression ni récompense à montrer — afficher
-     « Sans palier » avec une barre pleine n'aurait aucun sens. Créer ou activer un
-     palier depuis l'admin réaffiche la section, sans toucher au code. */
-  if (tiers.length === 0) return null
-  const spendChf   = parseFloat(account?.total_spend_chf ?? 0)
-  const currentTier = tiers.find(t => t.id === account?.current_tier_id) ?? null
-  const nextTier    = tiers
-    .filter(t => parseFloat(t.min_spend_chf) > spendChf)
-    .sort((a, b) => parseFloat(a.min_spend_chf) - parseFloat(b.min_spend_chf))[0] ?? null
-  const progressPct = nextTier
-    ? Math.min(100, Math.round((spendChf / parseFloat(nextTier.min_spend_chf)) * 100))
-    : 100
-
-  const STATUS_REWARD = {
-    available: { label: t('account.rewardStatus.available'), color: '#059669', bg: '#ecfdf5' },
-    used:      { label: t('account.rewardStatus.used'),      color: '#6b7280', bg: '#f3f4f6' },
-    expired:   { label: t('account.rewardStatus.expired'),   color: '#dc2626', bg: '#fef2f2' },
-    pending:   { label: t('account.rewardStatus.pending'),   color: '#d97706', bg: '#fffbeb' },
-  }
-
-  return (
-    <>
-      <h3 className={s.subTitle}>{t('account.loyaltyTitle')}</h3>
-
-      {/* Carte palier actuel */}
-      <div className={s.loyaltyCard}>
-        <div className={s.loyaltyLeft}>
-          <Star size={20} fill="currentColor" className={s.loyaltyStar} />
-          <div>
-            <p className={s.loyaltyTier}>{currentTier ? `Palier ${currentTier.name}` : 'Sans palier'}</p>
-            <p className={s.loyaltySpend}>CHF {spendChf.toFixed(2)} d'achats cumulés</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Barre progression */}
-      {nextTier && (
-        <div className={s.loyaltyProgress}>
-          <div className={s.loyaltyProgressBar}>
-            <div className={s.loyaltyProgressFill} style={{ width: `${progressPct}%` }} />
-          </div>
-          <p className={s.loyaltyProgressLabel}>
-            Plus que CHF {(parseFloat(nextTier.min_spend_chf) - spendChf).toFixed(2)} pour atteindre le palier <strong>{nextTier.name}</strong>
-          </p>
-        </div>
-      )}
-      {!nextTier && currentTier && (
-        <p className={s.loyaltyProgressLabel} style={{ marginTop: 8 }}>
-          Vous êtes au palier maximum. Merci pour votre fidélité !
-        </p>
-      )}
-
-      {/* Paliers disponibles */}
-      {tiers.length > 0 && (
-        <>
-          <h3 className={s.subTitle} style={{ marginTop: 24 }}>Les paliers</h3>
-          <div className={s.tierList}>
-            {tiers.map(tier => (
-              <div key={tier.id} className={`${s.tierItem} ${tier.id === account?.current_tier_id ? s.tierActive : ''}`}>
-                <div className={s.tierName}>{tier.name}</div>
-                <div className={s.tierMeta}>
-                  Dès CHF {parseFloat(tier.min_spend_chf).toFixed(0)} d'achats
-                  &nbsp;·&nbsp;
-                  Récompense : {tier.reward_type === 'fixed'
-                    ? `CHF ${parseFloat(tier.reward_value).toFixed(2)}`
-                    : `${parseFloat(tier.reward_value).toFixed(0)}%`
-                  }
-                  &nbsp;·&nbsp;
-                  Valable {tier.reward_validity_days} jours
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Bons de réduction */}
-      <h3 className={s.subTitle} style={{ marginTop: 24 }}>
-        Mes bons <span className={s.countBadge}>{rewards.filter(r => r.status === 'available').length}</span>
-      </h3>
-      {rewards.length === 0 ? (
-        <div className={s.emptyState}>
-          <Gift size={28} />
-          <p>{t('account.noRewards')}<br />{t('account.noRewardsCta')}</p>
-        </div>
-      ) : (
-        <div className={s.rewardList}>
-          {rewards.map(reward => {
-            const cfg = STATUS_REWARD[reward.status] ?? STATUS_REWARD.pending
-            const expires = reward.expires_at ? formatDate(reward.expires_at) : null
-            return (
-              <div key={reward.id} className={s.rewardItem}>
-                <div className={s.rewardCodeWrap}>
-                  <span className={s.rewardCode}>{reward.code}</span>
-                  {reward.status === 'available' && (
-                    <button
-                      className={`${s.copyBtn} ${copiedId === reward.id ? s.copyBtnDone : ''}`}
-                      onClick={() => copyCode(reward.id, reward.code)}
-                      aria-label={t('account.copyCode')}
-                      title={t('account.copyCode')}
-                    >
-                      {copiedId === reward.id ? <Check size={14} /> : <Copy size={14} />}
-                      <span>{copiedId === reward.id ? t('account.copied') : t('account.copy')}</span>
-                    </button>
-                  )}
-                </div>
-                <div className={s.rewardBottom}>
-                  <div className={s.rewardValue}>
-                    {reward.type === 'fixed'
-                      ? `CHF ${parseFloat(reward.value).toFixed(2)}`
-                      : `${parseFloat(reward.value).toFixed(0)}% de réduction`
-                    }
-                  </div>
-                  <div className={s.rewardMeta}>
-                    {expires && <span>{t('account.expiresOn', { date: expires })}</span>}
-                  </div>
-                  <span
-                    className={s.rewardStatus}
-                    style={{ color: cfg.color, background: cfg.bg }}
-                  >
-                    {cfg.label}
-                  </span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Séparateur porté par la section elle-même — voir TabProfile */}
-      <hr className={s.sectionDivider} />
-    </>
-  )
-}
-
-/* ── Page principale — navigation par onglets classiques ──
-   3 onglets seulement : Profil (regroupe infos perso, mot de passe, adresses, fidélité),
-   Commandes, Favoris. Les anciennes clés (addresses, loyalty) restent acceptées dans l'URL
-   pour ne pas casser les liens externes déjà en place ailleurs dans le site — elles
-   redirigent simplement vers l'onglet Profil, où ce contenu vit désormais. */
-const VALID_TABS = ['profile', 'orders', 'wishlist']
-const TAB_ALIASES = { addresses: 'profile', loyalty: 'profile' }
-
+/* ── Espace client — en-tête et navigation communs aux pages profil, commandes
+   et favoris. Chaque section est une vraie page (URL propre, bouton Retour,
+   lien partageable), chargée séparément. ── */
 export default function Account() {
   const { user, logout } = useAuth()
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const requestedTab = TAB_ALIASES[searchParams.get('tab')] ?? searchParams.get('tab')
-  const initialTab = VALID_TABS.includes(requestedTab ?? '') ? requestedTab : 'profile'
-  const [tab, setTab] = useState(initialTab)
+  const { pathname } = useLocation()
   const [userData, setUserData] = useState(user ?? {})
 
   /* `userData` est une copie locale, enrichie après un enregistrement. Elle était
@@ -1075,32 +33,31 @@ export default function Account() {
   useEffect(() => {
     if (user) setUserData(prev => ({ ...prev, ...user }))
   }, [user])
+
+  /* Profil enregistré : met à jour l'en-tête (nom, initiales) sans recharger */
+  const updateUserData = useCallback((d) => setUserData(u => ({
+    ...u, ...d,
+    firstName: d.first_name ?? d.firstName ?? u.firstName,
+    lastName:  d.last_name  ?? d.lastName  ?? u.lastName,
+  })), [])
+
   const { ids: wishlistIds } = useWishlist()
-  const [counts, setCounts] = useState({ orders: null })
-  const tabs = useTabs(t, { ...counts, wishlist: wishlistIds.size || undefined })
+  const [ordersCount, setOrdersCount] = useState(null)
 
   /* Badge de compteur commandes — appel léger (limit=1), lu depuis pagination.total */
   useEffect(() => {
     let cancelled = false
     getMyOrders({ limit: 1 }).then(res => {
-      if (cancelled) return
-      setCounts({ orders: res.pagination?.total ?? undefined })
+      if (!cancelled) setOrdersCount(res.pagination?.total ?? null)
     }).catch(() => {})
     return () => { cancelled = true }
   }, [])
 
-  /* Liens externes (?tab=orders, ?tab=wishlist, ?tab=loyalty…) — ouvre directement le bon onglet */
-  useEffect(() => {
-    const raw = searchParams.get('tab')
-    const target = TAB_ALIASES[raw] ?? raw
-    if (target && VALID_TABS.includes(target)) setTab(target)
-  }, [searchParams])
+  const counts = { orders: ordersCount, wishlist: wishlistIds.size }
+  const current = ACCOUNT_SECTIONS.find(sec => pathname.startsWith(sec.path)) ?? ACCOUNT_SECTIONS[0]
 
-  const selectTab = (key) => {
-    setTab(key)
-    setSearchParams(key === 'profile' ? {} : { tab: key }, { replace: true })
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+  /* Chaque changement de section ramène en haut, comme une nouvelle page */
+  useEffect(() => { window.scrollTo({ top: 0 }) }, [pathname])
 
   const handleLogout = async () => {
     await logout()
@@ -1115,16 +72,20 @@ export default function Account() {
 
   return (
     <div className={s.page}>
-      {/* ── En-tête ── */}
+      <Seo title={t(current.labelKey)} noindex />
+
+      {/* ── En-tête — fil d'Ariane jusqu'à la section courante ── */}
       <div className={s.pageHead}>
         <nav className={s.breadcrumb} aria-label="Fil d'Ariane">
           <Link to="/">{t('nav.home')}</Link>
           <ChevronRight size={13} />
-          <span aria-current="page">{t('account.breadcrumb')}</span>
+          <Link to="/mon-compte/profil">{t('account.breadcrumb')}</Link>
+          <ChevronRight size={13} />
+          <span aria-current="page">{t(current.labelKey)}</span>
         </nav>
       </div>
 
-      {/* ── Barre supérieure — avatar + navigation par onglets horizontale (desktop/tablette) ── */}
+      {/* ── Barre supérieure — avatar + navigation entre les sections (desktop/tablette) ── */}
       <div className={s.topBar}>
         <div className={s.topBarAvatar}>
           <div className={s.avatarWrap}>
@@ -1153,55 +114,45 @@ export default function Account() {
           </div>
         </div>
 
-        <nav className={s.topTabNav} aria-label="Sections du compte">
-          {tabs.map(({ key, icon: Icon, label, count }) => (
-            <button
+        <nav className={s.topTabNav} aria-label={t('accountNav.label')}>
+          {ACCOUNT_SECTIONS.map(({ key, path, icon: Icon, labelKey }) => (
+            <NavLink
               key={key}
-              className={`${s.topTabBtn} ${tab === key ? s.topTabActive : ''}`}
-              onClick={() => selectTab(key)}
-              aria-current={tab === key ? 'page' : undefined}
+              to={path}
+              className={({ isActive }) => `${s.topTabBtn} ${isActive ? s.topTabActive : ''}`}
             >
               <Icon size={16} />
-              <span>{label}</span>
-              {!!count && <span className={s.tabBadge}>{count}</span>}
-            </button>
+              <span>{t(labelKey)}</span>
+              {!!counts[key] && <span className={s.tabBadge}>{counts[key]}</span>}
+            </NavLink>
           ))}
         </nav>
 
         <button className={s.topLogoutBtn} onClick={handleLogout}>
           <LogOut size={15} />
-          <span>Déconnexion</span>
+          <span>{t('accountNav.logout')}</span>
         </button>
       </div>
 
-      {/* ── Contenu — un seul onglet affiché à la fois ── */}
+      {/* ── Section courante ── */}
       <div className={s.content}>
-        {tab === 'profile' && (
-          <TabProfile user={userData} onSaved={d => setUserData(u => ({
-            ...u, ...d,
-            firstName: d.first_name ?? d.firstName ?? u.firstName,
-            lastName:  d.last_name  ?? d.lastName  ?? u.lastName,
-          }))} />
-        )}
-        {tab === 'orders'   && <TabOrders />}
-        {tab === 'wishlist' && <TabWishlist />}
+        <Outlet context={{ userData, updateUserData }} />
       </div>
 
       {/* ── Barre de navigation mobile — style app, fixée en bas de l'écran ── */}
-      <nav className={s.mobileTabBar} aria-label="Sections du compte">
-        {tabs.map(({ key, icon: Icon, label, count }) => (
-          <button
+      <nav className={s.mobileTabBar} aria-label={t('accountNav.label')}>
+        {ACCOUNT_SECTIONS.map(({ key, path, icon: Icon, shortKey }) => (
+          <NavLink
             key={key}
-            className={`${s.mobileTabBtn} ${tab === key ? s.mobileTabActive : ''}`}
-            onClick={() => selectTab(key)}
-            aria-current={tab === key ? 'page' : undefined}
+            to={path}
+            className={({ isActive }) => `${s.mobileTabBtn} ${isActive ? s.mobileTabActive : ''}`}
           >
             <span className={s.mobileTabIconWrap}>
               <Icon size={20} />
-              {!!count && <span className={s.mobileTabDot}>{count > 9 ? '9+' : count}</span>}
+              {!!counts[key] && <span className={s.mobileTabDot}>{counts[key] > 9 ? '9+' : counts[key]}</span>}
             </span>
-            <span>{label}</span>
-          </button>
+            <span>{t(shortKey)}</span>
+          </NavLink>
         ))}
         <button
           className={`${s.mobileTabBtn} ${s.mobileTabBtnLogout}`}
@@ -1210,7 +161,7 @@ export default function Account() {
           <span className={s.mobileTabIconWrap}>
             <LogOut size={20} />
           </span>
-          <span>Déconnexion</span>
+          <span>{t('accountNav.logout')}</span>
         </button>
       </nav>
     </div>

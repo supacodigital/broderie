@@ -1,0 +1,330 @@
+/* ── Menu du compte (header, desktop) ─────────────────── */
+
+.root {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* ── Déclencheurs — avatar (connectée) ou icône (visiteuse) ── */
+.avatarTrigger,
+.iconTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 160ms var(--ease-out);
+}
+
+.avatarTrigger {
+  width: 32px;
+  height: 32px;
+  background: var(--rose-pale);
+  color: var(--rose);
+  border: 1px solid var(--rose-border);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.iconTrigger {
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: none;
+  color: var(--text);
+}
+
+.avatarTrigger[aria-expanded='true'] {
+  background: var(--rose);
+  color: var(--white);
+}
+
+.iconTrigger[aria-expanded='true'] {
+  background: var(--rose-pale);
+  color: var(--rose);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .avatarTrigger:hover { background: var(--rose); color: var(--white); }
+  .iconTrigger:hover   { background: var(--rose-pale); color: var(--rose); }
+}
+
+.avatarTrigger:active,
+.iconTrigger:active {
+  transform: scale(0.94);
+}
+
+.avatarTrigger:focus-visible,
+.iconTrigger:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 2px;
+}
+
+/* ── Panneau ── */
+.panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: -8px;
+  z-index: 60;
+  width: 288px;
+  padding: 8px;
+  background: var(--white);
+  border: 1px solid var(--rose-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+
+  /* Fermé : invisible et hors de l'ordre de tabulation (visibility) —
+     la fermeture est plus rapide que l'ouverture */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px) scale(0.97);
+  transform-origin: top right;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    visibility 0s linear 120ms;
+}
+
+.panel[data-open='true'] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 180ms var(--ease-out),
+    transform 180ms var(--ease-out),
+    visibility 0s;
+}
+
+/* Pont invisible au-dessus du panneau : la souris traverse l'espace entre
+   l'avatar et le panneau sans quitter la zone survolée */
+.panel::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 14px;
+}
+
+/* ── En-tête — salutation ── */
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 14px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--rose-border);
+}
+
+.headAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--rose);
+  color: var(--white);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.headText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.headName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.headEmail {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Liens des sections ── */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--text-dark);
+  transition: background 0.15s ease;
+}
+
+.itemIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--rose-pale);
+  color: var(--rose);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.itemText {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.itemLabel {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.itemSub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.itemArrow {
+  flex-shrink: 0;
+  color: var(--rose-border);
+  transition: transform 160ms var(--ease-out), color 0.15s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .item:hover { background: var(--rose-pale); }
+  .item:hover .itemIcon { background: var(--white); }
+  .item:hover .itemArrow { color: var(--rose); transform: translateX(2px); }
+}
+
+.item:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: -2px;
+}
+
+/* Section en cours */
+.itemActive .itemLabel { color: var(--rose); }
+.itemActive .itemIcon,
+.itemActive:hover .itemIcon {
+  background: var(--rose);
+  color: var(--white);
+}
+
+/* ── Pied — déconnexion ── */
+.footer {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--rose-border);
+}
+
+.logout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .logout:hover { background: var(--rose-pale); color: var(--rose-dark); }
+}
+
+.logout:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: -2px;
+}
+
+/* ── Visiteuse non connectée ── */
+.guest {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.guestTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.guestSub {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.primaryBtn,
+.secondaryBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s ease, transform 160ms var(--ease-out);
+}
+
+.primaryBtn {
+  background: var(--rose);
+  color: var(--white);
+}
+
+.secondaryBtn {
+  border: 1px solid var(--rose-border);
+  color: var(--rose);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .primaryBtn:hover   { background: var(--rose-dark); }
+  .secondaryBtn:hover { background: var(--rose-pale); }
+}
+
+.primaryBtn:active,
+.secondaryBtn:active {
+  transform: scale(0.97);
+}
+
+.primaryBtn:focus-visible,
+.secondaryBtn:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 2px;
+}
+
+/* Mouvement réduit : fondu seul, sans déplacement */
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .panel[data-open='true'] {
+    transform: none;
+  }
+}

@@ -193,9 +193,9 @@ export default function OrderDetail() {
       <div className={s.container}>
         {/* Fil d'ariane */}
         <nav className={s.breadcrumb}>
-          <Link to="/mon-compte" className={s.breadLink}>
+          <Link to="/mon-compte/commandes" className={s.breadLink}>
             <ArrowLeft size={15} />
-            Mon compte
+            Mes commandes
           </Link>
           <ChevronRight size={13} className={s.breadSep} />
           <span className={s.breadCurrent}>Commande #{id}</span>
@@ -209,7 +209,7 @@ export default function OrderDetail() {
             {error !== 'Commande introuvable.' && (
               <button className={s.retryBtn} onClick={() => setReload(r => r + 1)}>Réessayer</button>
             )}
-            <Link to="/mon-compte" className={s.backLink}>Retour à mon compte</Link>
+            <Link to="/mon-compte/commandes" className={s.backLink}>Retour à mes commandes</Link>
           </div>
         )}
 

@@ -198,7 +198,7 @@ TVA incluse|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n');
       ${deliveryNote}
     </p>
 
-    ${btn(`${BASE_URL}/mon-compte`, detailLabel)}
+    ${btn(`${BASE_URL}/commandes/${orderId}`, detailLabel)}
   `;
 
   await transporter.sendMail({

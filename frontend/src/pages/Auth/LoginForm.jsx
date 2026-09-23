@@ -26,8 +26,10 @@ export default function LoginForm() {
   const [showPwd,      setShowPwd]      = useState(false)
   const [globalError,  setGlobalError]  = useState('')
 
-  /* Redirige vers la page demandée ou l'accueil après connexion */
-  const from = location.state?.from?.pathname ?? '/'
+  /* Redirige vers la page demandée ou l'accueil après connexion — avec sa
+     query string : un catalogue filtré ou une recherche ne sont pas perdus */
+  const fromLocation = location.state?.from
+  const from = fromLocation ? `${fromLocation.pathname}${fromLocation.search ?? ''}` : '/'
 
   const { register, handleSubmit, setFocus, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(buildSchema(t)),

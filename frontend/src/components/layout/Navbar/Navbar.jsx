@@ -7,6 +7,8 @@ import { useCart } from '../../../contexts/CartContext.jsx'
 import { useCartDrawer } from '../../../contexts/CartDrawerContext.jsx'
 import { useWishlist } from '../../../contexts/WishlistContext.jsx'
 import NavSearch from './NavSearch.jsx'
+import AccountMenu from './AccountMenu.jsx'
+import { ACCOUNT_SECTIONS } from '../../account/accountSections.js'
 import CartDrawer from '../CartDrawer/CartDrawer.jsx'
 import s from './Navbar.module.css'
 
@@ -110,10 +112,10 @@ export default function Navbar() {
             <Search size={20} />
           </button>
 
-          {/* Favoris — desktop + mobile, pointe vers l'onglet favoris du compte */}
+          {/* Favoris — desktop + mobile, pointe vers la page favoris du compte */}
           <div className={s.wishlistBtn}>
             <Link
-              to="/mon-compte?tab=wishlist"
+              to="/mon-compte/favoris"
               className={s.iconBtn}
               aria-label={t('nav.wishlistItems', { count: wishlistCount })}
               title={t('nav.wishlist')}
@@ -125,17 +127,9 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Compte — desktop */}
+          {/* Compte — desktop : menu au survol ou au clic */}
           <div className={s.accountDesktop}>
-            {isAuthenticated ? (
-              <Link to="/mon-compte" className={s.avatarBtn} aria-label={t('nav.account')} title={user?.first_name ?? t('nav.account')}>
-                {initials || <User size={20} />}
-              </Link>
-            ) : (
-              <Link to="/connexion" className={s.iconBtn} aria-label={t('nav.account')}>
-                <User size={20} />
-              </Link>
-            )}
+            <AccountMenu />
           </div>
 
           {/* Panier — ouvre le drawer latéral */}
@@ -225,29 +219,25 @@ export default function Navbar() {
           <div className={s.mobileDivider} aria-hidden="true" />
           <p className={s.mobileSectionLabel}>Mon espace</p>
 
-          {/* Favoris */}
-          <NavLink to="/mon-compte?tab=wishlist" className={s.mobileLink} onClick={closeMenu}>
-            <span className={s.mobileLinkContent}>
-              <span className={s.mobileLinkText}>{t('nav.wishlist')}</span>
-              <span className={s.mobileLinkSub}>
-                {wishlistCount > 0 ? t('nav.wishlistItems', { count: wishlistCount }) : 'Vos produits favoris'}
-              </span>
-            </span>
-            <Heart size={18} className={s.mobileLinkArrow} />
-          </NavLink>
-
           {isAuthenticated ? (
             <>
-              <NavLink to="/mon-compte" className={({ isActive }) => `${s.mobileLink} ${isActive ? s.mobileLinkActive : ''}`} onClick={closeMenu}>
-                <span className={s.mobileLinkContent}>
-                  <span className={s.mobileLinkText}>{t('nav.account')}</span>
-                  <span className={s.mobileLinkSub}>{user?.first_name ?? 'Mon profil'}</span>
-                </span>
-                {initials ? <span className={s.mobileAvatar} aria-hidden="true">{initials}</span> : <User size={18} className={s.mobileLinkArrow} />}
-              </NavLink>
+              {/* Mêmes sections que le menu du compte desktop */}
+              {ACCOUNT_SECTIONS.map(({ key, path, icon: Icon, labelKey, subKey }) => (
+                <NavLink key={key} to={path} className={({ isActive }) => `${s.mobileLink} ${isActive ? s.mobileLinkActive : ''}`} onClick={closeMenu}>
+                  <span className={s.mobileLinkContent}>
+                    <span className={s.mobileLinkText}>{t(labelKey)}</span>
+                    <span className={s.mobileLinkSub}>
+                      {key === 'wishlist' && wishlistCount > 0 ? t('accountNav.wishlistCount', { count: wishlistCount }) : t(subKey)}
+                    </span>
+                  </span>
+                  {key === 'profile' && initials
+                    ? <span className={s.mobileAvatar} aria-hidden="true">{initials}</span>
+                    : <Icon size={18} className={s.mobileLinkArrow} />}
+                </NavLink>
+              ))}
               <button className={s.mobileLogoutBtn} onClick={handleLogout}>
                 <LogOut size={16} />
-                Déconnexion
+                {t('accountNav.logout')}
               </button>
             </>
           ) : (
