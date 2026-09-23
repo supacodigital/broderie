@@ -17,6 +17,7 @@
     "import:suppliers": "node ../database/import-suppliers.js",
     "import:supplier-contacts": "node ../database/import-supplier-contacts.js",
     "categories:flatten": "node ../database/flatten-category-roots.js",
+    "categories:classify": "node ../database/classify-subcategories.js",
     "prices:dmc": "node ../database/update-prices-dmc.js"
   },
   "keywords": [],
