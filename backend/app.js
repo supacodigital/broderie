@@ -34,7 +34,7 @@ const cookieParser = require('cookie-parser');
 // 'path' est déjà requis en haut du fichier (chargement .env.production)
 
 const { testConnection } = require('./config/db');
-const { errorHandler } = require('./middlewares/errorHandler');
+const { errorHandler, AppError } = require('./middlewares/errorHandler');
 
 const app = express();
 
@@ -100,7 +100,8 @@ app.use(cors({
       if (devFallbacks.includes(origin)) return callback(null, true);
     }
 
-    callback(new Error('CORS non autorisé'));
+    // 403 et non 500 : une origine refusée n'est pas une panne du serveur
+    callback(new AppError('CORS non autorisé', 403));
   },
   credentials: true,
 }));

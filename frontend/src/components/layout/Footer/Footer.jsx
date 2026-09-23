@@ -49,22 +49,22 @@ export default function Footer() {
           <h3 className={s.colTitle}>{t("footer.shopTitle")}</h3>
           <ul className={s.links} role="list">
             <li>
-              <Link to="/catalogue?category=kits">
+              <Link to="/catalogue/kits-de-broderie">
                 {t("footer.shopLinks.kits")}
               </Link>
             </li>
             <li>
-              <Link to="/catalogue?category=fils">
+              <Link to="/catalogue/fils-coton">
                 {t("footer.shopLinks.fils")}
               </Link>
             </li>
             <li>
-              <Link to="/catalogue?category=toiles">
+              <Link to="/catalogue/toiles-au-metre-et-coupons">
                 {t("footer.shopLinks.toiles")}
               </Link>
             </li>
             <li>
-              <Link to="/catalogue?category=accessoires">
+              <Link to="/catalogue/aiguilles-et-rangement">
                 {t("footer.shopLinks.accessories")}
               </Link>
             </li>
