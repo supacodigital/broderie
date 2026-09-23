@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, useSearchParams, Link } from 'react-router-dom'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, ArrowUp } from 'lucide-react'
 import { getProducts, getCategories, getBrands } from '../../services/products.service.js'
@@ -12,6 +12,7 @@ import EmptyState             from '../../components/ui/EmptyState/EmptyState.js
 import FilterPanel            from './FilterPanel.jsx'
 import SearchBar              from './SearchBar.jsx'
 import Seo                    from '../../components/seo/Seo.jsx'
+import { PAGE_SIZE, readFilters, writeSearch } from './catalogueFilters.js'
 import s from './Catalogue.module.css'
 
 /* ── Chips filtres actifs ── */
@@ -98,7 +99,7 @@ function ActiveFilters({ filters, categories, onChange }) {
       {chips.length > 1 && (
         <button
           className={s.chipClearAll}
-          onClick={() => onChange({ page: 1, limit: filters.limit ?? 20 })}
+          onClick={() => onChange({ page: 1, limit: PAGE_SIZE })}
         >
           {t('catalogue.clearFilters')}
         </button>
@@ -133,6 +134,7 @@ function BackToTop() {
 export default function Catalogue() {
   const { categorySlug }       = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate                = useNavigate()
   const { t, i18n }            = useTranslation()
 
   const [products,    setProducts]    = useState([])
@@ -156,49 +158,29 @@ export default function Catalogue() {
     localStorage.setItem('catalogue_view', mode)
   }
 
-  /* Filtres synchronisés dans l'URL */
-  const [filters, setFilters] = useState({
-    page:     parseInt(searchParams.get('page')) || 1,
-    limit:    20,
-    category: categorySlug ?? searchParams.get('category') ?? '',
-    brand:    searchParams.get('brand')     ?? undefined,
-    q:        searchParams.get('q')         ?? undefined,
-    min_price:searchParams.get('min_price') ?? undefined,
-    max_price:searchParams.get('max_price') ?? undefined,
-    in_stock: searchParams.get('in_stock') === 'true' ? true : undefined,
-    made_to_order: searchParams.get('made_to_order') === 'true' ? true : undefined,
-    sort:       searchParams.get('sort')      ?? 'created_at',
-    order:      searchParams.get('order')     ?? 'desc',
-    featured:   searchParams.get('featured') === 'true' ? true : undefined,
-    badge:      searchParams.get('badge')     ?? undefined,
-    min_rating: searchParams.get('min_rating') ? parseInt(searchParams.get('min_rating')) : undefined,
-  })
+  /* Filtres lus dans l'URL — seule source de vérité.
+     Ne JAMAIS les recopier dans un state local synchronisé dans les deux sens :
+     deux effets (état → URL et URL → état) s'écrasaient mutuellement dès que
+     l'adresse changeait de l'extérieur (menu, bouton Retour) et la page partait
+     en boucle infinie, jusqu'à 800 requêtes/s, ce qui a saturé la production. */
+  const filters = useMemo(
+    () => readFilters(searchParams, categorySlug),
+    [searchParams, categorySlug],
+  )
 
-  useEffect(() => {
-    setFilters(f => ({ ...f, category: categorySlug ?? '', page: 1 }))
-  }, [categorySlug])
-
-  /* Synchronise les filtres quand les searchParams changent depuis l'extérieur (ex: liens navbar).
-     `page` est relu depuis l'URL et non forcé à 1 : l'effet se déclenche aussi lorsque
-     c'est nous qui venons d'écrire l'URL, et forcer 1 renvoyait alors l'utilisateur à la
-     première page dès qu'il en changeait. */
-  useEffect(() => {
-    setFilters(f => ({
-      ...f,
-      page:       parseInt(searchParams.get('page')) || 1,
-      brand:      searchParams.get('brand')       ?? undefined,
-      q:          searchParams.get('q')          ?? undefined,
-      min_price:  searchParams.get('min_price')  ?? undefined,
-      max_price:  searchParams.get('max_price')  ?? undefined,
-      in_stock:   searchParams.get('in_stock') === 'true' ? true : undefined,
-      made_to_order: searchParams.get('made_to_order') === 'true' ? true : undefined,
-      sort:       searchParams.get('sort')        ?? 'created_at',
-      order:      searchParams.get('order')       ?? 'desc',
-      featured:   searchParams.get('featured') === 'true' ? true : undefined,
-      badge:      searchParams.get('badge')       ?? undefined,
-      min_rating: searchParams.get('min_rating')  ? parseInt(searchParams.get('min_rating')) : undefined,
-    }))
-  }, [searchParams])
+  /* Chaque changement de filtre s'écrit directement dans l'URL.
+     La catégorie vit dans le chemin (/catalogue/:categorySlug) : en changer ajoute
+     une entrée d'historique. Les autres filtres remplacent l'entrée courante pour ne
+     pas empiler une entrée par frappe au clavier. */
+  const handleFiltersChange = useCallback((next) => {
+    const search = writeSearch(next)
+    const nextCategory = next.category ?? ''
+    if (nextCategory !== (categorySlug ?? searchParams.get('category') ?? '')) {
+      navigate({ pathname: nextCategory ? `/catalogue/${nextCategory}` : '/catalogue', search })
+    } else if (search !== searchParams.toString()) {
+      setSearchParams(search, { replace: true })
+    }
+  }, [categorySlug, searchParams, setSearchParams, navigate])
 
   useEffect(() => {
     getCategories(normalizeLocale(i18n.language))
@@ -209,57 +191,36 @@ export default function Catalogue() {
       .catch(() => {})
   }, [i18n.language])
 
-  const abortRef = useRef(null)
+  /* Clé de requête sous forme de chaîne : l'effet ne se relance que si les
+     paramètres envoyés changent réellement, pas à chaque nouvelle identité d'objet */
+  const requestKey = JSON.stringify(Object.fromEntries(
+    Object.entries({ ...filters, locale: normalizeLocale(i18n.language) })
+      .filter(([, v]) => v !== undefined && v !== '' && v !== false)
+  ))
+  /* Incrémenté par le bouton « Réessayer » pour relancer la même requête */
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
-    abortRef.current?.abort()
-    abortRef.current = new AbortController()
+    const controller = new AbortController()
+    const { signal } = controller
 
     setLoading(true)
     setError(false)
 
-    const params = Object.fromEntries(
-      Object.entries({ ...filters, locale: normalizeLocale(i18n.language) })
-        .filter(([, v]) => v !== undefined && v !== '' && v !== false)
-    )
-
-    const signal = abortRef.current.signal
-    getProducts(params, { signal })
+    getProducts(JSON.parse(requestKey), { signal })
       .then(d => {
         if (signal.aborted) return
         setProducts(d.data ?? [])
         setIsFuzzy(Boolean(d.isFuzzy))
         setPagination(d.pagination ?? { page: 1, totalPages: 1, total: d.data?.length ?? 0 })
       })
-      .catch(err => { if (!signal.aborted) setError(true) })
+      .catch(() => { if (!signal.aborted) setError(true) })
       .finally(() => { if (!signal.aborted) setLoading(false) })
-  }, [filters, i18n.language])
 
-  /* Recopie les filtres dans l'URL : sans cela l'adresse restait « /catalogue », et la
-     recherche était perdue au rafraîchissement comme au retour depuis une fiche produit
-     (la page est chargée en lazy, donc remontée à chaque retour). `replace` évite
-     d'empiler une entrée d'historique par frappe au clavier.
-     La catégorie est exclue : elle fait déjà partie du chemin (/catalogue/:categorySlug)
-     et l'écrire ici en ferait un doublon. */
-  useEffect(() => {
-    const next = new URLSearchParams()
-    Object.entries(filters).forEach(([key, value]) => {
-      if (key === 'category' || key === 'limit') return
-      if (value === undefined || value === '' || value === false) return
-      if (key === 'page'  && value === 1) return
-      if (key === 'sort'  && value === 'created_at') return
-      if (key === 'order' && value === 'desc') return
-      next.set(key, String(value))
-    })
-    // Comparaison de chaînes : ne réécrit l'URL que si le contenu change réellement,
-    // sinon l'effet de synchronisation inverse se redéclencherait en boucle.
-    if (next.toString() !== searchParams.toString()) {
-      setSearchParams(next, { replace: true })
-    }
-  }, [filters, searchParams, setSearchParams])
+    return () => controller.abort()
+  }, [requestKey, reloadKey])
 
-  const handleFiltersChange = useCallback((next) => setFilters(next), [])
-  const handlePageChange    = useCallback((p)    => setFilters(f => ({ ...f, page: p })), [])
+  const handlePageChange    = useCallback((p) => handleFiltersChange({ ...filters, page: p }), [handleFiltersChange, filters])
   const handleWishlist      = useCallback((id)   => toggleWishlist(id), [toggleWishlist])
 
   /* Breadcrumb : catégorie active + toute la chaîne de ses ancêtres (jusqu'à 2 niveaux
@@ -348,7 +309,7 @@ export default function Catalogue() {
               icon="⚠️"
               title={t('errors.network')}
               ctaLabel={t('errors.retry')}
-              onRetry={() => setFilters(f => ({ ...f }))}
+              onRetry={() => setReloadKey(k => k + 1)}
             />
           )}
 
@@ -368,7 +329,7 @@ export default function Catalogue() {
               title={t('empty.products')}
               desc={filters.q ? t('catalogue.noResultsQuery', { q: filters.q }) : t('catalogue.noResultsFilters')}
               ctaLabel={t('catalogue.clearFilters')}
-              onRetry={() => handleFiltersChange({ page: 1, limit: 20 })}
+              onRetry={() => handleFiltersChange({ page: 1, limit: PAGE_SIZE })}
             />
           ) : (
             <>
