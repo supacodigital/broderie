@@ -107,8 +107,8 @@ describe('NavSearch — recherche mobile (CLI-01)', () => {
      prouverait rien. On vérifie donc que la suggestion réagit bien à un `click`
      SEUL, sans `mousedown` préalable — ce qu'un gestionnaire `onMouseDown` ne
      ferait pas, et qui correspond à ce que produit un appui tactile. */
-  test('appuyer sur une suggestion ouvre le catalogue sur ce terme', async () => {
-    suggestionsValue = [{ id: 1, name: 'Coton mouliné DMC 310' }]
+  test('appuyer sur une suggestion ouvre la fiche du produit', async () => {
+    suggestionsValue = [{ id: 1, name: 'Coton mouliné DMC 310', slug: 'dmc-mouline-n-310' }]
     render(<NavSearch open onClose={vi.fn()} />)
 
     const options = screen.getAllByRole('option', { name: /Coton mouliné DMC 310/ })
@@ -118,7 +118,27 @@ describe('NavSearch — recherche mobile (CLI-01)', () => {
     fireEvent.click(mobileOption)
 
     await waitFor(() => expect(navigateMock).toHaveBeenCalledTimes(1))
-    expect(navigateMock).toHaveBeenCalledWith('/catalogue?q=Coton%20moulin%C3%A9%20DMC%20310')
+    expect(navigateMock).toHaveBeenCalledWith('/produit/dmc-mouline-n-310')
+  })
+
+  /* Non-régression — « quand je clique sur un produit le modal se ferme et ça
+     reste sur la page home ». Le parent FERME réellement la loupe, comme Navbar :
+     avec un onClose factice, l'appui « extérieur » qui fermait le tiroir avant le
+     clic passait inaperçu. Séquence complète d'un doigt : mousedown puis click. */
+  test('toucher une suggestion dans le tiroir ne le ferme pas avant d\'ouvrir le produit', async () => {
+    const { useState } = await import('react')
+    suggestionsValue = [{ id: 1, name: 'Coton mouliné DMC 310', slug: 'dmc-mouline-n-310' }]
+    function Parent() {
+      const [open, setOpen] = useState(true)
+      return <NavSearch open={open} onClose={() => setOpen(false)} />
+    }
+    const user = userEvent.setup()
+    render(<Parent />)
+
+    const options = screen.getAllByRole('option', { name: /Coton mouliné DMC 310/ })
+    await user.click(options[options.length - 1])
+
+    expect(navigateMock).toHaveBeenCalledWith('/produit/dmc-mouline-n-310')
   })
 
   /* Le clavier tactile soumet un formulaire ; sans <form>, la touche « Rechercher »

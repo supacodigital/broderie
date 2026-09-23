@@ -63,6 +63,7 @@ export default function NavSearch({ open, onClose }) {
   const inputRef       = useRef(null)  // champ desktop, dans la barre
   const drawerInputRef = useRef(null)  // champ mobile, dans le tiroir
   const wrapRef        = useRef(null)
+  const drawerRef      = useRef(null)  // tiroir mobile
 
   /* Historique des recherches et « la cliente a-t-elle tapé depuis l'ouverture ».
      Réinitialisés à chaque ouverture, pendant le rendu (et non dans un effet) :
@@ -128,6 +129,11 @@ export default function NavSearch({ open, onClose }) {
       // Le bouton loupe gère lui-même la bascule : l'ignorer ici évite un
       // « ferme puis rouvre » qui empêcherait la fermeture.
       if (e.target.closest('[data-nav-search-toggle]')) return
+      /* Le tiroir mobile est « dedans » lui aussi (CLI-01). Seul le champ desktop
+         était testé : sur téléphone, toucher une suggestion comptait comme un
+         appui extérieur, le tiroir se fermait avant que le clic n'arrive, et
+         rien ne se passait. Sur mobile, c'est le voile qui ferme le tiroir. */
+      if (drawerRef.current?.contains(e.target)) return
       if (wrapRef.current && !wrapRef.current.contains(e.target)) onClose()
     }
     document.addEventListener('mousedown', onPointerDown)
@@ -146,6 +152,20 @@ export default function NavSearch({ open, onClose }) {
     writeLastSearch(q.trim())
     addToSearchHistory(q)
     navigate(`/catalogue?q=${encodeURIComponent(q.trim())}`)
+  }
+
+  /* Suggestion produit : ouvre la fiche du produit. Elle lançait une recherche
+     du nom du produit dans le catalogue — « cliquer sur un produit » doit mener
+     à ce produit. Le terme tapé rejoint les recherches récentes. */
+  function openProduct(product) {
+    if (!product?.slug) { go(product?.name ?? value); return }
+    onClose()
+    const typed = value.trim()
+    if (typed) {
+      writeLastSearch(typed)
+      addToSearchHistory(typed)
+    }
+    navigate(`/produit/${product.slug}`)
   }
 
   function removeHistoryItem(term) {
@@ -180,7 +200,7 @@ export default function NavSearch({ open, onClose }) {
       go(value)
       return
     }
-    handleSearchKeyDown(e, (product) => go(product.name))
+    handleSearchKeyDown(e, openProduct)
   }
 
   const hasResults = suggestions.length > 0
@@ -278,7 +298,7 @@ export default function NavSearch({ open, onClose }) {
                     className={`${s.result} ${activeIndex === i ? s.resultActive : ''}`}
                     role="option"
                     aria-selected={activeIndex === i}
-                    onMouseDown={() => go(p.name)}
+                    onMouseDown={() => openProduct(p)}
                     onMouseEnter={() => setActiveIndex(i)}
                   >
                     <SearchSuggestion product={p} query={value} showCategory />
@@ -309,7 +329,7 @@ export default function NavSearch({ open, onClose }) {
         <>
           <div className={s.backdrop} onClick={onClose} aria-hidden="true" />
 
-          <div className={s.drawer}>
+          <div className={s.drawer} ref={drawerRef}>
             <div className={s.drawerHandle} />
 
             {/* Un vrai <form> : sur un clavier tactile, la touche « Rechercher »
@@ -355,7 +375,7 @@ export default function NavSearch({ open, onClose }) {
                        émis qu'en fin de séquence et seulement si le navigateur
                        décide de simuler la souris — un appui sur une suggestion
                        restait donc sans effet sur un téléphone. */
-                    onClick={() => go(p.name)}
+                    onClick={() => openProduct(p)}
                   >
                     <SearchSuggestion product={p} query={value} />
                     <ArrowRight size={14} className={s.resultArrow} aria-hidden="true" />
