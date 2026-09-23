@@ -356,7 +356,9 @@ export default function NavSearch({ open, onClose }) {
                 spellCheck="false"
               />
               {value
-                ? <button type="button" className={s.clearBtn} onClick={handleClear} aria-label="Effacer"><X size={16} /></button>
+                /* Le curseur revient dans le champ : resté sur la croix, il refermait le
+                   clavier du téléphone et il fallait retoucher le champ pour retaper. */
+                ? <button type="button" className={s.clearBtn} onClick={() => { handleClear(); drawerInputRef.current?.focus() }} aria-label="Effacer"><X size={16} /></button>
                 : <button type="button" className={s.closeBtn} onClick={onClose} aria-label="Fermer"><X size={20} /></button>
               }
             </form>

@@ -209,6 +209,22 @@ describe('NavSearch — reprise de la recherche en cours (CLI-01)', () => {
   })
 })
 
+// Effacer le champ du tiroir garde le curseur dedans : le clavier reste ouvert
+describe('NavSearch — croix « Effacer » du tiroir', () => {
+  test('vide le champ et y replace le curseur', async () => {
+    const user = userEvent.setup()
+    locationValue = { pathname: '/', search: '' }
+    render(<NavSearch open onClose={vi.fn()} />)
+    const input = getDrawerInput()
+    await user.type(input, 'coton')
+
+    await user.click(screen.getAllByRole('button', { name: 'Effacer' }).at(-1))
+
+    expect(input).toHaveValue('')
+    expect(input).toHaveFocus()
+  })
+})
+
 // Historique des recherches, conservé sur l'appareil
 describe('NavSearch — recherches récentes', () => {
   beforeEach(() => {
