@@ -445,18 +445,39 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
 // ─────────────────────────────────────────────────────────────
 // Envoie l'email « facture QR » avec le PDF en pièce jointe
 // ─────────────────────────────────────────────────────────────
+/* Coordonnées d'émetteur, n° TVA et délai saisis dans l'admin (Paramètres →
+   Facturation), avec repli sur la configuration serveur si la lecture échoue.
+   require() local : shopSettings tire la couche base de données. */
+const loadIssuerSettings = async () => {
+  try {
+    const { getInvoiceSettings } = require('./shopSettings.service');
+    return await getInvoiceSettings();
+  } catch (err) {
+    console.error('[Facture] Réglages de facturation illisibles, configuration serveur utilisée :', err.message);
+    return null;
+  }
+};
+
+/* L'e-mail de facture plantait À CHAQUE commande par facture depuis le 16/09
+   (« issuer is not defined » : variable propre à generateInvoicePDF, inconnue
+   ici) — les clientes ne recevaient jamais leur QR-facture. Il ignorait aussi
+   les réglages de l'admin : le n° TVA saisi par la boutique n'y figurait pas
+   (ADM-13). La facture téléchargée depuis l'admin, elle, les appliquait. */
 const sendInvoiceEmail = async ({ user, order }) => {
-  const pdfBuffer = await generateInvoicePDF({ order, user });
-  const dueDate   = computeDueDate(issuer.dueDays);
+  const settings  = await loadIssuerSettings();
+  const pdfBuffer = await generateInvoicePDF({ order, user, settings });
+  const dueDate   = computeDueDate(settings?.dueDays ?? env.invoiceDueDays);
   await emailService.sendInvoice({ user, order, pdfBuffer, dueDate });
 };
 
 // ─────────────────────────────────────────────────────────────
 // Récupère le PDF d'une commande pour téléchargement (endpoint client)
 // ─────────────────────────────────────────────────────────────
+// Même facture que celle envoyée par e-mail et téléchargée depuis l'admin
 const getInvoicePdf = async ({ order, user }) => {
   if (!order) throw new AppError('Commande introuvable.', 404);
-  return generateInvoicePDF({ order, user });
+  const settings = await loadIssuerSettings();
+  return generateInvoicePDF({ order, user, settings });
 };
 
 module.exports = {
