@@ -352,3 +352,41 @@ describe('email.service — sendInvoice()', () => {
     expect(mail.html).toContain('29.95');
   });
 });
+
+// ── CLI-05 : e-mails de consentement newsletter ──────────────────────────────
+
+/* Non-régression CLI-05 — « e-mail de confirmation d'opt-in newsletter non
+   conforme (nLPD/RGPD) ». L'e-mail qui active l'abonnement doit dire ce qui est
+   confirmé, par qui, et comment revenir en arrière. */
+describe('email.service — consentement newsletter (CLI-05)', () => {
+  test('l\'e-mail de vérification annonce la newsletter quand la case a été cochée', async () => {
+    await service.sendEmailVerification({ user: fakeUser, verifyToken: 'tok', newsletter: true });
+    const { html } = transporter.sendMail.mock.calls[0][0];
+    expect(html).toContain('vous confirmez\n        également cette inscription');
+    expect(html).toMatch(/désinscrire à tout moment/);
+    expect(html).toContain('/mentions-legales#donnees');
+  });
+
+  test('sans case cochée, l\'e-mail de vérification ne parle pas de newsletter', async () => {
+    await service.sendEmailVerification({ user: fakeUser, verifyToken: 'tok' });
+    expect(transporter.sendMail.mock.calls[0][0].html).not.toMatch(/newsletter/i);
+  });
+
+  test('la confirmation newsletter dit quoi, qui, comment se désinscrire, et « ignorez si ce n\'est pas vous »', async () => {
+    await service.sendNewsletterConfirmation({
+      email: 'marie@test.ch',
+      confirmUrl: 'https://broderie.ch/newsletter/confirmation?email=marie%40test.ch&token=1.abc',
+    });
+    const mail = transporter.sendMail.mock.calls[0][0];
+    expect(mail.to).toBe('marie@test.ch');
+    expect(mail.subject).toMatch(/Confirmez votre inscription à la newsletter/);
+    expect(mail.html).toContain('Je confirme mon inscription');
+    expect(mail.html).toContain('https://broderie.ch/newsletter/confirmation?email=marie%40test.ch&amp;token=1.abc'.replace('&amp;', '&'));
+    expect(mail.html).toMatch(/vous ne recevrez rien/i);
+    expect(mail.html).toMatch(/désinscrire à tout moment/);
+    expect(mail.html).toContain('Chemin du Collège 6, 1509 Vucherens');
+    expect(mail.html).toMatch(/ignorez simplement cet email/);
+    // Pas de compte derrière une inscription newsletter : le pied de page le dit
+    expect(mail.html).not.toContain('vous avez un compte');
+  });
+});

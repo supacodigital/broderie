@@ -24,9 +24,11 @@ function escapeHtml(str) {
 // Les produits « sur commande » ont leur propre délai (voir MADE_TO_ORDER_LABEL).
 const DELIVERY_DELAY = '3 à 5 jours ouvrables';
 
-// Mise en page HTML commune à tous les emails
-function layout(content) {
-  const footerText = `Vous recevez cet email car vous avez un compte sur Au Point-Compté.<br>
+// Mise en page HTML commune à tous les emails.
+// `reason` : pourquoi la personne reçoit cet e-mail — par défaut, elle a un compte.
+// À préciser pour un destinataire sans compte (inscription newsletter).
+function layout(content, { reason = 'Vous recevez cet email car vous avez un compte sur Au Point-Compté.' } = {}) {
+  const footerText = `${reason}<br>
          <a href="${BASE_URL}/cgv" style="color:#DB2777;">CGV</a> &nbsp;·&nbsp;
          <a href="${BASE_URL}/mon-compte" style="color:#DB2777;">Mon compte</a> &nbsp;·&nbsp;
          <a href="mailto:contact@broderie.ch" style="color:#DB2777;">Contact</a>`;
@@ -522,7 +524,25 @@ async function sendPickupReady({ user, order }) {
 }
 
 // Email de vérification d'adresse (double opt-in) — envoyé à l'inscription
-async function sendEmailVerification({ user, verifyToken }) {
+/* Encart « newsletter » de l'e-mail de vérification (CLI-05).
+   La case newsletter cochée à l'inscription est activée par CE clic : l'e-mail
+   doit donc l'annoncer, avec le moyen de se désinscrire. Il activait l'abonnement
+   sans en dire un mot — c'est ce que la cliente a relevé comme non conforme. */
+const newsletterConsentNotice = `
+    <div style="margin:0 0 24px;padding:14px 18px;background:#fdf2f8;border-left:4px solid #DB2777;border-radius:8px;">
+      <p style="margin:0;font-size:13px;color:#1E1020;line-height:1.7;">
+        Vous avez aussi demandé à recevoir notre <strong>newsletter</strong> : nouvelles collections,
+        tutoriels et offres réservées aux abonnées. <strong>En confirmant votre adresse, vous confirmez
+        également cette inscription.</strong>
+      </p>
+      <p style="margin:8px 0 0;font-size:12px;color:#9D6480;line-height:1.7;">
+        Vous pourrez vous désinscrire à tout moment, en un clic, grâce au lien présent dans chaque
+        newsletter. Votre adresse sert uniquement à cet envoi et n'est jamais cédée à des tiers —
+        <a href="${BASE_URL}/mentions-legales#donnees" style="color:#DB2777;">protection des données</a>.
+      </p>
+    </div>`;
+
+async function sendEmailVerification({ user, verifyToken, newsletter = false }) {
   const verifyUrl = `${BASE_URL}/verifier-email?token=${verifyToken}`;
 
   const body = `
@@ -533,6 +553,7 @@ async function sendEmailVerification({ user, verifyToken }) {
       Bienvenue chez Au Point-Compté ! Pour finaliser votre inscription, confirmez votre
       adresse email en cliquant sur le bouton ci-dessous. Ce lien est valable <strong>24 heures</strong>.
     </p>
+    ${newsletter ? newsletterConsentNotice : ''}
     ${btn(verifyUrl, 'Confirmer mon adresse email')}
     <p style="margin:24px 0 0;font-size:12px;color:#9D6480;line-height:1.7;">
       Si vous n'êtes pas à l'origine de cette inscription, ignorez simplement cet email.
@@ -544,6 +565,52 @@ async function sendEmailVerification({ user, verifyToken }) {
     to:      user.email,
     subject: 'Confirmez votre adresse email — Au Point-Compté',
     html:    layout(body),
+  });
+}
+
+// ─────────────────────────────────────────────
+// Confirmation d'inscription à la newsletter (double opt-in) — CLI-05
+// Envoyé à la demande faite depuis le formulaire du site. L'inscription ne
+// devient effective qu'au clic : l'e-mail dit donc clairement ce qui est
+// confirmé, par qui, pour quoi, et comment revenir en arrière (nLPD / RGPD).
+// ─────────────────────────────────────────────
+async function sendNewsletterConfirmation({ email, confirmUrl }) {
+  const body = `
+    <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+      Confirmez votre inscription à la newsletter
+    </h1>
+    <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+      Bonjour,<br><br>
+      Vous avez demandé à recevoir la newsletter d'<strong>Au Point-Compté</strong> : nouvelles
+      collections, tutoriels et offres réservées aux abonnées.
+    </p>
+    <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
+      Pour valider votre inscription, cliquez sur le bouton ci-dessous. Tant que vous ne l'avez
+      pas fait, vous ne recevrez rien. Ce lien est valable <strong>7 jours</strong>.
+    </p>
+    ${btn(confirmUrl, 'Je confirme mon inscription')}
+    <div style="margin:24px 0 0;padding:14px 18px;background:#fdf2f8;border-radius:8px;">
+      <p style="margin:0;font-size:12px;color:#6b7280;line-height:1.7;">
+        <strong style="color:#1E1020;">Vos droits</strong><br>
+        Vous pourrez vous désinscrire à tout moment, en un clic, grâce au lien présent dans chaque
+        newsletter. Votre adresse (${escapeHtml(email)}) sert uniquement à cet envoi et n'est jamais
+        cédée à des tiers. Responsable : Au Point-Compté, Chemin du Collège 6, 1509 Vucherens —
+        <a href="${BASE_URL}/mentions-legales#donnees" style="color:#DB2777;">protection des données</a>.
+      </p>
+    </div>
+    <p style="margin:24px 0 0;font-size:12px;color:#9D6480;line-height:1.7;">
+      Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email :
+      vous ne serez pas inscrit(e).
+    </p>
+  `;
+
+  await transporter.sendMail({
+    from:    FROM,
+    to:      email,
+    subject: 'Confirmez votre inscription à la newsletter — Au Point-Compté',
+    html:    layout(body, {
+      reason: 'Vous recevez cet email car une inscription à la newsletter a été demandée avec cette adresse.',
+    }),
   });
 }
 
@@ -652,6 +719,7 @@ module.exports = {
   sendInvoice,
   sendPickupReady,
   sendEmailVerification,
+  sendNewsletterConfirmation,
   sendMfaRecoveryCodesLow,
   sendMfaRecoveryCodesRegenerated,
   sendTwintQrEmail,

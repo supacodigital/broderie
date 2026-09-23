@@ -110,3 +110,26 @@
   .input   { border-radius: 2px; }
   .btn     { border-radius: 2px; }
 }
+
+/* Information de collecte sous le formulaire (CLI-05) — discrète mais lisible */
+.consent {
+  position: relative;
+  margin: 16px auto 0;
+  max-width: 520px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.consentLink {
+  color: white;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.consentLink:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
+  border-radius: 2px;
+}

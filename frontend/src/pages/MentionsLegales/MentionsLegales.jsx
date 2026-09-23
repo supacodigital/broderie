@@ -43,7 +43,7 @@ Responsable du traitement : Au Point-Compté, julie@broderie.ch
 
 Données collectées : nom, prénom, adresse de livraison, adresse e-mail, téléphone, données de navigation anonymisées.
 
-Finalités : traitement des commandes, relation client, amélioration du service.
+Finalités : traitement des commandes, relation client, amélioration du service, et envoi de la newsletter aux seules personnes qui l'ont demandée et confirmée par e-mail. Ce consentement se retire à tout moment, en un clic, grâce au lien présent dans chaque newsletter.
 
 Conservation : les données sont conservées pendant la durée légale applicable (10 ans pour les données comptables, 5 ans pour les données clients après la dernière interaction).
 

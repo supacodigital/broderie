@@ -121,7 +121,9 @@
     "placeholder": "votre@email.ch",
     "label": "Votre adresse email",
     "cta": "S'abonner",
-    "success": "✓ Merci ! Vous êtes maintenant abonnée."
+    "success": "✓ Merci ! Consultez votre boîte e-mail et cliquez sur le lien pour confirmer votre inscription.",
+    "consent": "Un e-mail de confirmation vous sera envoyé. Désinscription possible à tout moment, en un clic.",
+    "privacyLink": "Protection des données"
   },
   "footer": {
     "desc": "Votre spécialiste suisse en broderie depuis 1995. Qualité, passion et service au fil de chaque commande.",
@@ -369,6 +371,7 @@
     "cgvAccept": "J'accepte les",
     "cgvLink": "Conditions Générales de Vente",
     "newsletterOptIn": "Je souhaite recevoir les nouveautés et offres par e-mail (facultatif)",
+    "newsletterOptInHint": "Vous la confirmerez en même temps que votre adresse e-mail. Désinscription possible à tout moment.",
     "aside": {
       "subtext": "Retrouvez vos commandes, vos favoris et votre programme de fidélité en un seul endroit.",
       "perk1": "Livraison soignée dans toute la Suisse",

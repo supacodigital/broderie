@@ -9,40 +9,80 @@ const repo     = require('../../repositories/newsletter.repository');
 
 beforeEach(() => jest.clearAllMocks());
 
-// ── subscribe() ───────────────────────────────────────────────────────────────
+// ── Double opt-in (CLI-05) ────────────────────────────────────────────────────
 
-describe('newsletter.repository — subscribe()', () => {
-  test('crée un nouvel abonné', async () => {
+describe('newsletter.repository — requestSubscription() (formulaire du site)', () => {
+  test('une nouvelle adresse est enregistrée INACTIVE, origine « formulaire »', async () => {
     pool.execute
-      .mockResolvedValueOnce([[]])               // SELECT — inconnu
+      .mockResolvedValueOnce([[]])               // SELECT — inconnue
       .mockResolvedValueOnce([{ insertId: 1 }]); // INSERT
 
-    const result = await repo.subscribe('new@broderie.ch', 'fr');
-    expect(result).toEqual({ created: true });
-    expect(pool.execute).toHaveBeenNthCalledWith(2,
-      expect.stringContaining('INSERT INTO newsletter_subscribers'),
-      ['new@broderie.ch', 'fr']
-    );
+    const result = await repo.requestSubscription('new@broderie.ch', 'fr');
+    expect(result).toEqual({ sendConfirmation: true });
+    const [sql, params] = pool.execute.mock.calls[1];
+    expect(sql).toMatch(/INSERT INTO newsletter_subscribers \(email, locale, source, is_active\) VALUES \(\?, \?, 'form', 0\)/);
+    expect(params).toEqual(['new@broderie.ch', 'fr']);
   });
 
-  test('retourne alreadySubscribed si email déjà actif', async () => {
-    pool.execute.mockResolvedValue([[{ id: 1, is_active: 1 }]]);
-    const result = await repo.subscribe('existing@broderie.ch', 'fr');
-    expect(result).toEqual({ alreadySubscribed: true });
+  test('une adresse déjà abonnée ne reçoit pas de nouvel e-mail', async () => {
+    pool.execute.mockResolvedValueOnce([[{ id: 1, is_active: 1, recently_requested: 0 }]]);
+    expect(await repo.requestSubscription('existing@broderie.ch')).toEqual({ sendConfirmation: false });
     expect(pool.execute).toHaveBeenCalledTimes(1);
   });
 
-  test('réactive un abonné inactif', async () => {
-    pool.execute
-      .mockResolvedValueOnce([[{ id: 2, is_active: 0 }]]) // SELECT — inactif
-      .mockResolvedValueOnce([{}]);                        // UPDATE
+  test('une demande répétée dans les 10 minutes ne renvoie pas d\'e-mail (anti-inondation)', async () => {
+    pool.execute.mockResolvedValueOnce([[{ id: 2, is_active: 0, recently_requested: 1 }]]);
+    expect(await repo.requestSubscription('flood@broderie.ch')).toEqual({ sendConfirmation: false });
+    expect(pool.execute).toHaveBeenCalledTimes(1);
+  });
 
-    const result = await repo.subscribe('reactivate@broderie.ch', 'de');
-    expect(result).toEqual({ reactivated: true });
-    expect(pool.execute).toHaveBeenNthCalledWith(2,
-      expect.stringContaining('SET is_active = 1'),
-      ['de', 'reactivate@broderie.ch']
-    );
+  test('une ancienne demande non confirmée est renouvelée, toujours inactive', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[{ id: 3, is_active: 0, recently_requested: 0 }]])
+      .mockResolvedValueOnce([{}]);
+
+    expect(await repo.requestSubscription('retry@broderie.ch')).toEqual({ sendConfirmation: true });
+    const [sql] = pool.execute.mock.calls[1];
+    expect(sql).toContain("source = 'form'");
+    expect(sql).not.toContain('is_active = 1');
+  });
+});
+
+describe('newsletter.repository — confirmSubscription()', () => {
+  test('active l\'inscription et date le consentement', async () => {
+    pool.execute.mockResolvedValueOnce([{ affectedRows: 1 }]);
+    expect(await repo.confirmSubscription('a@broderie.ch')).toEqual({ confirmed: true });
+    expect(pool.execute.mock.calls[0][0]).toMatch(/is_active = 1, confirmed_at = NOW\(\)/);
+  });
+
+  test('distingue une inscription déjà confirmée d\'une demande disparue', async () => {
+    pool.execute
+      .mockResolvedValueOnce([{ affectedRows: 0 }])
+      .mockResolvedValueOnce([[{ is_active: 1 }]]);
+    expect(await repo.confirmSubscription('a@broderie.ch')).toEqual({ alreadyActive: true });
+
+    pool.execute
+      .mockResolvedValueOnce([{ affectedRows: 0 }])
+      .mockResolvedValueOnce([[]]);
+    expect(await repo.confirmSubscription('b@broderie.ch')).toEqual({ notFound: true });
+  });
+});
+
+describe('newsletter.repository — inscription depuis le compte client', () => {
+  test('la pré-inscription est marquée « compte client »', async () => {
+    pool.execute
+      .mockResolvedValueOnce([[]])
+      .mockResolvedValueOnce([{ insertId: 4 }]);
+    await repo.subscribePending('client@broderie.ch', 'fr');
+    expect(pool.execute.mock.calls[1][0]).toContain("'account', 0");
+  });
+
+  test('la vérification de l\'adresse date le consentement sans écraser la date de demande', async () => {
+    pool.execute.mockResolvedValueOnce([{ affectedRows: 1 }]);
+    await repo.confirmPending('client@broderie.ch');
+    const [sql] = pool.execute.mock.calls[0];
+    expect(sql).toContain('confirmed_at = NOW()');
+    expect(sql).not.toContain('subscribed_at = NOW()');
   });
 });
 

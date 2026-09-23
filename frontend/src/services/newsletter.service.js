@@ -5,6 +5,12 @@ export async function subscribe(email) {
   return res.data
 }
 
+/* Confirmation d'inscription depuis le lien reçu par e-mail (double opt-in, CLI-05) */
+export async function confirmSubscription(email, token) {
+  const res = await api.post('/newsletter/confirm', { email, token })
+  return res.data
+}
+
 /* Désinscription en un clic depuis le lien reçu par e-mail (CLI-05).
    Le jeton prouve que l'adresse est bien celle du destinataire. */
 export async function unsubscribe(email, token) {

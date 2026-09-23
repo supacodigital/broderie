@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const { z } = require('zod');
 const { phoneField } = require('../validators/user.validator');
 const userRepository = require('../repositories/user.repository');
+const newsletterRepository = require('../repositories/newsletter.repository');
 const userService = require('../services/user.service');
 const authService = require('../services/auth.service');
 const dataExportService = require('../services/dataExport.service');
@@ -54,6 +55,41 @@ const updateMe = async (req, res, next) => {
     /* Site 100 % francophone — la locale du compte est toujours 'fr' */
     const user = await userRepository.update(req.user.id, { firstName, lastName, locale: 'fr' });
     res.json({ success: true, data: user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/* Préférence newsletter du compte — « Oui / Non », modifiable à tout moment (CLI-05).
+   Le consentement doit pouvoir être donné ou retiré aussi simplement qu'ailleurs :
+   la cliente qui n'avait pas coché à l'inscription n'avait aucun moyen de le faire
+   depuis son compte. */
+const getNewsletterPreference = async (req, res, next) => {
+  try {
+    const user = await userRepository.findById(req.user.id);
+    if (!user) return next(new AppError('Utilisateur introuvable.', 404));
+    const status = await newsletterRepository.findStatusByEmail(user.email);
+    res.json({ success: true, data: { status } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateNewsletterPreference = async (req, res, next) => {
+  try {
+    const user = await userRepository.findById(req.user.id);
+    if (!user) return next(new AppError('Utilisateur introuvable.', 404));
+
+    const { status } = req.body.subscribed
+      ? await newsletterRepository.subscribeFromAccount(user.email, { verified: !!user.email_verified_at })
+      : await newsletterRepository.unsubscribeFromAccount(user.email);
+
+    const messages = {
+      subscribed: 'Vous êtes inscrite à la newsletter.',
+      pending:    'Inscription enregistrée : elle sera active dès que vous aurez confirmé votre adresse e-mail.',
+      none:       'Vous ne recevrez plus la newsletter.',
+    };
+    res.json({ success: true, data: { status }, message: messages[status] });
   } catch (error) {
     next(error);
   }
@@ -212,5 +248,5 @@ const deleteMyAccount = async (req, res, next) => {
 
 module.exports = {
   getMe, updateMe, getAddresses, createAddress, updateAddress, deleteAddress, changePassword,
-  exportMyData, deleteMyAccount,
+  exportMyData, deleteMyAccount, getNewsletterPreference, updateNewsletterPreference,
 };

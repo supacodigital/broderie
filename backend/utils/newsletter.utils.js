@@ -53,9 +53,50 @@ const buildUnsubscribeUrl = (email) => {
   return `${base}/desinscription?email=${encodeURIComponent(normalized)}&token=${token}`;
 };
 
+/* ── Confirmation d'inscription (double opt-in) — CLI-05 ──────────────────
+   Le lien envoyé à la demande d'inscription prouve que la personne détient
+   l'adresse. Contrairement au jeton de désinscription, il EXPIRE : une demande
+   non confirmée sous 7 jours est considérée comme abandonnée.
+   Format : « <expiration en secondes>.<signature> » — l'expiration fait partie de
+   la signature, elle ne peut donc pas être prolongée à la main.
+   Secret distinct de celui de la désinscription : un jeton de l'un ne peut
+   jamais servir pour l'autre. */
+const CONFIRM_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+const confirmSecret = () => `newsletter-confirm:${env.jwtAccessSecret}`;
+
+const signConfirm = (email, exp) =>
+  crypto.createHmac('sha256', confirmSecret())
+    .update(`${normalizeEmail(email)}|${exp}`)
+    .digest('hex')
+    .slice(0, 32);
+
+const buildConfirmToken = (email, now = Date.now()) => {
+  const exp = Math.floor(now / 1000) + CONFIRM_TOKEN_TTL_SECONDS;
+  return `${exp}.${signConfirm(email, exp)}`;
+};
+
+const verifyConfirmToken = (email, token, now = Date.now()) => {
+  const [expRaw, signature = ''] = String(token || '').split('.');
+  const exp = Number(expRaw);
+  if (!Number.isInteger(exp) || exp < Math.floor(now / 1000)) return false;
+  const expected = signConfirm(email, exp);
+  if (signature.length !== expected.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+};
+
+const buildConfirmUrl = (email) => {
+  const base = String(env.clientUrl || '').replace(/\/+$/, '');
+  const normalized = normalizeEmail(email);
+  return `${base}/newsletter/confirmation?email=${encodeURIComponent(normalized)}&token=${buildConfirmToken(normalized)}`;
+};
+
 module.exports = {
   normalizeEmail,
   buildUnsubscribeToken,
   verifyUnsubscribeToken,
   buildUnsubscribeUrl,
+  CONFIRM_TOKEN_TTL_SECONDS,
+  buildConfirmToken,
+  verifyConfirmToken,
+  buildConfirmUrl,
 };

@@ -55,15 +55,20 @@ const refreshCookieOptions = () => ({
 // Le flag `blocking` distingue les deux usages :
 //   - inscription (blocking=false) : un échec ne doit jamais interrompre le flux
 //   - renvoi manuel (blocking=true) : on veut remonter l'erreur à l'appelant
-const issueEmailVerification = async (user, { blocking = false } = {}) => {
+/* `newsletter` : l'e-mail doit annoncer que ce clic confirme aussi l'inscription à
+   la newsletter (CLI-05). Non précisé (renvoi du lien), on regarde s'il existe une
+   pré-inscription en attente pour cette adresse. */
+const issueEmailVerification = async (user, { blocking = false, newsletter } = {}) => {
   try {
+    const mentionNewsletter = newsletter
+      ?? await newsletterRepository.hasPendingSubscription(user.email).catch(() => false);
     const rawToken  = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 heures
 
     await userRepository.saveVerifyToken(user.id, tokenHash, expiresAt);
 
-    emailService.sendEmailVerification({ user, verifyToken: rawToken }).catch((err) => {
+    emailService.sendEmailVerification({ user, verifyToken: rawToken, newsletter: mentionNewsletter }).catch((err) => {
       console.error('[Email] Vérification email non envoyée :', err.message);
     });
   } catch (err) {
@@ -95,14 +100,20 @@ const register = async ({ email, password, firstName, lastName, locale, newslett
   /* Newsletter : consentement recueilli à l'inscription, mais conservé inactif tant que
      l'adresse n'est pas confirmée (double opt-in). Échec non bloquant — on ne perd pas
      une inscription client pour un abonnement marketing. */
+  /* Attendue (et non lancée en parallèle) : l'e-mail de vérification qui suit doit
+     savoir si la pré-inscription existe, pour l'annoncer. */
+  let newsletterPending = false;
   if (newsletter) {
-    newsletterRepository.subscribePending(email, locale).catch((err) => {
+    try {
+      await newsletterRepository.subscribePending(email, locale);
+      newsletterPending = true;
+    } catch (err) {
       console.error('[Newsletter] Pré-inscription échouée :', err.message);
-    });
+    }
   }
 
   // Email de vérification d'adresse — non bloquant (n'interrompt jamais l'inscription)
-  await issueEmailVerification(user, { blocking: false });
+  await issueEmailVerification(user, { blocking: false, newsletter: newsletterPending });
 
   return { user, accessToken, refreshToken };
 };

@@ -17,6 +17,8 @@ vi.mock('../../services/profile.service.js', () => ({
   updatePassword: vi.fn(),
   downloadMyData: vi.fn(),
   deleteMyAccount: vi.fn(),
+  getNewsletterPreference: vi.fn().mockResolvedValue({ data: { status: 'none' } }),
+  setNewsletterPreference: vi.fn(),
 }))
 
 vi.mock('react-i18next', () => ({

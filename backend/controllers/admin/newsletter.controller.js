@@ -47,13 +47,19 @@ const exportCsv = async (req, res, next) => {
        donc dans l'outil d'envoi que ce lien doit figurer, et il doit être propre
        à chaque destinataire pour qu'un clic suffise à se désinscrire — exigence
        de la LCD (art. 3 al. 1 let. o : moyen de refus simple et gratuit). */
-    const headers = ['id', 'email', 'locale', 'actif', 'inscrit_le', 'desabonne_le', 'lien_desinscription'];
+    /* Preuve du consentement (CLI-05) : origine de la demande et date du clic de
+       confirmation. Une ligne « actif = non » sans date de confirmation est une
+       demande jamais confirmée — elle ne doit recevoir aucun envoi. */
+    const SOURCE_LABELS = { account: 'compte client', form: 'formulaire du site' };
+    const headers = ['id', 'email', 'locale', 'actif', 'origine', 'inscrit_le', 'confirme_le', 'desabonne_le', 'lien_desinscription'];
     const csvRows = rows.map((r) => [
       r.id,
       r.email,
       r.locale ?? '',
       r.is_active ? 'oui' : 'non',
+      SOURCE_LABELS[r.source] ?? '',
       r.subscribed_at   ? new Date(r.subscribed_at).toISOString().slice(0, 10)   : '',
+      r.confirmed_at    ? new Date(r.confirmed_at).toISOString().slice(0, 10)    : '',
       r.unsubscribed_at ? new Date(r.unsubscribed_at).toISOString().slice(0, 10) : '',
       buildUnsubscribeUrl(r.email),
     ]);

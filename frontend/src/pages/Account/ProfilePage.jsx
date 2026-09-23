@@ -13,6 +13,7 @@ import { updateProfile, updatePassword, downloadMyData, deleteMyAccount } from '
 import { getAddresses, createAddress, updateAddress, deleteAddress } from '../../services/addresses.service.js'
 import { getLoyaltyAccount, getLoyaltyRewards } from '../../services/loyalty.service.js'
 import { formatDate } from '../../utils/date.js'
+import NewsletterPreference from './NewsletterPreference.jsx'
 import s from './Account.module.css'
 
 /* ── Schémas Zod construits avec les messages traduits (t).
@@ -437,6 +438,10 @@ export function TabProfile({ user, onSaved }) {
           </button>
         </div>
       </form>
+
+      <hr className={s.sectionDivider} />
+
+      <NewsletterPreference />
 
       <hr className={s.sectionDivider} />
 

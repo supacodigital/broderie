@@ -1,0 +1,10 @@
+/* Même carte que la page de désinscription : les deux pages sont les deux bouts
+   du même parcours (s'inscrire / se désinscrire) et doivent se ressembler. */
+.page      { composes: page from '../Unsubscribe/Unsubscribe.module.css'; }
+.card      { composes: card from '../Unsubscribe/Unsubscribe.module.css'; }
+.stateIcon { composes: stateIcon from '../Unsubscribe/Unsubscribe.module.css'; }
+.spin      { composes: spin from '../Unsubscribe/Unsubscribe.module.css'; }
+.title     { composes: title from '../Unsubscribe/Unsubscribe.module.css'; }
+.text      { composes: text from '../Unsubscribe/Unsubscribe.module.css'; }
+.note      { composes: note from '../Unsubscribe/Unsubscribe.module.css'; }
+.btn       { composes: btn from '../Unsubscribe/Unsubscribe.module.css'; }

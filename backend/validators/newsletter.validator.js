@@ -12,4 +12,11 @@ const unsubscribeSchema = z.object({
   token: z.string().trim().length(32, 'Lien de désinscription invalide.'),
 });
 
-module.exports = { subscribeSchema, unsubscribeSchema };
+/* Confirmation d'inscription (double opt-in, CLI-05) : « <expiration>.<signature> »,
+   vérifié ensuite par verifyConfirmToken. */
+const confirmSchema = z.object({
+  email: z.string().trim().email('Adresse email invalide.').max(255),
+  token: z.string().trim().regex(/^\d{9,12}\.[0-9a-f]{32}$/, 'Lien de confirmation invalide.'),
+});
+
+module.exports = { subscribeSchema, unsubscribeSchema, confirmSchema };

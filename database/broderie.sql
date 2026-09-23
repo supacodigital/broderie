@@ -697,8 +697,12 @@ CREATE TABLE newsletter_subscribers (
   id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
   email        VARCHAR(255) NOT NULL,
   locale       ENUM('fr', 'de', 'en') NOT NULL DEFAULT 'fr',
+  -- Origine de la demande : case à la création du compte, ou formulaire du site
+  source       ENUM('account', 'form') NOT NULL DEFAULT 'form',
   is_active    TINYINT(1)   NOT NULL DEFAULT 1,
+  -- Date de la demande ; confirmed_at = clic sur le lien de confirmation (double opt-in)
   subscribed_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  confirmed_at DATETIME     NULL DEFAULT NULL,
   unsubscribed_at DATETIME  NULL DEFAULT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_newsletter_email (email),

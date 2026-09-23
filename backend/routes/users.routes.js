@@ -4,7 +4,7 @@ const userController = require('../controllers/user.controller');
 const wishlistController = require('../controllers/wishlist.controller');
 const { requireAuth } = require('../middlewares/auth');
 const { validate } = require('../middlewares/validate');
-const { updateProfileSchema } = require('../validators/user.validator');
+const { updateProfileSchema, newsletterPreferenceSchema } = require('../validators/user.validator');
 
 // Toutes les routes utilisateur nécessitent une authentification
 router.use(requireAuth);
@@ -12,6 +12,9 @@ router.use(requireAuth);
 router.get('/me', userController.getMe);
 router.put('/me', validate(updateProfileSchema), userController.updateMe);
 router.put('/me/password', userController.changePassword);
+// Newsletter : « Oui / Non » modifiable à tout moment depuis le compte (CLI-05)
+router.get('/me/newsletter', userController.getNewsletterPreference);
+router.put('/me/newsletter', validate(newsletterPreferenceSchema), userController.updateNewsletterPreference);
 // Droits LPD — export des données personnelles et suppression du compte
 router.get('/me/export', userController.exportMyData);
 router.delete('/me', userController.deleteMyAccount);

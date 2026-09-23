@@ -5,6 +5,17 @@ export async function updateProfile(data) {
   return res.data
 }
 
+/* Préférence newsletter du compte (CLI-05) — status : subscribed | pending | none */
+export async function getNewsletterPreference() {
+  const res = await api.get('/users/me/newsletter')
+  return res.data
+}
+
+export async function setNewsletterPreference(subscribed) {
+  const res = await api.put('/users/me/newsletter', { subscribed })
+  return res.data
+}
+
 /* Télécharge l'export PDF de toutes les données personnelles (LPD art. 25) */
 export async function downloadMyData() {
   const res = await api.get('/users/me/export', { responseType: 'blob' })

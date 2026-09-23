@@ -196,12 +196,18 @@ export default function RegisterForm() {
               id="reg-newsletter"
               type="checkbox"
               className={s.checkbox}
+              aria-describedby="reg-newsletter-hint"
               {...register('newsletter')}
             />
             <label htmlFor="reg-newsletter" className={s.cgvLabel}>
               {t('auth.newsletterOptIn')}
             </label>
           </div>
+          {/* Information de collecte (nLPD / RGPD, CLI-05) */}
+          <p id="reg-newsletter-hint" className={s.fieldHint}>
+            {t('auth.newsletterOptInHint')}{' '}
+            <Link to="/mentions-legales#donnees" target="_blank" rel="noopener noreferrer">{t('newsletter.privacyLink')}</Link>
+          </p>
         </div>
 
         {/* Bouton inscription */}

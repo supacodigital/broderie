@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { subscribe } from '../../../services/newsletter.service.js'
 import s from './NewsletterSection.module.css'
 
@@ -44,7 +45,7 @@ export default function NewsletterSection() {
             value={email}
             onChange={e => { setEmail(e.target.value); setStatus('idle') }}
             disabled={status === 'loading'}
-            aria-describedby={status === 'error' ? 'newsletter-error' : undefined}
+            aria-describedby={status === 'error' ? 'newsletter-error newsletter-consent' : 'newsletter-consent'}
           />
           <button
             type="submit"
@@ -58,6 +59,15 @@ export default function NewsletterSection() {
 
       {status === 'error' && (
         <p id="newsletter-error" className={s.errorMsg} role="alert">{errorMsg}</p>
+      )}
+
+      {/* Information au moment de la collecte (nLPD / RGPD, CLI-05) : double
+          opt-in, désinscription, et où lire l'usage fait de l'adresse. */}
+      {status !== 'success' && (
+        <p id="newsletter-consent" className={s.consent}>
+          {t('newsletter.consent')}{' '}
+          <Link to="/mentions-legales#donnees" className={s.consentLink}>{t('newsletter.privacyLink')}</Link>
+        </p>
       )}
     </section>
   )

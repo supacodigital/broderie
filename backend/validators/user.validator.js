@@ -36,4 +36,9 @@ const phoneField = z
   .optional()
   .nullable();
 
-module.exports = { updateProfileSchema, phoneField };
+// Choix « Newsletter : Oui / Non » depuis le compte (CLI-05)
+const newsletterPreferenceSchema = z.object({
+  subscribed: z.boolean({ error: 'Choisissez « Oui » ou « Non ».' }),
+});
+
+module.exports = { updateProfileSchema, phoneField, newsletterPreferenceSchema };

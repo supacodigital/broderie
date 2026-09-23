@@ -106,3 +106,77 @@ describe('CLI-06 — adresses du compte', () => {
     expect(row.is_default).toBe(1);
   });
 });
+
+/* Non-régression CLI-05 — « case à cocher explicite (Oui/Non) ». La cliente qui
+   n'avait pas coché à l'inscription ne pouvait plus s'inscrire depuis son compte. */
+describe('CLI-05 — préférence newsletter dans le compte', () => {
+  let token;
+  let userId;
+  let email;
+  beforeAll(async () => { ({ token, userId, email } = await registerVerifiedUser('nlpref.jest')); });
+  afterAll(async () => {
+    await pool.execute('DELETE FROM newsletter_subscribers WHERE email = ?', [email]);
+  });
+
+  const getStatus = async () => (await request(app)
+    .get('/api/v1/users/me/newsletter')
+    .set('Authorization', `Bearer ${token}`)).body.data.status;
+
+  test('par défaut, la cliente n\'est pas inscrite', async () => {
+    expect(await getStatus()).toBe('none');
+  });
+
+  test('« Oui » avec une adresse vérifiée : inscription immédiate, consentement daté', async () => {
+    const res = await request(app)
+      .put('/api/v1/users/me/newsletter')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ subscribed: true });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('subscribed');
+    const [[row]] = await pool.execute(
+      'SELECT is_active, source, confirmed_at FROM newsletter_subscribers WHERE email = ?', [email]
+    );
+    expect(row).toMatchObject({ is_active: 1, source: 'account' });
+    expect(row.confirmed_at).not.toBeNull();
+  });
+
+  test('« Non » désinscrit', async () => {
+    const res = await request(app)
+      .put('/api/v1/users/me/newsletter')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ subscribed: false });
+
+    expect(res.body.data.status).toBe('none');
+    expect(await getStatus()).toBe('none');
+  });
+
+  test('« Oui » avec une adresse non vérifiée : en attente, activée à la vérification', async () => {
+    await pool.execute('UPDATE users SET email_verified_at = NULL WHERE id = ?', [userId]);
+    const res = await request(app)
+      .put('/api/v1/users/me/newsletter')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ subscribed: true });
+
+    expect(res.body.data.status).toBe('pending');
+    expect(await getStatus()).toBe('pending');
+    await pool.execute('UPDATE users SET email_verified_at = NOW() WHERE id = ?', [userId]);
+  });
+
+  test('« Non » annule aussi une demande en attente', async () => {
+    await request(app)
+      .put('/api/v1/users/me/newsletter')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ subscribed: false });
+
+    expect(await getStatus()).toBe('none');
+  });
+
+  test('une valeur autre que oui/non est refusée', async () => {
+    const res = await request(app)
+      .put('/api/v1/users/me/newsletter')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ subscribed: 'peut-être' });
+    expect(res.status).toBe(400);
+  });
+});

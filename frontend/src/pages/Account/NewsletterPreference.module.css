@@ -1,0 +1,106 @@
+/* Préférence newsletter « Oui / Non » — compte client (CLI-05) */
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.desc {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.link {
+  color: var(--rose);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Deux choix côte à côte ; empilés sur un écran étroit */
+.options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .options {
+    grid-template-columns: 1fr;
+  }
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 14px;
+  font-size: 14px;
+  color: var(--text-dark);
+  background: var(--white);
+  border: 1px solid var(--rose-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.option:hover {
+  border-color: var(--rose-light);
+}
+
+.optionOn {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+}
+
+.radio {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--rose);
+  cursor: pointer;
+}
+
+.radio:disabled,
+.radio:disabled + span {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.option:has(.radio:focus-visible) {
+  outline: 2px solid var(--rose);
+  outline-offset: 2px;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--danger);
+}
