@@ -2,6 +2,7 @@ require('dotenv').config();
 const request = require('supertest');
 const app     = require('../../app');
 const { pool } = require('../../config/db');
+const { registerVerifiedUser } = require('../helpers/auth.helper');
 
 // Coupon de test créé avant la suite, supprimé après
 let testCouponId;
@@ -156,5 +157,87 @@ describe('POST /api/v1/coupons/validate', () => {
       expect(res.status).toBe(400);
       expect(res.body.message).toMatch(/limite/i);
     });
+  });
+});
+
+/* Non-régression ADM-03 (module promotions / coupons) — un bon de fidélité était
+   refusé au checkout : la vérification ne connaissait que les coupons, alors que
+   la création de commande acceptait les bons. La cliente ne pouvait jamais
+   utiliser le bon reçu en atteignant un palier. */
+describe('POST /api/v1/coupons/validate — bons de fidélité', () => {
+  let owner;
+  let tierId;
+  let rewardCode;
+  let usedRewardCode;
+
+  beforeAll(async () => {
+    owner = await registerVerifiedUser('reward.owner');
+    const [tier] = await pool.execute(
+      `INSERT INTO loyalty_tiers (name, min_spend_chf, reward_type, reward_value, reward_validity_days, is_active, sort_order)
+       VALUES ('Jest Argent', 200, 'fixed', 20, 90, 0, 99)`
+    );
+    tierId = tier.insertId;
+    rewardCode     = `JESTFID${Date.now()}`;
+    usedRewardCode = `JESTUSED${Date.now()}`;
+    await pool.execute(
+      `INSERT INTO loyalty_rewards (user_id, tier_id, code, type, value, status, expires_at)
+       VALUES (?, ?, ?, 'fixed', 20, 'available', DATE_ADD(NOW(), INTERVAL 30 DAY)),
+              (?, ?, ?, 'fixed', 20, 'used',      DATE_ADD(NOW(), INTERVAL 30 DAY))`,
+      [owner.userId, tierId, rewardCode, owner.userId, tierId, usedRewardCode]
+    );
+  });
+
+  afterAll(async () => {
+    await pool.execute('DELETE FROM loyalty_rewards WHERE tier_id = ?', [tierId]);
+    await pool.execute('DELETE FROM loyalty_tiers WHERE id = ?', [tierId]);
+  });
+
+  test('accepte le bon de la cliente connectée et renvoie la remise', async () => {
+    const res = await request(app)
+      .post('/api/v1/coupons/validate')
+      .set('Authorization', `Bearer ${owner.token}`)
+      .send({ code: rewardCode, subtotal: 50 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ code: rewardCode, type: 'fixed', value: 20, discount: 20 });
+  });
+
+  test('plafonne la remise au sous-total', async () => {
+    const res = await request(app)
+      .post('/api/v1/coupons/validate')
+      .set('Authorization', `Bearer ${owner.token}`)
+      .send({ code: rewardCode, subtotal: 12.5 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.discount).toBe(12.5);
+  });
+
+  test('refuse le bon d\'une autre cliente, avec le message d\'un code inconnu', async () => {
+    const other = await registerVerifiedUser('reward.other');
+    const res = await request(app)
+      .post('/api/v1/coupons/validate')
+      .set('Authorization', `Bearer ${other.token}`)
+      .send({ code: rewardCode, subtotal: 50 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('Code invalide ou inactif.');
+  });
+
+  test('refuse le bon sans connexion', async () => {
+    const res = await request(app)
+      .post('/api/v1/coupons/validate')
+      .send({ code: rewardCode, subtotal: 50 });
+
+    expect(res.status).toBe(400);
+  });
+
+  test('indique qu\'un bon a déjà été utilisé', async () => {
+    const res = await request(app)
+      .post('/api/v1/coupons/validate')
+      .set('Authorization', `Bearer ${owner.token}`)
+      .send({ code: usedRewardCode, subtotal: 50 });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/déjà été utilisé/);
   });
 });

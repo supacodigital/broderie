@@ -233,6 +233,60 @@ describe('ProductForm — édition d\'un produit avec réduction existante', () 
     expect(payload.comparePriceChf).toBe(100)
   })
 
+  /* Non-régression ADM-03 (23/09) : le pourcentage reconstitué était arrondi à
+     l'entier. 59.00 barré / 53.00 payé s'affichait « −10 % » et l'enregistrement
+     recalculait 53.10 — le prix MONTAIT sans que personne n'ait touché à la
+     remise. 1 473 promotions sur 2 268 étaient concernées. */
+  it('reprend en CHF une remise qui ne tombe pas sur un pourcentage entier', async () => {
+    const user = userEvent.setup()
+    getProductById.mockResolvedValue({
+      id: 10,
+      name: 'Kit Permin',
+      sku: 'PE34-4215',
+      price_chf: '53.00',
+      compare_price_chf: '59.00',
+      stock: 5,
+      category_id: 1,
+      tax_rate_id: 1,
+      images: [],
+    })
+    updateProduct.mockResolvedValue({ id: 10 })
+
+    renderForm({ id: 10 })
+    await screen.findByLabelText(/Prix de vente/)
+    expect(screen.getByLabelText(/Appliquer une remise/)).toHaveValue('fixed')
+    await user.click(screen.getByRole('button', { name: /Enregistrer/i }))
+
+    const payload = updateProduct.mock.calls.at(-1)[1]
+    expect(payload.priceChf).toBe(53)
+    expect(payload.comparePriceChf).toBe(59)
+  })
+
+  it('garde le pourcentage quand il redonne exactement le prix payé (moulinés DMC)', async () => {
+    const user = userEvent.setup()
+    getProductById.mockResolvedValue({
+      id: 11,
+      name: 'Mouliné DMC 310',
+      sku: '117-310',
+      price_chf: '1.50',
+      compare_price_chf: '2.00',
+      stock: 50,
+      category_id: 1,
+      tax_rate_id: 1,
+      images: [],
+    })
+    updateProduct.mockResolvedValue({ id: 11 })
+
+    renderForm({ id: 11 })
+    await screen.findByLabelText(/Prix de vente/)
+    expect(screen.getByLabelText(/Appliquer une remise/)).toHaveValue('percent')
+    await user.click(screen.getByRole('button', { name: /Enregistrer/i }))
+
+    const payload = updateProduct.mock.calls.at(-1)[1]
+    expect(payload.priceChf).toBe(1.5)
+    expect(payload.comparePriceChf).toBe(2)
+  })
+
   it("n'active aucune réduction si compare_price_chf est absent", async () => {
     getProductById.mockResolvedValue({
       id: 8,

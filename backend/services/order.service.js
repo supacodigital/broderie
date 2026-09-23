@@ -24,6 +24,41 @@ const INITIAL_STATUS_BY_METHOD = {
   pickup:     'pending_pickup',   // retrait + paiement en boutique
 };
 
+/* Résout un code saisi dans le champ « code promo » : un coupon créé par la
+   boutique, ou un bon de fidélité de la cliente. Source UNIQUE de cette règle,
+   partagée par la vérification au checkout (coupon.controller) et la création
+   de commande : quand les deux divergeaient, un bon de fidélité était refusé
+   au checkout alors que la commande l'aurait accepté (ADM-03).
+   Lève une AppError 400 avec le message à afficher si le code est refusé. */
+const resolveDiscountCode = async ({ code, userId, subtotal }) => {
+  const result = await couponRepository.validate(code, subtotal);
+  if (result.valid) {
+    return {
+      discount:        result.discount,
+      code:            result.coupon.code,
+      type:            result.coupon.type,
+      value:           parseFloat(result.coupon.value),
+      couponId:        result.coupon.id,
+      loyaltyRewardId: null,
+    };
+  }
+
+  const rewardResult = await loyaltyRepository.validateReward(code, userId, subtotal);
+  if (!rewardResult.valid) {
+    // On remonte l'erreur du bon si le code ressemble à un bon de fidélité
+    // (message plus précis : « déjà utilisé », « expiré »), sinon celle du coupon.
+    throw new AppError(rewardResult.error === 'Code invalide.' ? result.error : rewardResult.error, 400);
+  }
+  return {
+    discount:        rewardResult.discount,
+    code:            rewardResult.reward.code,
+    type:            rewardResult.reward.type,
+    value:           parseFloat(rewardResult.reward.value),
+    couponId:        null,
+    loyaltyRewardId: rewardResult.reward.id,
+  };
+};
+
 const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponCode = null, address = null, billingAddress = null, locale = 'fr', wantsPrintedInvoice = false }) => {
   if (!VALID_METHODS.includes(paymentMethod)) {
     throw new AppError('Méthode de paiement invalide.', 400);
@@ -63,22 +98,11 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
   let couponApplied   = null;
   let loyaltyRewardId = null;
   if (couponCode) {
-    const result = await couponRepository.validate(couponCode, subtotal);
-    if (result.valid) {
-      discount      = result.discount;
-      couponId      = result.coupon.id;
-      couponApplied = result.coupon.code;
-    } else {
-      const rewardResult = await loyaltyRepository.validateReward(couponCode, userId, subtotal);
-      if (!rewardResult.valid) {
-        // On remonte l'erreur du bon si le code ressemble à un bon de fidélité
-        // (message plus précis : « déjà utilisé », « expiré »), sinon celle du coupon.
-        throw new AppError(rewardResult.error === 'Code invalide.' ? result.error : rewardResult.error, 400);
-      }
-      discount        = rewardResult.discount;
-      couponApplied   = rewardResult.reward.code;
-      loyaltyRewardId = rewardResult.reward.id;
-    }
+    const resolved = await resolveDiscountCode({ code: couponCode, userId, subtotal });
+    discount        = resolved.discount;
+    couponId        = resolved.couponId;
+    couponApplied   = resolved.code;
+    loyaltyRewardId = resolved.loyaltyRewardId;
   }
 
   const discountedSubtotal = roundCHF(subtotal - discount);
@@ -233,4 +257,4 @@ const getOrderById = async (orderId, userId) => {
   return order;
 };
 
-module.exports = { createOrder, getOrders, getOrderById, sendOrderEmails };
+module.exports = { createOrder, getOrders, getOrderById, sendOrderEmails, resolveDiscountCode };

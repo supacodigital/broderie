@@ -433,9 +433,21 @@ export default function ProductForm() {
         const paidPrice = Number(res.price_chf)
         const hasDiscount = oldPrice > 0 && paidPrice > 0 && oldPrice > paidPrice
         if (hasDiscount) {
+          /* La remise n'est reprise en pourcentage que si ce pourcentage entier
+             redonne EXACTEMENT le prix payé. Sinon elle est reprise en CHF, au
+             centime près. Le pourcentage arrondi (59.00 → 53.00 affiché « −10 % »)
+             recalculait 53.10 au premier enregistrement : 65 % des promotions
+             changeaient de prix quand la fiche était simplement ouverte puis
+             enregistrée, et 560 d'entre elles augmentaient (ADM-03). */
           const percent = Math.round((1 - paidPrice / oldPrice) * 100)
-          setDiscountMode('percent')
-          setDiscountValue(String(percent))
+          const percentIsExact = Math.abs(roundCHF(oldPrice * (1 - percent / 100)) - paidPrice) < 0.001
+          if (percentIsExact) {
+            setDiscountMode('percent')
+            setDiscountValue(String(percent))
+          } else {
+            setDiscountMode('fixed')
+            setDiscountValue((oldPrice - paidPrice).toFixed(2))
+          }
         } else {
           setDiscountMode('none')
           setDiscountValue('')

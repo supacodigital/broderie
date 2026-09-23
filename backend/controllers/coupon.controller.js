@@ -1,5 +1,10 @@
-const couponRepository = require('../repositories/coupon.repository');
+const orderService = require('../services/order.service');
 
+/* Vérifie un code saisi au checkout et renvoie la remise à afficher.
+   Accepte les coupons de la boutique ET les bons de fidélité de la cliente
+   connectée — même règle que la création de commande (resolveDiscountCode).
+   Seuls les coupons étaient vérifiés ici : un bon de fidélité était refusé
+   (« Code invalide ou inactif ») et ne pouvait jamais être utilisé (ADM-03). */
 const validate = async (req, res, next) => {
   try {
     const code  = req.body?.code?.trim();
@@ -9,18 +14,19 @@ const validate = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Code requis.' });
     }
 
-    const result = await couponRepository.validate(code, total);
-    if (!result.valid) {
-      return res.status(400).json({ success: false, message: result.error });
-    }
+    const resolved = await orderService.resolveDiscountCode({
+      code,
+      userId:   req.user?.id ?? null,
+      subtotal: total,
+    });
 
     res.json({
       success: true,
       data: {
-        code:     result.coupon.code,
-        type:     result.coupon.type,
-        value:    parseFloat(result.coupon.value),
-        discount: result.discount,
+        code:     resolved.code,
+        type:     resolved.type,
+        value:    resolved.value,
+        discount: resolved.discount,
       },
     });
   } catch (error) {
