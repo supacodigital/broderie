@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Search, X, ArrowRight } from 'lucide-react'
 import { useProductSearch } from '../../../hooks/useProductSearch.js'
 import SearchSuggestion from '../../ui/SearchSuggestion/SearchSuggestion.jsx'
@@ -15,6 +15,29 @@ import s from './NavSearch.module.css'
 
    Mobile : le tiroir est conservé. À 375 px, un champ en ligne n'aurait pas la
    place de cohabiter avec les icônes sans les masquer. */
+/* Mémoire du dernier terme recherché, le temps de la visite (CLI-01 — « mémoriser
+   le terme saisi dans l'input »). Stockage facultatif : navigation privée ou
+   stockage bloqué, la loupe s'ouvre simplement vide. */
+const LAST_SEARCH_KEY = 'nav_last_search'
+const readLastSearch = () => {
+  try { return sessionStorage.getItem(LAST_SEARCH_KEY) ?? '' } catch { return '' }
+}
+const writeLastSearch = (term) => {
+  try {
+    if (term) sessionStorage.setItem(LAST_SEARCH_KEY, term)
+    else sessionStorage.removeItem(LAST_SEARCH_KEY)
+  } catch { /* stockage indisponible : rien à mémoriser */ }
+}
+
+/* Terme à remettre dans la loupe à l'ouverture : sur le catalogue, la recherche
+   affichée (celle de l'adresse — vide si la cliente l'a retirée) ; ailleurs, par
+   exemple sur une fiche ouverte depuis les résultats, la dernière recherche. */
+const initialSearchTerm = (location) => (
+  location.pathname.startsWith('/catalogue')
+    ? new URLSearchParams(location.search).get('q') ?? ''
+    : readLastSearch()
+)
+
 export default function NavSearch({ open, onClose }) {
   const { t, i18n } = useTranslation()
   const navigate     = useNavigate()
@@ -31,6 +54,9 @@ export default function NavSearch({ open, onClose }) {
     clearSearch,
   } = useProductSearch(i18n.language, 200, 5)
 
+  const location       = useLocation()
+  // Lu à l'ouverture seulement : un changement de page ne doit pas relancer l'effet
+  const locationRef    = useRef(location)
   const inputRef       = useRef(null)  // champ desktop, dans la barre
   const drawerInputRef = useRef(null)  // champ mobile, dans le tiroir
   const wrapRef        = useRef(null)
@@ -45,17 +71,28 @@ export default function NavSearch({ open, onClose }) {
      viser le champ desktop depuis un téléphone posait le curseur dans un élément
      en `display: none`, le clavier ne s'ouvrait pas et la frappe n'arrivait nulle
      part — le champ paraissait inopérant. */
+  // Déclaré avant l'effet d'ouverture : les effets s'exécutent dans cet ordre
+  useEffect(() => { locationRef.current = location }, [location])
+
+  /* Reprise de la recherche en cours (CLI-01) : la loupe se vidait à chaque
+     ouverture — préciser « coton mouliné » en « coton mouliné 310 » obligeait à
+     tout retaper, sur un clavier de téléphone. Le curseur est placé en fin de
+     texte, prêt à compléter. */
   useEffect(() => {
     if (!open) return
     clearSearch()
+    const initial = initialSearchTerm(locationRef.current)
+    if (initial) setValue(initial)
     const id = setTimeout(() => {
       const target = drawerInputRef.current?.offsetParent !== null
         ? drawerInputRef.current
         : inputRef.current
       target?.focus()
+      const end = target?.value?.length ?? 0
+      target?.setSelectionRange?.(end, end)
     }, 80)
     return () => clearTimeout(id)
-  }, [open, clearSearch])
+  }, [open, clearSearch, setValue])
 
   /* Escape ferme */
   useEffect(() => {
@@ -87,7 +124,14 @@ export default function NavSearch({ open, onClose }) {
 
   function go(q) {
     onClose()
+    writeLastSearch(q.trim())
     navigate(`/catalogue?q=${encodeURIComponent(q.trim())}`)
+  }
+
+  // Effacer à la croix : le terme est aussi oublié, il ne reviendra pas à la prochaine ouverture
+  function handleClear() {
+    clearSearch()
+    writeLastSearch('')
   }
 
   /* Soumission du formulaire mobile (touche « Rechercher » du clavier tactile).
@@ -143,7 +187,7 @@ export default function NavSearch({ open, onClose }) {
         {open && value && (
           <button
             className={s.inlineClear}
-            onClick={() => { clearSearch(); inputRef.current?.focus() }}
+            onClick={() => { handleClear(); inputRef.current?.focus() }}
             aria-label="Effacer"
           >
             <X size={14} />
@@ -219,7 +263,7 @@ export default function NavSearch({ open, onClose }) {
                 spellCheck="false"
               />
               {value
-                ? <button type="button" className={s.clearBtn} onClick={clearSearch} aria-label="Effacer"><X size={16} /></button>
+                ? <button type="button" className={s.clearBtn} onClick={handleClear} aria-label="Effacer"><X size={16} /></button>
                 : <button type="button" className={s.closeBtn} onClick={onClose} aria-label="Fermer"><X size={20} /></button>
               }
             </form>

@@ -7,6 +7,7 @@ import { useCart } from '../../../contexts/CartContext.jsx'
 import { useCartDrawer } from '../../../contexts/CartDrawerContext.jsx'
 import { useWishlist } from '../../../contexts/WishlistContext.jsx'
 import NavSearch from './NavSearch.jsx'
+import { openKeyboardDuringTap } from '../../../utils/touchKeyboard.js'
 import AccountMenu from './AccountMenu.jsx'
 import { ACCOUNT_SECTIONS } from '../../account/accountSections.js'
 import CartDrawer from '../CartDrawer/CartDrawer.jsx'
@@ -48,7 +49,16 @@ export default function Navbar() {
 
   function closeMenu() { setMenuOpen(false) }
   function closeSearch() { setSearchOpen(false) }
-  function toggleSearch() { setSearchOpen(o => !o); setMenuOpen(false) }
+  function toggleSearch() {
+    /* Mobile : le clavier doit s'ouvrir pendant le tap, sinon Safari iOS le refuse
+       au champ du tiroir qui apparaît juste après (CLI-01). Même seuil que le
+       tiroir dans NavSearch.module.css. */
+    if (!searchOpen && window.matchMedia?.('(max-width: 768px)').matches) {
+      openKeyboardDuringTap()
+    }
+    setSearchOpen(o => !o)
+    setMenuOpen(false)
+  }
 
   /* Initiales du client connecté (ex. "Julie Dupont" → "JD") */
   const initials = [user?.first_name, user?.last_name]

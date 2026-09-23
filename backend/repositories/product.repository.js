@@ -36,12 +36,51 @@ const PRODUCT_COLUMNS = `
    sens de la requête ou provoquent une erreur SQL. */
 const RESERVED_FT_CHARS = /[+\-~<>()*"@]/g;
 
+/* Mots trop courts pour l'index FULLTEXT (innodb_ft_min_token_size = 3) : « 14 »,
+   « 5 »… ne sont pas indexés. Exigés avec le joker (« +14* »), ils devenaient un
+   préfixe obligatoire sur d'AUTRES mots (« 14x16 », « 140 ») : « aida 14 » ne
+   trouvait pas la toile « Aïda 14 » (CLI-01). Ils sont retirés de la requête
+   FULLTEXT dès qu'il reste un mot indexable ; les nombres parmi eux servent au
+   bonus de nom (voir numericNameBoost). Si la saisie n'est faite que de mots
+   courts, elle est gardée telle quelle — sinon il ne resterait rien à chercher. */
+const MIN_FT_TOKEN_LENGTH = 3;
+const fullTextTerms = (terms) => {
+  const indexable = terms.filter((t) => t.length >= MIN_FT_TOKEN_LENGTH);
+  return indexable.length ? indexable : terms;
+};
+
 /* Le passage au singulier est partagé avec la recherche admin — voir
    utils/search.utils.js pour le détail du cas « cotons moulinés ». */
 const toBooleanQuery = (q) =>
-  toSearchTerms(String(q).replace(RESERVED_FT_CHARS, ' '))
+  fullTextTerms(toSearchTerms(String(q).replace(RESERVED_FT_CHARS, ' ')))
     .map((token) => `+${token}*`)
     .join(' ');
+
+/* Bonus de nom pour les NOMBRES saisis (CLI-01) — numéro de coloris, taille de
+   toile, grosseur de fil. L'index FULLTEXT couvre nom et description ensemble et
+   ne sait pas privilégier le nom : un kit dont la notice cite « 310 » à chaque
+   ligne (score ~30) passait devant l'article « DMC mouliné N° 310 » (score ~3).
+   Un produit dont le nom contient tous les nombres saisis gagne 100 points :
+   plus que n'importe quel score de description, moins qu'une référence exacte.
+   Réservé aux nombres : pour les mots, le FULLTEXT classe déjà correctement, et
+   un bonus sur les mots remontait « kit (sans les cotons moulinés) » devant les
+   échevettes pour « cotons moulinés ».
+   Nombre seul : comparé entre bornes non numériques, pour que « 5 » trouve
+   « n°5 » mais pas « B5200 ». Terme mixte (« b5200 ») : simple inclusion. */
+const numericNameBoost = (q) => {
+  const numeric = toSearchTerms(String(q ?? '').replace(RESERVED_FT_CHARS, ' '))
+    .filter((t) => /[0-9]/.test(t));
+  if (numeric.length === 0) return { sql: '', params: [] };
+
+  const name = `COALESCE(pt_fr.name, pt.name, '')`;
+  const clauses = numeric.map((t) => (/^[0-9]+$/.test(t)
+    ? { sql: `${name} REGEXP ?`, param: `(^|[^0-9])${t}([^0-9]|$)` }
+    : { sql: `${name} LIKE ?`,   param: `%${t.replace(/[\\%_]/g, '\\$&')}%` }));
+  return {
+    sql: `100 * (${clauses.map((c) => c.sql).join(' AND ')}) + `,
+    params: clauses.map((c) => c.param),
+  };
+};
 
 /* Repli sur préfixe tronqué — rattrape les fautes de frappe.
    Le FULLTEXT est strict : « mouliner » ou « moulne » ne trouvent rien alors que le
@@ -65,7 +104,7 @@ const MIN_KEPT_CHARS = 4;
 const TRUNCATED_CHARS = 2;
 
 const toFuzzyBooleanQuery = (q) => {
-  const terms = toSearchTerms(String(q).replace(RESERVED_FT_CHARS, ' '));
+  const terms = fullTextTerms(toSearchTerms(String(q).replace(RESERVED_FT_CHARS, ' ')));
   if (terms.length === 0) return null;
 
   let truncated = false;
@@ -276,18 +315,24 @@ const runFindAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created
     total = countRows[0].total;
   }
 
-  /* Score de pertinence : le nom pèse double face à la description — un produit dont le
-     NOM contient les termes cherchés est une meilleure réponse qu'un produit qui ne les
-     mentionne que dans son texte descriptif. */
-  /* Une correspondance exacte de référence vaut 1000 : elle passe devant n'importe quel
-     score FULLTEXT (qui dépasse rarement quelques unités). La cliente qui saisit une
-     référence de catalogue veut cet article précis, en première position. */
+  /* Une correspondance exacte de référence vaut 1000 : elle passe devant tout le reste.
+     La cliente qui saisit une référence de catalogue veut cet article précis, en
+     première position.
+     COALESCE indispensable (CLI-01) : pour un produit sans EAN, « sku = ? OR ean = ? »
+     vaut NULL et non 0 quand le SKU ne correspond pas — et NULL annulait TOUT le score.
+     Ces produits, dont les moulinés DMC, tombaient en fin de liste pour toute
+     recherche contenant un chiffre : « 310 » plaçait trois kits Permin devant le
+     mouliné N° 310. */
   const referenceScoreSql = referenceQuery
-    ? `1000 * (REPLACE(REPLACE(REPLACE(p.sku, '-', ''), ' ', ''), '.', '') = ? OR p.ean = ?) + `
+    ? `1000 * COALESCE(REPLACE(REPLACE(REPLACE(p.sku, '-', ''), ' ', ''), '.', '') = ? OR p.ean = ?, 0) + `
     : '';
+  // Nombres saisis retrouvés dans le nom : voir numericNameBoost
+  const { sql: nameBoostSql, params: nameBoostParams } = relevanceSort
+    ? numericNameBoost(filters.q)
+    : { sql: '', params: [] };
   const relevanceSelect = relevanceSort
     ? `, (
-         ${referenceScoreSql}2 * COALESCE(MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE), 0)
+         ${referenceScoreSql}${nameBoostSql}2 * COALESCE(MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE), 0)
          + COALESCE(MATCH(pt_fr.name, pt_fr.description) AGAINST(? IN BOOLEAN MODE), 0)
        ) AS relevance`
     : '';
@@ -297,6 +342,7 @@ const runFindAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created
   const relevanceParams = relevanceSort
     ? [
         ...(referenceQuery ? [referenceQuery, referenceQuery] : []),
+        ...nameBoostParams,
         booleanQuery ?? '',
         booleanQuery ?? '',
       ]

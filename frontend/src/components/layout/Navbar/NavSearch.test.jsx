@@ -8,8 +8,10 @@ import userEvent from '@testing-library/user-event'
    utilise depuis son téléphone. */
 
 const navigateMock = vi.fn()
+let locationValue = { pathname: '/', search: '' }
 vi.mock('react-router-dom', () => ({
   useNavigate: () => navigateMock,
+  useLocation: () => locationValue,
 }))
 
 vi.mock('react-i18next', () => ({
@@ -59,6 +61,8 @@ describe('NavSearch — recherche mobile (CLI-01)', () => {
     navigateMock.mockClear()
     fetchSuggestionsMock.mockClear()
     suggestionsValue = []
+    locationValue = { pathname: '/', search: '' }
+    sessionStorage.clear()
   })
 
   test('la saisie est conservée dans le champ du tiroir', async () => {
@@ -136,5 +140,49 @@ describe('NavSearch — recherche mobile (CLI-01)', () => {
     // « moulinés » corrigé en « moulines » ne ramènerait pas les mêmes résultats
     expect(input).toHaveAttribute('autocorrect', 'off')
     expect(input).toHaveAttribute('enterkeyhint', 'search')
+  })
+})
+
+/* Non-régression CLI-01 — « mémoriser le terme saisi dans l'input ». La loupe se
+   vidait à chaque ouverture : préciser une recherche obligeait à tout retaper. */
+describe('NavSearch — reprise de la recherche en cours (CLI-01)', () => {
+  beforeEach(() => {
+    navigateMock.mockClear()
+    suggestionsValue = []
+    sessionStorage.clear()
+  })
+
+  test('sur le catalogue, la loupe reprend la recherche affichée', async () => {
+    locationValue = { pathname: '/catalogue', search: '?q=coton%20moulin%C3%A9' }
+    render(<NavSearch open onClose={vi.fn()} />)
+
+    await waitFor(() => expect(getDrawerInput()).toHaveValue('coton mouliné'))
+  })
+
+  test('sur une fiche produit, la loupe reprend la dernière recherche lancée', async () => {
+    const user = userEvent.setup()
+    locationValue = { pathname: '/', search: '' }
+    const { unmount } = render(<NavSearch open onClose={vi.fn()} />)
+    await user.type(getDrawerInput(), 'perlé 5')
+    fireEvent.submit(getDrawerInput().closest('form'))
+    unmount()
+
+    locationValue = { pathname: '/produit/dmc-perle-5', search: '' }
+    render(<NavSearch open onClose={vi.fn()} />)
+    await waitFor(() => expect(getDrawerInput()).toHaveValue('perlé 5'))
+  })
+
+  test('effacer à la croix fait oublier le terme', async () => {
+    const user = userEvent.setup()
+    sessionStorage.setItem('nav_last_search', 'aida 14')
+    locationValue = { pathname: '/produit/x', search: '' }
+    const { unmount } = render(<NavSearch open onClose={vi.fn()} />)
+    await waitFor(() => expect(getDrawerInput()).toHaveValue('aida 14'))
+
+    await user.click(screen.getAllByRole('button', { name: 'Effacer' }).at(-1))
+    unmount()
+
+    render(<NavSearch open onClose={vi.fn()} />)
+    await waitFor(() => expect(getDrawerInput()).toHaveValue(''))
   })
 })
