@@ -11,13 +11,35 @@
    Les mots de 3 lettres ou moins sont laissés intacts (« bas », « lps »…). */
 const singularize = (token) => (token.length > 3 ? token.replace(/[sx]$/i, '') : token);
 
+/* Apostrophes, droite et typographiques : le clavier de l'iPhone saisit « ’ » et
+   non « ' ». Elles séparent les mots, comme dans l'index FULLTEXT de MySQL qui
+   découpe « l'Avent » en « l » + « avent ». Gardées dans le terme, elles rendaient
+   toute recherche avec élision infructueuse : « calendrier de l'Avent » ne
+   trouvait aucun des 129 calendriers de l'Avent du catalogue. */
+const APOSTROPHES = /['’‘ʼ`´]/g;
+
+/* Ponctuation qui sépare les mots sans en faire partie. La recherche FULLTEXT
+   l'ignorait déjà, mais la recherche admin (LIKE) exigeait « permin, » avec sa
+   virgule. Le point et le trait d'union restent : « 2.5 », « 1006-5860 ». */
+const SEPARATORS = /[,;:!?«»“”„]/g;
+
+/* Lettre isolée laissée par une élision (« l », « d », « j »…) : aucun intérêt
+   pour la recherche, et elle prenait une des places limitées — « Permin, kit
+   calendrier de l'Avent Nain » comptait 7 mots, et « nain » était coupé. Un
+   chiffre isolé est gardé : « perlé 5 » en a besoin. */
+const isElisionLeftover = (token) => token.length === 1 && !/[0-9]/.test(token);
+
 /* Découpe une saisie en mots exploitables, ramenés au singulier.
-   `max` borne le nombre de termes : au-delà la requête coûte plus qu'elle ne sert. */
+   `max` borne le nombre de termes : au-delà la requête coûte plus qu'elle ne sert.
+   La borne s'applique APRÈS le retrait des restes d'élision. */
 const toSearchTerms = (input, max = 6) =>
   String(input ?? '')
+    .replace(APOSTROPHES, ' ')
+    .replace(SEPARATORS, ' ')
     .trim()
     .split(/\s+/)
     .filter(Boolean)
+    .filter((token) => !isElisionLeftover(token))
     .slice(0, max)
     .map(singularize);
 

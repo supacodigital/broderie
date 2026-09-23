@@ -41,7 +41,9 @@ beforeAll(async () => {
   });
   // Autre article portant le même numéro dans un nom plus long — ex æquo sur le score
   await createProduct({ name: 'Zorbalin Etoile art 617, échevette 8 mètres 97310', description: 'Fil zorbalin.' });
-  // Toile dont le nom porte un nombre de 2 chiffres
+  // Nom avec élision — « calendrier de l'Avent » ne trouvait rien
+  await createProduct({ name: "Zorbalin, kit calendrier de l'Avent Gnome", description: 'Kit zorbalin.' });
+    // Toile dont le nom porte un nombre de 2 chiffres
   await createProduct({ name: 'Zorbalin, toile Aïda 14, 5,4 points/cm', description: 'Toile zorbalin.' });
   await createProduct({ name: 'Zorbalin, toile Aïda 18', description: 'Toile zorbalin 140 cm.' });
 });
@@ -87,9 +89,16 @@ describe('CLI-01 — classement de la recherche', () => {
     }
   });
 
+  test('le nom complet avec apostrophe retrouve l\'article (droite ou typographique)', async () => {
+    for (const q of ["Zorbalin, kit calendrier de l'Avent Gnome", 'zorbalin calendrier de l’Avent gnome']) {
+      const { rows } = await productRepository.findAll({ locale: 'fr', q, limit: 10 });
+      expect(names(rows)[0]).toBe("Zorbalin, kit calendrier de l'Avent Gnome");
+    }
+  });
+
   test('une recherche sans nombre garde le classement du texte', async () => {
     const { rows } = await productRepository.findAll({ locale: 'fr', q: 'zorbalin', limit: 10 });
-    expect(rows).toHaveLength(5);
+    expect(rows).toHaveLength(6);
     rows.forEach((r) => expect(Number(r.relevance)).toBeLessThan(100));
   });
 });
