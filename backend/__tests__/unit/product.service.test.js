@@ -11,16 +11,18 @@ jest.mock('../../repositories/product.repository', () => ({
 jest.mock('../../repositories/category.repository', () => ({
   findBySlug: jest.fn(),
   findAll:    jest.fn(),
+  findTree:   jest.fn(),
 }));
 
 jest.mock('../../config/cache', () => ({
   cache: { get: jest.fn(), set: jest.fn() },
   // Écriture tolérante au cache plein — voir config/cache.js
   cacheSet: jest.fn(),
-  TTL:   { PRODUCTS: 300, PRODUCT: 300 },
+  TTL:   { PRODUCTS: 300, PRODUCT: 300, CATEGORIES: 1800 },
   keys:  {
     productsList: jest.fn((...a) => `list:${a.join(':')}`),
     product:      jest.fn((...a) => `product:${a.join(':')}`),
+    categoryTree: jest.fn(() => 'categories:tree'),
   },
 }));
 
@@ -92,7 +94,7 @@ describe('product.service — getAll()', () => {
   test('résout le slug catégorie en categoryIds avec enfants', async () => {
     cache.get.mockReturnValue(null);
     categoryRepository.findBySlug.mockResolvedValue({ id: 2, slug: 'fils' });
-    categoryRepository.findAll.mockResolvedValue([
+    categoryRepository.findTree.mockResolvedValue([
       { id: 3, parent_id: 2 },
       { id: 4, parent_id: 2 },
       { id: 5, parent_id: 9 },
@@ -106,10 +108,35 @@ describe('product.service — getAll()', () => {
     expect(callArgs.categorySlug).toBeUndefined();
   });
 
+  test('non-régression : le filtre catégorie n\'appelle jamais la requête de comptage', async () => {
+    // findAll() compte les produits de chaque rayon : lancée à chaque page
+    // catalogue, elle saturait le pool MySQL et la boutique tombait en 504
+    cache.get.mockReturnValue(null);
+    categoryRepository.findBySlug.mockResolvedValue({ id: 2, slug: 'fils' });
+    categoryRepository.findTree.mockResolvedValue([{ id: 3, parent_id: 2 }]);
+    productRepository.findAll.mockResolvedValue({ rows: [], total: 0 });
+
+    await service.getAll({ locale: 'fr', category: 'fils' });
+
+    expect(categoryRepository.findAll).not.toHaveBeenCalled();
+    expect(cacheSet).toHaveBeenCalledWith('categories:tree', [{ id: 3, parent_id: 2 }], 1800);
+  });
+
+  test('réutilise l\'arborescence en cache sans interroger la base', async () => {
+    cache.get.mockImplementation((k) => (k === 'categories:tree' ? [{ id: 3, parent_id: 2 }] : null));
+    categoryRepository.findBySlug.mockResolvedValue({ id: 2, slug: 'fils' });
+    productRepository.findAll.mockResolvedValue({ rows: [], total: 0 });
+
+    await service.getAll({ locale: 'fr', category: 'fils' });
+
+    expect(categoryRepository.findTree).not.toHaveBeenCalled();
+    expect(productRepository.findAll.mock.calls[0][0].categoryIds).toEqual([2, 3]);
+  });
+
   test('résout le slug catégorie sans enfants → categoryIds = [id]', async () => {
     cache.get.mockReturnValue(null);
     categoryRepository.findBySlug.mockResolvedValue({ id: 7, slug: 'aiguilles' });
-    categoryRepository.findAll.mockResolvedValue([{ id: 8, parent_id: 1 }]);
+    categoryRepository.findTree.mockResolvedValue([{ id: 8, parent_id: 1 }]);
     productRepository.findAll.mockResolvedValue({ rows: [], total: 0 });
 
     await service.getAll({ locale: 'fr', category: 'aiguilles' });
@@ -229,7 +256,7 @@ describe('product.service — search()', () => {
 describe('product.service — getByCategorySlug()', () => {
   test('retourne les produits de la catégorie avec pagination', async () => {
     categoryRepository.findBySlug.mockResolvedValue({ id: 2, slug: 'fils', name: 'Fils' });
-    categoryRepository.findAll.mockResolvedValue([]);
+    categoryRepository.findTree.mockResolvedValue([]);
     productRepository.findByCategoryIds.mockResolvedValue({ rows: [{ id: 1 }], total: 1 });
 
     const result = await service.getByCategorySlug('fils', { locale: 'fr', page: '1', limit: '20' });
@@ -244,7 +271,7 @@ describe('product.service — getByCategorySlug()', () => {
      classement. */
   test('inclut les sous-catégories et petites-sous-catégories du rayon', async () => {
     categoryRepository.findBySlug.mockResolvedValue({ id: 2, slug: 'fils' });
-    categoryRepository.findAll.mockResolvedValue([
+    categoryRepository.findTree.mockResolvedValue([
       { id: 2,  parent_id: null },
       { id: 20, parent_id: 2 },    // sous-catégorie
       { id: 21, parent_id: 2 },
@@ -269,7 +296,7 @@ describe('product.service — getByCategorySlug()', () => {
 
   test('applique les paramètres sort et order', async () => {
     categoryRepository.findBySlug.mockResolvedValue({ id: 3 });
-    categoryRepository.findAll.mockResolvedValue([]);
+    categoryRepository.findTree.mockResolvedValue([]);
     productRepository.findByCategoryIds.mockResolvedValue({ rows: [], total: 0 });
 
     await service.getByCategorySlug('fils', { locale: 'de', sort: 'price_chf', order: 'asc' });

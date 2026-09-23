@@ -8,6 +8,19 @@ const searchLogService = require('./searchLog.service');
 // Limite max de résultats par page — protection contre les abus
 const MAX_LIMIT = 100;
 
+// Ids d'un rayon + enfants + petits-enfants (hiérarchie à 3 niveaux max),
+// lus sur l'arborescence légère mise en cache
+const getDescendantIds = async (categoryId) => {
+  let tree = cache.get(keys.categoryTree());
+  if (!tree) {
+    tree = await categoryRepository.findTree();
+    cacheSet(keys.categoryTree(), tree, TTL.CATEGORIES);
+  }
+  const children = tree.filter(c => c.parent_id === categoryId).map(c => c.id);
+  const grandchildren = tree.filter(c => children.includes(c.parent_id)).map(c => c.id);
+  return [categoryId, ...children, ...grandchildren];
+};
+
 const getAll = async (query) => {
   const locale = normalizeLocale(query.locale);
   const page = Math.max(1, parseInt(query.page) || 1);
@@ -33,10 +46,7 @@ const getAll = async (query) => {
   if (filters.categorySlug) {
     const category = await categoryRepository.findBySlug(filters.categorySlug, locale);
     if (!category) throw new AppError('Catégorie introuvable.', 404);
-    const allCats = await categoryRepository.findAll(locale);
-    const children = allCats.filter(c => c.parent_id === category.id).map(c => c.id);
-    const grandchildren = allCats.filter(c => children.includes(c.parent_id)).map(c => c.id);
-    filters.categoryIds = [category.id, ...children, ...grandchildren];
+    filters.categoryIds = await getDescendantIds(category.id);
     delete filters.categorySlug;
   }
 
@@ -138,12 +148,8 @@ const getByCategorySlug = async (slug, query) => {
      n'apparaissaient pas dans leur rayon parent. Le défaut passait inaperçu
      tant que les sous-catégories servaient peu ; la cliente en utilise
      désormais pour 3 682 articles, qui devenaient introuvables en boutique. */
-  const allCats = await categoryRepository.findAll(locale);
-  const children = allCats.filter(c => c.parent_id === category.id).map(c => c.id);
-  const grandchildren = allCats.filter(c => children.includes(c.parent_id)).map(c => c.id);
-
   const { rows, total } = await productRepository.findByCategoryIds({
-    categoryIds: [category.id, ...children, ...grandchildren],
+    categoryIds: await getDescendantIds(category.id),
     locale, page, limit, sort, order,
   });
 

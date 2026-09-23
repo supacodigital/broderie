@@ -53,6 +53,8 @@ const keys = {
     `products:list:${locale}:${page}:${limit}:${filters}`,
   product: (id, locale) => `product:${id}:${locale}`,
   categories: (locale) => `categories:${locale}`,
+  // Préfixe « categories » : purgé avec les autres par l'admin catégories
+  categoryTree: () => 'categories:tree',
   brands: () => 'products:brands',
   taxRates: () => 'tax_rates',
   shippingRates: () => 'shipping_rates',

@@ -52,4 +52,12 @@ const findBySlug = async (slug, locale = 'fr') => {
   return rows[0] || null;
 };
 
-module.exports = { findAll, findBySlug };
+// Arborescence seule (id + parent) — sert à résoudre les descendants d'un rayon.
+// Ne jamais passer par findAll() pour cela : son comptage produits par rayon
+// coûte plusieurs secondes et saturait le pool MySQL à chaque page catalogue.
+const findTree = async () => {
+  const [rows] = await pool.execute('SELECT id, parent_id FROM categories');
+  return rows;
+};
+
+module.exports = { findAll, findBySlug, findTree };
