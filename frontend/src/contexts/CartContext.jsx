@@ -121,6 +121,17 @@ export function CartProvider({ children }) {
   /* Vider le panier */
   const clearCart = useCallback(() => dispatch({ type: 'CLEAR' }), [])
 
+  /* Recharger le panier depuis le serveur — après l'annulation d'une commande
+     impayée, dont les articles ont été remis dans le panier côté serveur */
+  const reloadCart = useCallback(async () => {
+    try {
+      const res = await fetchCart()
+      dispatch({ type: 'SET_ITEMS', payload: (res.data?.items ?? []).map(normalizeItem) })
+    } catch {
+      dispatch({ type: 'SET_ITEMS', payload: [] })
+    }
+  }, [])
+
   /* Valeurs calculées */
   /* Nombre d'articles affiché dans la barre et le panier.
      Un article vendu à la coupe compte pour 1, quelle que soit la longueur :
@@ -148,6 +159,7 @@ export function CartProvider({ children }) {
     updateQty,
     removeItem,
     clearCart,
+    reloadCart,
   }
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

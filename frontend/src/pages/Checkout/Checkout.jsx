@@ -9,7 +9,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { useCart } from '../../contexts/CartContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
-import { createOrder } from '../../services/orders.service.js'
+import { abandonOrderPayment, createOrder } from '../../services/orders.service.js'
 import { createTwintIntent, createCardIntent } from '../../services/payments.service.js'
 import { validateCoupon } from '../../services/coupons.service.js'
 import { getAddresses } from '../../services/addresses.service.js'
@@ -986,7 +986,7 @@ function StepConfirm({ orderId, paymentMethod, t }) {
 export default function Checkout() {
   const { t }                                        = useTranslation()
   const navigate                                     = useNavigate()
-  const { items, subtotal, totalWeightKg, clearCart } = useCart()
+  const { items, subtotal, totalWeightKg, clearCart, reloadCart } = useCart()
   const { user, isAuthenticated }                    = useAuth()
 
   /* Restauration depuis sessionStorage après refresh à l'étape paiement */
@@ -1006,6 +1006,7 @@ export default function Checkout() {
     return parseFloat(sessionStorage.getItem('checkout_order_total') || '0')
   })
   const [isSubmitting,   setIsSubmitting]   = useState(false)
+  const [isLeavingPayment, setIsLeavingPayment] = useState(false)
   const [globalError,    setGlobalError]    = useState('')
   const [prefill,        setPrefill]        = useState(null)
   const [savedAddresses, setSavedAddresses] = useState([])
@@ -1117,6 +1118,37 @@ export default function Checkout() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  /* Quitter l'étape de paiement carte / Twint sans payer (CLI-07).
+     La commande impayée est annulée côté serveur — stock libéré, articles remis
+     au panier — puis la cliente revient au choix du moyen de paiement.
+     Avant, ce bouton ramenait à l'étape 2 avec un panier déjà vidé : la page la
+     renvoyait sur un panier vide, et la commande restait dans l'administration. */
+  const handleLeavePayment = async () => {
+    setGlobalError('')
+    setIsLeavingPayment(true)
+    try {
+      if (orderId) await abandonOrderPayment(orderId)
+    } catch (err) {
+      // 404 : commande déjà annulée (délai de 2 h dépassé) — on peut repartir.
+      // Tout autre refus (paiement peut-être abouti) : on reste sur place.
+      if (err.response?.status !== 404) {
+        setGlobalError(err.response?.data?.message ?? t('checkout.errors.generic'))
+        setIsLeavingPayment(false)
+        return
+      }
+    }
+    for (const key of ['checkout_step', 'checkout_order_id', 'checkout_order_total',
+      'checkout_subtotal', 'checkout_items', 'checkout_shipping']) {
+      sessionStorage.removeItem(key)
+    }
+    await reloadCart()
+    setOrderId(null)
+    setIsLeavingPayment(false)
+    // Après un rechargement de page, l'adresse saisie n'est plus en mémoire
+    setStep(address ? 2 : 1)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const handlePlaceOrder = async ({ payment_method, wants_printed_invoice = false }) => {
     setGlobalError('')
     setIsSubmitting(true)
@@ -1201,24 +1233,22 @@ export default function Checkout() {
       {(step === 'twint' || step === 'card') && (
         <div className={s.layout}>
           <div>
-            {/* Sortie de l'étape paiement.
-                Sans elle, une cliente arrivée sur le formulaire de paiement ne
-                pouvait plus changer d'avis : l'étape est mémorisée pour survivre
-                à un rechargement, et rien ne l'effaçait tant que le paiement
-                n'avait pas abouti. Revenir en arrière n'annule pas la commande —
-                elle reste en attente de paiement et son numéro est conservé. */}
+            {/* Sortie de l'étape paiement : annule la commande impayée et
+                remet les articles au panier (voir handleLeavePayment). */}
             <button
               type="button"
               className={s.changePaymentBtn}
-              onClick={() => {
-                sessionStorage.removeItem('checkout_step')
-                setStep(2)
-                window.scrollTo({ top: 0, behavior: 'smooth' })
-              }}
+              onClick={handleLeavePayment}
+              disabled={isLeavingPayment}
             >
               <ChevronLeft size={14} aria-hidden="true" />
-              Choisir un autre moyen de paiement
+              {isLeavingPayment ? 'Annulation…' : 'Choisir un autre moyen de paiement'}
             </button>
+            {globalError && (
+              <div className={s.globalError} role="alert">
+                <AlertCircle size={16} aria-hidden="true" />{globalError}
+              </div>
+            )}
 
             {step === 'twint' && (
               <StepTwint

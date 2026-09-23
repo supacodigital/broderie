@@ -5,8 +5,16 @@ jest.mock('../../config/mailer', () => ({
 }));
 
 jest.mock('../../config/env', () => ({
-  mailFrom:  '"Au Point-Compté" <noreply@broderie.ch>',
-  clientUrl: 'https://broderie.ch',
+  mailFrom:    '"Au Point-Compté" <noreply@broderie.ch>',
+  clientUrl:   'https://broderie.ch',
+  mailContact: 'contact@broderie.ch',
+}));
+
+// Coordonnées de retrait — lues en base dans l'application
+jest.mock('../../services/shopSettings.service', () => ({
+  getPickupSettings: jest.fn().mockResolvedValue({
+    name: 'Au Point-Compté', address: 'Chemin du Collège 6', zip: '1509', city: 'Vucherens', hours: 'Mar/Mer',
+  }),
 }));
 
 const transporter = require('../../config/mailer');
@@ -132,6 +140,111 @@ describe('email.service — sendOrderConfirmation()', () => {
 
     const mail = transporter.sendMail.mock.calls[0][0];
     expect(mail.html).toContain('3 à 5 jours ouvrables');
+  });
+});
+
+// ── CLI-08 : SKU et adresses dans les e-mails de commande ────────────────────
+
+/* Non-régression CLI-08 — « les e-mails de confirmation de commande ne
+   contiennent ni les numéros SKU des articles, ni l'adresse de livraison ». */
+const shippedOrder = {
+  ...fakeOrder,
+  payment_method: 'invoice_qr',
+  status: 'pending_invoice',
+  items: [
+    { product_id: 1, unit_price: 9.80, quantity: 2,
+      product_snapshot_json: JSON.stringify({ name: 'Fil DMC 310', sku: 'DMC-117-310' }) },
+  ],
+  shipping_first_name: 'Marie', shipping_last_name: 'Dupont',
+  shipping_street: 'Rue du Bourg', shipping_street_number: '12',
+  shipping_zip: '1510', shipping_city: 'Moudon', shipping_canton: 'VD',
+  billing_first_name: 'Marie', billing_last_name: 'Dupont',
+  billing_street: 'Rue du Bourg', billing_street_number: '12',
+  billing_zip: '1510', billing_city: 'Moudon', billing_canton: 'VD',
+};
+
+describe('email.service — CLI-08 : SKU et adresses', () => {
+  test('la confirmation affiche la référence (SKU) de chaque article', async () => {
+    await service.sendOrderConfirmation({ user: fakeUser, order: shippedOrder });
+    const { html } = transporter.sendMail.mock.calls[0][0];
+    expect(html).toContain('Réf. DMC-117-310');
+  });
+
+  test('la confirmation affiche l\'adresse de livraison complète', async () => {
+    await service.sendOrderConfirmation({ user: fakeUser, order: shippedOrder });
+    const { html } = transporter.sendMail.mock.calls[0][0];
+    expect(html).toContain('Adresse de livraison');
+    expect(html).toContain('Marie Dupont');
+    expect(html).toContain('Rue du Bourg 12');
+    expect(html).toContain('1510 Moudon (VD)');
+  });
+
+  test('l\'adresse de facturation n\'apparaît que si elle diffère', async () => {
+    await service.sendOrderConfirmation({ user: fakeUser, order: shippedOrder });
+    expect(transporter.sendMail.mock.calls[0][0].html).not.toContain('Adresse de facturation');
+
+    await service.sendOrderConfirmation({
+      user: fakeUser,
+      order: { ...shippedOrder, billing_street: 'Avenue de la Gare', billing_street_number: '3' },
+    });
+    const { html } = transporter.sendMail.mock.calls[1][0];
+    expect(html).toContain('Adresse de facturation');
+    expect(html).toContain('Avenue de la Gare 3');
+  });
+
+  test('un retrait en boutique affiche l\'adresse de la boutique, sans promesse d\'expédition', async () => {
+    await service.sendOrderConfirmation({
+      user: fakeUser,
+      order: { ...shippedOrder, payment_method: 'pickup', status: 'pending_pickup' },
+    });
+    const { html } = transporter.sendMail.mock.calls[0][0];
+    expect(html).toContain('Retrait en boutique');
+    expect(html).toContain('Chemin du Collège 6');
+    expect(html).not.toContain('Adresse de livraison');
+    expect(html).not.toContain('numéro de suivi');
+  });
+
+  test('les données d\'adresse sont échappées (protection XSS)', async () => {
+    await service.sendOrderConfirmation({
+      user: fakeUser,
+      order: { ...shippedOrder, shipping_street: '<script>alert(1)</script>' },
+    });
+    const { html } = transporter.sendMail.mock.calls[0][0];
+    expect(html).not.toContain('<script>alert(1)</script>');
+    expect(html).toContain('&lt;script&gt;');
+  });
+
+  test('l\'adresse de livraison affiche le téléphone du destinataire', async () => {
+    await service.sendOrderConfirmation({
+      user: fakeUser,
+      order: { ...shippedOrder, shipping_phone: '079 123 45 67' },
+    });
+    const { html } = transporter.sendMail.mock.calls[0][0];
+    expect(html).toContain('Tél. 079 123 45 67');
+    // Même adresse en facturation : le téléphone seul ne doit pas la faire apparaître
+    expect(html).not.toContain('Adresse de facturation');
+  });
+
+  test('retrait en boutique : la notification donne le téléphone de la cliente', async () => {
+    await service.sendAdminOrderNotification({
+      user: { ...fakeUser, last_name: 'Dupont' },
+      order: { ...shippedOrder, payment_method: 'pickup', shipping_phone: '079 123 45 67' },
+    });
+    const { html } = transporter.sendMail.mock.calls[0][0];
+    expect(html).toContain('Téléphone : <strong>079 123 45 67</strong>');
+  });
+
+  test('la notification boutique affiche SKU, adresse et moyen de paiement lisible', async () => {
+    await service.sendAdminOrderNotification({
+      user: { ...fakeUser, last_name: 'Dupont' },
+      order: shippedOrder,
+    });
+    const { html } = transporter.sendMail.mock.calls[0][0];
+    expect(html).toContain('Réf. DMC-117-310');
+    expect(html).toContain('Rue du Bourg 12');
+    expect(html).toContain('Moyen de paiement : <strong>Facture QR</strong>');
+    // Le statut technique ne doit plus tenir lieu de moyen de paiement
+    expect(html).not.toContain('pending_invoice');
   });
 });
 

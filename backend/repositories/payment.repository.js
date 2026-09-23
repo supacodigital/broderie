@@ -47,6 +47,18 @@ const findByOrderIdAndMethod = async (orderId, method) => {
   return rows[0] || null;
 };
 
+// Identifiants Stripe (PaymentIntent) ouverts pour une commande — à annuler chez
+// Stripe avant d'annuler la commande, pour qu'aucun ne puisse encore être payé.
+const findOpenStripeIntentIds = async (orderId) => {
+  const [rows] = await pool.execute(
+    `SELECT DISTINCT provider_payment_id FROM payments
+     WHERE order_id = ? AND provider_payment_id IS NOT NULL
+       AND method IN ('card', 'twint') AND status IN ('pending', 'failed', 'processing')`,
+    [orderId]
+  );
+  return rows.map((r) => r.provider_payment_id);
+};
+
 // Enregistre un event webhook Stripe pour l'idempotence.
 // Appelé APRÈS le traitement métier (voir payment.service.js) : acquitter en amont
 // ferait perdre le paiement si le traitement échoue et que Stripe retente.
@@ -70,5 +82,5 @@ const hasProcessedWebhookEvent = async (eventId) => {
 
 module.exports = {
   create, updateStatusByOrder, findByOrderId, findByOrderIdAndMethod,
-  registerWebhookEvent, hasProcessedWebhookEvent,
+  registerWebhookEvent, hasProcessedWebhookEvent, findOpenStripeIntentIds,
 };

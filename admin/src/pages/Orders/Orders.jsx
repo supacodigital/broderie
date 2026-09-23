@@ -15,17 +15,19 @@ const PER_PAGE_OPTIONS = [20, 50, 100]
 
 /* Vues rapides — regroupent les statuts par geste métier.
    « À traiter » = tout ce qui attend une action de la boutique ; « Impayées » =
-   les factures en attente de règlement, qui servent aux relances. */
+   les factures en attente de règlement, qui servent aux relances, et les
+   paiements carte / Twint en attente ou refusés. */
 const PRESETS = [
   { key: 'todo',   label: 'À traiter', statuses: ['pending', 'paid', 'processing', 'pending_pickup'] },
-  { key: 'unpaid', label: 'Impayées',  statuses: ['pending_invoice', 'awaiting_payment'] },
+  { key: 'unpaid', label: 'Impayées',  statuses: ['pending_invoice', 'awaiting_payment', 'payment_failed'] },
   { key: 'ready',  label: 'Prêtes',    statuses: ['ready_for_pickup', 'shipped'] },
 ]
 
 const STATUS_OPTIONS = [
   { value: '',                 label: 'Tous les statuts' },
   { value: 'pending',          label: 'En attente' },
-  { value: 'awaiting_payment', label: 'Att. paiement' },
+  { value: 'awaiting_payment', label: 'En attente de paiement' },
+  { value: 'payment_failed',   label: 'Paiement refusé' },
   { value: 'pending_invoice',  label: 'Facture à payer' },
   { value: 'pending_pickup',   label: 'Retrait en attente' },
   { value: 'ready_for_pickup', label: 'Prête pour le retrait' },

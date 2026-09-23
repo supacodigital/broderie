@@ -182,6 +182,7 @@ const anonymizeUser = async (userId) => {
          shipping_first_name = 'Supprimé', shipping_last_name = 'Supprimé',
          shipping_street = NULL, shipping_street_number = NULL,
          shipping_city = NULL, shipping_zip = NULL, shipping_canton = NULL,
+         shipping_phone = NULL,
          billing_first_name = 'Supprimé', billing_last_name = 'Supprimé',
          billing_street = NULL, billing_street_number = NULL,
          billing_city = NULL, billing_zip = NULL, billing_canton = NULL

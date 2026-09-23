@@ -36,10 +36,11 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
          (user_id, status, subtotal, discount, coupon_code, shipping_cost, tax_amount, total, qr_reference,
           shipping_first_name, shipping_last_name,
           shipping_street, shipping_street_number, shipping_city, shipping_zip, shipping_country, shipping_canton,
+          shipping_phone,
           billing_first_name, billing_last_name,
           billing_street, billing_street_number, billing_city, billing_zip, billing_country, billing_canton,
           wants_printed_invoice)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId, status, subtotal, discount, couponCode, shippingCost, taxAmount, total, qrReference,
         address?.first_name ?? null,
@@ -50,6 +51,8 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
         address?.zip     ?? null,
         address?.country ?? 'CH',
         address?.canton  ?? null,
+        // Téléphone saisi au checkout — facultatif, chaîne vide = pas de numéro
+        address?.phone?.trim() || null,
         billing?.first_name ?? null,
         billing?.last_name  ?? null,
         billing?.street  ?? null,
@@ -188,7 +191,7 @@ const findAllByUserIdWithItems = async (userId) => {
             o.shipping_cost, o.tax_amount, o.total, o.qr_reference,
             o.created_at, o.updated_at,
             o.shipping_first_name, o.shipping_last_name, o.shipping_street, o.shipping_street_number,
-            o.shipping_city, o.shipping_zip, o.shipping_country, o.shipping_canton,
+            o.shipping_city, o.shipping_zip, o.shipping_country, o.shipping_canton, o.shipping_phone,
             o.billing_first_name, o.billing_last_name, o.billing_street, o.billing_street_number,
             o.billing_city, o.billing_zip, o.billing_country, o.billing_canton,
             o.wants_printed_invoice
@@ -258,7 +261,7 @@ const findById = async (orderId, userId = null) => {
             o.created_at, o.updated_at, o.user_id,
             o.shipping_first_name, o.shipping_last_name,
             o.shipping_street, o.shipping_street_number, o.shipping_city,
-            o.shipping_zip, o.shipping_country, o.shipping_canton,
+            o.shipping_zip, o.shipping_country, o.shipping_canton, o.shipping_phone,
             o.billing_first_name, o.billing_last_name,
             o.billing_street, o.billing_street_number, o.billing_city, o.billing_zip, o.billing_country, o.billing_canton,
             o.tracking_number, o.label_url, o.label_id,
@@ -308,7 +311,7 @@ const findById = async (orderId, userId = null) => {
   };
 };
 
-const VALID_STATUSES = ['pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
+const VALID_STATUSES = ['pending', 'awaiting_payment', 'payment_failed', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
 const ALLOWED_SORT   = { created_at: 'o.created_at', total: 'o.total' };
 
 const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order = 'desc', status = null, q = null, dateFrom = null, dateTo = null } = {}) => {
@@ -389,7 +392,7 @@ const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order =
 // si la commande est annulée/remboursée. Une commande déjà `cancelled`/`refunded`
 // a déjà rendu son stock : repasser de l'un à l'autre ne doit pas le rendre deux fois.
 const STOCK_HELD_STATUSES = [
-  'pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup',
+  'pending', 'awaiting_payment', 'payment_failed', 'pending_invoice', 'pending_pickup',
   'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered',
 ];
 const STOCK_RELEASING_STATUSES = ['cancelled', 'refunded'];
@@ -473,7 +476,7 @@ const updateTrackingNumber = async (orderId, trackingNumber) => {
    Une commande annulée ou remboursée a rendu son stock : la marquer payée
    laisserait Julie avec une commande à honorer dont les articles sont retournés
    en rayon. Une commande déjà expédiée ou livrée n'a plus à changer d'état. */
-const PAYABLE_STATUSES = ['pending', 'awaiting_payment', 'pending_invoice'];
+const PAYABLE_STATUSES = ['pending', 'awaiting_payment', 'payment_failed', 'pending_invoice'];
 
 const markPaidFromWebhook = async (orderId, providerPaymentId, method) => {
   const connection = await pool.getConnection();
@@ -545,7 +548,8 @@ const lockOrderForPaymentIntent = async (orderId, userId, method) => {
     if (!order) {
       throw new AppError('Commande introuvable.', 404);
     }
-    if (!['pending', 'awaiting_payment'].includes(order.status)) {
+    // `payment_failed` : la cliente réessaie après un refus de sa banque
+    if (!['pending', 'awaiting_payment', 'payment_failed'].includes(order.status)) {
       throw new AppError('Cette commande ne peut pas être payée.', 400);
     }
 
@@ -667,8 +671,185 @@ const saveQrReference = async (orderId, reference) => {
   return result.affectedRows > 0;
 };
 
+/* ─────────────────────────────────────────────────────────────
+   Commandes carte / Twint impayées (CLI-07)
+
+   Une commande par carte ou Twint est créée AVANT le paiement : le stock est
+   réservé et la cliente est envoyée sur le formulaire Stripe. Si la banque
+   refuse, ou si la cliente abandonne, la commande ne doit ni encombrer la liste
+   « À traiter » ni garder le stock indéfiniment.
+
+   Une commande est « en ligne impayée » quand son PREMIER paiement (le moyen
+   choisi au checkout, cf. findById) est carte ou Twint, qu'elle attend encore
+   son paiement et qu'aucun paiement n'a abouti. `pending` couvre les commandes
+   créées avant ce correctif, qui naissaient à ce statut.
+   ───────────────────────────────────────────────────────────── */
+const UNPAID_ONLINE_STATUSES = ['pending', 'awaiting_payment', 'payment_failed'];
+
+const unpaidOnlineConditionSql = `
+  o.status IN ('pending', 'awaiting_payment', 'payment_failed')
+  AND (SELECT p1.method FROM payments p1 WHERE p1.order_id = o.id
+       ORDER BY p1.created_at ASC, p1.id ASC LIMIT 1) IN ('card', 'twint')
+  AND NOT EXISTS (SELECT 1 FROM payments p2 WHERE p2.order_id = o.id
+                  AND p2.status IN ('succeeded', 'processing'))`;
+
+/* Commandes en ligne impayées plus anciennes que `maxAgeMinutes`.
+   Un QR Twint envoyé par e-mail depuis l'admin est valable 24 h : la commande
+   concernée n'est pas expirée tant que ce QR peut encore être payé. */
+const findExpiredUnpaidOnlineOrderIds = async (maxAgeMinutes, limit = 50) => {
+  const [rows] = await pool.query(
+    `SELECT o.id FROM orders o
+     WHERE ${unpaidOnlineConditionSql}
+       AND o.created_at < (NOW() - INTERVAL ? MINUTE)
+       AND NOT EXISTS (SELECT 1 FROM payments p3 WHERE p3.order_id = o.id
+                       AND p3.provider = 'stripe_qr_email'
+                       AND p3.created_at > (NOW() - INTERVAL 24 HOUR))
+     ORDER BY o.id ASC
+     LIMIT ?`,
+    [maxAgeMinutes, limit]
+  );
+  return rows.map((r) => r.id);
+};
+
+// Commandes en ligne impayées d'une cliente — libérées quand elle en passe une nouvelle
+const findUnpaidOnlineOrderIdsByUser = async (userId) => {
+  const [rows] = await pool.execute(
+    `SELECT o.id FROM orders o
+     WHERE o.user_id = ? AND ${unpaidOnlineConditionSql}
+     ORDER BY o.id ASC
+     LIMIT 20`,
+    [userId]
+  );
+  return rows.map((r) => r.id);
+};
+
+/* Annule une commande en ligne impayée et rend tout ce qu'elle retenait :
+   stock, utilisation du code promo, bon de fidélité. Une seule transaction —
+   une annulation à moitié faite laisserait par exemple le stock rendu mais le
+   code promo toujours décompté.
+
+   Re-vérifie sous verrou que la commande est toujours impayée : le webhook
+   Stripe a pu la passer à « payée » entre la sélection et l'annulation.
+   Retourne { cancelled, items } — les articles servent à remplir de nouveau le
+   panier de la cliente. */
+const cancelUnpaidOnlineOrder = async (orderId, note) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [[order]] = await connection.execute(
+      `SELECT o.id, o.user_id, o.status, o.coupon_code FROM orders o
+       WHERE o.id = ? AND ${unpaidOnlineConditionSql}
+       FOR UPDATE`,
+      [orderId]
+    );
+    if (!order) {
+      await connection.rollback();
+      return { cancelled: false, items: [] };
+    }
+
+    const [items] = await connection.execute(
+      `SELECT product_id, variant_id, quantity, unit_price, tax_rate_snapshot
+       FROM order_items WHERE order_id = ?`,
+      [orderId]
+    );
+
+    // Stock — les produits « sur commande » n'ont jamais été décrémentés
+    await connection.execute(
+      `UPDATE products p
+         INNER JOIN order_items oi ON oi.product_id = p.id
+         SET p.stock = p.stock + oi.quantity
+       WHERE oi.order_id = ? AND p.is_made_to_order = 0`,
+      [orderId]
+    );
+
+    if (order.coupon_code) {
+      // Code promo : l'utilisation comptée à la création est rendue
+      await connection.execute(
+        `UPDATE coupons SET used_count = GREATEST(used_count - 1, 0) WHERE code = ?`,
+        [order.coupon_code]
+      );
+      // Bon de fidélité : redevient utilisable s'il n'a pas expiré entre-temps
+      const [reward] = await connection.execute(
+        `UPDATE loyalty_rewards SET status = 'available'
+         WHERE user_id = ? AND code = ? AND status = 'used'
+           AND (expires_at IS NULL OR expires_at > NOW())`,
+        [order.user_id, order.coupon_code]
+      );
+      if (reward.affectedRows > 0) {
+        await connection.execute(
+          `DELETE FROM loyalty_transactions WHERE order_id = ? AND type = 'redeem'`,
+          [orderId]
+        );
+      }
+    }
+
+    await connection.execute(
+      `UPDATE payments SET status = 'cancelled'
+       WHERE order_id = ? AND status IN ('pending', 'failed')`,
+      [orderId]
+    );
+    await connection.execute(`UPDATE orders SET status = 'cancelled' WHERE id = ?`, [orderId]);
+    await connection.execute(
+      `INSERT INTO order_status_history (order_id, status, note, created_by)
+       VALUES (?, 'cancelled', ?, NULL)`,
+      [orderId, note]
+    );
+
+    await connection.commit();
+    return { cancelled: true, items };
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
+/* Refus de paiement signalé par Stripe : la commande passe à « Paiement refusé ».
+   Un nouveau refus (la cliente réessaie avec une autre carte) ajoute seulement
+   une ligne d'historique. Une commande déjà payée ou annulée n'est pas touchée —
+   les webhooks Stripe peuvent arriver dans le désordre. */
+const markPaymentFailed = async (orderId, note) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [[order]] = await connection.execute(
+      `SELECT status FROM orders WHERE id = ? FOR UPDATE`,
+      [orderId]
+    );
+    if (!order || !UNPAID_ONLINE_STATUSES.includes(order.status)) {
+      await connection.rollback();
+      return false;
+    }
+
+    if (order.status !== 'payment_failed') {
+      await connection.execute(
+        `UPDATE orders SET status = 'payment_failed' WHERE id = ?`,
+        [orderId]
+      );
+    }
+    await connection.execute(
+      `INSERT INTO order_status_history (order_id, status, note, created_by)
+       VALUES (?, 'payment_failed', ?, NULL)`,
+      [orderId, note]
+    );
+
+    await connection.commit();
+    return true;
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
   createOrder, findByUserId, findAllByUserIdWithItems, findById, findAllAdmin,
   updateStatusWithHistory, saveShippingLabel, updateTrackingNumber, markPaidFromWebhook,
   lockOrderForPaymentIntent, assignInvoiceNumber, saveQrReference,
+  UNPAID_ONLINE_STATUSES, findExpiredUnpaidOnlineOrderIds, findUnpaidOnlineOrderIdsByUser,
+  cancelUnpaidOnlineOrder, markPaymentFailed,
 };

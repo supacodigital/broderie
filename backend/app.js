@@ -244,6 +244,9 @@ const ROUTES = [
 const start = async () => {
   await testConnection();
 
+  // Annulation des commandes carte / Twint restées impayées plus de 2 h (CLI-07)
+  require('./services/unpaidOrder.service').startUnpaidOrderSweeper();
+
   app.listen(PORT, () => {
     const isDev = process.env.NODE_ENV === 'development';
     const line  = '─'.repeat(52);

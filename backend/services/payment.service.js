@@ -3,6 +3,7 @@ const QRCode            = require('qrcode');
 const paymentRepository = require('../repositories/payment.repository');
 const orderRepository   = require('../repositories/order.repository');
 const loyaltyService    = require('./loyalty.service');
+const orderService      = require('./order.service');
 const { AppError }      = require('../middlewares/errorHandler');
 const { roundCHF }      = require('../utils/chf.utils');
 const env               = require('../config/env');
@@ -186,7 +187,7 @@ const createTwintQrForEmail = async (orderId) => {
   const order = await orderRepository.findById(orderId);
   if (!order) throw new AppError('Commande introuvable.', 404);
 
-  if (!['pending', 'awaiting_payment', 'pending_invoice'].includes(order.status)) {
+  if (!['pending', 'awaiting_payment', 'payment_failed', 'pending_invoice'].includes(order.status)) {
     throw new AppError('Cette commande ne peut pas être payée.', 400);
   }
 
@@ -225,19 +226,19 @@ const createTwintQrForEmail = async (orderId) => {
 
   const qrBuffer = await QRCode.toBuffer(redirectUrl, { width: 400, margin: 2 });
 
-  const existing = await paymentRepository.findByOrderId(orderId);
-  if (existing) {
-    await paymentRepository.updateStatusByOrder(orderId, 'twint', 'pending', intent.id);
-  } else {
-    await paymentRepository.create({
-      orderId,
-      provider:          'stripe',
-      providerPaymentId: intent.id,
-      amount:            order.total,
-      method:            'twint',
-      status:            'pending',
-    });
-  }
+  /* Une ligne par QR envoyé, marquée `stripe_qr_email` : ce QR reste payable
+     24 h, et l'annulation automatique des commandes impayées (2 h) doit
+     l'épargner pendant ce délai — voir findExpiredUnpaidOnlineOrderIds.
+     La mise à jour d'une ligne existante ne ciblait que les lignes Twint : sur
+     une commande par carte, le QR n'était rattaché à aucun paiement. */
+  await paymentRepository.create({
+    orderId,
+    provider:          'stripe_qr_email',
+    providerPaymentId: intent.id,
+    amount:            order.total,
+    method:            'twint',
+    status:            'pending',
+  });
 
   const expiresAt = new Date(Date.now() + TWINT_QR_VALIDITY_HOURS * 60 * 60 * 1000);
 
@@ -346,6 +347,13 @@ const handleWebhook = async (rawBody, signature) => {
       if (order) {
         await loyaltyService.processOrderEarning(order.user_id, orderId, order.total)
           .catch((err) => console.error('[Fidélité] Crédit points échoué :', err.message));
+
+        /* Commande passée par carte / Twint : la confirmation n'est envoyée qu'à
+           présent, paiement accepté (CLI-07). Une commande par facture réglée
+           ensuite par un QR Twint a déjà reçu la sienne à sa création. */
+        if (['card', 'twint'].includes(order.payment_method)) {
+          orderService.sendOrderEmails(order, order.payment_method);
+        }
       }
     }
   }
@@ -356,6 +364,15 @@ const handleWebhook = async (rawBody, signature) => {
     if (orderId) {
       const method = intent.payment_method_types?.includes('card') ? 'card' : 'twint';
       await paymentRepository.updateStatusByOrder(orderId, method, 'failed');
+
+      /* La commande passe à « Paiement refusé » (CLI-07), avec le motif de la
+         banque dans l'historique. La cliente peut encore réessayer avec une
+         autre carte ; sans paiement, elle est annulée au bout de 2 h. */
+      const reason = intent.last_payment_error?.message;
+      await orderRepository.markPaymentFailed(
+        orderId,
+        `Paiement ${method === 'card' ? 'par carte' : 'Twint'} refusé${reason ? ` : ${reason}` : ''}`
+      );
     }
   }
 

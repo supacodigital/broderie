@@ -161,7 +161,10 @@ const generateLabel = async (orderId, order) => {
     zip:        order.shipping_zip,
     canton:     order.shipping_canton ?? '',
     country:    order.shipping_country ?? 'CH',
-    phone:      order.phone   ?? '',
+    /* Numéro donné au checkout (`order.phone` n'a jamais existé). Pas encore transmis
+       à Swiss Post : buildLabelPayload n'envoie pas de téléphone, le nom du champ
+       destinataire est à valider contre le Swagger avant de l'ajouter. */
+    phone:      order.shipping_phone ?? '',
   }
 
   if (!address.street || !address.city || !address.zip) {

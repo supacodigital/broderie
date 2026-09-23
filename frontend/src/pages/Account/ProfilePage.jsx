@@ -493,14 +493,14 @@ function AddressModal({ initial, onSave, onClose }) {
           <div className={s.formRow}>
             <div className={s.field}>
               <label htmlFor="addr-zip" className={s.label}>NPA <span className={s.requiredMark} aria-hidden="true">*</span></label>
-              <input id="addr-zip" type="text" maxLength={4} placeholder="1000" aria-required="true"
+              <input id="addr-zip" type="text" maxLength={4} placeholder="1509" aria-required="true"
                 className={`${s.input} ${errors.zip ? s.inputError : ''}`}
                 {...register('zip')} />
               {errors.zip && <span className={s.fieldError}><AlertCircle size={11} />{errors.zip.message}</span>}
             </div>
             <div className={s.field}>
               <label htmlFor="addr-city" className={s.label}>Localité <span className={s.requiredMark} aria-hidden="true">*</span></label>
-              <input id="addr-city" type="text" placeholder="Lausanne" aria-required="true"
+              <input id="addr-city" type="text" placeholder="Vucherens" aria-required="true"
                 className={`${s.input} ${errors.city ? s.inputError : ''}`}
                 {...register('city')} />
               {errors.city && <span className={s.fieldError}><AlertCircle size={11} />{errors.city.message}</span>}

@@ -420,7 +420,8 @@ export default function Dashboard() {
               <h2 className={s.cardTitle}>Accès rapide</h2>
             </div>
             <div className={s.quickLinks}>
-              <Link to="/commandes?status=awaiting_payment" className={s.quickLink}>
+              {/* Mêmes statuts que le compteur orders_pending du serveur */}
+              <Link to="/commandes?status=pending,pending_invoice" className={s.quickLink}>
                 <ShoppingCart size={15} />
                 <span>Commandes en attente</span>
                 {stats.orders_pending > 0 && (

@@ -82,13 +82,13 @@
   "crafts": {
     "eyebrow": "Notre histoire",
     "title": "L'amour du fil depuis 1995",
-    "text": "Fondée à Lausanne, Au Point-Compté est une boutique spécialisée dans les arts de l'aiguille. Depuis plus de 30 ans, nous accompagnons les passionnées de broderie avec une sélection rigoureuse de matériel de qualité supérieure.",
+    "text": "Fondée en 1995, Au Point-Compté est une boutique spécialisée dans les arts de l'aiguille. Depuis plus de 30 ans, nous accompagnons les passionnées de broderie avec une sélection rigoureuse de matériel de qualité supérieure.",
     "cta": "Découvrir notre histoire",
     "points": [
       "Fils DMC certifiés, couleurs garanties",
       "Kits conçus par nos brodeuses expertes",
       "Conseils personnalisés par téléphone et email",
-      "Livraison soignée depuis Lausanne, VD",
+      "Livraison soignée depuis Vucherens, VD",
       "Conforme LPD — vos données restent en Suisse"
     ]
   },
@@ -142,7 +142,7 @@
       "cgv": "CGV",
       "legal": "Mentions légales"
     },
-    "copyright": "© 2026 Au Point-Compté — Lausanne, Suisse 🇨🇭 · Hébergé par Infomaniak"
+    "copyright": "© 2026 Au Point-Compté — Vucherens, Suisse 🇨🇭 · Hébergé par Infomaniak"
   },
   "account": {
     "emailVerified": "Adresse email vérifiée",
@@ -231,9 +231,9 @@
     "streetNumber": "Numéro",
     "streetNumberPlaceholder": "12",
     "zip": "NPA",
-    "zipPlaceholder": "1006",
+    "zipPlaceholder": "1509",
     "city": "Localité",
-    "cityPlaceholder": "Lausanne",
+    "cityPlaceholder": "Vucherens",
     "canton": "Canton",
     "cantonPlaceholder": "VD",
     "cantonSelect": "Sélectionnez un canton",

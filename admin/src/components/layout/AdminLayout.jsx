@@ -203,7 +203,9 @@ export default function AdminLayout() {
     async function fetchBadges() {
       try {
         const [ordersRes, reviewsRes, stockRes] = await Promise.all([
-          getOrders({ status: "pending,awaiting_payment,pending_invoice,pending_pickup", limit: 1 }),
+          /* Les paiements carte / Twint en cours ou refusés n'y figurent pas :
+             ce ne sont pas des commandes à traiter (CLI-07). */
+          getOrders({ status: "pending,pending_invoice,pending_pickup", limit: 1 }),
           getReviews({ approved: false, limit: 1 }),
           getProducts({ low_stock: true, limit: 1 }),
         ]);

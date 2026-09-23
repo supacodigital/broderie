@@ -6,6 +6,13 @@ export async function createOrder(payload) {
   return res.data
 }
 
+/* Abandonne le paiement carte / Twint d'une commande : elle est annulée et
+   ses articles reviennent dans le panier */
+export async function abandonOrderPayment(id) {
+  const res = await api.post(`/orders/${id}/abandon-payment`)
+  return res.data
+}
+
 /* Récupère les commandes du client connecté */
 export async function getMyOrders(params = {}) {
   const res = await api.get('/orders', { params })

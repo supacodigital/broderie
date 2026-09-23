@@ -359,6 +359,10 @@ describe('user.repository — anonymizeUser()', () => {
 
     const usersUpdate = conn.execute.mock.calls.find((c) => /UPDATE users SET/.test(c[0]));
     expect(usersUpdate[1][0]).toMatch(/^deleted\+1\+\d+@anonymized\.local$/);
+
+    // Le téléphone figé sur les commandes est une donnée personnelle (LPD)
+    const ordersUpdate = calls.find((sql) => /UPDATE orders SET/.test(sql));
+    expect(ordersUpdate).toMatch(/shipping_phone = NULL/);
   });
 
   test('rollback + { alreadyDeleted } si le compte est déjà supprimé', async () => {

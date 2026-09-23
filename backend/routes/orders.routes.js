@@ -13,5 +13,7 @@ router.get('/', orderController.getOrders);
 router.get('/:id', orderController.getOrderById);
 router.get('/:id/tracking', orderController.getTracking);
 router.get('/:id/invoice', orderController.downloadInvoice);
+// Abandon de l'étape de paiement carte / Twint — annule la commande impayée (CLI-07)
+router.post('/:id/abandon-payment', orderController.abandonPayment);
 
 module.exports = router;

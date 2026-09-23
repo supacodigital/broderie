@@ -66,7 +66,7 @@ function layout(content) {
         <tr>
           <td style="background:#fdf2f8;border-top:1px solid #fbcfe8;padding:20px 40px;text-align:center;font-size:11px;color:#9D6480;line-height:1.7;">
             ${footerText}<br><br>
-            © ${new Date().getFullYear()} Au Point-Compté — Lausanne, Suisse
+            © ${new Date().getFullYear()} Au Point-Compté — Vucherens, Suisse
           </td>
         </tr>
 
@@ -95,18 +95,90 @@ function orderItemRow(item) {
     : (item.product_snapshot_json ?? {});
   const name   = escapeHtml(snap.name ?? `Produit #${item.product_id}`);
   const price  = roundCHF(parseFloat(item.unit_price) * item.quantity);
+  /* Référence article (SKU) figée à l'achat — demandée par la boutique (CLI-08) :
+     c'est elle qui identifie l'article sans ambiguïté, un même nom pouvant
+     désigner plusieurs coloris. */
+  const skuNote = snap.sku
+    ? `<br><span style="font-size:12px;color:#6b7280;">Réf. ${escapeHtml(snap.sku)}</span>`
+    : '';
   // Mention « sur commande » figée dans le snapshot produit au moment de l'achat
   const madeToOrderNote = snap.is_made_to_order
     ? `<br><span style="font-size:12px;font-weight:600;color:#6d28d9;">${MADE_TO_ORDER_LABEL}</span>`
     : '';
   return `<tr>
     <td style="padding:8px 0;border-bottom:1px solid #fbcfe8;font-size:13px;color:#1E1020;">
-      ${name}${item.quantity > 1 ? ` × ${item.quantity}` : ''}${madeToOrderNote}
+      ${name}${item.quantity > 1 ? ` × ${item.quantity}` : ''}${skuNote}${madeToOrderNote}
     </td>
     <td style="padding:8px 0;border-bottom:1px solid #fbcfe8;font-size:13px;font-weight:600;color:#1E1020;text-align:right;white-space:nowrap;">
       CHF ${price.toFixed(2)}
     </td>
   </tr>`;
+}
+
+// Libellés des moyens de paiement — mêmes termes que l'espace client
+const PAYMENT_LABELS = {
+  card:       'Carte bancaire',
+  twint:      'Twint',
+  invoice_qr: 'Facture QR',
+  pickup:     'Paiement au retrait en boutique',
+};
+
+// Adresse figée sur la commande (préfixe `shipping` ou `billing`) → lignes HTML échappées.
+// `withPhone` : ajoute le téléphone du destinataire (seule la livraison en porte un).
+function orderAddressLines(order, prefix, { withPhone = false } = {}) {
+  const f = (key) => order[`${prefix}_${key}`];
+  const name   = [f('first_name'), f('last_name')].filter(Boolean).join(' ');
+  const street = [f('street'), f('street_number')].filter(Boolean).join(' ');
+  const city   = [f('zip'), f('city')].filter(Boolean).join(' ');
+  const phone  = withPhone && f('phone') ? `Tél. ${f('phone')}` : '';
+  const lines  = [name, street, city ? `${city}${f('canton') ? ` (${f('canton')})` : ''}` : '', phone]
+    .filter(Boolean)
+    .map(escapeHtml);
+  return lines.length ? lines.join('<br>') : null;
+}
+
+/* Bloc « adresses » d'un e-mail de commande (CLI-08) : adresse de livraison —
+   ou lieu de retrait pour un Click & Collect — et adresse de facturation quand
+   elle diffère. `pickup` : coordonnées de la boutique, pour un retrait. */
+function orderAddressBlock(order, pickup = null) {
+  const cellStyle  = 'vertical-align:top;padding:0 12px 0 0;font-size:13px;color:#374151;line-height:1.6;';
+  const titleStyle = 'margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#9D6480;';
+
+  const shipping = pickup
+    ? [pickup.name, pickup.address, `${pickup.zip ?? ''} ${pickup.city ?? ''}`.trim()]
+        .filter(Boolean).map(escapeHtml).join('<br>')
+    : orderAddressLines(order, 'shipping', { withPhone: true });
+  const billing = orderAddressLines(order, 'billing');
+  // Comparaison sans le téléphone : la facturation n'en porte pas
+  const showBilling = billing && billing !== orderAddressLines(order, 'shipping');
+
+  const cells = [];
+  if (shipping) {
+    cells.push(`<td style="${cellStyle}">
+      <p style="${titleStyle}">${pickup ? 'Retrait en boutique' : 'Adresse de livraison'}</p>
+      ${shipping}
+    </td>`);
+  }
+  if (showBilling || (pickup && billing)) {
+    cells.push(`<td style="${cellStyle}">
+      <p style="${titleStyle}">Adresse de facturation</p>
+      ${billing}
+    </td>`);
+  }
+  if (cells.length === 0) return '';
+
+  return `<table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 8px;">
+      <tr>${cells.join('')}</tr>
+    </table>`;
+}
+
+// Coordonnées de la boutique pour une commande à retirer — null sinon
+async function pickupDetailsFor(order) {
+  if (order.payment_method !== 'pickup') return null;
+  /* require() local : shopSettings tire la couche base de données (voir
+     sendPickupReady). */
+  const { getPickupSettings } = require('./shopSettings.service');
+  return getPickupSettings().catch(() => null);
 }
 
 // ─────────────────────────────────────────────
@@ -160,12 +232,22 @@ TVA incluse|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n');
 
   const title = `Merci pour votre commande, ${firstName} !`;
 
-  const intro = `Nous avons bien reçu votre commande <strong>#${orderId}</strong>.
+  const pickup   = await pickupDetailsFor(order);
+  const isPickup = order.payment_method === 'pickup';
+
+  /* Click & Collect : ni expédition ni numéro de suivi — la cliente est
+     prévenue par un e-mail dédié quand sa commande est prête. */
+  const intro = isPickup
+    ? `Nous avons bien reçu votre commande <strong>#${orderId}</strong>.
+         Nous vous écrirons dès qu'elle sera prête à être retirée en boutique.`
+    : `Nous avons bien reçu votre commande <strong>#${orderId}</strong>.
          Vous serez notifié(e) dès l'expédition avec votre numéro de suivi Post CH.`;
 
   const totalLabel   = 'Total TTC';
   const detailLabel  = 'Voir ma commande';
-  const deliveryNote = `🚚 Livraison estimée : ${DELIVERY_DELAY} pour les articles en stock · La Poste Suisse`;
+  const deliveryNote = isPickup
+    ? '🏪 Retrait en boutique — paiement sur place'
+    : `🚚 Livraison estimée : ${DELIVERY_DELAY} pour les articles en stock · La Poste Suisse`;
 
   const body = `
     <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
@@ -194,6 +276,8 @@ TVA incluse|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n');
       </tr>
     </table>
 
+    ${orderAddressBlock(order, pickup)}
+
     <p style="margin:16px 0 0;font-size:12px;color:#9D6480;">
       ${deliveryNote}
     </p>
@@ -219,6 +303,10 @@ async function sendAdminOrderNotification({ user, order }) {
   const orderId    = parseInt(order.id, 10);
   const itemsHtml   = (order.items ?? []).map((item) => orderItemRow(item)).join('');
   const clientName  = `${escapeHtml(user.first_name)} ${escapeHtml(user.last_name)}`.trim() || user.email;
+  const pickup      = await pickupDetailsFor(order);
+  /* Le statut technique (« pending_invoice ») s'affichait ici à la place du
+     moyen de paiement. */
+  const paymentLabel = PAYMENT_LABELS[order.payment_method] ?? order.payment_method ?? '—';
 
   /* Demande de facture imprimée : encart bien visible, c'est une action manuelle
      à faire au moment de préparer le colis — facile à manquer sinon. */
@@ -239,7 +327,8 @@ async function sendAdminOrderNotification({ user, order }) {
     </h1>
     <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
       Client : <strong>${clientName}</strong> (${escapeHtml(user.email)})<br>
-      Méthode de paiement : <strong>${escapeHtml(order.status)}</strong>
+      ${pickup && order.shipping_phone ? `Téléphone : <strong>${escapeHtml(order.shipping_phone)}</strong><br>` : ''}
+      Moyen de paiement : <strong>${escapeHtml(paymentLabel)}</strong>
     </p>
 
     ${printedInvoiceNotice}
@@ -257,6 +346,8 @@ async function sendAdminOrderNotification({ user, order }) {
         </td>
       </tr>
     </table>
+
+    ${orderAddressBlock(order, pickup)}
 
     ${env.adminUrl ? btn(`${env.adminUrl.replace(/\/$/, '')}/commandes/${orderId}`, 'Voir la commande') : ''}
   `;

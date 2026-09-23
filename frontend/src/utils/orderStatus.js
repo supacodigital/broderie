@@ -5,6 +5,7 @@ import {
 export const STATUS_CFG = {
   pending:          { label: 'En attente',       color: '#d97706', bg: '#fffbeb',  icon: Clock       },
   awaiting_payment: { label: 'Paiement attendu', color: '#ea580c', bg: '#fff7ed', icon: CreditCard  },
+  payment_failed:   { label: 'Paiement refusé',  color: '#b91c1c', bg: '#fef2f2', icon: CreditCard  },
   pending_invoice:  { label: 'Facture à payer',  color: '#7c3aed', bg: '#f5f3ff', icon: FileText    },
   pending_pickup:   { label: 'Retrait en attente', color: '#0891b2', bg: '#ecfeff', icon: Store      },
   ready_for_pickup: { label: 'Prête pour le retrait', color: '#059669', bg: '#ecfdf5', icon: Store   },

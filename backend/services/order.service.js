@@ -9,13 +9,17 @@ const { roundCHF }      = require('../utils/chf.utils');
 const { getShippingCost } = require('../utils/shipping.utils');
 const emailService      = require('./email.service');
 const invoiceService    = require('./invoice.service');
+const unpaidOrderService = require('./unpaidOrder.service');
 
 const VALID_METHODS = ['card', 'twint', 'invoice_qr', 'pickup'];
 
 // Statut initial de la commande selon la méthode de paiement choisie
+/* Carte et Twint : la commande attend son paiement Stripe. Elle naissait
+   auparavant au statut `pending`, compté dans « À traiter » côté admin — une
+   carte refusée y apparaissait comme une vraie commande (CLI-07). */
 const INITIAL_STATUS_BY_METHOD = {
-  card:       'pending',          // paiement Stripe carte ensuite
-  twint:      'pending',          // paiement Stripe Twint ensuite
+  card:       'awaiting_payment', // paiement Stripe carte ensuite
+  twint:      'awaiting_payment', // paiement Stripe Twint ensuite
   invoice_qr: 'pending_invoice',  // facture QR envoyée, paiement sous 30 jours
   pickup:     'pending_pickup',   // retrait + paiement en boutique
 };
@@ -33,6 +37,12 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
   const activeItems = items.filter((item) => item.is_active && !item.deleted_at);
 
   if (activeItems.length === 0) throw new AppError('Le panier est vide.', 400);
+
+  /* Une commande carte / Twint précédente restée impayée retient encore son
+     stock : sans cette libération, la cliente dont la carte a été refusée et
+     qui recommence se voyait refuser un article à exemplaire unique pour
+     « stock insuffisant » — bloqué par sa propre commande. */
+  if (userId) await unpaidOrderService.releasePreviousUnpaidOrders(userId);
 
   /* Calcul du sous-total TTC sur `unit_price` — le prix courant recalculé par
      cart.repository (promotion en cours prise en compte), et non `price_snapshot`
@@ -166,8 +176,24 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
 
   const order = await orderRepository.findById(orderId);
 
-  // Emails — non bloquants
-  userRepository.findById(userId).then((user) => {
+  /* Carte / Twint : aucune confirmation tant que le paiement n'est pas accepté.
+     Elle partait jusqu'ici dès la création — une cliente dont la carte était
+     refusée recevait « commande confirmée », et Julie une notification de
+     commande à préparer. Les e-mails partent désormais du webhook Stripe
+     (voir sendOrderEmails, appelé par payment.service). */
+  if (!ONLINE_METHODS.includes(paymentMethod)) {
+    sendOrderEmails(order, paymentMethod);
+  }
+
+  return order;
+};
+
+const ONLINE_METHODS = ['card', 'twint'];
+
+/* E-mails d'une commande validée — confirmation cliente, notification boutique,
+   et facture QR en pièce jointe pour ce moyen de paiement. Non bloquants. */
+const sendOrderEmails = (order, paymentMethod) => {
+  userRepository.findById(order.user_id).then((user) => {
     if (!user) return;
 
     // Email de confirmation systématique
@@ -187,8 +213,6 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
       });
     }
   }).catch(() => {});
-
-  return order;
 };
 
 const getOrders = async (userId, query) => {
@@ -209,4 +233,4 @@ const getOrderById = async (orderId, userId) => {
   return order;
 };
 
-module.exports = { createOrder, getOrders, getOrderById };
+module.exports = { createOrder, getOrders, getOrderById, sendOrderEmails };

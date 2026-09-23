@@ -310,6 +310,50 @@ describe('payment.service — handleWebhook()', () => {
     expect(paymentRepository.updateStatusByOrder).toHaveBeenCalledWith(2, 'twint', 'failed');
   });
 
+  /* CLI-07 — une carte refusée doit apparaître comme telle dans l'administration,
+     et non comme une commande à traiter. */
+  test('passe la commande à « Paiement refusé » avec le motif de la banque', async () => {
+    mockEvent({ type: 'payment_intent.payment_failed',
+      data: { id: 'pi_fail', metadata: { order_id: '3' }, payment_method_types: ['card'],
+              last_payment_error: { message: 'Votre carte a été refusée.' } } });
+    paymentRepository.updateStatusByOrder.mockResolvedValue();
+    orderRepository.markPaymentFailed.mockResolvedValue(true);
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(orderRepository.markPaymentFailed).toHaveBeenCalledWith(
+      3, 'Paiement par carte refusé : Votre carte a été refusée.'
+    );
+  });
+
+  /* CLI-07 — la confirmation d'une commande carte / Twint ne part qu'une fois
+     le paiement accepté, plus à la création de la commande. */
+  test('envoie les e-mails de confirmation quand une commande carte est payée', async () => {
+    const orderService = require('../../services/order.service');
+    const spy = jest.spyOn(orderService, 'sendOrderEmails').mockImplementation(() => {});
+    orderRepository.findById.mockResolvedValue({ id: 4, user_id: 10, total: '58.40', status: 'paid', payment_method: 'card' });
+    mockEvent({ type: 'payment_intent.succeeded',
+      data: { id: 'pi_ok', metadata: { order_id: '4' }, payment_method_types: ['card'] } });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ id: 4 }), 'card');
+    spy.mockRestore();
+  });
+
+  test('ne renvoie pas de confirmation pour une commande par facture réglée par Twint', async () => {
+    const orderService = require('../../services/order.service');
+    const spy = jest.spyOn(orderService, 'sendOrderEmails').mockImplementation(() => {});
+    orderRepository.findById.mockResolvedValue({ id: 5, user_id: 10, total: '58.40', status: 'paid', payment_method: 'invoice_qr' });
+    mockEvent({ type: 'payment_intent.succeeded',
+      data: { id: 'pi_qr', metadata: { order_id: '5' }, payment_method_types: ['twint'] } });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
   test('ignore payment_intent.succeeded sans order_id dans metadata', async () => {
     mockEvent({ type: 'payment_intent.succeeded',
       data: { id: 'pi_no_order', metadata: {}, payment_method_types: ['card'] } });

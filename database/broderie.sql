@@ -447,7 +447,7 @@ CREATE TABLE cart_items (
 CREATE TABLE orders (
   id              INT UNSIGNED   NOT NULL AUTO_INCREMENT,
   user_id         INT UNSIGNED   NOT NULL,
-  status          ENUM('pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded') NOT NULL DEFAULT 'pending',
+  status          ENUM('pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded', 'payment_failed') NOT NULL DEFAULT 'pending',
   subtotal        DECIMAL(10, 2) NOT NULL,
   discount        DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
   coupon_code     VARCHAR(50)    NULL DEFAULT NULL,
@@ -465,6 +465,7 @@ CREATE TABLE orders (
   shipping_zip     VARCHAR(10)    NULL DEFAULT NULL,
   shipping_country CHAR(2)        NULL DEFAULT 'CH',
   shipping_canton  CHAR(2)        NULL DEFAULT NULL,
+  shipping_phone   VARCHAR(30)    NULL DEFAULT NULL,
   -- Adresse de facturation figée (peut différer de la livraison — tiers, entreprise…)
   billing_first_name VARCHAR(100) NULL DEFAULT NULL,
   billing_last_name  VARCHAR(100) NULL DEFAULT NULL,
@@ -509,7 +510,7 @@ CREATE TABLE order_items (
 CREATE TABLE order_status_history (
   id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
   order_id   INT UNSIGNED NOT NULL,
-  status     ENUM('pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded') NOT NULL,
+  status     ENUM('pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded', 'payment_failed') NOT NULL,
   note       TEXT         NULL DEFAULT NULL,
   created_by INT UNSIGNED NULL DEFAULT NULL,
   created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,

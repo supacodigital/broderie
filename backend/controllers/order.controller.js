@@ -3,6 +3,7 @@ const orderService    = require('../services/order.service');
 const orderRepository = require('../repositories/order.repository');
 const userRepository  = require('../repositories/user.repository');
 const invoiceService  = require('../services/invoice.service');
+const unpaidOrderService = require('../services/unpaidOrder.service');
 const { AppError }    = require('../middlewares/errorHandler');
 const { localeFromRequest } = require('../utils/locale.utils');
 
@@ -134,4 +135,21 @@ const downloadInvoice = async (req, res, next) => {
   }
 };
 
-module.exports = { createOrder, getOrders, getOrderById, getTracking, downloadInvoice };
+/**
+ * La cliente quitte l'étape de paiement carte / Twint sans avoir payé :
+ * la commande est annulée, son stock libéré et ses articles remis au panier.
+ */
+const abandonPayment = async (req, res, next) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return next(new AppError('Commande introuvable.', 404));
+    }
+    await unpaidOrderService.abandonByCustomer(orderId, req.user.id);
+    res.json({ success: true, message: 'Commande annulée, vos articles sont de retour dans le panier.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { createOrder, getOrders, getOrderById, getTracking, downloadInvoice, abandonPayment };

@@ -7,6 +7,19 @@ const { pool } = require('../config/db');
    doivent reposer sur la même définition, sinon ils se contredisent à l'écran. */
 const REVENUE_STATUSES = `('paid', 'processing', 'ready_for_pickup', 'shipped', 'delivered')`;
 
+/* Passages en caisse carte / Twint jamais payés (CLI-07) : commande en attente
+   de paiement, refusée par la banque, ou annulée faute de paiement. Ce ne sont
+   pas des ventes — les compter gonflait « commandes de la semaine » et
+   « en attente » à chaque carte refusée. Une commande réellement payée puis
+   annulée garde un paiement abouti ou remboursé : elle reste comptée. */
+const ABANDONED_ONLINE_SQL = `(
+  o.status IN ('pending', 'awaiting_payment', 'payment_failed', 'cancelled')
+  AND (SELECT p1.method FROM payments p1 WHERE p1.order_id = o.id
+       ORDER BY p1.created_at ASC, p1.id ASC LIMIT 1) IN ('card', 'twint')
+  AND NOT EXISTS (SELECT 1 FROM payments p2 WHERE p2.order_id = o.id
+                  AND p2.status IN ('succeeded', 'processing', 'refunded'))
+)`;
+
 const getStats = async ({ month, year }) => {
   /* Le montant facturé non encore réglé est suivi à part, via invoices_unpaid_total. */
   const [[caRows]] = await pool.execute(
@@ -26,14 +39,15 @@ const getStats = async ({ month, year }) => {
        /* « En attente » inclut pending_invoice : c'est le statut d'une facture émise
           et non réglée, donc le mode de paiement principal de la boutique. L'omettre
           revenait à ne jamais compter les commandes qui attendent un virement. */
-       COUNT(CASE WHEN status IN ('pending','awaiting_payment','pending_invoice') THEN 1 END) AS orders_pending,
+       COUNT(CASE WHEN status IN ('pending','pending_invoice') THEN 1 END)        AS orders_pending,
        /* Encours client : montant facturé non encaissé, et son ancienneté. Sert à
           savoir quoi relancer — le CA seul ne dit pas ce qui reste à encaisser. */
        COUNT(CASE WHEN status = 'pending_invoice' THEN 1 END)                     AS invoices_unpaid,
        COALESCE(SUM(CASE WHEN status = 'pending_invoice' THEN total END), 0)      AS invoices_unpaid_total,
        COUNT(CASE WHEN status = 'pending_invoice'
                    AND created_at < DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 END)  AS invoices_overdue
-     FROM orders`
+     FROM orders o
+     WHERE NOT ${ABANDONED_ONLINE_SQL}`
   );
 
   const [[custRows]] = await pool.execute(

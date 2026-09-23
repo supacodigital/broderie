@@ -12,7 +12,9 @@ import s from './OrderDetail.module.css'
 
 const STATUS_OPTIONS = [
   { value: 'pending',          label: 'En attente' },
-  { value: 'awaiting_payment', label: 'Att. paiement' },
+  { value: 'awaiting_payment', label: 'En attente de paiement' },
+  // Posé uniquement par Stripe : visible dans la liste, pas choisissable à la main
+  { value: 'payment_failed',   label: 'Paiement refusé', disabled: true },
   { value: 'pending_invoice',  label: 'Facture à payer' },
   { value: 'pending_pickup',   label: 'Retrait en attente' },
   { value: 'ready_for_pickup', label: 'Prête pour le retrait' },
@@ -271,7 +273,7 @@ export default function OrderDetail() {
   // Twint QR utile tant que la commande n'est pas encore payée (avant même la
   // facture) — plage plus large que needsPaymentAction, qui cible surtout la
   // préparation/le retrait.
-  const canSendTwintQr = ['pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup'].includes(order.status)
+  const canSendTwintQr = ['pending', 'awaiting_payment', 'payment_failed', 'pending_invoice', 'pending_pickup'].includes(order.status)
 
   return (
     <div className={s.page}>
@@ -347,6 +349,11 @@ export default function OrderDetail() {
                     <span className={s.infoSub}>
                       {order.shipping_zip} {order.shipping_city}{order.shipping_canton ? ` (${order.shipping_canton})` : ''} — {order.shipping_country}
                     </span>
+                    {order.shipping_phone && (
+                      <a className={s.infoSub} href={`tel:${order.shipping_phone.replace(/\s+/g, '')}`}>
+                        Tél. {order.shipping_phone}
+                      </a>
+                    )}
                   </>
                 ) : (
                   <span className={s.infoMissing}>Aucune adresse enregistrée</span>
@@ -566,7 +573,7 @@ export default function OrderDetail() {
               <div className={s.actionItem}>
                 <select className={s.select} value={newStatus} onChange={e => setNewStatus(e.target.value)}>
                   {STATUS_OPTIONS.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
+                    <option key={o.value} value={o.value} disabled={o.disabled}>{o.label}</option>
                   ))}
                 </select>
                 <textarea
