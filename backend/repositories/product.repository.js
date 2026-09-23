@@ -348,6 +348,15 @@ const runFindAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created
       ]
     : [];
 
+  /* Départage des ex æquo en recherche (CLI-01). « 310 » donne le même score aux
+     quatre articles dont le nom porte ce numéro : sans critère secondaire, MySQL
+     les renvoyait dans un ordre arbitraire, et le mouliné N° 310 passait tantôt
+     premier, tantôt quatrième. Le nom le plus court est la correspondance la plus
+     directe ; l'identifiant fige ensuite l'ordre, pour une pagination stable. */
+  const tieBreaker = relevanceSort
+    ? `, CHAR_LENGTH(COALESCE(pt_fr.name, pt.name, '')) ASC, p.id ASC`
+    : '';
+
   const [rows] = await pool.query(
     `SELECT ${PRODUCT_COLUMNS}${relevanceSelect}
      FROM products p
@@ -359,7 +368,7 @@ const runFindAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created
      LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = 1
      LEFT JOIN tax_rates tr ON tr.id = p.tax_rate_id
      WHERE ${conditions.join(' AND ')} AND (pt.name IS NOT NULL OR pt_fr.name IS NOT NULL)
-     ORDER BY ${imageFirst}${sortField} ${sortOrder}
+     ORDER BY ${imageFirst}${sortField} ${sortOrder}${tieBreaker}
      LIMIT ? OFFSET ?`,
     [...relevanceParams, locale, locale, ...params, limit, offset]
   );

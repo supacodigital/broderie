@@ -39,6 +39,8 @@ beforeAll(async () => {
     description: 'Fils fournis : 97310 97310 97310 97310 97310 97310 97310 97310 zorbalin.',
     ean: '5700000000001',
   });
+  // Autre article portant le même numéro dans un nom plus long — ex æquo sur le score
+  await createProduct({ name: 'Zorbalin Etoile art 617, échevette 8 mètres 97310', description: 'Fil zorbalin.' });
   // Toile dont le nom porte un nombre de 2 chiffres
   await createProduct({ name: 'Zorbalin, toile Aïda 14, 5,4 points/cm', description: 'Toile zorbalin.' });
   await createProduct({ name: 'Zorbalin, toile Aïda 18', description: 'Toile zorbalin 140 cm.' });
@@ -72,9 +74,22 @@ describe('CLI-01 — classement de la recherche', () => {
     expect(names(rows)[0]).toBe('Zorbalin, toile Aïda 14, 5,4 points/cm');
   });
 
+  /* Deux noms portent le même numéro : même score. L'ordre était arbitraire —
+     constaté en production, « 310 » plaçait tantôt le mouliné, tantôt l'Etoile
+     en tête. Le nom le plus court (correspondance la plus directe) passe devant. */
+  test('à score égal, le nom le plus court passe devant, toujours dans le même ordre', async () => {
+    for (let i = 0; i < 3; i += 1) {
+      const { rows } = await productRepository.findAll({ locale: 'fr', q: '97310', limit: 10 });
+      expect(names(rows).slice(0, 2)).toEqual([
+        'Zorbalin mouliné N° 97310',
+        'Zorbalin Etoile art 617, échevette 8 mètres 97310',
+      ]);
+    }
+  });
+
   test('une recherche sans nombre garde le classement du texte', async () => {
     const { rows } = await productRepository.findAll({ locale: 'fr', q: 'zorbalin', limit: 10 });
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
     rows.forEach((r) => expect(Number(r.relevance)).toBeLessThan(100));
   });
 });
