@@ -5,6 +5,7 @@ const emailService      = require('../../services/email.service');
 const shippingService   = require('../../services/shipping.service');
 const loyaltyService    = require('../../services/loyalty.service');
 const paymentService    = require('../../services/payment.service');
+const orderService      = require('../../services/order.service');
 const { generateInvoicePDF } = require('../../services/invoice.service');
 const shopSettingsService = require('../../services/shopSettings.service');
 
@@ -23,6 +24,8 @@ const getAll = async (req, res, next) => {
       order:  req.query.order  || 'desc',
       status: req.query.status || null,
       q:      req.query.q?.trim() || null,
+      // Vue « Paiements non aboutis » : tentatives carte / Twint jamais payées (CLI-07)
+      attempts: req.query.attempts === '1',
       // Période — format AAAA-MM-JJ, validé ici pour ne pas passer n'importe quoi au SQL
       dateFrom: /^\d{4}-\d{2}-\d{2}$/.test(req.query.date_from ?? '') ? req.query.date_from : null,
       dateTo:   /^\d{4}-\d{2}-\d{2}$/.test(req.query.date_to   ?? '') ? req.query.date_to   : null,
@@ -71,7 +74,15 @@ const updateStatus = async (req, res, next) => {
     const { ok, previousStatus } = await orderRepository.updateStatusWithHistory(orderId, status, note, req.user.id);
     if (!ok) return next(new AppError('Commande introuvable.', 404));
 
-    const order = await orderRepository.findById(orderId);
+    let order = await orderRepository.findById(orderId);
+
+    /* Tentative carte / Twint que la boutique fait avancer à la main (réglée par
+       un autre moyen, par exemple) : devenue une vraie commande, elle reçoit son
+       numéro de facture, attribué d'ordinaire au paiement en ligne (CLI-07). */
+    if (order.confirmed_at && !order.invoice_number) {
+      await orderService.numberInvoice(orderId);
+      order = await orderRepository.findById(orderId);
+    }
 
     // Génération étiquette Swiss Post + email client — non bloquants
     userRepository.findById(order.user_id).then(async (user) => {

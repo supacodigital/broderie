@@ -370,6 +370,12 @@ const applySucceededIntent = async (intent) => {
     return;
   }
 
+  /* Carte / Twint : le numéro de facture n'est attribué qu'au paiement accepté
+     (CLI-07) — une tentative abandonnée n'en consomme plus. Sans effet sur une
+     facture réglée par QR Twint, déjà numérotée à sa création. Avant les
+     e-mails : la confirmation porte le numéro. */
+  await orderService.numberInvoice(orderId);
+
   // Crédit des points de fidélité — hors transaction (processOrderEarning gère
   // ses propres transactions internes), et SEULEMENT si la commande vient de
   // passer à "paid". Combiné à l'idempotence sur event_id, garantit un crédit unique.

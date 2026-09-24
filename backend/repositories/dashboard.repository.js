@@ -10,15 +10,10 @@ const REVENUE_STATUSES = `('paid', 'processing', 'ready_for_pickup', 'shipped', 
 /* Passages en caisse carte / Twint jamais payés (CLI-07) : commande en attente
    de paiement, refusée par la banque, ou annulée faute de paiement. Ce ne sont
    pas des ventes — les compter gonflait « commandes de la semaine » et
-   « en attente » à chaque carte refusée. Une commande réellement payée puis
-   annulée garde un paiement abouti ou remboursé : elle reste comptée. */
-const ABANDONED_ONLINE_SQL = `(
-  o.status IN ('pending', 'awaiting_payment', 'payment_failed', 'cancelled')
-  AND (SELECT p1.method FROM payments p1 WHERE p1.order_id = o.id
-       ORDER BY p1.created_at ASC, p1.id ASC LIMIT 1) IN ('card', 'twint')
-  AND NOT EXISTS (SELECT 1 FROM payments p2 WHERE p2.order_id = o.id
-                  AND p2.status IN ('succeeded', 'processing', 'refunded'))
-)`;
+   « en attente » à chaque carte refusée. Critère unique : `confirmed_at`, posé
+   à la création pour la facture et le retrait, au paiement pour la carte et
+   Twint — le même que la liste des commandes. */
+const ABANDONED_ONLINE_SQL = `(o.confirmed_at IS NULL)`;
 
 const getStats = async ({ month, year }) => {
   /* Le montant facturé non encore réglé est suivi à part, via invoices_unpaid_total. */
@@ -135,6 +130,8 @@ const getRecentOrders = async () => {
             u.first_name, u.last_name, u.email
      FROM orders o
      LEFT JOIN users u ON u.id = o.user_id
+     -- Sans les tentatives de paiement carte / Twint non abouties (CLI-07)
+     WHERE NOT ${ABANDONED_ONLINE_SQL}
      ORDER BY o.created_at DESC
      LIMIT 8`
   );

@@ -17,6 +17,7 @@ const MAX_ITEMS = 1000; // une liste de commande fournisseur ne dépasse pas ce 
    s'annulent d'elles-mêmes, rien n'est à commander pour elles. Une commande
    « prête au retrait », expédiée ou livrée a déjà ses articles. */
 const OPEN_ORDER_STATUSES = ['pending', 'pending_invoice', 'pending_pickup', 'paid', 'processing'];
+// + `confirmed_at` : jamais une tentative de paiement carte / Twint non aboutie (CLI-07)
 
 /* Article commandé « sur commande » : l'état figé dans la commande fait foi
    (product_snapshot_json), la fiche produit sert de repli aux lignes anciennes. */
@@ -39,7 +40,7 @@ const summaryBySupplier = async () => {
      FROM order_items oi
      JOIN orders o   ON o.id = oi.order_id
      JOIN products p ON p.id = oi.product_id
-     WHERE o.status IN (${statusPlaceholders}) AND ${MADE_TO_ORDER_SQL}
+     WHERE o.status IN (${statusPlaceholders}) AND o.confirmed_at IS NOT NULL AND ${MADE_TO_ORDER_SQL}
      GROUP BY p.supplier_id`,
     OPEN_ORDER_STATUSES
   );
@@ -70,7 +71,7 @@ const itemsForSupplier = async (supplierId) => {
      FROM order_items oi
      JOIN orders o   ON o.id = oi.order_id
      JOIN products p ON p.id = oi.product_id
-     WHERE o.status IN (${statusPlaceholders}) AND ${MADE_TO_ORDER_SQL} AND ${filter.sql}
+     WHERE o.status IN (${statusPlaceholders}) AND o.confirmed_at IS NOT NULL AND ${MADE_TO_ORDER_SQL} AND ${filter.sql}
      GROUP BY oi.product_id
      ORDER BY first_order_at ASC
      LIMIT ?`,

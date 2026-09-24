@@ -31,7 +31,8 @@ const findAll = async ({ page = 1, limit = 20, search = '', sort = 'created_at',
     `SELECT u.id, u.email, u.first_name, u.last_name, u.locale, u.is_active, u.created_at,
             COUNT(o.id) AS order_count
      FROM users u
-     LEFT JOIN orders o ON o.user_id = u.id
+     -- Tentatives de paiement carte / Twint non abouties exclues (CLI-07)
+     LEFT JOIN orders o ON o.user_id = u.id AND o.confirmed_at IS NOT NULL
      ${where}
      GROUP BY u.id
      ORDER BY ${sortField} ${sortOrder}
@@ -57,7 +58,10 @@ const findById = async (id) => {
   );
 
   const [orders] = await pool.execute(
-    `SELECT id, status, total, created_at FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 100`,
+    // Sans les tentatives de paiement carte / Twint non abouties (CLI-07)
+    `SELECT id, status, total, created_at FROM orders
+     WHERE user_id = ? AND confirmed_at IS NOT NULL
+     ORDER BY created_at DESC LIMIT 100`,
     [id]
   );
 

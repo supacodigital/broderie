@@ -33,10 +33,13 @@ const backOfficeToken = async (role) => {
 let admin;
 let superAdmin;
 
+/* Deux comptes créés avec double authentification : chaque étape hache un mot
+   de passe ou des codes de secours (bcrypt, coût 12). Les 5 s par défaut
+   suffisaient de justesse et cédaient dès que la machine était chargée. */
 beforeAll(async () => {
   admin = await backOfficeToken('admin');
   superAdmin = await backOfficeToken('super_admin');
-});
+}, 30000);
 
 afterAll(async () => {
   // Les textes d'essai ne doivent pas rester dans la base de test

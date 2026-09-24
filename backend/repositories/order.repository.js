@@ -3,7 +3,7 @@ const { AppError } = require('../middlewares/errorHandler');
 const { displayComparePriceSql } = require('../utils/promo.utils');
 
 // Création d'une commande — transaction atomique (stock + commande + items + coupon + paiement)
-const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, billingAddress = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null, locale = 'fr', wantsPrintedInvoice = false }) => {
+const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, billingAddress = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null, locale = 'fr', wantsPrintedInvoice = false, confirmed = true }) => {
   // L'adresse de facturation par défaut est identique à la livraison
   const billing = billingAddress ?? address;
   const connection = await pool.getConnection();
@@ -39,8 +39,9 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
           shipping_phone,
           billing_first_name, billing_last_name,
           billing_street, billing_street_number, billing_city, billing_zip, billing_country, billing_canton,
-          wants_printed_invoice)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          wants_printed_invoice, confirmed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+               CASE WHEN ? THEN NOW() ELSE NULL END)`,
       [
         userId, status, subtotal, discount, couponCode, shippingCost, taxAmount, total, qrReference,
         address?.first_name ?? null,
@@ -62,6 +63,8 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
         billing?.country ?? 'CH',
         billing?.canton  ?? null,
         wantsPrintedInvoice ? 1 : 0,
+        // Carte / Twint : simple tentative tant que le paiement n'est pas accepté (CLI-07)
+        confirmed ? 1 : 0,
       ]
     );
     const orderId = orderResult.insertId;
@@ -151,7 +154,9 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
   }
 };
 
-// Liste des commandes d'un utilisateur
+/* Liste des commandes d'un utilisateur — sans les tentatives de paiement carte /
+   Twint non abouties (`confirmed_at` NULL, CLI-07) : la cliente ne voit que ses
+   vraies commandes, pas chaque essai de carte refusé ou abandonné. */
 const findByUserId = async (userId, { page = 1, limit = 20 }) => {
   const offset = (page - 1) * limit;
 
@@ -161,7 +166,7 @@ const findByUserId = async (userId, { page = 1, limit = 20 }) => {
     `SELECT COUNT(*) AS total
      FROM orders o
      INNER JOIN users u ON u.id = o.user_id
-     WHERE o.user_id = ? AND u.deleted_at IS NULL`,
+     WHERE o.user_id = ? AND u.deleted_at IS NULL AND o.confirmed_at IS NOT NULL`,
     [userId]
   );
   const total = countRows[0].total;
@@ -173,7 +178,7 @@ const findByUserId = async (userId, { page = 1, limit = 20 }) => {
      FROM orders o
      INNER JOIN users u ON u.id = o.user_id
      LEFT JOIN order_items oi ON oi.order_id = o.id
-     WHERE o.user_id = ? AND u.deleted_at IS NULL
+     WHERE o.user_id = ? AND u.deleted_at IS NULL AND o.confirmed_at IS NOT NULL
      GROUP BY o.id
      ORDER BY o.created_at DESC
      LIMIT ? OFFSET ?`,
@@ -258,7 +263,7 @@ const findById = async (orderId, userId = null) => {
   const [orders] = await pool.execute(
     `SELECT o.id, o.status, o.subtotal, o.discount, o.coupon_code, o.shipping_cost, o.tax_amount, o.total,
             o.qr_reference, o.invoice_number, o.invoice_seq,
-            o.created_at, o.updated_at, o.user_id,
+            o.created_at, o.updated_at, o.confirmed_at, o.user_id,
             o.shipping_first_name, o.shipping_last_name,
             o.shipping_street, o.shipping_street_number, o.shipping_city,
             o.shipping_zip, o.shipping_country, o.shipping_canton, o.shipping_phone,
@@ -314,13 +319,17 @@ const findById = async (orderId, userId = null) => {
 const VALID_STATUSES = ['pending', 'awaiting_payment', 'payment_failed', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
 const ALLOWED_SORT   = { created_at: 'o.created_at', total: 'o.total' };
 
-const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order = 'desc', status = null, q = null, dateFrom = null, dateTo = null } = {}) => {
+const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order = 'desc', status = null, q = null, dateFrom = null, dateTo = null, attempts = false } = {}) => {
   const offset    = (page - 1) * limit;
   const sortField = ALLOWED_SORT[sort] || 'o.created_at';
   const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
 
   const params = [];
-  const conditions = [];
+  /* CLI-07 — une commande carte / Twint n'existe pour la boutique qu'une fois
+     payée. Les tentatives non abouties (en attente, refusées, abandonnées) ne
+     figurent que dans la vue « Paiements non aboutis » (`attempts`), utile
+     quand une cliente appelle au sujet d'une carte refusée. */
+  const conditions = [attempts ? 'o.confirmed_at IS NULL' : 'o.confirmed_at IS NOT NULL'];
 
   if (status) {
     const statuses = status.split(',').map(s => s.trim()).filter(s => VALID_STATUSES.includes(s));
@@ -396,6 +405,8 @@ const STOCK_HELD_STATUSES = [
   'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered',
 ];
 const STOCK_RELEASING_STATUSES = ['cancelled', 'refunded'];
+// Statuts qui ne confirment pas une tentative de paiement en ligne (voir confirmed_at)
+const UNCONFIRMING_STATUSES = ['pending', 'awaiting_payment', 'payment_failed', 'cancelled'];
 
 // Change le statut d'une commande + trace l'historique. Restitue le stock de façon
 // atomique quand la commande bascule vers `cancelled`/`refunded` (le stock est
@@ -435,7 +446,14 @@ const updateStatusWithHistory = async (orderId, status, note, createdBy) => {
       );
     }
 
-    await connection.execute(`UPDATE orders SET status = ? WHERE id = ?`, [status, orderId]);
+    /* Une tentative carte / Twint que la boutique fait avancer à la main (réglée
+       autrement, préparée, expédiée…) devient une vraie commande (CLI-07). */
+    await connection.execute(
+      `UPDATE orders SET status = ?,
+         confirmed_at = CASE WHEN ? THEN COALESCE(confirmed_at, NOW()) ELSE confirmed_at END
+       WHERE id = ?`,
+      [status, UNCONFIRMING_STATUSES.includes(status) ? 0 : 1, orderId]
+    );
     await connection.execute(
       `INSERT INTO order_status_history (order_id, status, note, created_by)
        VALUES (?, ?, ?, ?)`,
@@ -487,8 +505,9 @@ const markPaidFromWebhook = async (orderId, providerPaymentId, method) => {
        paiement. `status != 'paid'` seul laissait une commande ANNULÉE devenir
        payée — le cas se produit quand une cliente paie un lien Twint reçu par
        e-mail après que la commande a été annulée. */
+    // Le paiement accepté fait d'une tentative carte / Twint une vraie commande (CLI-07)
     const [upd] = await connection.execute(
-      `UPDATE orders SET status = 'paid'
+      `UPDATE orders SET status = 'paid', confirmed_at = COALESCE(confirmed_at, NOW())
        WHERE id = ? AND status IN (${PAYABLE_STATUSES.map(() => '?').join(', ')})`,
       [orderId, ...PAYABLE_STATUSES]
     );

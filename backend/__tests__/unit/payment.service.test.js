@@ -391,6 +391,25 @@ describe('payment.service — handleWebhook()', () => {
     spy.mockRestore();
   });
 
+  /* CLI-07 — le numéro de facture d'une commande carte / Twint n'est attribué
+     qu'au paiement accepté, et avant l'envoi de la confirmation qui le porte. */
+  test('numérote la facture au paiement accepté, avant les e-mails', async () => {
+    const orderService = require('../../services/order.service');
+    const calls = [];
+    const numberSpy = jest.spyOn(orderService, 'numberInvoice').mockImplementation(async () => { calls.push('facture'); });
+    const mailSpy = jest.spyOn(orderService, 'sendOrderEmails').mockImplementation(() => { calls.push('e-mails'); });
+    orderRepository.findById.mockResolvedValue({ id: 8, user_id: 10, total: '58.40', status: 'paid', payment_method: 'card', items: [] });
+    mockEvent({ type: 'payment_intent.succeeded',
+      data: { id: 'pi_num', metadata: { order_id: '8' }, payment_method_types: ['card'] } });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(numberSpy).toHaveBeenCalledWith(8);
+    expect(calls).toEqual(['facture', 'e-mails']);
+    numberSpy.mockRestore();
+    mailSpy.mockRestore();
+  });
+
   test('ne touche pas au panier pour une facture réglée plus tard par QR Twint', async () => {
     // Le panier de la facture a été vidé à sa création ; celui d'aujourd'hui
     // appartient à un nouvel achat et ne doit pas être amputé.

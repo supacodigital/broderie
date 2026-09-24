@@ -15,13 +15,19 @@ const PER_PAGE_OPTIONS = [20, 50, 100]
 
 /* Vues rapides — regroupent les statuts par geste métier.
    « À traiter » = tout ce qui attend une action de la boutique ; « Impayées » =
-   les factures en attente de règlement, qui servent aux relances, et les
-   paiements carte / Twint en attente ou refusés. */
+   les factures en attente de règlement, qui servent aux relances. */
 const PRESETS = [
   { key: 'todo',   label: 'À traiter', statuses: ['pending', 'paid', 'processing', 'pending_pickup'] },
-  { key: 'unpaid', label: 'Impayées',  statuses: ['pending_invoice', 'awaiting_payment', 'payment_failed'] },
+  { key: 'unpaid', label: 'Impayées',  statuses: ['pending_invoice'] },
   { key: 'ready',  label: 'Prêtes',    statuses: ['ready_for_pickup', 'shipped'] },
 ]
+
+/* CLI-07 — une commande carte / Twint n'apparaît dans la liste qu'une fois
+   payée. Les tentatives non abouties (paiement en attente, refusé par la
+   banque, abandonné) ont leur propre vue, pour répondre à une cliente qui
+   appelle au sujet d'une carte refusée ; leurs statuts ne sont proposés que là. */
+const ATTEMPT_STATUSES = ['awaiting_payment', 'payment_failed', 'cancelled']
+const ATTEMPT_ONLY_STATUSES = ['awaiting_payment', 'payment_failed']
 
 const STATUS_OPTIONS = [
   { value: '',                 label: 'Tous les statuts' },
@@ -94,6 +100,7 @@ export default function Orders() {
   const page         = Math.max(1, parseInt(getParam('page', '1'), 10) || 1)
   const search       = getParam('q')
   const statusFilter = getParam('status')
+  const attemptsView = getParam('attempts') === '1'
   const dateFrom     = getParam('date_from')
   const dateTo       = getParam('date_to')
   const sortCol      = getParam('sort', 'created_at')
@@ -134,8 +141,16 @@ export default function Orders() {
      métier, au lieu de cocher les cases une à une. */
   const applyPreset = (statuses) => {
     const value = statuses.join(',')
-    setParams({ status: statusFilter === value ? '' : value, date_from: '', date_to: '' })
+    const active = !attemptsView && statusFilter === value
+    setParams({ status: active ? '' : value, date_from: '', date_to: '', attempts: '' })
   }
+
+  // Bascule vers / depuis la vue des paiements non aboutis
+  const toggleAttempts = () => setParams({ attempts: attemptsView ? '' : '1', status: '', date_from: '', date_to: '' })
+
+  const visibleStatusOptions = STATUS_OPTIONS.filter(o => o.value && (
+    attemptsView ? ATTEMPT_STATUSES.includes(o.value) : !ATTEMPT_ONLY_STATUSES.includes(o.value)
+  ))
 
   const activeFilterCount = [statusFilter, dateFrom, dateTo].filter(Boolean).length
   const resetFilters = () => setParams({ status: '', date_from: '', date_to: '' })
@@ -184,6 +199,7 @@ export default function Orders() {
         if (search)       params.set('q', search)
         if (dateFrom)     params.set('date_from', dateFrom)
         if (dateTo)       params.set('date_to', dateTo)
+        if (attemptsView) params.set('attempts', '1')
         const res = await getOrders(Object.fromEntries(params))
         if (!cancelled) {
           setOrders(res.data ?? [])
@@ -197,7 +213,7 @@ export default function Orders() {
     }
     run()
     return () => { cancelled = true }
-  }, [page, perPage, statusFilter, search, dateFrom, dateTo, sortCol, sortDir, refreshTick])
+  }, [page, perPage, statusFilter, search, dateFrom, dateTo, sortCol, sortDir, attemptsView, refreshTick])
 
   const totalPages = Math.ceil(total / perPage)
 
@@ -216,8 +232,10 @@ export default function Orders() {
   return (
     <div className={s.page}>
       <div className={s.pageHead}>
-        <h1 className={s.pageTitle}>Commandes</h1>
-        <span className={s.total}>{total} commande{total !== 1 ? 's' : ''}</span>
+        <h1 className={s.pageTitle}>{attemptsView ? 'Paiements non aboutis' : 'Commandes'}</h1>
+        <span className={s.total}>
+          {total} {attemptsView ? `tentative${total !== 1 ? 's' : ''}` : `commande${total !== 1 ? 's' : ''}`}
+        </span>
       </div>
 
       <div className={s.toolbar}>
@@ -237,16 +255,26 @@ export default function Orders() {
 
         {/* Vues rapides — un clic pour « ce qu'il me reste à faire », au lieu de
             cocher plusieurs statuts un par un. */}
-        {PRESETS.map(p => (
-          <button
-            key={p.key}
-            className={`${s.quickFilter} ${statusFilter === p.statuses.join(',') ? s.quickFilterOn : ''}`}
-            onClick={() => applyPreset(p.statuses)}
-            aria-pressed={statusFilter === p.statuses.join(',')}
-          >
-            {p.label}
-          </button>
-        ))}
+        {PRESETS.map(p => {
+          const on = !attemptsView && statusFilter === p.statuses.join(',')
+          return (
+            <button
+              key={p.key}
+              className={`${s.quickFilter} ${on ? s.quickFilterOn : ''}`}
+              onClick={() => applyPreset(p.statuses)}
+              aria-pressed={on}
+            >
+              {p.label}
+            </button>
+          )
+        })}
+        <button
+          className={`${s.quickFilter} ${attemptsView ? s.quickFilterOn : ''}`}
+          onClick={toggleAttempts}
+          aria-pressed={attemptsView}
+        >
+          Paiements non aboutis
+        </button>
 
         <div className={s.filterAnchor} ref={filterRef}>
           <button
@@ -264,7 +292,7 @@ export default function Orders() {
               <div className={s.filterBlock}>
                 <span className={s.filterLabel}>Statut</span>
                 <div className={s.statusGrid}>
-                  {STATUS_OPTIONS.filter(o => o.value).map(o => (
+                  {visibleStatusOptions.map(o => (
                     <label key={o.value} className={s.statusCheck}>
                       <input
                         type="checkbox"
@@ -351,6 +379,15 @@ export default function Orders() {
         </div>
       )}
 
+      {attemptsView && (
+        <p className={s.viewNote}>
+          Paiements par carte ou Twint commencés sur le site mais jamais aboutis : en attente,
+          refusés par la banque ou abandonnés. Ce ne sont pas des commandes — pas de numéro de
+          facture, rien à préparer. Sans paiement, ils sont annulés au bout de 2 heures et le
+          stock est remis en vente.
+        </p>
+      )}
+
       {error && <ErrorBanner onRetry={load} />}
 
       <div className={s.card}>
@@ -400,7 +437,9 @@ export default function Orders() {
               <div className={s.idCell}>
                 <span className={s.orderId}>#{order.id}</span>
                 {/* Le n° de facture est la référence que le client cite au téléphone */}
-                {order.invoice_number && (
+                {/* Une tentative n'a pas de facture ; les plus anciennes ont reçu un
+                    numéro avant le correctif CLI-07 — il n'est pas affiché. */}
+                {order.invoice_number && !attemptsView && (
                   <span className={s.invoiceNo}>{order.invoice_number}</span>
                 )}
               </div>

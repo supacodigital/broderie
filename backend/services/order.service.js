@@ -60,10 +60,29 @@ const resolveDiscountCode = async ({ code, userId, subtotal }) => {
   };
 };
 
+/* Numérotation de la facture : « 2026-000001 », compteur remis à 1 chaque
+   1er janvier, et référence de paiement dérivée de ce numéro. Idempotent : une
+   commande déjà numérotée garde son numéro. Échec non bloquant — la commande
+   existe et reste payable ; c'est la facture qui serait à régénérer. */
+const numberInvoice = async (orderId) => {
+  try {
+    const assigned = await orderRepository.assignInvoiceNumber(orderId);
+    const reference = invoiceService.generateQrReference(
+      assigned?.invoiceSeq ?? null,
+      assigned?.year ?? new Date().getFullYear()
+    );
+    await orderRepository.saveQrReference(orderId, reference);
+  } catch (err) {
+    console.error('[Facture] Numérotation échouée — commande', orderId, ':', err.message);
+  }
+};
+
 const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponCode = null, address = null, billingAddress = null, locale = 'fr', wantsPrintedInvoice = false }) => {
   if (!VALID_METHODS.includes(paymentMethod)) {
     throw new AppError('Méthode de paiement invalide.', 400);
   }
+  // Carte / Twint : la commande n'est réelle qu'une fois payée (CLI-07, CLI-13)
+  const isOnline = ONLINE_METHODS.includes(paymentMethod);
 
   // Récupération du panier
   const cart = await cartRepository.findCart({ userId, sessionId });
@@ -162,22 +181,15 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
     qrReference: null,
     locale,
     wantsPrintedInvoice,
+    // Carte / Twint : tentative tant que le paiement n'est pas accepté (CLI-07)
+    confirmed: !isOnline,
   });
 
-  /* Numérotation de la facture : « 2026-000001 », compteur remis à 1 chaque
-     1er janvier, et référence de paiement dérivée de ce numéro. Échec non
-     bloquant — la commande existe et reste payable ; c'est la facture qui
-     serait à régénérer. */
-  try {
-    const assigned = await orderRepository.assignInvoiceNumber(orderId);
-    const reference = invoiceService.generateQrReference(
-      assigned?.invoiceSeq ?? null,
-      assigned?.year ?? new Date().getFullYear()
-    );
-    await orderRepository.saveQrReference(orderId, reference);
-  } catch (err) {
-    console.error('[Facture] Numérotation échouée — commande', orderId, ':', err.message);
-  }
+  /* Numéro de facture dès la création pour la facture et le retrait en
+     boutique. Carte / Twint : seulement au paiement accepté (payment.service) —
+     une tentative abandonnée ou refusée consommait un numéro et laissait un
+     trou dans la numérotation (CLI-07). */
+  if (!isOnline) await numberInvoice(orderId);
 
   // Consommation du bon de fidélité — après création de la commande (on a besoin de
   // l'orderId pour tracer la transaction 'redeem'). Échec non bloquant : la commande
@@ -200,7 +212,7 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
      Les articles payés en sont retirés à l'acceptation du paiement
      (payment.service), et une nouvelle commande libère l'ancienne restée
      impayée (releasePreviousUnpaidOrders, plus haut). */
-  if (!ONLINE_METHODS.includes(paymentMethod)) {
+  if (!isOnline) {
     await cartRepository.clearCart(cart.id);
   }
 
@@ -211,7 +223,7 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
      refusée recevait « commande confirmée », et Julie une notification de
      commande à préparer. Les e-mails partent désormais du webhook Stripe
      (voir sendOrderEmails, appelé par payment.service). */
-  if (!ONLINE_METHODS.includes(paymentMethod)) {
+  if (!isOnline) {
     sendOrderEmails(order, paymentMethod);
   }
 
@@ -263,4 +275,4 @@ const getOrderById = async (orderId, userId) => {
   return order;
 };
 
-module.exports = { createOrder, getOrders, getOrderById, sendOrderEmails, resolveDiscountCode };
+module.exports = { createOrder, getOrders, getOrderById, sendOrderEmails, resolveDiscountCode, numberInvoice };

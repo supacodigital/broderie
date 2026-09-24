@@ -512,6 +512,19 @@
 .filterApplyBtn:active { transform: scale(0.97); }
 
 /* ── Puces de filtres actifs ── */
+/* Explication de la vue « Paiements non aboutis » (CLI-07) */
+.viewNote {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--rose-pale);
+  border: 1px solid var(--rose-border);
+  color: var(--text-dark);
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 820px;
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
