@@ -72,6 +72,22 @@ const cleanStr = (v) => {
   return s === '' ? null : s;
 };
 
+/* Nom d'article : première ligne seulement. Dans l'ERP, le libellé peut tenir
+   sur plusieurs lignes — la seconde répète la collection ou un fragment tronqué
+   (« Riolis, kit Merci » + « erci »). Un séparateur laissé en fin de ligne
+   (« Sunflowers - ») est retiré. */
+const cleanName = (v) => {
+  const s = cleanStr(v);
+  if (!s) return null;
+  const first = s.split(/[\r\n]+/).map((l) => l.trim()).find(Boolean) ?? '';
+  return first.replace(/[\s,;:-]+$/, '') || null;
+};
+
+/* Description : retours à la ligne ramenés à « \n ». Le décodage d'Excel donne
+   « \r\r\n » pour un seul saut de ligne (retour chariot échappé + fin de ligne
+   Windows) : compté pour un, sinon chaque saut deviendrait une ligne vide. */
+const cleanText = (v) => cleanStr(v)?.replace(/\r*\n|\r/g, '\n') ?? null;
+
 // slugify identique à celui du formulaire admin (ProductForm.jsx)
 const slugify = (s) =>
   String(s || '')
@@ -155,8 +171,8 @@ const mapArticle = (a, categorySlug, taxRateIdByRate) => {
     length_cm: toNumber(a.Longueur),
     width_cm: toNumber(a.Largeur),
     is_made_to_order: isMadeToOrder,
-    name_fr: cleanStr(a.LArticle) || `Article ${cleanStr(a.NArticleC)}`,
-    description_fr: cleanStr(a.RemarqueFr),
+    name_fr: cleanName(a.LArticle) || `Article ${cleanStr(a.NArticleC)}`,
+    description_fr: cleanText(a.RemarqueFr),
     // Marque / éditeur — écrite telle quelle dans products.brand (max 120 car.)
     brand: cleanStr(a.Nom_Gamme)?.slice(0, 120) ?? null,
   };

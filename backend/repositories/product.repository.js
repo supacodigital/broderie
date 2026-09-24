@@ -1,5 +1,5 @@
 const { pool } = require('../config/db');
-const { toSearchTerms } = require('../utils/search.utils');
+const { singularize, splitSearchWords } = require('../utils/search.utils');
 const { promoPriceColumns, effectivePriceSql } = require('../utils/promo.utils');
 
 // Colonnes produit sélectionnées explicitement — jamais SELECT *
@@ -36,6 +36,9 @@ const PRODUCT_COLUMNS = `
    sens de la requête ou provoquent une erreur SQL. */
 const RESERVED_FT_CHARS = /[+\-~<>()*"@]/g;
 
+// Jokers du LIKE saisis par la cliente (« % », « _ ») : cherchés tels quels
+const escapeLikePattern = (value) => String(value ?? '').replace(/[\\%_]/g, '\\$&');
+
 /* Mots trop courts pour l'index FULLTEXT (innodb_ft_min_token_size = 3) : « 14 »,
    « 5 »… ne sont pas indexés. Exigés avec le joker (« +14* »), ils devenaient un
    préfixe obligatoire sur d'AUTRES mots (« 14x16 », « 140 ») : « aida 14 » ne
@@ -44,15 +47,60 @@ const RESERVED_FT_CHARS = /[+\-~<>()*"@]/g;
    bonus de nom (voir numericNameBoost). Si la saisie n'est faite que de mots
    courts, elle est gardée telle quelle — sinon il ne resterait rien à chercher. */
 const MIN_FT_TOKEN_LENGTH = 3;
+
+/* Mots vides de MySQL (information_schema.INNODB_FT_DEFAULT_STOPWORD) : jamais
+   indexés, mais exigés comme préfixe (« +the* »), ils rendaient la recherche
+   impossible — « the exotic beau » ne trouvait pas « kit perles The Exotic Beau »,
+   « kit for » cherchait « forêt ». Retirés de la requête texte comme les mots
+   trop courts. Liste figée : c'est celle d'InnoDB, identique en local et en
+   production (innodb_ft_server_stopword_table vide). */
+const MYSQL_STOPWORDS = new Set([
+  'a', 'about', 'an', 'are', 'as', 'at', 'be', 'by', 'com', 'de', 'en', 'for', 'from',
+  'how', 'i', 'in', 'is', 'it', 'la', 'of', 'on', 'or', 'that', 'the', 'this', 'to',
+  'was', 'what', 'when', 'where', 'who', 'will', 'with', 'und', 'www',
+]);
+
 const fullTextTerms = (terms) => {
-  const indexable = terms.filter((t) => t.length >= MIN_FT_TOKEN_LENGTH);
+  const indexable = terms.filter(
+    (t) => t.length >= MIN_FT_TOKEN_LENGTH && !MYSQL_STOPWORDS.has(t.toLowerCase())
+  );
   return indexable.length ? indexable : terms;
+};
+
+/* Mots de la recherche découpés EXACTEMENT comme l'index FULLTEXT de MySQL :
+   tout ce qui n'est ni lettre ni chiffre sépare les mots. L'index découpe
+   « n°5 » en « n » + « 5 », « 12.6 » en « 12 » + « 6 », « J.C. » en « j » + « c » ;
+   la recherche, elle, exigeait « n°5 », « 12.6 », « j.c. » — des mots qui
+   n'existent pas dans l'index. « DMC, pelote perlé n°5 », « Lin Belfast 12.6
+   fils/cm » ou « Sampler antique J.C. Meyer » étaient introuvables par leur propre
+   nom (audit du 24/09, CLI-01). Découper comme l'index ferme toute la famille, et
+   non caractère par caractère.
+   Les lettres isolées issues du découpage sont retirées (restes d'initiales ou
+   d'élisions) ; un chiffre isolé reste, pour le bonus des nombres.
+
+   Les mots vides sont écartés AVANT la mise au singulier et avant la limite de
+   8 mots. Après coup, « this » devenait « thi » : plus reconnu comme mot vide,
+   exigé comme préfixe d'un mot que l'index ne contient pas — « RTO, kit this is
+   for you » et cinq autres kits ne renvoyaient AUCUN résultat, même recherchés
+   par leur nom exact (audit complet du 24/09). Et « kit this is the story of
+   Little Red Riding Hood » perdait « riding hood », coupés par la limite que
+   les mots vides occupaient. Une saisie faite uniquement de mots vides est
+   gardée telle quelle — sinon il ne resterait rien à chercher. */
+const MAX_QUERY_TERMS = 8;
+const queryTerms = (q) => {
+  const words = splitSearchWords(String(q ?? '').replace(RESERVED_FT_CHARS, ' '))
+    .flatMap((t) => t.split(/[^\p{L}\p{N}]+/u))
+    .filter((t) => t && !(t.length === 1 && !/[0-9]/.test(t)));
+  const meaningful = words.filter((t) => !MYSQL_STOPWORDS.has(t.toLowerCase()));
+  return (meaningful.length ? meaningful : words)
+    .slice(0, MAX_QUERY_TERMS)
+    .map(singularize);
 };
 
 /* Le passage au singulier est partagé avec la recherche admin — voir
    utils/search.utils.js pour le détail du cas « cotons moulinés ». */
 const toBooleanQuery = (q) =>
-  fullTextTerms(toSearchTerms(String(q).replace(RESERVED_FT_CHARS, ' ')))
+  fullTextTerms(queryTerms(q))
     .map((token) => `+${token}*`)
     .join(' ');
 
@@ -68,14 +116,14 @@ const toBooleanQuery = (q) =>
    Nombre seul : comparé entre bornes non numériques, pour que « 5 » trouve
    « n°5 » mais pas « B5200 ». Terme mixte (« b5200 ») : simple inclusion. */
 const numericNameBoost = (q) => {
-  const numeric = toSearchTerms(String(q ?? '').replace(RESERVED_FT_CHARS, ' '))
+  const numeric = queryTerms(q)
     .filter((t) => /[0-9]/.test(t));
   if (numeric.length === 0) return { sql: '', params: [] };
 
   const name = `COALESCE(pt_fr.name, pt.name, '')`;
   const clauses = numeric.map((t) => (/^[0-9]+$/.test(t)
     ? { sql: `${name} REGEXP ?`, param: `(^|[^0-9])${t}([^0-9]|$)` }
-    : { sql: `${name} LIKE ?`,   param: `%${t.replace(/[\\%_]/g, '\\$&')}%` }));
+    : { sql: `${name} LIKE ?`,   param: `%${escapeLikePattern(t)}%` }));
   return {
     sql: `100 * (${clauses.map((c) => c.sql).join(' AND ')}) + `,
     params: clauses.map((c) => c.param),
@@ -104,7 +152,7 @@ const MIN_KEPT_CHARS = 4;
 const TRUNCATED_CHARS = 2;
 
 const toFuzzyBooleanQuery = (q) => {
-  const terms = fullTextTerms(toSearchTerms(String(q).replace(RESERVED_FT_CHARS, ' ')));
+  const terms = fullTextTerms(queryTerms(q));
   if (terms.length === 0) return null;
 
   let truncated = false;
@@ -138,9 +186,15 @@ const toReference = (q) => String(q ?? '').trim().replace(REFERENCE_SEPARATORS, 
    chiffre et pas d'espace interne une fois nettoyée : sans cette garde, « kit »
    ou « lin » déclencheraient une comparaison de référence inutile sur chaque
    requête. Toutes les références du catalogue comportent des chiffres. */
+/* Saisie d'un seul bloc (« DMC-BN », « VINNoir ») : comparée aussi, même sans
+   chiffre — 97 références du catalogue n'en ont pas, et « DMC-BN » ne remontait
+   qu'en 5e position (CLI-01). Coût négligeable : la requête parcourt déjà les
+   marques par LIKE. */
 const looksLikeReference = (q) => {
   const ref = toReference(q);
-  return ref.length >= 3 && ref.length <= 20 && /[0-9]/.test(ref);
+  if (ref.length < 3 || ref.length > 30) return false;
+  const singleBlock = !/\s/.test(String(q ?? '').trim());
+  return singleBlock || (ref.length <= 20 && /[0-9]/.test(ref));
 };
 
 // Construction dynamique des filtres WHERE pour la liste produits
@@ -170,14 +224,24 @@ const buildFilters = (filters) => {
           OR p.ean = ?`
       : '';
 
+    /* Rayon dont le nom contient tous les mots cherchés (voir findAll) : ses
+       articles comptent comme résultats, principal ou secondaire (ADM-04). */
+    const categoryIds = filters.categoryMatchIds ?? [];
+    const categorySql = categoryIds.length
+      ? ` OR p.category_id IN (${categoryIds.map(() => '?').join(', ')})
+          OR EXISTS (SELECT 1 FROM product_categories pcq
+                     WHERE pcq.product_id = p.id AND pcq.category_id IN (${categoryIds.map(() => '?').join(', ')}))`
+      : '';
+
     if (booleanQuery) {
       conditions.push(`(
         MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE)
         OR MATCH(pt_fr.name, pt_fr.description) AGAINST(? IN BOOLEAN MODE)
-        OR p.brand LIKE ?${referenceSql}
+        OR p.brand LIKE ?${referenceSql}${categorySql}
       )`);
-      params.push(booleanQuery, booleanQuery, `%${filters.q}%`);
+      params.push(booleanQuery, booleanQuery, `%${escapeLikePattern(filters.q)}%`);
       if (referenceQuery) params.push(referenceQuery, referenceQuery);
+      if (categoryIds.length) params.push(...categoryIds, ...categoryIds);
     } else {
       /* Saisie composée uniquement de caractères réservés au BOOLEAN MODE
          (« +++ », « *** », « " »…) : après nettoyage il ne reste aucun terme.
@@ -186,7 +250,7 @@ const buildFilters = (filters) => {
          On se rabat sur la marque, puis le LIKE ne matche rien et la boutique
          affiche « aucun résultat » — ce que l'utilisateur attend. */
       conditions.push('p.brand LIKE ?');
-      params.push(`%${filters.q}%`);
+      params.push(`%${escapeLikePattern(filters.q)}%`);
     }
   }
   /* Filtre catégorie sur la table de liaison (ADM-04) : un produit rattaché à un
@@ -323,16 +387,69 @@ const runFindAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created
      Ces produits, dont les moulinés DMC, tombaient en fin de liste pour toute
      recherche contenant un chiffre : « 310 » plaçait trois kits Permin devant le
      mouliné N° 310. */
+  /* La référence saisie telle quelle (tirets compris) vaut 1000 de plus que la
+     comparaison sans séparateurs : sans tirets, « WDKF022-7-5 » et « WDKF022-75 »
+     deviennent tous deux « WDKF0227 5 » → « WDKF02275 », et la cliente qui tapait la
+     référence exacte de son kit le trouvait en 2e position (7 kits Wizardi, audit
+     du 24/09). Le tri reste insensible à la casse (collation _ci). */
   const referenceScoreSql = referenceQuery
-    ? `1000 * COALESCE(REPLACE(REPLACE(REPLACE(p.sku, '-', ''), ' ', ''), '.', '') = ? OR p.ean = ?, 0) + `
+    ? `1000 * COALESCE(p.sku = ?, 0) + 1000 * COALESCE(REPLACE(REPLACE(REPLACE(p.sku, '-', ''), ' ', ''), '.', '') = ? OR p.ean = ?, 0) + `
     : '';
   // Nombres saisis retrouvés dans le nom : voir numericNameBoost
   const { sql: nameBoostSql, params: nameBoostParams } = relevanceSort
     ? numericNameBoost(filters.q)
     : { sql: '', params: [] };
+
+  /* Nom exact (CLI-01, audit du 24/09) : la recherche correspond au nom de
+     l'article, entier ou sans la marque (« kit confiture de cerises » pour
+     « Bonheur des Dames, kit confiture de cerises »). Comparaison sans casse,
+     accents ni ponctuation (collation + normalisation). 500 : devant tout le
+     reste sauf une référence exacte. Sans lui, un article dont la DESCRIPTION
+     reprenait les mots passait devant — « Calendrier de l'Avent, boucles
+     incluses » arrivait 24e sur son propre nom. */
+  const normalizedQuery = relevanceSort && filters.q
+    ? String(filters.q).replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
+    : '';
+  /* « Sans la marque » = ce qui suit la PREMIÈRE virgule (« Marque, reste »),
+     comparé en entier : une simple fin de nom commune mettait « DMC, lot de 10
+     archets pour cotons moulinés » en tête de « cotons moulinés ». */
+  const rawName = `COALESCE(pt_fr.name, pt.name, '')`;
+  const normalize = (expr) => `TRIM(REGEXP_REPLACE(${expr}, '[^[:alnum:]]+', ' '))`;
+  /* À partir de 2 mots seulement : la comparaison normalise le nom de chaque
+     article trouvé, coûteuse sur une recherche large (« kit » : 11 000 articles),
+     et un nom d'article d'un seul mot est rarissime. */
+  const exactNameSql = normalizedQuery.length >= 3 && normalizedQuery.includes(' ')
+    ? `500 * (${normalize(rawName)} = ? OR ${normalize(`SUBSTRING(${rawName}, LOCATE(',', ${rawName}) + 1)`)} = ?) + `
+    : '';
+  const exactNameParams = exactNameSql ? [normalizedQuery, normalizedQuery] : [];
+
+  /* Recherche précise (3 mots utiles ou plus) : chaque mot présent dans le NOM
+     rapporte 10 points. L'article dont le nom contient le plus de mots cherchés
+     passe devant ceux qui ne les ont que dans leur description. Réservé aux
+     recherches longues : pour « cotons moulinés », des kits « (sans les cotons
+     moulinés) » repasseraient devant les échevettes. */
+  const nameWords = relevanceSort ? fullTextTerms(queryTerms(filters.q)) : [];
+  const coverageSql = nameWords.length >= 3
+    ? `10 * (${nameWords.map(() => `(COALESCE(pt_fr.name, pt.name, '') LIKE ?)`).join(' + ')}) + `
+    : '';
+  const coverageParams = coverageSql
+    ? nameWords.map((t) => `%${escapeLikePattern(t)}%`)
+    : [];
+
+  /* Rayon trouvé par son nom (findCategoryIdsMatching) : ses articles passent
+     devant ceux qui ne font que mentionner les mots — « Toiles de Lin » plaçait
+     des gants de toilette (« toile » → « toilette ») avant les toiles de lin.
+     50 : sous le bonus des nombres (100), pour que « aida 14 » garde l'Aïda 14
+     devant les autres toiles Aïda. */
+  const categoryIds = relevanceSort ? (filters.categoryMatchIds ?? []) : [];
+  const categoryBoostSql = categoryIds.length
+    ? `50 * (p.category_id IN (${categoryIds.map(() => '?').join(', ')})
+          OR EXISTS (SELECT 1 FROM product_categories pcb
+                     WHERE pcb.product_id = p.id AND pcb.category_id IN (${categoryIds.map(() => '?').join(', ')}))) + `
+    : '';
   const relevanceSelect = relevanceSort
     ? `, (
-         ${referenceScoreSql}${nameBoostSql}2 * COALESCE(MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE), 0)
+         ${referenceScoreSql}${exactNameSql}${coverageSql}${nameBoostSql}${categoryBoostSql}2 * COALESCE(MATCH(pt.name, pt.description) AGAINST(? IN BOOLEAN MODE), 0)
          + COALESCE(MATCH(pt_fr.name, pt_fr.description) AGAINST(? IN BOOLEAN MODE), 0)
        ) AS relevance`
     : '';
@@ -341,8 +458,11 @@ const runFindAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created
      AGAINST('') renvoie simplement 0, le score de référence fait alors tout le travail. */
   const relevanceParams = relevanceSort
     ? [
-        ...(referenceQuery ? [referenceQuery, referenceQuery] : []),
+        ...(referenceQuery ? [String(filters.q).trim(), referenceQuery, referenceQuery] : []),
+        ...exactNameParams,
+        ...coverageParams,
         ...nameBoostParams,
+        ...categoryIds, ...categoryIds,
         booleanQuery ?? '',
         booleanQuery ?? '',
       ]
@@ -382,7 +502,42 @@ const runFindAll = async ({ locale = 'fr', page = 1, limit = 20, sort = 'created
    requête avec des préfixes raccourcis (voir toFuzzyBooleanQuery).
    Le repli ne s'applique qu'à une vraie recherche texte : filtrer sur une catégorie
    vide doit continuer d'afficher « aucun produit », pas des articles sans rapport. */
+/* Rayons dont le nom contient TOUS les mots cherchés, en début de mot, sans
+   tenir compte des accents ni du pluriel (« bandes galons » → « Bandes &
+   Galons »). Un rayon de tête entraîne ses sous-rayons.
+   Sans cela, chercher le nom d'un rayon ne donnait rien dès qu'aucun article ne
+   contenait tous ses mots : « Bandes & Galons » → 0 résultat (CLI-01).
+   49 rayons : la requête est instantanée. */
+const findCategoryIdsMatching = async (q) => {
+  const terms = fullTextTerms(queryTerms(q))
+    .filter((t) => t.length >= MIN_FT_TOKEN_LENGTH && !MYSQL_STOPWORDS.has(t.toLowerCase()));
+  if (terms.length === 0) return [];
+
+  /* Mot ENTIER, pluriel accepté (« bande » → « Bandes », « lin » → « Lin » mais
+     pas « Linge ») : un simple début de mot rattachait « lin » au rayon « Linge
+     de Bain ». LIKE plutôt que REGEXP : il ignore les accents (« aida » → « Aïda »).
+     Ponctuation du nom ramenée à des espaces : « Aiguilles (Coudre / Broder) ». */
+  const words = `CONCAT(' ', REGEXP_REPLACE(ct.name, '[^[:alnum:]]+', ' '), ' ')`;
+  const [matched] = await pool.query(
+    `SELECT DISTINCT ct.category_id AS id
+     FROM category_translations ct
+     WHERE ct.locale = 'fr' AND ${terms.map(() => `(${words} LIKE ? OR ${words} LIKE ? OR ${words} LIKE ?)`).join(' AND ')}`,
+    terms.flatMap((t) => [`% ${escapeLikePattern(t)} %`, `% ${escapeLikePattern(t)}s %`, `% ${escapeLikePattern(t)}x %`])
+  );
+  if (matched.length === 0) return [];
+
+  const ids = matched.map((r) => r.id);
+  const [children] = await pool.query(
+    `SELECT id FROM categories WHERE parent_id IN (?)`,
+    [ids]
+  );
+  return [...new Set([...ids, ...children.map((r) => r.id)])];
+};
+
 const findAll = async (options) => {
+  if (options.q) {
+    options = { ...options, categoryMatchIds: await findCategoryIdsMatching(options.q) };
+  }
   const result = await runFindAll(options);
   if (result.total > 0 || !options.q) return result;
 

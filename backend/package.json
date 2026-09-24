@@ -18,7 +18,8 @@
     "import:supplier-contacts": "node ../database/import-supplier-contacts.js",
     "categories:flatten": "node ../database/flatten-category-roots.js",
     "categories:classify": "node ../database/classify-subcategories.js",
-    "prices:dmc": "node ../database/update-prices-dmc.js"
+    "prices:dmc": "node ../database/update-prices-dmc.js",
+    "search:audit": "node -r dotenv/config scripts/audit-search.js"
   },
   "keywords": [],
   "author": "",

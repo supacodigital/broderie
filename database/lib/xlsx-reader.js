@@ -67,7 +67,14 @@ const decodeXml = (s) =>
     .replace(/&apos;/g, "'")
     .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
     .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCodePoint(parseInt(n, 16)))
-    .replace(/&amp;/g, '&'); // en dernier — sinon double décodage
+    .replace(/&amp;/g, '&') // en dernier — sinon double décodage
+    /* Échappement propre à Excel (ST_Xstring) : un caractère de contrôle est
+       écrit « _xHHHH_ » — le retour chariot d'une cellule sur deux lignes devient
+       « _x000d_ ». Non décodé, il s'affichait tel quel en boutique : 40 noms
+       d'articles (« Riolis, kit Merci _x000d_ erci ») et 783 descriptions.
+       « _x005F_ » protège un « _ » littéral : décodé au passage, il ne peut pas
+       former de nouvelle séquence (le remplacement ne revient pas en arrière). */
+    .replace(/_x([0-9a-fA-F]{4})_/g, (_, n) => String.fromCharCode(parseInt(n, 16)));
 
 // ── Colonne "AB" → index 0-based ───────────────────────────
 const columnLetterToIndex = (letters) => {

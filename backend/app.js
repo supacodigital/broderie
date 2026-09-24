@@ -38,6 +38,18 @@ const { errorHandler, AppError } = require('./middlewares/errorHandler');
 
 const app = express();
 
+/* Paramètres d'URL toujours de simples chaînes : `?q=a&q=b` donnait un tableau,
+   `?q[x]=1` un objet, et `.trim()` sur ces valeurs faisait planter la route en
+   500 (constaté sur la recherche boutique, CLI-01). Aucune page n'envoie de
+   liste dans l'URL : la première valeur l'emporte, les objets sont ignorés. */
+app.set('query parser', (queryString) => {
+  const out = {};
+  for (const [key, value] of new URLSearchParams(queryString)) {
+    if (!key.includes('[') && !(key in out)) out[key] = value;
+  }
+  return out;
+});
+
 // Derrière le reverse-proxy Nginx en production : faire confiance au 1er proxy pour que
 // req.secure/req.protocol reflètent HTTPS → indispensable pour poser les cookies « Secure ».
 if (process.env.NODE_ENV === 'production') {

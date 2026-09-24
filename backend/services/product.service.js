@@ -5,6 +5,12 @@ const { AppError } = require('../middlewares/errorHandler');
 const { normalizeLocale } = require('../utils/locale.utils');
 const searchLogService = require('./searchLog.service');
 
+/* Texte de recherche : chaîne uniquement, bornée à 120 caractères — le plus long
+   nom d'article en compte 101. Sans borne, une saisie de plusieurs milliers de
+   caractères occupait la base près d'une seconde par requête. */
+const MAX_SEARCH_LENGTH = 120;
+const searchText = (value) => (typeof value === 'string' ? value.trim().slice(0, MAX_SEARCH_LENGTH).trim() : '');
+
 // Limite max de résultats par page — protection contre les abus
 const MAX_LIMIT = 100;
 
@@ -29,7 +35,7 @@ const getAll = async (query) => {
   const order = query.order || 'desc';
 
   const filters = {
-    ...(query.q?.trim().length >= 2 && { q: query.q.trim() }),
+    ...(searchText(query.q).length >= 2 && { q: searchText(query.q) }),
     ...(query.category && { categorySlug: query.category }),
     ...(query.brand && { brand: query.brand }),
     ...(query.min_price !== undefined && { minPrice: parseFloat(query.min_price) }),
@@ -113,7 +119,7 @@ const getBySlug = async (slug, locale = 'fr') => {
 };
 
 const search = async (query) => {
-  const q = (query.q || '').trim();
+  const q = searchText(query.q);
   if (!q || q.length < 2) throw new AppError('Le terme de recherche doit contenir au moins 2 caractères.', 400);
 
   const locale = normalizeLocale(query.locale);

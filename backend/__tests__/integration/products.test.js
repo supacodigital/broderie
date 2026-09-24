@@ -108,3 +108,32 @@ describe('Produits — GET /api/v1/products/search', () => {
     expect(Array.isArray(res.body.data)).toBe(true);
   });
 });
+
+/* Non-régression CLI-01 (vérification en production du 24/09) :
+   `?q=a&q=b` faisait planter la recherche en 500 (Express en faisait un tableau). */
+describe('GET /api/v1/products — paramètres malformés', () => {
+  test.each([
+    'q=aida&q=lin',
+    'q[a]=1',
+    'q[]=x&q[]=y',
+    'page[x]=1',
+  ])('?%s répond sans erreur', async (qs) => {
+    const res = await request(app).get(`/api/v1/products?${qs}&limit=1`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  test('une recherche très longue est tronquée et répond', async () => {
+    const res = await request(app)
+      .get('/api/v1/products')
+      .query({ q: 'broderie '.repeat(700), limit: 1 });
+    expect(res.status).toBe(200);
+  });
+
+  test('« % » tapé seul ne correspond pas à toutes les marques', async () => {
+    const res = await request(app).get('/api/v1/products').query({ q: '%%', limit: 1 });
+    expect(res.status).toBe(200);
+    expect(res.body.pagination.total).toBe(0);
+  });
+});
+

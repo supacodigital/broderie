@@ -29,18 +29,24 @@ const SEPARATORS = /[,;:!?«»“”„]/g;
    chiffre isolé est gardé : « perlé 5 » en a besoin. */
 const isElisionLeftover = (token) => token.length === 1 && !/[0-9]/.test(token);
 
-/* Découpe une saisie en mots exploitables, ramenés au singulier.
-   `max` borne le nombre de termes : au-delà la requête coûte plus qu'elle ne sert.
-   La borne s'applique APRÈS le retrait des restes d'élision. */
-const toSearchTerms = (input, max = 6) =>
+/* Découpe une saisie en mots bruts : ni limite, ni singulier. Sert aux moteurs
+   qui doivent écarter certains mots AVANT la mise au singulier (voir
+   product.repository, mots vides du FULLTEXT). */
+const splitSearchWords = (input) =>
   String(input ?? '')
     .replace(APOSTROPHES, ' ')
     .replace(SEPARATORS, ' ')
     .trim()
     .split(/\s+/)
     .filter(Boolean)
-    .filter((token) => !isElisionLeftover(token))
+    .filter((token) => !isElisionLeftover(token));
+
+/* Découpe une saisie en mots exploitables, ramenés au singulier.
+   `max` borne le nombre de termes : au-delà la requête coûte plus qu'elle ne sert.
+   La borne s'applique APRÈS le retrait des restes d'élision. */
+const toSearchTerms = (input, max = 6) =>
+  splitSearchWords(input)
     .slice(0, max)
     .map(singularize);
 
-module.exports = { singularize, toSearchTerms };
+module.exports = { singularize, splitSearchWords, toSearchTerms };

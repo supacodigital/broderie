@@ -294,10 +294,27 @@ describe('product.repository — findAll() recherche par référence', () => {
 
     await repo.findAll({ locale: 'fr', q: 'PE5860' });
 
-    const selectQuery = pool.query.mock.calls[0][0];
+    // La recherche des rayons correspondants passe aussi par pool.query : on vise la requête produits
+    const selectQuery = pool.query.mock.calls.map((c) => c[0]).find((sql) => sql.includes('FROM products p'));
     // Le score de référence (1000) domine le score FULLTEXT
     expect(selectQuery).toMatch(/1000 \*/);
     expect(selectQuery).toMatch(/ORDER BY relevance DESC/);
+  });
+
+  /* Audit complet du 24/09 — sans séparateurs, « WDKF022-7-5 » et « WDKF022-75 »
+     se confondent : la référence saisie à l'identique doit passer devant. */
+  test('la référence saisie à l\'identique passe devant la référence sans séparateurs', async () => {
+    pool.execute.mockResolvedValue([[{ total: 2 }]]);
+    pool.query.mockResolvedValue([[{ id: 1 }]]);
+
+    await repo.findAll({ locale: 'fr', q: ' WDKF022-7-5 ' });
+
+    const call = pool.query.mock.calls.find((c) => c[0].includes('FROM products p'));
+    expect(call[0]).toMatch(/1000 \* COALESCE\(p\.sku = \?, 0\) \+ 1000 \* COALESCE\(REPLACE/);
+    // Référence exacte (espaces retirés), puis référence sans séparateurs, puis EAN
+    const at = call[1].indexOf('WDKF022-7-5');
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(call[1].slice(at, at + 3)).toEqual(['WDKF022-7-5', 'WDKF02275', 'WDKF02275']);
   });
 
   test('une saisie purement textuelle ne déclenche aucune comparaison de référence', async () => {
@@ -420,5 +437,22 @@ describe('product.repository — requête booléenne FULLTEXT', () => {
 
   test('les espaces multiples ne produisent pas de terme vide', async () => {
     expect(await booleanQueryOf('  fil   rouge  ')).toBe('+fil* +rouge*');
+  });
+
+  /* Audit complet du 24/09 — « this » passé au singulier devenait « thi », plus
+     reconnu comme mot vide : « RTO, kit this is for you » ne renvoyait RIEN. */
+  test('un mot vide terminé par « s » n\'est pas mis au singulier puis exigé', async () => {
+    expect(await booleanQueryOf('RTO, kit this is for you')).toBe('+RTO* +kit* +you*');
+  });
+
+  // Les mots vides ne prennent plus de place dans la limite de 8 mots
+  test('les mots vides ne comptent pas dans la limite de mots', async () => {
+    expect(await booleanQueryOf('RTO, kit this is the story of Little Red Riding Hood'))
+      .toBe('+RTO* +kit* +story* +Little* +Red* +Riding* +Hood*');
+  });
+
+  // Rien d'autre à chercher : les mots vides sont gardés (« is », trop court, part ensuite)
+  test('une saisie faite uniquement de mots vides est gardée', async () => {
+    expect(await booleanQueryOf('this is')).toBe('+thi*');
   });
 });
