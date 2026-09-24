@@ -12,8 +12,10 @@ export async function getOrderById(id) {
   return res.data.data ?? null
 }
 
-export async function updateOrderStatus(id, status, note) {
-  const res = await api.put(`/admin/orders/${id}/status`, { status, note })
+/* `shippingMethod` (passage en « Expédiée ») : 'ECO' | 'PRI' génèrent une
+   étiquette La Poste, 'NONE' = envoi déjà affranchi (WebStamp) — ADM-10 */
+export async function updateOrderStatus(id, status, note, { shippingMethod } = {}) {
+  const res = await api.put(`/admin/orders/${id}/status`, { status, note, shippingMethod })
   return res.data.data ?? null
 }
 
@@ -34,8 +36,9 @@ export async function downloadInvoice(orderId) {
 }
 
 /* Génère une étiquette La Poste CH pour la commande */
-export async function generateLabel(orderId) {
-  const res = await api.post(`/admin/orders/${orderId}/label`)
+// product : 'ECO' (PostPac Economy) ou 'PRI' (PostPac Priority) — ADM-10
+export async function generateLabel(orderId, product = 'ECO') {
+  const res = await api.post(`/admin/orders/${orderId}/label`, { product })
   return res.data.data ?? null
 }
 

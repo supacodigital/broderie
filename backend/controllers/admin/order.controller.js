@@ -57,6 +57,15 @@ const updateStatus = async (req, res, next) => {
       return next(new AppError(`Statut invalide. Valeurs acceptées : ${VALID_STATUSES.join(', ')}`, 400));
     }
 
+    /* Mode d'envoi au passage en « Expédiée » (ADM-10) : étiquette PostPac
+       Economy ou Priority générée automatiquement, ou « NONE » pour un envoi
+       déjà affranchi ailleurs (WebStamp). Sans ce choix, un envoi affranchi sur
+       WebStamp déclenchait en plus une vraie étiquette Priority, facturée. */
+    const shippingMethod = req.body.shippingMethod ?? 'PRI';
+    if (status === 'shipped' && shippingMethod !== 'NONE' && !shippingService.isLabelProduct(shippingMethod)) {
+      return next(new AppError('Mode d\'envoi invalide — PostPac Economy, Priority ou déjà affranchi.', 400));
+    }
+
     // previousStatus vient du repository : l'objet relu juste après porte déjà le NOUVEAU
     // statut, il ne peut donc pas servir à savoir d'où venait la commande.
     const { ok, previousStatus } = await orderRepository.updateStatusWithHistory(orderId, status, note, req.user.id);
@@ -72,9 +81,9 @@ const updateStatus = async (req, res, next) => {
         /* Génération automatique de l'étiquette si aucun tracking existant */
         let trackingNumber = order.tracking_number ?? null;
 
-        if (!trackingNumber && order.shipping_street) {
+        if (!trackingNumber && order.shipping_street && shippingMethod !== 'NONE') {
           try {
-            const label = await shippingService.generateLabel(orderId, order);
+            const label = await shippingService.generateLabel(orderId, order, { product: shippingMethod });
             trackingNumber = label.trackingNumber;
           } catch (err) {
             console.error('[La Poste CH] Étiquette non générée :', err.message);

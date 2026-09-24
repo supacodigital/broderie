@@ -1,4 +1,4 @@
-const { getShippingCost } = require('../utils/shipping.utils');
+const { getShippingRate } = require('../utils/shipping.utils');
 
 /**
  * Retourne le tarif de livraison CHF pour un poids donné.
@@ -8,7 +8,8 @@ const { getShippingCost } = require('../utils/shipping.utils');
 const getRates = async (req, res, next) => {
   try {
     const weightKg = parseFloat(req.query.weight) || 0;
-    const priceChf = await getShippingCost(weightKg);
+    // Délai de la tranche, tel que réglé dans l'admin — il était figé à « 3–5 »
+    const { priceChf, estimatedDays } = await getShippingRate(weightKg);
 
     res.json({
       success: true,
@@ -16,7 +17,7 @@ const getRates = async (req, res, next) => {
         price_chf:      priceChf,
         currency:       'CHF',
         carrier:        'Swiss Post',
-        estimated_days: '3–5',
+        estimated_days: estimatedDays,
       },
     });
   } catch (error) {

@@ -67,6 +67,9 @@ export default function OrderDetail() {
   const [markingReady,    setMarkingReady]    = useState(false)
   const [sendingTwintQr,  setSendingTwintQr]  = useState(false)
   const [generatingLabel, setGeneratingLabel] = useState(false)
+  /* Mode d'envoi (ADM-10) : étiquette PostPac Economy ou Priority, ou envoi déjà
+     affranchi sur WebStamp. Economy par défaut : le moins cher, livré en 2 jours. */
+  const [shippingMethod,  setShippingMethod]  = useState('ECO')
   const [trackingInput,   setTrackingInput]   = useState('')
   const [savingTracking,  setSavingTracking]  = useState(false)
   const [feedback,        setFeedback]        = useState('')
@@ -103,9 +106,28 @@ export default function OrderDetail() {
      vraie étiquette Swiss Post (prestation facturée). Ces actions sont
      irréversibles : un mauvais choix dans la liste déroulante envoyait le mail
      sans le moindre avertissement. */
+  const SHIPPING_METHODS = {
+    ECO:  'PostPac Economy (2 jours ouvrables)',
+    PRI:  'PostPac Priority (jour ouvrable suivant)',
+    NONE: 'Déjà affranchi (WebStamp) — pas d’étiquette',
+  }
+
+  /* « Expédiée » : l'étiquette n'est générée que s'il n'y a pas encore de suivi
+     et qu'un envoi PostPac est choisi — un envoi affranchi sur WebStamp n'en
+     déclenche plus une seconde, facturée (ADM-10). */
+  const shippedSideEffect = () => {
+    if (order?.tracking_number) {
+      return `Un email d’expédition avec le suivi ${order.tracking_number} sera envoyé au client.`
+    }
+    if (shippingMethod === 'NONE') {
+      return 'Un email d’expédition sera envoyé au client, sans numéro de suivi (saisissez-le d’abord dans « Suivi manuel » s’il en existe un).'
+    }
+    return `Un email d’expédition sera envoyé au client, et une étiquette ${SHIPPING_METHODS[shippingMethod].split(' (')[0]} sera générée (prestation facturée par La Poste).`
+  }
+
   const STATUS_SIDE_EFFECTS = {
-    shipped:          'Un email d’expédition sera envoyé au client, et une étiquette Swiss Post sera générée.',
-    ready_for_pickup: 'Un email « votre commande est prête » sera envoyé au client.',
+    shipped:          shippedSideEffect,
+    ready_for_pickup: () => 'Un email « votre commande est prête » sera envoyé au client.',
   }
 
   const runStatusUpdate = async () => {
@@ -113,7 +135,8 @@ export default function OrderDetail() {
     setFeedback('')
     setError('')
     try {
-      await updateOrderStatus(orderId, newStatus, note || undefined)
+      await updateOrderStatus(orderId, newStatus, note || undefined,
+        newStatus === 'shipped' ? { shippingMethod } : {})
       setOrder(prev => ({ ...prev, status: newStatus }))
       setNote('')
       setFeedback('Statut mis à jour.')
@@ -130,7 +153,7 @@ export default function OrderDetail() {
      pas transformer chaque clic en dialogue. */
   const handleStatusUpdate = () => {
     if (!order || newStatus === order.status) return
-    const sideEffect = STATUS_SIDE_EFFECTS[newStatus]
+    const sideEffect = STATUS_SIDE_EFFECTS[newStatus]?.()
     if (sideEffect) {
       const label = STATUS_OPTIONS.find(o => o.value === newStatus)?.label ?? newStatus
       setConfirm({
@@ -181,7 +204,7 @@ export default function OrderDetail() {
   /* Même garde que pour le select : ce bouton prévient le client par email. */
   const handleMarkReady = () => {
     setConfirm({
-      message: `Marquer la commande #${order.id} comme prête ? ${STATUS_SIDE_EFFECTS.ready_for_pickup}`,
+      message: `Marquer la commande #${order.id} comme prête ? ${STATUS_SIDE_EFFECTS.ready_for_pickup()}`,
       onConfirm: runMarkReady,
     })
   }
@@ -213,7 +236,7 @@ export default function OrderDetail() {
     setFeedback('')
     setError('')
     try {
-      const label = await generateLabel(orderId)
+      const label = await generateLabel(orderId, shippingMethod)
       setOrder(prev => ({ ...prev, tracking_number: label.trackingNumber, label_url: label.labelUrl }))
       setFeedback(`Étiquette générée — suivi : ${label.trackingNumber}`)
       window.dispatchEvent(new Event('admin:data-changed'))
@@ -506,9 +529,27 @@ export default function OrderDetail() {
             </div>
             <div className={s.actionList}>
               <div className={s.actionItem}>
+                <label className={s.actionLabel} htmlFor="shipping-method">Mode d’envoi</label>
+                <select
+                  id="shipping-method"
+                  className={s.select}
+                  value={shippingMethod}
+                  onChange={e => setShippingMethod(e.target.value)}
+                >
+                  {Object.entries(SHIPPING_METHODS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className={s.actionItem}>
                 <span className={s.actionLabel}>Étiquette La Poste CH</span>
                 <div className={s.actionRow}>
-                  <button className={s.btnPrimary} onClick={handleGenerateLabel} disabled={generatingLabel}>
+                  <button
+                    className={s.btnPrimary}
+                    onClick={handleGenerateLabel}
+                    disabled={generatingLabel || shippingMethod === 'NONE'}
+                    title={shippingMethod === 'NONE' ? 'Envoi affranchi sur WebStamp : saisissez son numéro dans « Suivi manuel »' : undefined}
+                  >
                     {generatingLabel
                       ? <><RefreshCw size={13} className={s.spin} /> Génération…</>
                       : <><Package size={13} /> Générer</>

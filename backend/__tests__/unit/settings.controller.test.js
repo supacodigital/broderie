@@ -7,6 +7,7 @@ jest.mock('../../repositories/settings.repository', () => ({
   findAllShippingRates: jest.fn(),
   updateShippingRate:   jest.fn(),
   updateShippingRatesBulk: jest.fn(),
+  replaceShippingRates: jest.fn(),
   findSettings:         jest.fn(),
   upsertSettings:       jest.fn(),
   STORE_KEYS: ['store_name', 'store_email'],
@@ -324,5 +325,43 @@ describe('admin/settings.controller — updateAboutSettings()', () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(settingsRepository.upsertSettings).not.toHaveBeenCalled();
+  });
+});
+
+/* ADM-10 — grille complète, tranches de poids comprises, réglée par la cliente */
+describe('admin/settings.controller — updateShippingRates() grille complète', () => {
+  const run = async (rates) => {
+    const res = makeRes();
+    const next = jest.fn();
+    settingsRepository.findAllShippingRates.mockResolvedValue([]);
+    await updateShippingRates({ body: { rates } }, res, next);
+    return { res, next };
+  };
+
+  test('remplace la grille, tranches triées par poids', async () => {
+    await run([
+      { maxWeight: 10, priceChf: 10, estimatedDays: '1-2' },
+      { maxWeight: 0.1, priceChf: 3, estimatedDays: '1-2' },
+      { maxWeight: 2, priceChf: 5, estimatedDays: '1-2' },
+    ]);
+    expect(settingsRepository.replaceShippingRates).toHaveBeenCalledWith([
+      { maxWeight: 0.1, priceChf: 3, estimatedDays: '1-2' },
+      { maxWeight: 2, priceChf: 5, estimatedDays: '1-2' },
+      { maxWeight: 10, priceChf: 10, estimatedDays: '1-2' },
+    ]);
+    expect(settingsRepository.updateShippingRatesBulk).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ['deux tranches au même poids', [{ maxWeight: 2, priceChf: 5 }, { maxWeight: 2, priceChf: 6 }]],
+    ['poids nul', [{ maxWeight: 0, priceChf: 5 }]],
+    ['tarif négatif', [{ maxWeight: 2, priceChf: -1 }]],
+    ['tarif absent', [{ maxWeight: 2, priceChf: '' }]],
+    ['tarif à CHF 0 (livraison gratuite interdite)', [{ maxWeight: 2, priceChf: 0 }]],
+    ['plus de 12 tranches', Array.from({ length: 13 }, (_, i) => ({ maxWeight: i + 1, priceChf: 5 }))],
+  ])('refuse (400) : %s', async (_, rates) => {
+    const { res } = await run(rates);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(settingsRepository.replaceShippingRates).not.toHaveBeenCalled();
   });
 });

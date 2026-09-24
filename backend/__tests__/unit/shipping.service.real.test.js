@@ -66,6 +66,29 @@ describe('shipping.service — createLabel() mode réel', () => {
     expect(payload.item[0].attributes.weight).toBe(600);
   });
 
+  // ADM-10 — le produit La Poste suit le choix fait dans l'admin
+  test('PostPac Economy : przl ECO ; Priority par défaut', async () => {
+    swissPostClient.generateAddressLabel.mockResolvedValue(apiResponse);
+    const address = { street: fakeOrder.shipping_street, city: fakeOrder.shipping_city, zip: fakeOrder.shipping_zip };
+
+    await service.createLabel({ order: fakeOrder, address, product: 'ECO' });
+    await service.createLabel({ order: fakeOrder, address });
+
+    const [eco, byDefault] = swissPostClient.generateAddressLabel.mock.calls.slice(-2).map(c => c[0]);
+    expect(eco.item[0].attributes.przl).toEqual(['ECO']);
+    expect(byDefault.item[0].attributes.przl).toEqual(['PRI']);
+  });
+
+  test('produit inconnu : refusé avant tout appel à La Poste', async () => {
+    const calls = swissPostClient.generateAddressLabel.mock.calls.length;
+    await expect(service.createLabel({
+      order: fakeOrder,
+      address: { street: fakeOrder.shipping_street, city: fakeOrder.shipping_city, zip: fakeOrder.shipping_zip },
+      product: 'EXPRESS',
+    })).rejects.toMatchObject({ statusCode: 400 });
+    expect(swissPostClient.generateAddressLabel.mock.calls.length).toBe(calls);
+  });
+
   test('parse identCode comme trackingNumber et label base64 en data URI PDF', async () => {
     swissPostClient.generateAddressLabel.mockResolvedValue(apiResponse);
 

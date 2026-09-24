@@ -17,6 +17,8 @@ jest.mock('../../services/email.service', () => ({
 
 jest.mock('../../services/shipping.service', () => ({
   generateLabel: jest.fn(),
+  // Vraie règle : seuls PostPac Economy et Priority sont des produits d'étiquette (ADM-10)
+  isLabelProduct: (code) => code === 'ECO' || code === 'PRI',
 }));
 
 jest.mock('../../services/loyalty.service', () => ({
@@ -187,6 +189,43 @@ describe('order.admin.controller — updateStatus()', () => {
     await new Promise(resolve => setTimeout(resolve, 50));
 
     expect(emailService.sendOrderShipped).toHaveBeenCalled();
+  });
+
+  /* ADM-10 — un envoi affranchi sur WebStamp ne doit pas déclencher en plus une
+     vraie étiquette La Poste, facturée. */
+  test('« Déjà affranchi (WebStamp) » : aucune étiquette, e-mail envoyé quand même', async () => {
+    orderRepository.updateStatusWithHistory.mockResolvedValue({ ok: true, previousStatus: 'paid', stockRestored: false });
+    orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'shipped', shipping_street: 'Rue 1', tracking_number: null });
+    userRepository.findById.mockResolvedValue(fakeUser);
+
+    const req = { params: { id: '42' }, body: { status: 'shipped', shippingMethod: 'NONE' }, user: { id: 1 } };
+    await controller.updateStatus(req, makeRes(), jest.fn());
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(shippingService.generateLabel).not.toHaveBeenCalled();
+    expect(emailService.sendOrderShipped).toHaveBeenCalledWith(expect.objectContaining({ trackingNumber: null }));
+  });
+
+  test('PostPac Economy choisi : l\'étiquette est générée en Economy', async () => {
+    orderRepository.updateStatusWithHistory.mockResolvedValue({ ok: true, previousStatus: 'paid', stockRestored: false });
+    orderRepository.findById.mockResolvedValue({ ...fakeOrder, status: 'shipped', shipping_street: 'Rue 1', tracking_number: null });
+    userRepository.findById.mockResolvedValue(fakeUser);
+    shippingService.generateLabel.mockResolvedValue({ trackingNumber: '99.00.222222.22222222' });
+
+    const req = { params: { id: '42' }, body: { status: 'shipped', shippingMethod: 'ECO' }, user: { id: 1 } };
+    await controller.updateStatus(req, makeRes(), jest.fn());
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    expect(shippingService.generateLabel).toHaveBeenCalledWith(42, expect.anything(), { product: 'ECO' });
+  });
+
+  test('mode d\'envoi inconnu : refusé (400), rien n\'est modifié', async () => {
+    const req = { params: { id: '42' }, body: { status: 'shipped', shippingMethod: 'EXPRESS' }, user: { id: 1 } };
+    const next = jest.fn();
+    await controller.updateStatus(req, makeRes(), next);
+
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
+    expect(orderRepository.updateStatusWithHistory).not.toHaveBeenCalled();
   });
 
   test('débite la fidélité pour statut "cancelled" (commande déjà payée)', async () => {

@@ -170,8 +170,42 @@ const updateShippingRatesBulk = async (rates) => {
   }
 };
 
+/* Remplace toute la grille de frais de port (ADM-10) — tranches de poids
+   comprises, que la cliente règle elle-même. Transaction : la grille est
+   appliquée en bloc ou pas du tout, jamais à moitié. Chaque tranche commence au
+   plafond de la précédente (la première à 0) ; `tiers` arrive trié et validé
+   par le contrôleur. Une seule zone (Suisse) : les tranches y sont rattachées. */
+const replaceShippingRates = async (tiers) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [[zone]] = await connection.query('SELECT id FROM shipping_zones ORDER BY id LIMIT 1');
+    if (!zone) throw new Error('Aucune zone de livraison configurée.');
+
+    await connection.execute('DELETE FROM shipping_rates WHERE zone_id = ?', [zone.id]);
+    let min = 0;
+    const rows = tiers.map((t) => {
+      const row = [zone.id, `Jusqu'à ${t.maxWeight} kg`, min, t.maxWeight, t.priceChf, t.estimatedDays ?? null];
+      min = t.maxWeight;
+      return row;
+    });
+    await connection.query(
+      `INSERT INTO shipping_rates (zone_id, name, min_weight, max_weight, price_chf, estimated_days)
+       VALUES ${rows.map(() => '(?, ?, ?, ?, ?, ?)').join(', ')}`,
+      rows.flat()
+    );
+    await connection.commit();
+    cache.del(keys.shippingRates());
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
   findAllTaxRates, updateTaxRate, findAllShippingRates, updateShippingRate,
-  updateTaxRatesBulk, updateShippingRatesBulk,
+  updateTaxRatesBulk, updateShippingRatesBulk, replaceShippingRates,
   findSettings, upsertSettings, STORE_KEYS, LEGAL_KEYS, ABOUT_KEYS, HOME_KEYS, BANNER_KEYS, PICKUP_KEYS, INVOICE_KEYS,
 };

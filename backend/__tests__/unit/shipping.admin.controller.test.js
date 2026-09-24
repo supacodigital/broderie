@@ -28,6 +28,8 @@ jest.mock('../../repositories/order.repository', () => ({
 
 jest.mock('../../services/shipping.service', () => ({
   generateLabel: jest.fn(),
+  // Vraie règle : seuls PostPac Economy et Priority sont des produits d'étiquette (ADM-10)
+  isLabelProduct: (code) => code === 'ECO' || code === 'PRI',
 }));
 
 const orderRepository = require('../../repositories/order.repository');
@@ -62,6 +64,26 @@ const fakeOrder = {
 // ── generateLabel() ───────────────────────────────────────────────────────────
 
 describe('shipping.admin.controller — generateLabel()', () => {
+  // ADM-10 — PostPac Economy ou Priority, choisi dans l'admin
+  test('transmet le produit choisi (Economy)', async () => {
+    orderRepository.findById.mockResolvedValue(fakeOrder);
+    shippingService.generateLabel.mockResolvedValue({ trackingNumber: 'x', labelUrl: 'y', labelId: 'z' });
+
+    await controller.generateLabel({ params: { id: '1' }, body: { product: 'ECO' } }, makeRes(), jest.fn());
+
+    expect(shippingService.generateLabel).toHaveBeenCalledWith(1, fakeOrder, { product: 'ECO' });
+  });
+
+  test('refuse un produit inconnu (400) sans rien générer', async () => {
+    orderRepository.findById.mockResolvedValue(fakeOrder);
+    const next = jest.fn();
+
+    await controller.generateLabel({ params: { id: '1' }, body: { product: 'EXPRESS' } }, makeRes(), next);
+
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
+    expect(shippingService.generateLabel).not.toHaveBeenCalled();
+  });
+
   test('génère l\'étiquette et retourne trackingNumber + labelUrl + labelId', async () => {
     orderRepository.findById.mockResolvedValue(fakeOrder);
     shippingService.generateLabel.mockResolvedValue({

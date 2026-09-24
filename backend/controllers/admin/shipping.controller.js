@@ -18,7 +18,12 @@ const generateLabel = async (req, res, next) => {
     const order = await orderRepository.findById(orderId);
     if (!order) return next(new AppError('Commande introuvable.', 404));
 
-    const label = await shippingService.generateLabel(orderId, order);
+    // PostPac Economy (ECO) ou Priority (PRI), choisi dans l'admin (ADM-10)
+    const product = req.body?.product ?? 'PRI';
+    if (!shippingService.isLabelProduct(product)) {
+      return next(new AppError('Produit La Poste inconnu — choisir PostPac Economy ou Priority.', 400));
+    }
+    const label = await shippingService.generateLabel(orderId, order, { product });
 
     res.json({
       success: true,

@@ -43,6 +43,16 @@ const recipientName = (order, address) =>
     address.last_name  ?? order.last_name  ?? '',
   ].join(' ').trim()
 
+/* Produits La Poste proposés à l'expédition (ADM-10 — « PostPac Economy /
+   Priority ») : Economy livre en 2 jours ouvrables, Priority le jour ouvrable
+   suivant. L'étiquette était toujours émise en Priority, le plus cher. */
+const LABEL_PRODUCTS = {
+  ECO: 'PostPac Economy',
+  PRI: 'PostPac Priority',
+}
+const DEFAULT_LABEL_PRODUCT = 'PRI' // comportement historique quand rien n'est précisé
+const isLabelProduct = (code) => Object.prototype.hasOwnProperty.call(LABEL_PRODUCTS, code)
+
 /* ── RÉEL ──────────────────────────────────────────────────────────────────── */
 
 /**
@@ -50,7 +60,7 @@ const recipientName = (order, address) =>
  * ⚠️ Les sous-champs (item/recipient/attributes) sont à valider contre le Swagger officiel
  *    le jour de l'activation — voir config/swissPostClient.js.
  */
-const buildLabelPayload = ({ order, address }) => ({
+const buildLabelPayload = ({ order, address, product = DEFAULT_LABEL_PRODUCT }) => ({
   language: 'FR',
   frankingLicense: swissPost.frankiernummer,
   /* Expéditeur = boutique (config/env.js) */
@@ -79,7 +89,7 @@ const buildLabelPayload = ({ order, address }) => ({
         country: address.country ?? 'CH',
       },
       attributes: {
-        przl:     ['PRI'],                 // produit « PostPac Priority »
+        przl:     [product],               // ECO « PostPac Economy » ou PRI « PostPac Priority »
         weight:   Math.round(totalWeightKg(order) * 1000), // grammes
       },
     },
@@ -118,7 +128,10 @@ const parseLabelResponse = (apiResponse) => {
  * Crée une étiquette Swiss Post (réel ou mock selon la config).
  * Retourne { trackingNumber, labelUrl, labelId }.
  */
-const createLabel = async ({ order, address }) => {
+const createLabel = async ({ order, address, product = DEFAULT_LABEL_PRODUCT }) => {
+  if (!isLabelProduct(product)) {
+    throw new AppError('Produit La Poste inconnu — choisir PostPac Economy ou Priority.', 400)
+  }
   /* Validation de l'adresse — comportement identique dans les deux modes */
   if (!address.street || !address.city || !address.zip) {
     throw new AppError('Adresse de livraison incomplète — impossible de générer l\'étiquette.', 422)
@@ -133,14 +146,14 @@ const createLabel = async ({ order, address }) => {
       labelUrl:    `https://www.post.ch/fr/outils/suivi-de-colis?track=${trackingNumber}`,
       labelId:     mockLabelId(),
       carrierId:   'swiss-post-mock',
-      serviceCode: 'priority',
+      serviceCode: product === 'ECO' ? 'economy' : 'priority',
       recipient:   recipientName(order, address),
       weightKg:    totalWeightKg(order),
     }
   }
 
   /* ── Mode réel ── */
-  const payload     = buildLabelPayload({ order, address })
+  const payload     = buildLabelPayload({ order, address, product })
   const apiResponse = await swissPostClient.generateAddressLabel(payload)
   return parseLabelResponse(apiResponse)
 }
@@ -149,7 +162,7 @@ const createLabel = async ({ order, address }) => {
  * Génère une étiquette et sauvegarde tracking_number, label_url, label_id dans orders.
  * Utilisée par l'auto-trigger (statut shipped) et le bouton admin manuel.
  */
-const generateLabel = async (orderId, order) => {
+const generateLabel = async (orderId, order, { product = DEFAULT_LABEL_PRODUCT } = {}) => {
   const address = {
     // Destinataire figé au moment de la commande (migration 009) — peut différer du
     // titulaire du compte (livraison à un tiers). Fallback compte pour les commandes antérieures.
@@ -171,7 +184,7 @@ const generateLabel = async (orderId, order) => {
     throw new AppError('Adresse de livraison incomplète — impossible de générer l\'étiquette.', 422)
   }
 
-  const label = await createLabel({ order, address })
+  const label = await createLabel({ order, address, product })
 
   await orderRepository.saveShippingLabel(orderId, {
     trackingNumber: label.trackingNumber,
@@ -203,4 +216,4 @@ const getTrackingByLabelId = async (labelId) => {
   }
 }
 
-module.exports = { createLabel, generateLabel, getTrackingByLabelId }
+module.exports = { createLabel, generateLabel, getTrackingByLabelId, LABEL_PRODUCTS, isLabelProduct }

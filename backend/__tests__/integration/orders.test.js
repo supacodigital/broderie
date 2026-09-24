@@ -113,6 +113,10 @@ describe('Commandes — flux complet', () => {
     expect(['pending', 'awaiting_payment', 'pending_invoice']).toContain(res.body.data.status);
     // Frais dynamiques selon le poids — toujours payants (> 0)
     expect(parseFloat(res.body.data.shipping_cost)).toBeGreaterThan(0);
+    /* Le port est bien compris dans le montant à payer : c'est ce total que
+       reçoivent Stripe (carte, Twint) et la QR-facture (ADM-10). */
+    const { subtotal, shipping_cost: shippingCost, total } = res.body.data;
+    expect(parseFloat(total)).toBe(Math.round((parseFloat(subtotal) + parseFloat(shippingCost)) * 20) / 20);
     expect(Array.isArray(res.body.data.items)).toBe(true);
     expect(res.body.data.items.length).toBeGreaterThan(0);
 

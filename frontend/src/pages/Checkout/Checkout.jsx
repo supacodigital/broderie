@@ -119,9 +119,14 @@ function Stepper({ step, t }) {
 }
 
 /* ── Mini récapitulatif (colonne droite) ── */
-function OrderSummary({ items, subtotal, discount, couponCode, shipping, shippingLoading, shippingError, onRetryShipping, t }) {
+function OrderSummary({ items, subtotal, discount, couponCode, shipping, shippingLoading, shippingError, onRetryShipping, confirmedTotal, t }) {
   const discounted = roundCHF(subtotal - (discount ?? 0))
-  const total      = shipping ? roundCHF(discounted + shipping.price_chf) : null
+  /* Commande créée : le total affiché est celui du serveur, exactement celui que
+     Stripe encaisse — plus un recalcul qui pourrait s'en écarter (remise perdue
+     au rechargement, frais de port illisibles). */
+  const total      = confirmedTotal != null
+    ? roundCHF(parseFloat(confirmedTotal))
+    : shipping ? roundCHF(discounted + shipping.price_chf) : null
   return (
     <aside className={s.summary}>
       <h2 className={s.summaryTitle}>{t('checkout.summaryTitle')}</h2>
@@ -1026,8 +1031,16 @@ export default function Checkout() {
   const [globalError,    setGlobalError]    = useState('')
   const [prefill,        setPrefill]        = useState(null)
   const [savedAddresses, setSavedAddresses] = useState([])
-  const [discount,        setDiscount]       = useState(0)
-  const [couponCode,      setCouponCode]     = useState('')
+  /* Remise figée à la création de commande — reprise au rechargement de l'étape
+     de paiement, sinon le récapitulatif montrait articles + port au-dessus d'un
+     total plus bas, sans la ligne de remise qui l'explique. */
+  const savedDiscount = (() => {
+    // Seulement en reprise d'une étape de paiement : jamais dans un nouveau parcours
+    if (!['card', 'twint'].includes(sessionStorage.getItem('checkout_step'))) return null
+    try { return JSON.parse(sessionStorage.getItem('checkout_discount') ?? 'null') } catch { return null }
+  })()
+  const [discount,        setDiscount]       = useState(() => Number(savedDiscount?.discount) || 0)
+  const [couponCode,      setCouponCode]     = useState(() => savedDiscount?.code ?? '')
   /* Frais de port — chargés dynamiquement depuis l'API à l'étape 2 */
   const [shipping,        setShipping]        = useState(null)
   const [shippingLoading, setShippingLoading] = useState(false)
@@ -1049,9 +1062,16 @@ export default function Checkout() {
     }
   })
   /* Frais de port figés à la création de commande — même raison */
+  /* Stocké en JSON : l'objet des frais de port était enregistré avec String(),
+     soit « [object Object] », et le récapitulatif perdait le port au rechargement
+     de l'étape de paiement. Une ancienne valeur illisible est simplement ignorée. */
   const [shippingSnapshot, setShippingSnapshot] = useState(() => {
-    const saved = sessionStorage.getItem('checkout_shipping')
-    return saved === null ? null : parseFloat(saved)
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('checkout_shipping') ?? 'null')
+      return saved && typeof saved.price_chf === 'number' ? saved : null
+    } catch {
+      return null
+    }
   })
 
   /* Préremplissage depuis le compte utilisateur */
@@ -1154,7 +1174,7 @@ export default function Checkout() {
       }
     }
     for (const key of ['checkout_step', 'checkout_order_id', 'checkout_order_total',
-      'checkout_subtotal', 'checkout_items', 'checkout_shipping']) {
+      'checkout_subtotal', 'checkout_items', 'checkout_shipping', 'checkout_discount']) {
       sessionStorage.removeItem(key)
     }
     await reloadCart()
@@ -1188,7 +1208,7 @@ export default function Checkout() {
       setOrderTotal(newTotal)
       setSubtotalSnapshot(subtotal)
       setItemsSnapshot([...items])
-      setShippingSnapshot(shipping ?? 0)
+      setShippingSnapshot(shipping ?? null)
 
       if (payment_method === 'twint' || payment_method === 'card') {
         /* Persistance pour survie au refresh */
@@ -1197,7 +1217,8 @@ export default function Checkout() {
         sessionStorage.setItem('checkout_order_total', String(newTotal))
         sessionStorage.setItem('checkout_subtotal',    String(subtotal))
         sessionStorage.setItem('checkout_items',       JSON.stringify(items))
-        sessionStorage.setItem('checkout_shipping',    String(shipping ?? 0))
+        sessionStorage.setItem('checkout_shipping',    JSON.stringify(shipping ?? null))
+        sessionStorage.setItem('checkout_discount',    JSON.stringify({ discount, code: couponCode }))
       }
 
       /* Transition vers l'étape de paiement AVANT clearCart() pour éviter
@@ -1277,6 +1298,7 @@ export default function Checkout() {
                   sessionStorage.removeItem('checkout_subtotal')
                   sessionStorage.removeItem('checkout_items')
                   sessionStorage.removeItem('checkout_shipping')
+                  sessionStorage.removeItem('checkout_discount')
                   setStep(3)
                   window.scrollTo({ top: 0, behavior: 'smooth' })
                 }}
@@ -1294,6 +1316,7 @@ export default function Checkout() {
                   sessionStorage.removeItem('checkout_subtotal')
                   sessionStorage.removeItem('checkout_items')
                   sessionStorage.removeItem('checkout_shipping')
+                  sessionStorage.removeItem('checkout_discount')
                   setStep(3)
                   window.scrollTo({ top: 0, behavior: 'smooth' })
                 }}
@@ -1301,7 +1324,7 @@ export default function Checkout() {
               />
             )}
           </div>
-          <OrderSummary items={itemsSnapshot} subtotal={subtotalSnapshot} discount={discount} couponCode={couponCode} shipping={shippingSnapshot ?? shipping} shippingLoading={false} t={t} />
+          <OrderSummary items={itemsSnapshot} subtotal={subtotalSnapshot} discount={discount} couponCode={couponCode} shipping={shippingSnapshot ?? shipping} shippingLoading={false} confirmedTotal={orderTotal || null} t={t} />
         </div>
       )}
 

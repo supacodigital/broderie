@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound, Megaphone, MapPin, Wallet, BookOpen, House } from 'lucide-react'
+import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound, Megaphone, MapPin, Wallet, BookOpen, House, Plus, Trash2 } from 'lucide-react'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import { useDirtyTracker } from '../../hooks/useDirtyTracker.js'
@@ -245,14 +245,24 @@ function ShippingTab({ onDirtyChange }) {
   const [error,   setError]   = useState(false)
   const [status,  setStatus]  = useState(null)
   const [saving,  setSaving]  = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
   const { resetBaseline } = useDirtyTracker(rates, loading, onDirtyChange)
+
+  /* Une ligne = une tranche « jusqu'à X kg » (ADM-10). Seul le plafond se saisit :
+     chaque tranche commence là où finit la précédente, aucun poids ne peut
+     tomber entre deux lignes. `key` identifie la ligne à l'écran. */
+  const toRows = (list) => (list ?? []).map((r, i) => ({
+    key:           `r${r.id ?? i}`,
+    maxWeight:     String(parseFloat(r.max_weight)),
+    priceChf:      String(r.price_chf),
+    estimatedDays: r.estimated_days ?? '',
+  }))
 
   const load = useCallback(async () => {
     setError(false)
     setLoading(true)
     try {
-      const res = await getShippingRates()
-      setRates(res ?? [])
+      setRates(toRows(await getShippingRates()))
     } catch {
       setError(true)
     } finally {
@@ -262,25 +272,43 @@ function ShippingTab({ onDirtyChange }) {
 
   useEffect(() => { load() }, [load])
 
-  const handleChange = (id, field, value) => {
-    setRates(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r))
+  const handleChange = (key, field, value) => {
+    setRates(prev => prev.map(r => r.key === key ? { ...r, [field]: value } : r))
+  }
+
+  const addTier = () => {
+    const last = rates[rates.length - 1]
+    const nextMax = last ? Math.max(parseFloat(last.maxWeight) || 0, 0) + 5 : 1
+    setRates(prev => [...prev, { key: `n${Date.now()}`, maxWeight: String(nextMax), priceChf: '', estimatedDays: last?.estimatedDays ?? '' }])
+  }
+
+  const removeTier = (key) => setRates(prev => prev.filter(r => r.key !== key))
+
+  // Bornes affichées dans l'ordre des poids, comme elles s'appliqueront
+  const sorted = [...rates].sort((a, b) => (parseFloat(a.maxWeight) || 0) - (parseFloat(b.maxWeight) || 0))
+  const lowerBound = (key) => {
+    const i = sorted.findIndex(r => r.key === key)
+    return i <= 0 ? 0 : parseFloat(sorted[i - 1].maxWeight) || 0
   }
 
   const handleSave = async () => {
     setSaving(true)
     setStatus(null)
+    setErrorMsg('')
     try {
-      const payload = rates.map(r => ({
-        id:            r.id,
-        priceChf:      parseFloat(r.price_chf),
-        estimatedDays: r.estimated_days,
+      const payload = sorted.map(r => ({
+        maxWeight:     parseFloat(r.maxWeight),
+        priceChf:      parseFloat(r.priceChf),
+        estimatedDays: r.estimatedDays,
       }))
-      const res = await updateShippingRates(payload)
-      setRates(res ?? rates)
+      // Les lignes renvoyées par le serveur deviennent la référence « non modifiée »
+      const savedRows = toRows(await updateShippingRates(payload))
+      setRates(savedRows)
       setStatus('saved')
-      resetBaseline()  // l'onglet n'est plus « modifié »
-    } catch {
+      resetBaseline(savedRows)
+    } catch (err) {
       setStatus('error')
+      setErrorMsg(err.response?.data?.errors?.[0]?.message ?? err.response?.data?.message ?? '')
     } finally {
       setSaving(false)
       setTimeout(() => setStatus(null), 3000)
@@ -288,54 +316,84 @@ function ShippingTab({ onDirtyChange }) {
   }
 
   return (
+    <>
     <SettingsSection
       title="Frais de port"
-      desc="Livraison Suisse uniquement via La Poste CH. Les frais sont toujours facturés au client."
+      desc="Livraison Suisse uniquement via La Poste CH. Les frais sont toujours facturés au client, selon le poids total de la commande."
     >
       {error && <ErrorBanner onRetry={load} />}
       {loading ? (
         <div className={s.skeletonList}>
           {[1,2,3].map(i => <div key={i} className={s.skeleton} />)}
         </div>
-      ) : rates.length === 0 ? (
-        <p className={s.empty}>Aucun tarif de livraison configuré.</p>
       ) : (
         <>
           <div className={s.shippingTable}>
-            <div className={s.shippingHead}>
-              <span>Tranche de poids</span>
+            <div className={`${s.shippingHead} ${s.shippingGrid}`}>
+              <span>Poids de la commande</span>
               <span>Tarif (CHF)</span>
               <span>Délai estimé</span>
+              <span aria-hidden="true" />
             </div>
-            {rates.map(r => (
-              <div key={r.id} className={s.shippingRow}>
-                <span className={s.weightRange}>
-                  {parseFloat(r.min_weight)} – {parseFloat(r.max_weight)} kg
-                </span>
+            {sorted.map(r => (
+              <div key={r.key} className={`${s.shippingRow} ${s.shippingGrid}`}>
+                <div className={s.weightCell}>
+                  <span className={s.weightFrom}>de {lowerBound(r.key)} à</span>
+                  <input
+                    type="number"
+                    step="0.001"
+                    min="0.001"
+                    className={`${s.input} ${s.inputWeight}`}
+                    aria-label="Poids maximum de la tranche (kg)"
+                    value={r.maxWeight}
+                    onChange={e => handleChange(r.key, 'maxWeight', e.target.value)}
+                  />
+                  <span className={s.weightFrom}>kg</span>
+                </div>
                 <div className={s.inputWrap}>
                   <span className={s.inputPrefix}>CHF</span>
                   <input
                     type="number"
                     step="0.05"
-                    min="0"
+                    min="0.05"
                     className={`${s.input} ${s.inputWithPrefix} ${s.inputSm}`}
-                    value={r.price_chf}
-                    onChange={e => handleChange(r.id, 'price_chf', e.target.value)}
+                    aria-label="Tarif de la tranche"
+                    value={r.priceChf}
+                    onChange={e => handleChange(r.key, 'priceChf', e.target.value)}
                   />
                 </div>
                 <input
                   type="text"
+                  maxLength={20}
                   className={`${s.input} ${s.inputSm}`}
-                  placeholder="ex: 3-5 jours"
-                  value={r.estimated_days ?? ''}
-                  onChange={e => handleChange(r.id, 'estimated_days', e.target.value)}
+                  placeholder="ex: 1-2 jours"
+                  aria-label="Délai estimé"
+                  value={r.estimatedDays}
+                  onChange={e => handleChange(r.key, 'estimatedDays', e.target.value)}
                 />
+                <button
+                  type="button"
+                  className={s.btnIconDanger}
+                  onClick={() => removeTier(r.key)}
+                  disabled={rates.length <= 1}
+                  aria-label="Supprimer cette tranche"
+                  title="Supprimer cette tranche"
+                >
+                  <Trash2 size={14} />
+                </button>
               </div>
             ))}
           </div>
+          <p className={s.hint}>
+            Une commande plus lourde que la dernière tranche est facturée au tarif de cette dernière tranche.
+          </p>
           <div className={s.formActions}>
+            <button type="button" className={s.btnSecondary} onClick={addTier} disabled={rates.length >= 12}>
+              <Plus size={14} /> Ajouter une tranche
+            </button>
             <SaveFeedback status={status} />
-            <button className={s.btnSave} onClick={handleSave} disabled={saving || loading}>
+            {errorMsg && <span className={s.errText}>{errorMsg}</span>}
+            <button className={s.btnSave} onClick={handleSave} disabled={saving || loading || rates.length === 0}>
               <Save size={14} />
               {saving ? 'Enregistrement…' : 'Enregistrer'}
             </button>
@@ -343,6 +401,40 @@ function ShippingTab({ onDirtyChange }) {
         </>
       )}
     </SettingsSection>
+
+    {/* Guide d'expédition (ADM-10 — « documenter l'utilisation de WebStamp /
+        PostLogistics »). Placé à côté de la grille : c'est ici que la cliente
+        vient quand elle se pose la question. */}
+    <SettingsSection
+      title="Expédier une commande"
+      desc="Deux façons d’affranchir un envoi : l’étiquette La Poste générée depuis l’administration, ou WebStamp sur post.ch."
+    >
+      <div className={s.guide}>
+        <h3 className={s.guideTitle}>1. Étiquette La Poste depuis l’administration (PostLogistics)</h3>
+        <ol className={s.guideList}>
+          <li>Ouvrez la commande (Commandes → la commande), carte <strong>Expédition</strong>.</li>
+          <li>Choisissez le <strong>mode d’envoi</strong> : <strong>PostPac Economy</strong> (livré en 2 jours ouvrables, le moins cher) ou <strong>PostPac Priority</strong> (livré le jour ouvrable suivant).</li>
+          <li>Cliquez sur <strong>Générer</strong>, puis sur l’icône de téléchargement : imprimez l’étiquette (format A6) et collez-la sur le colis.</li>
+          <li>Passez la commande en <strong>Expédiée</strong> : la cliente reçoit un e-mail avec son numéro de suivi.</li>
+        </ol>
+        <p className={s.guideNote}>
+          Raccourci : si vous passez directement la commande en « Expédiée » sans étiquette, elle est générée à ce moment-là, dans le mode d’envoi choisi. L’envoi est facturé par La Poste sur votre compte client.
+        </p>
+
+        <h3 className={s.guideTitle}>2. WebStamp (post.ch)</h3>
+        <ol className={s.guideList}>
+          <li>Affranchissez l’envoi sur <a href="https://www.post.ch/fr/expedier-des-lettres/affranchir-des-lettres/webstamp" target="_blank" rel="noopener noreferrer">post.ch — WebStamp</a> (lettres, petits envois), imprimez l’affranchissement.</li>
+          <li>Si l’envoi a un numéro de suivi (colis, lettre recommandée), saisissez-le dans <strong>Suivi manuel</strong> de la commande.</li>
+          <li>Choisissez le mode d’envoi <strong>Déjà affranchi (WebStamp)</strong>, puis passez la commande en <strong>Expédiée</strong> : aucune étiquette n’est générée en plus, la cliente reçoit l’e-mail d’expédition.</li>
+        </ol>
+
+        <h3 className={s.guideTitle}>Poids des articles</h3>
+        <p className={s.guideNote}>
+          Les frais de port sont calculés sur le poids total des articles de la commande (champ <strong>Poids</strong> de chaque fiche produit). Un article sans poids compte pour 0 kg : sans poids renseigné, une commande lourde est facturée au tarif de la première tranche.
+        </p>
+      </div>
+    </SettingsSection>
+    </>
   )
 }
 
