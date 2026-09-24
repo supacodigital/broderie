@@ -4,6 +4,7 @@ const PDFDocument     = require('pdfkit');
 const { SwissQRBill } = require('swissqrbill/pdf');
 const { isQRIBAN, calculateQRReferenceChecksum } = require('swissqrbill/utils');
 const { roundCHF }    = require('../utils/chf.utils');
+const { compareUnitPrice, salePercent } = require('../utils/sale.utils');
 const { computeOrderVat } = require('../utils/tva.utils');
 const env             = require('../config/env');
 const emailService    = require('./email.service');
@@ -192,6 +193,8 @@ const CONTENT_W    = 495; // largeur utile (595 - 2×50)
 /* Colonne « TVA » par ligne, comme sur les factures de la boutique (ADM-14) :
    le taux appliqué à chaque article se lit sans calcul. */
 const TABLE_COLS   = { name: 55, nameW: 215, qty: 270, qtyW: 40, price: 310, priceW: 80, vat: 390, vatW: 50, total: 440, totalW: 105 };
+
+
 // Hauteur réservée en bas de la dernière page pour le bulletin QR suisse (bulletin
 // officiel ≈ 105mm ≈ 297pt) — le tableau ne doit jamais empiéter dessus.
 const QR_BILL_HEIGHT = 300;
@@ -327,7 +330,10 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
         const unitPrice = roundCHF(parseFloat(item.unit_price));
         const lineTotal = roundCHF(unitPrice * item.quantity);
         const lineRate  = parseFloat(item.tax_rate_snapshot) > 0 ? parseFloat(item.tax_rate_snapshot) : 8.1;
-        const rowHeight = sku ? 26 : 22;
+        // Article en action (CLI-14) : prix normal barré et remise sous le prix payé
+        const normalPrice = compareUnitPrice(snapshot, item);
+        const onSale      = normalPrice !== null;
+        const rowHeight   = sku || onSale ? 26 : 22;
 
         // Saut de page si la ligne dépasserait la zone réservée au bulletin QR
         // (uniquement sur la dernière page — les pages intermédiaires vont jusqu'au bas)
@@ -349,6 +355,16 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
         if (sku) {
           doc.fontSize(7.5).fillColor(muted).font('Helvetica')
              .text(`Réf. ${sku}`, TABLE_COLS.name, y + 11, { width: TABLE_COLS.nameW });
+        }
+
+        if (onSale) {
+          // « En action » à la suite de la référence, et prix normal barré sous le prix payé
+          doc.fontSize(7.5).font('Helvetica');
+          const refWidth = sku ? doc.widthOfString(`Réf. ${sku}`) + 6 : 0;
+          doc.fillColor(rose).font('Helvetica-Bold')
+             .text(`En action -${salePercent(unitPrice, normalPrice)} %`, TABLE_COLS.name + refWidth, y + 11, { width: TABLE_COLS.nameW - refWidth });
+          doc.fillColor(muted).font('Helvetica')
+             .text(`CHF ${normalPrice.toFixed(2)}`, TABLE_COLS.price, y + 11, { width: TABLE_COLS.priceW, align: 'right', strike: true });
         }
 
         doc.fontSize(9).fillColor(dark).font('Helvetica')

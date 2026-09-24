@@ -334,6 +334,24 @@
   color: var(--rose);
 }
 
+/* Article en action (CLI-14) — même prix barré que les fiches produit */
+.itemTotalOld {
+  margin-right: 6px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.onSale {
+  display: block;
+  margin-top: 4px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--rose);
+}
+
 /* ── Pied — récapitulatif ── */
 .footer {
   flex-shrink: 0;

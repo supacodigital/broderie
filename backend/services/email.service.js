@@ -1,5 +1,6 @@
 const transporter = require('../config/mailer');
 const { roundCHF } = require('../utils/chf.utils');
+const { compareUnitPrice, salePercent } = require('../utils/sale.utils');
 const env = require('../config/env');
 
 const FROM     = env.mailFrom    || '"Au Point-Compté" <contact@broderie.ch>';
@@ -90,8 +91,10 @@ function btn(url, label, color = '#DB2777') {
 // Libellé affiché sous les produits fabriqués à la demande
 const MADE_TO_ORDER_LABEL = 'Sur commande — 3 à 4 semaines';
 
-// Ligne de récapitulatif commande
-function orderItemRow(item) {
+/* Ligne de récapitulatif commande.
+   `showSale` : prix normal barré et mention « En action » pour un article acheté
+   en action (CLI-14) — dans l'e-mail de confirmation envoyé à la cliente. */
+function orderItemRow(item, { showSale = false } = {}) {
   const snap   = typeof item.product_snapshot_json === 'string'
     ? JSON.parse(item.product_snapshot_json)
     : (item.product_snapshot_json ?? {});
@@ -107,12 +110,19 @@ function orderItemRow(item) {
   const madeToOrderNote = snap.is_made_to_order
     ? `<br><span style="font-size:12px;font-weight:600;color:#6d28d9;">${MADE_TO_ORDER_LABEL}</span>`
     : '';
+  const normalUnit = showSale ? compareUnitPrice(snap, item) : null;
+  const saleNote = normalUnit !== null
+    ? `<br><span style="font-size:12px;font-weight:600;color:#be185d;">En action -${salePercent(item.unit_price, normalUnit)} %</span>`
+    : '';
+  const normalTotal = normalUnit !== null
+    ? `<span style="font-weight:400;color:#6b7280;text-decoration:line-through;margin-right:6px;">CHF ${roundCHF(normalUnit * item.quantity).toFixed(2)}</span>`
+    : '';
   return `<tr>
     <td style="padding:8px 0;border-bottom:1px solid #fbcfe8;font-size:13px;color:#1E1020;">
-      ${name}${item.quantity > 1 ? ` × ${item.quantity}` : ''}${skuNote}${madeToOrderNote}
+      ${name}${item.quantity > 1 ? ` × ${item.quantity}` : ''}${skuNote}${madeToOrderNote}${saleNote}
     </td>
     <td style="padding:8px 0;border-bottom:1px solid #fbcfe8;font-size:13px;font-weight:600;color:#1E1020;text-align:right;white-space:nowrap;">
-      CHF ${price.toFixed(2)}
+      ${normalTotal}CHF ${price.toFixed(2)}
     </td>
   </tr>`;
 }
@@ -266,7 +276,7 @@ async function sendOrderConfirmation({ user, order }) {
   const firstName = escapeHtml(user.first_name);
   const orderId   = parseInt(order.id, 10);
 
-  const itemsHtml = (order.items ?? []).map((item) => orderItemRow(item)).join('');
+  const itemsHtml = (order.items ?? []).map((item) => orderItemRow(item, { showSale: true })).join('');
 
   const summaryRows = `Sous-total|CHF ${roundCHF(order.subtotal).toFixed(2)}
 Frais de port|CHF ${roundCHF(order.shipping_cost).toFixed(2)}

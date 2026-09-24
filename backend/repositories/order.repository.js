@@ -1,6 +1,7 @@
 const { pool } = require('../config/db');
 const { AppError } = require('../middlewares/errorHandler');
 const { displayComparePriceSql } = require('../utils/promo.utils');
+const { compareUnitPrice } = require('../utils/sale.utils');
 
 // Création d'une commande — transaction atomique (stock + commande + items + coupon + paiement)
 const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, billingAddress = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null, locale = 'fr', wantsPrintedInvoice = false, confirmed = true }) => {
@@ -281,10 +282,15 @@ const findById = async (orderId, userId = null) => {
 
   if (!orders[0]) return null;
 
+  /* sold_by_length / length_step_cm : le prix barré figé dans le snapshot est
+     au mètre, le prix unitaire au tronçon — la facture en a besoin pour les
+     comparer (CLI-14). */
   const [items] = await pool.execute(
     `SELECT oi.id, oi.product_id, oi.variant_id, oi.quantity,
-            oi.unit_price, oi.tax_rate_snapshot, oi.product_snapshot_json
+            oi.unit_price, oi.tax_rate_snapshot, oi.product_snapshot_json,
+            p.sold_by_length, p.length_step_cm
      FROM order_items oi
+     LEFT JOIN products p ON p.id = oi.product_id
      WHERE oi.order_id = ?`,
     [orderId]
   );
@@ -306,12 +312,17 @@ const findById = async (orderId, userId = null) => {
   return {
     ...orders[0],
     payment_method: payments[0]?.method ?? null,
-    items: items.map((i) => ({
-      ...i,
-      product_snapshot_json: typeof i.product_snapshot_json === 'string'
+    items: items.map((i) => {
+      const snapshot = typeof i.product_snapshot_json === 'string'
         ? JSON.parse(i.product_snapshot_json)
-        : i.product_snapshot_json,
-    })),
+        : i.product_snapshot_json;
+      return {
+        ...i,
+        product_snapshot_json: snapshot,
+        // Prix normal d'un article acheté en action, à l'unité facturée (CLI-14)
+        compare_unit_price: compareUnitPrice(snapshot, i),
+      };
+    }),
     history,
   };
 };

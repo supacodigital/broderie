@@ -129,6 +129,23 @@
   margin-top: 4px;
 }
 
+/* Article en action (CLI-14) — même prix barré que les fiches produit */
+.itemPriceOld {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.onSale {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--rose);
+  margin-top: 4px;
+}
+
 /* Actions : quantité + suppression */
 .itemActions {
   display: flex;

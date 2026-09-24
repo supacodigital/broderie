@@ -14,7 +14,7 @@ import { createTwintIntent, createCardIntent, syncPayment } from '../../services
 import { validateCoupon } from '../../services/coupons.service.js'
 import { getAddresses } from '../../services/addresses.service.js'
 import { getShippingRate } from '../../services/shipping.service.js'
-import { roundCHF } from '../../utils/chf.js'
+import { roundCHF, salePercent } from '../../utils/chf.js'
 import s from './Checkout.module.css'
 
 /* Chargement différé de Stripe — singleton garanti.
@@ -155,9 +155,20 @@ function OrderSummary({ items, subtotal, discount, couponCode, shipping, shippin
             {item.is_made_to_order ? (
               <span className={s.summaryMadeToOrder}>{t('products.madeToOrder')}</span>
             ) : null}
+            {/* Article en action (CLI-14) */}
+            {salePercent(item.unit_price, item.compare_unit_price) > 0 && (
+              <span className={s.summaryOnSale}>
+                {t('cart.onSale', { percent: salePercent(item.unit_price, item.compare_unit_price) })}
+              </span>
+            )}
           </span>
           <span className={s.summaryItemQty}>×{item.quantity}</span>
           <span className={s.summaryItemPrice}>
+            {salePercent(item.unit_price, item.compare_unit_price) > 0 && (
+              <span className={s.summaryItemPriceOld}>
+                CHF {roundCHF(item.compare_unit_price * item.quantity).toFixed(2)}
+              </span>
+            )}
             CHF {roundCHF(item.unit_price * item.quantity).toFixed(2)}
           </span>
         </div>

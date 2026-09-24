@@ -257,6 +257,10 @@
 .itemTotal { font-weight: 600; color: var(--text-dark); }
 .itemUnit  { font-size: 10px; color: var(--text-muted); }
 
+/* Article acheté en action (CLI-14) — même prix barré que le panier */
+.itemOnSale   { font-size: 11px; font-weight: 700; color: var(--rose); }
+.itemTotalOld { font-size: 11px; color: var(--text-muted); text-decoration: line-through; }
+
 /* ── Totaux ── */
 .totals {
   display: flex;

@@ -250,3 +250,22 @@ describe('Checkout — le panier est conservé pendant le paiement (CLI-13)', ()
     expect(reloadCartMock).toHaveBeenCalled()
   })
 })
+
+/* CLI-14 — le récapitulatif de la caisse montre les articles en action, comme
+   le panier. */
+describe('Checkout — articles en action dans le récapitulatif (CLI-14)', () => {
+  test('mention « En action » et total normal barré pour la ligne en action', async () => {
+    cartItems = [
+      { id: 1, product_id: 232, product_name: 'DMC mouliné N° 3045', quantity: 3, unit_price: 1.5, compare_unit_price: 2 },
+      { id: 2, product_id: 1493, product_name: 'Graziano, tissu', quantity: 1, unit_price: 10, compare_unit_price: null },
+    ]
+    authValue = { user: { id: 7, first_name: 'Julie', last_name: 'Test' }, isAuthenticated: true }
+
+    renderCheckout()
+
+    expect(await screen.findAllByText('cart.onSale')).toHaveLength(1)
+    const old = screen.getByText('CHF 6.00')
+    expect(old.className).toMatch(/summaryItemPriceOld/)
+  })
+})
+

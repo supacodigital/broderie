@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { roundCHF, formatCHF } from './chf.js'
+import { roundCHF, formatCHF, salePercent } from './chf.js'
 
 describe('roundCHF — arrondi légal au 0.05 CHF', () => {
   test.each([
@@ -28,5 +28,25 @@ describe('formatCHF', () => {
 
   test('sépare les milliers et arrondit au 0.05', () => {
     expect(formatCHF(1289.94)).toMatch(/^CHF\s1\D?289[.,]95$/)
+  })
+})
+
+// CLI-14 — remise affichée pour un article en action
+describe('salePercent — remise d\'un article en action', () => {
+  test.each([
+    [1.5, 2, 25],
+    [0.3, 0.4, 25],
+    [18, 21.5, 16],
+  ])('prix %s au lieu de %s → -%s %', (unit, normal, expected) => {
+    expect(salePercent(unit, normal)).toBe(expected)
+  })
+
+  test.each([
+    [10, null],
+    [10, 10],
+    [10, 8],
+    [10, undefined],
+  ])('pas d\'action pour %s / %s', (unit, normal) => {
+    expect(salePercent(unit, normal)).toBe(0)
   })
 })

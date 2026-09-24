@@ -9,7 +9,7 @@ import {
   Lock,
 } from "lucide-react";
 import { useCart } from "../../contexts/CartContext.jsx";
-import { roundCHF } from "../../utils/chf.js";
+import { roundCHF, salePercent } from "../../utils/chf.js";
 import { getShippingRate } from "../../services/shipping.service.js";
 import { normalizeLocale } from "../../utils/locale.js";
 
@@ -119,8 +119,17 @@ export default function Cart() {
                   {item.is_made_to_order ? (
                     <span className={s.madeToOrder}>{t('products.madeToOrder')}</span>
                   ) : null}
+                  {/* Article en action (CLI-14) : prix normal barré et remise */}
+                  {salePercent(item.unit_price, item.compare_unit_price) > 0 && (
+                    <span className={s.onSale}>
+                      {t('cart.onSale', { percent: salePercent(item.unit_price, item.compare_unit_price) })}
+                    </span>
+                  )}
                   <span className={s.itemPrice}>
                     CHF {item.unit_price?.toFixed(2)}
+                    {salePercent(item.unit_price, item.compare_unit_price) > 0 && (
+                      <span className={s.itemPriceOld}>CHF {item.compare_unit_price.toFixed(2)}</span>
+                    )}
                   </span>
                 </div>
 

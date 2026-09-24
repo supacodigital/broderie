@@ -318,6 +318,7 @@
   },
   "cart": {
     "title": "Mon panier",
+    "onSale": "En action -{{percent}} %",
     "empty": "Votre panier est vide",
     "emptyDesc": "Vous n'avez encore rien ajouté. Découvrez notre boutique !",
     "continueShopping": "Continuer mes achats",

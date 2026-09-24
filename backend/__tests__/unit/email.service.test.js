@@ -471,3 +471,30 @@ describe('e-mails d\'inscription — texte modifiable par la boutique (CLI-11)',
     expect(verify).toContain(service.DEFAULT_EMAIL_TEXTS.email_verify_text);
   });
 });
+
+
+/* CLI-14 — l'e-mail de confirmation de commande montre les articles achetés en
+   action ; la notification envoyée à la boutique n'est pas concernée. */
+describe('e-mail de confirmation — articles en action (CLI-14)', () => {
+  const saleOrder = () => ({
+    ...fakeOrder,
+    items: [
+      { product_id: 232, quantity: 3, unit_price: '1.50',
+        product_snapshot_json: { name: 'DMC mouliné N° 3045', sku: 'DMC3045', compare_price_chf: '2.00' } },
+      { product_id: 1493, quantity: 1, unit_price: '10.00',
+        product_snapshot_json: { name: 'Graziano, tissu', sku: 'TA8279', compare_price_chf: null } },
+    ],
+  });
+
+  test('mention « En action » et total normal barré sur la ligne en action seulement', async () => {
+    await service.sendOrderConfirmation({ user: fakeUser, order: saleOrder() });
+    const { html } = transporter.sendMail.mock.calls[0][0];
+    expect(html.match(/En action -25 %/g)).toHaveLength(1);
+    expect(html).toMatch(/line-through[^>]*>CHF 6\.00<\/span>CHF 4\.50/);
+  });
+
+  test('la notification à la boutique reste inchangée', async () => {
+    await service.sendAdminOrderNotification({ user: fakeUser, order: saleOrder() });
+    expect(transporter.sendMail.mock.calls[0][0].html).not.toMatch(/En action/);
+  });
+});

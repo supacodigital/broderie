@@ -24,6 +24,8 @@ function normalizeItem(item) {
   return {
     ...item,
     unit_price:    parseFloat(item.unit_price    ?? item.price_snapshot ?? 0),
+    // Prix normal barré d'un article en action (CLI-14) — null hors action
+    compare_unit_price: item.compare_unit_price != null ? parseFloat(item.compare_unit_price) : null,
     product_image: item.product_image ?? item.image_url ?? null,
   }
 }

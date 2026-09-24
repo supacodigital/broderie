@@ -5,7 +5,7 @@ import {
   Truck, MapPin, ChevronRight,
 } from 'lucide-react'
 import { getOrderById, downloadInvoice } from '../../services/orders.service.js'
-import { roundCHF } from '../../utils/chf.js'
+import { roundCHF, salePercent } from '../../utils/chf.js'
 import { formatDate, formatDateTime } from '../../utils/date.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
 import s from './OrderDetail.module.css'
@@ -254,6 +254,8 @@ export default function OrderDetail() {
                       const sku  = snap.sku  ?? ''
                       const unitPrice = roundCHF(item.unit_price)
                       const lineTotal = roundCHF(item.unit_price * item.quantity)
+                      // Article acheté en action (CLI-14) — prix normal figé à l'achat
+                      const sale = salePercent(item.unit_price, item.compare_unit_price)
                       return (
                         <div key={item.id} className={s.itemRow}>
                           <div className={s.itemInfo}>
@@ -262,9 +264,17 @@ export default function OrderDetail() {
                             {snap.variant && (
                               <span className={s.itemVariant}>{snap.variant}</span>
                             )}
+                            {sale > 0 && (
+                              <span className={s.itemOnSale}>En action -{sale} %</span>
+                            )}
                           </div>
                           <span className={s.itemQty}>{item.quantity}</span>
                           <div className={s.itemPrices}>
+                            {sale > 0 && (
+                              <span className={s.itemTotalOld}>
+                                CHF {roundCHF(item.compare_unit_price * item.quantity).toFixed(2)}
+                              </span>
+                            )}
                             <span className={s.itemTotal}>CHF {lineTotal.toFixed(2)}</span>
                             {item.quantity > 1 && (
                               <span className={s.itemUnit}>CHF {unitPrice.toFixed(2)} / u.</span>

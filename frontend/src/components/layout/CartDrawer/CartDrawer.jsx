@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { X, Minus, Plus, Trash2, ShoppingBag, Lock } from 'lucide-react'
 import { useCart } from '../../../contexts/CartContext.jsx'
 import { useCartDrawer } from '../../../contexts/CartDrawerContext.jsx'
-import { roundCHF } from '../../../utils/chf.js'
+import { roundCHF, salePercent } from '../../../utils/chf.js'
 import s from './CartDrawer.module.css'
 
 export default function CartDrawer() {
@@ -144,6 +144,13 @@ export default function CartDrawer() {
                       <span className={s.madeToOrder}>{t('products.madeToOrder')}</span>
                     ) : null}
 
+                    {/* Article en action (CLI-14) */}
+                    {salePercent(item.unit_price, item.compare_unit_price) > 0 && (
+                      <span className={s.onSale}>
+                        {t('cart.onSale', { percent: salePercent(item.unit_price, item.compare_unit_price) })}
+                      </span>
+                    )}
+
                     <div className={s.itemBottom}>
                       <div className={s.qtyRow} role="group" aria-label="Quantité">
                         <button
@@ -167,6 +174,12 @@ export default function CartDrawer() {
                         </button>
                       </div>
                       <span className={s.itemTotal}>
+                        {/* Prix normal barré de la ligne, pour un article en action (CLI-14) */}
+                        {salePercent(item.unit_price, item.compare_unit_price) > 0 && (
+                          <span className={s.itemTotalOld}>
+                            CHF {roundCHF(item.compare_unit_price * item.quantity).toFixed(2)}
+                          </span>
+                        )}
                         CHF {roundCHF(item.unit_price * item.quantity).toFixed(2)}
                       </span>
                     </div>

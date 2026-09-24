@@ -42,6 +42,15 @@ const findCartItems = async (cartId, locale = 'fr') => {
               + COALESCE(pv.price_modifier, 0) AS unit_price,
             ci.tax_rate_snapshot,
             ${promoActiveSql('p')} AS is_promo_active,
+            /* Prix normal barré, à la même unité que unit_price (tronçon pour la
+               vente à la coupe) — NULL hors action. CLI-14 : « faire apparaître
+               clairement les remises et le statut en action » dans le panier. */
+            (CASE WHEN ${promoActiveSql('p')}
+                  THEN (CASE WHEN p.sold_by_length = 1
+                             THEN p.compare_price_chf * p.length_step_cm / 100
+                             ELSE p.compare_price_chf END)
+                       + COALESCE(pv.price_modifier, 0)
+                  ELSE NULL END) AS compare_unit_price,
             COALESCE(pt.name, pt_fr.name) AS product_name,
             COALESCE(pt.slug, pt_fr.slug) AS product_slug,
             pi.url AS image_url,

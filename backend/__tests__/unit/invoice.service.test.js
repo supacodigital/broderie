@@ -370,6 +370,46 @@ describe('invoice.service — frais de port et remise sur la facture (ADM-14)', 
   });
 });
 
+/* CLI-14 — « remises et promotions non visibles : seul le prix final s'affiche
+   sur la facture ». Un article vendu en action montre son prix normal barré et
+   la mention « En action » avec la remise. */
+describe('invoice.service — articles en action sur la facture (CLI-14)', () => {
+  let text;
+  beforeAll(async () => {
+    const order = {
+      id: 75, user_id: 667, created_at: new Date('2026-09-24T21:00:00Z'),
+      invoice_number: '2026-000017', invoice_seq: 17,
+      subtotal: '13.00', shipping_cost: '8.50', tax_amount: '1.61', total: '21.50',
+      items: [
+        { product_id: 232, quantity: 1, unit_price: '1.50', tax_rate_snapshot: '8.10',
+          product_snapshot_json: JSON.stringify({ name: 'DMC mouliné N° 3045', sku: 'DMC3045', compare_price_chf: '2.00' }) },
+        // Vente à la coupe : prix barré au mètre (4.00), prix facturé au tronçon de 10 cm
+        { product_id: 1828, quantity: 5, unit_price: '0.30', tax_rate_snapshot: '8.10',
+          sold_by_length: 1, length_step_cm: 10,
+          product_snapshot_json: JSON.stringify({ name: 'Vaupel, bande à broder', sku: '212-025', compare_price_chf: '4.00' }) },
+        { product_id: 1493, quantity: 1, unit_price: '10.00', tax_rate_snapshot: '8.10',
+          product_snapshot_json: JSON.stringify({ name: 'Graziano, tissu', sku: 'TA8279', compare_price_chf: null }) },
+      ],
+    };
+    text = extractPdfText(await generateInvoicePDF({ order, user: makeUser() }));
+  });
+
+  test('mention « En action » avec la remise, pour chaque article en action', () => {
+    expect(text.match(/En action -25 %/g)).toHaveLength(2);
+  });
+
+  test('prix normal affiché à la même unité que le prix facturé', () => {
+    expect(text).toContain('CHF 2.00');
+    expect(text).toContain('CHF 0.40'); // 4.00 le mètre → 0.40 les 10 cm
+    expect(text).not.toContain('CHF 4.00');
+  });
+
+  test('un article hors action reste inchangé, les totaux aussi', () => {
+    expect(text).toContain('CHF 10.00');
+    expect(text).toContain('CHF 21.50');
+  });
+});
+
 /* Non-régression — bascule vers le QR-IBAN.
    Avec un QR-IBAN, le standard EXIGE une référence structurée : sans elle la
    génération échoue. Les commandes antérieures n'en ont pas, ou portent une
