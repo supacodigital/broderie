@@ -21,18 +21,9 @@
   font-family: 'Great Vibes', cursive;
   font-size: clamp(38px, 4vw, 56px);
   color: white;
-  margin-bottom: 12px;
-  position: relative;
-  z-index: 1;
-}
-
-.desc {
-  font-family: 'Cormorant Infant', serif;
-  font-size: 18px;
-  font-weight: 300;
-  font-style: italic;
-  color: rgba(255, 255, 255, 0.85);
-  margin-bottom: 36px;
+  /* Plus de phrase d'accroche sous le titre (CLI-10) : l'espace qu'elle
+     ménageait avant le formulaire est reporté ici. */
+  margin-bottom: 32px;
   position: relative;
   z-index: 1;
 }

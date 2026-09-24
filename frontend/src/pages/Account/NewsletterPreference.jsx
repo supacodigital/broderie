@@ -58,9 +58,9 @@ export default function NewsletterPreference() {
   return (
     <fieldset className={s.fieldset} aria-busy={status === null || saving}>
       <legend className={s.legend}>Newsletter</legend>
+      {/* Sans promesse de contenu que la boutique n'a jamais faite (CLI-10) */}
       <p className={s.desc}>
-        Nouvelles collections, tutoriels et offres réservées aux abonnées. Vous pouvez
-        changer d'avis à tout moment.{' '}
+        Vous pouvez changer d'avis à tout moment.{' '}
         <Link to="/mentions-legales#donnees" className={s.link}>Protection des données</Link>
       </p>
 

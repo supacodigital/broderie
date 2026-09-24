@@ -33,4 +33,20 @@ describe('NewsletterSection', () => {
     expect(await screen.findByText(/Consultez votre boîte e-mail/)).toBeInTheDocument()
     expect(screen.queryByText(/Vous êtes maintenant abonnée/)).toBeNull()
   })
+
+  /* CLI-10 — « Nouvelles collections, tutoriels exclusifs et offres réservées aux
+     abonnées » : jamais annoncé par la boutique, et faux. Restait affiché après
+     l'inscription. */
+  test('ne promet aucun contenu, ni avant ni après l\'inscription', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<MemoryRouter><NewsletterSection /></MemoryRouter>)
+    const promise = /tutoriels|nouvelles collections|offres réservées/i
+    expect(container.textContent).not.toMatch(promise)
+
+    await user.type(screen.getByLabelText('Votre adresse email'), 'marie@test.ch')
+    await user.click(screen.getByRole('button', { name: "S'abonner" }))
+    await screen.findByText(/Consultez votre boîte e-mail/)
+
+    expect(container.textContent).not.toMatch(promise)
+  })
 })

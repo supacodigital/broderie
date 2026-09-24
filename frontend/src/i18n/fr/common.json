@@ -117,7 +117,6 @@
   },
   "newsletter": {
     "title": "Restez inspirée",
-    "desc": "Nouvelles collections, tutoriels exclusifs et offres réservées aux abonnées.",
     "placeholder": "votre@email.ch",
     "label": "Votre adresse email",
     "cta": "S'abonner",

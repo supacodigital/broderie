@@ -27,7 +27,9 @@ export default function NewsletterSection() {
   return (
     <section className={s.section} aria-label="Inscription à la newsletter">
       <h2 className={s.title}>{t('newsletter.title')}</h2>
-      <p className={s.desc}>{t('newsletter.desc')}</p>
+      {/* Pas de promesse de contenu sous le titre (CLI-10) : « nouvelles collections,
+          tutoriels exclusifs et offres réservées aux abonnées » ne correspondait à
+          rien d'annoncé par la boutique, et restait affiché après l'inscription. */}
 
       {status === 'success' ? (
         <p className={s.successMsg} role="status">{t('newsletter.success')}</p>

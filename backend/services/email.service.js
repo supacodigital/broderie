@@ -531,9 +531,8 @@ async function sendPickupReady({ user, order }) {
 const newsletterConsentNotice = `
     <div style="margin:0 0 24px;padding:14px 18px;background:#fdf2f8;border-left:4px solid #DB2777;border-radius:8px;">
       <p style="margin:0;font-size:13px;color:#1E1020;line-height:1.7;">
-        Vous avez aussi demandé à recevoir notre <strong>newsletter</strong> : nouvelles collections,
-        tutoriels et offres réservées aux abonnées. <strong>En confirmant votre adresse, vous confirmez
-        également cette inscription.</strong>
+        Vous avez aussi demandé à recevoir notre <strong>newsletter</strong>. <strong>En confirmant
+        votre adresse, vous confirmez également cette inscription.</strong>
       </p>
       <p style="margin:8px 0 0;font-size:12px;color:#9D6480;line-height:1.7;">
         Vous pourrez vous désinscrire à tout moment, en un clic, grâce au lien présent dans chaque
@@ -581,8 +580,7 @@ async function sendNewsletterConfirmation({ email, confirmUrl }) {
     </h1>
     <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
       Bonjour,<br><br>
-      Vous avez demandé à recevoir la newsletter d'<strong>Au Point-Compté</strong> : nouvelles
-      collections, tutoriels et offres réservées aux abonnées.
+      Vous avez demandé à recevoir la newsletter d'<strong>Au Point-Compté</strong>.
     </p>
     <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
       Pour valider votre inscription, cliquez sur le bouton ci-dessous. Tant que vous ne l'avez

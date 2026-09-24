@@ -362,9 +362,23 @@ describe('email.service — consentement newsletter (CLI-05)', () => {
   test('l\'e-mail de vérification annonce la newsletter quand la case a été cochée', async () => {
     await service.sendEmailVerification({ user: fakeUser, verifyToken: 'tok', newsletter: true });
     const { html } = transporter.sendMail.mock.calls[0][0];
-    expect(html).toContain('vous confirmez\n        également cette inscription');
+    expect(html).toMatch(/vous confirmez\s+également cette inscription/);
     expect(html).toMatch(/désinscrire à tout moment/);
     expect(html).toContain('/mentions-legales#donnees');
+  });
+
+  /* CLI-10 — « nouvelles collections, tutoriels et offres réservées aux
+     abonnées » : jamais annoncé par la boutique, et faux. */
+  test('aucun e-mail ne promet de contenu de newsletter', async () => {
+    const promise = /tutoriels|nouvelles collections|offres réservées/i;
+    await service.sendEmailVerification({ user: fakeUser, verifyToken: 'tok', newsletter: true });
+    await service.sendNewsletterConfirmation({
+      email: 'marie@test.ch',
+      confirmUrl: 'https://broderie.ch/newsletter/confirmation?email=marie%40test.ch&token=1.abc',
+    });
+    for (const [mail] of transporter.sendMail.mock.calls) {
+      expect(mail.html).not.toMatch(promise);
+    }
   });
 
   test('sans case cochée, l\'e-mail de vérification ne parle pas de newsletter', async () => {
