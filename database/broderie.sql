@@ -201,8 +201,13 @@ CREATE TABLE product_price_history (
   old_compare_price_chf DECIMAL(10, 2) NULL DEFAULT NULL,
   new_price_chf     DECIMAL(10, 2) NOT NULL,
   new_compare_price_chf DECIMAL(10, 2) NULL DEFAULT NULL,
-  -- Origine : saisie dans l'administration, import de catalogue, script en masse
-  source            ENUM('admin', 'import', 'script') NOT NULL DEFAULT 'admin',
+  -- Période de promotion en vigueur APRÈS le changement (NULL = pas de borne) —
+  -- c'est elle que l'ordonnance sur l'indication des prix contrôle (migration 2026-09-24)
+  promo_starts_at   DATETIME NULL DEFAULT NULL,
+  promo_ends_at     DATETIME NULL DEFAULT NULL,
+  -- Origine : saisie dans l'administration, import de catalogue, script en masse,
+  -- prix initial relevé à la mise en place de l'historique
+  source            ENUM('admin', 'import', 'script', 'initial') NOT NULL DEFAULT 'admin',
   -- NULL pour les imports et scripts : un traitement automatique n'a pas d'auteur
   changed_by        INT UNSIGNED NULL DEFAULT NULL,
   changed_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

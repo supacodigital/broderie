@@ -134,11 +134,14 @@ async function main() {
        distingue ce changement d'une décision saisie dans l'administration. */
     await connection.execute(
       `INSERT INTO product_price_history
-         (product_id, old_price_chf, old_compare_price_chf, new_price_chf, new_compare_price_chf, source, changed_by)
-       SELECT id, price_chf, compare_price_chf, ?, ?, 'script', NULL
+         (product_id, old_price_chf, old_compare_price_chf, new_price_chf, new_compare_price_chf,
+          promo_starts_at, promo_ends_at, source, changed_by)
+       SELECT id, price_chf, compare_price_chf, ?, ?,
+              -- Période de promotion inchangée par le script, conservée avec l'offre
+              IF(? IS NULL, NULL, promo_starts_at), IF(? IS NULL, NULL, promo_ends_at), 'script', NULL
        FROM products
        WHERE brand = ? AND deleted_at IS NULL AND price_chf = ?`,
-      [price, compare, BRAND, OLD_PRICE]
+      [price, compare, compare, compare, BRAND, OLD_PRICE]
     );
 
     const [result] = await connection.execute(

@@ -42,14 +42,39 @@ export default function PriceHistory({ productId }) {
 
   const formatPrice = (v) => (v === null || v === undefined ? '—' : `CHF ${Number(v).toFixed(2)}`)
 
-  const formatDate = (v) => new Date(v).toLocaleString('fr-CH', {
+  const formatDateTime = (v) => new Date(v).toLocaleString('fr-CH', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
+  const formatDay = (v) => new Date(v).toLocaleDateString('fr-CH', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  })
+
+  /* Chaque ligne décrit l'offre en vigueur À PARTIR de sa date : prix normal,
+     prix promotionnel et période. C'est la lecture qu'attend un contrôle au
+     titre de l'ordonnance sur l'indication des prix : quel prix était pratiqué,
+     et pendant combien de temps un prix barré a été affiché. */
+  const offerOf = (row) => {
+    const hasPromo = row.new_compare_price_chf !== null && row.new_compare_price_chf !== undefined
+    return {
+      normal: hasPromo ? row.new_compare_price_chf : row.new_price_chf,
+      promo:  hasPromo ? row.new_price_chf : null,
+      hasPromo,
+    }
+  }
+
+  const promoPeriod = (row) => {
+    const { promo_starts_at: start, promo_ends_at: end } = row
+    if (start && end) return `du ${formatDay(start)} au ${formatDay(end)}`
+    if (start)        return `dès le ${formatDay(start)}, sans fin`
+    if (end)          return `jusqu'au ${formatDay(end)}`
+    return 'sans date de fin'
+  }
 
   /* Origine du changement : une modification venue d'un import n'engage pas la
      même responsabilité qu'une décision saisie à la main. */
   const sourceLabel = (row) => {
+    if (row.source === 'initial') return 'Prix initial'
     if (row.source === 'import')  return 'Import du catalogue'
     if (row.source === 'script')  return 'Mise à jour en masse'
     const name = `${row.changed_by_first_name ?? ''} ${row.changed_by_last_name ?? ''}`.trim()
@@ -84,38 +109,40 @@ export default function PriceHistory({ productId }) {
           )}
 
           {!loading && !error && rows.length === 0 && (
-            <p className={s.muted}>
-              Aucun changement de prix enregistré depuis la mise en place du suivi.
-            </p>
+            <p className={s.muted}>Aucun prix enregistré pour ce produit.</p>
           )}
 
           {!loading && !error && rows.length > 0 && (
             <table className={s.table}>
               <thead>
                 <tr>
-                  <th scope="col">Date</th>
-                  <th scope="col">Prix de vente</th>
-                  <th scope="col">Prix barré</th>
+                  <th scope="col">À partir du</th>
+                  <th scope="col">Prix normal</th>
+                  <th scope="col">Prix promo</th>
+                  <th scope="col">Période de promo</th>
                   <th scope="col">Origine</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map(row => (
-                  <tr key={row.id}>
-                    <td className={s.date}>{formatDate(row.changed_at)}</td>
-                    <td>
-                      <span className={s.oldValue}>{formatPrice(row.old_price_chf)}</span>
-                      <span className={s.arrow} aria-hidden="true">→</span>
-                      <span className={s.newValue}>{formatPrice(row.new_price_chf)}</span>
-                    </td>
-                    <td>
-                      <span className={s.oldValue}>{formatPrice(row.old_compare_price_chf)}</span>
-                      <span className={s.arrow} aria-hidden="true">→</span>
-                      <span className={s.newValue}>{formatPrice(row.new_compare_price_chf)}</span>
-                    </td>
-                    <td className={s.source}>{sourceLabel(row)}</td>
-                  </tr>
-                ))}
+                {rows.map((row, index) => {
+                  const offer = offerOf(row)
+                  // Le plus récent en tête : c'est l'offre actuellement en vigueur
+                  const isCurrent = index === 0
+                  return (
+                    <tr key={row.id} className={isCurrent ? s.current : undefined}>
+                      <td className={s.date}>
+                        {formatDateTime(row.changed_at)}
+                        {isCurrent && <span className={s.currentBadge}>En vigueur</span>}
+                      </td>
+                      <td className={s.price}>{formatPrice(offer.normal)}</td>
+                      <td className={s.price}>{offer.hasPromo ? formatPrice(offer.promo) : '—'}</td>
+                      <td className={offer.hasPromo && !row.promo_ends_at ? s.noEnd : s.period}>
+                        {offer.hasPromo ? promoPeriod(row) : '—'}
+                      </td>
+                      <td className={s.source}>{sourceLabel(row)}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}

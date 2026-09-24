@@ -89,7 +89,7 @@ const getById = async (id, locale) => {
   return product;
 };
 
-const create = async (body) => {
+const create = async (body, { changedBy = null } = {}) => {
   const data = parseOrThrow(productCreateSchema, body);
 
   if (await productAdminRepository.skuExists(data.sku)) {
@@ -108,7 +108,8 @@ const create = async (body) => {
   }
 
   try {
-    const id = await productAdminRepository.create({ ...normalizePromo(data), slug: uniqueSlug });
+    // `changedBy` : auteur du prix de départ dans l'historique des prix (ADM-21)
+    const id = await productAdminRepository.create({ ...normalizePromo(data), slug: uniqueSlug }, { changedBy });
     invalidateProducts();
     return productAdminRepository.findByIdAdmin(id, 'fr');
   } catch (error) {

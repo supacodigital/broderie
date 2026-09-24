@@ -131,7 +131,10 @@ async function main() {
   try {
     // Index de correspondance — une requête chacun, jamais dans la boucle
     const [products] = await connection.execute(
-      `SELECT id, external_ref, price_chf, category_id, category_needs_review, supplier_id
+      /* Prix barré et période de promotion lus pour l'historique des prix : sans
+         eux, chaque ligne d'historique enregistrait un prix barré vide (ADM-21). */
+      `SELECT id, external_ref, price_chf, compare_price_chf, promo_starts_at, promo_ends_at,
+              category_id, category_needs_review, supplier_id
        FROM products WHERE external_ref IS NOT NULL AND deleted_at IS NULL`
     );
     const productByRef = new Map(products.map((p) => [String(p.external_ref), p]));
@@ -214,6 +217,9 @@ async function main() {
           oldPrice: product.price_chf,
           oldCompare: product.compare_price_chf ?? null,
           newPrice: price,
+          // Période de promotion inchangée par l'import, conservée avec l'offre
+          promoStartsAt: product.compare_price_chf === null ? null : product.promo_starts_at,
+          promoEndsAt: product.compare_price_chf === null ? null : product.promo_ends_at,
         });
         report.price++;
       } else if (!SKIP_PRICES && price === null && cleanStr(row[COL.price]) !== null) {
@@ -320,12 +326,14 @@ async function main() {
          `source` qui le distingue d'une décision saisie dans l'administration. */
       for (let i = 0; i < priceChanges.length; i += BATCH_SIZE) {
         const batch = priceChanges.slice(i, i + BATCH_SIZE);
-        const placeholders = batch.map(() => '(?, ?, ?, ?, ?, ?, NULL)').join(', ');
+        const placeholders = batch.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, NULL)').join(', ');
         await connection.query(
           `INSERT INTO product_price_history
-             (product_id, old_price_chf, old_compare_price_chf, new_price_chf, new_compare_price_chf, source, changed_by)
+             (product_id, old_price_chf, old_compare_price_chf, new_price_chf, new_compare_price_chf,
+              promo_starts_at, promo_ends_at, source, changed_by)
            VALUES ${placeholders}`,
-          batch.flatMap((c) => [c.productId, c.oldPrice, c.oldCompare, c.newPrice, c.oldCompare, 'import'])
+          batch.flatMap((c) => [c.productId, c.oldPrice, c.oldCompare, c.newPrice, c.oldCompare,
+            c.promoStartsAt ?? null, c.promoEndsAt ?? null, 'import'])
         );
       }
 

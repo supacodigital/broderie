@@ -7,6 +7,9 @@
   --rose-border: #fbcfe8;
   --text-dark:   #1f2937;
   --text-muted:  #6b7280;
+  /* Avertissement (ambre) — texte AA sur fond clair */
+  --warning-text: #92400e;
+  --warning-bg:   #fffbeb;
   --sidebar-w:   240px;
   --header-h:    60px;
   --radius:      10px;

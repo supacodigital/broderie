@@ -47,7 +47,7 @@ describe('product.admin.service — create()', () => {
     repo.findByIdAdmin.mockResolvedValue({ id: 10 });
 
     await service.create(validBody);
-    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ slug: 'kit-broderie-2' }));
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ slug: 'kit-broderie-2' }), { changedBy: null });
   });
 });
 

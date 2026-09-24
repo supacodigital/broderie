@@ -23,7 +23,7 @@ const getById = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const product = await productAdminService.create(req.body);
+    const product = await productAdminService.create(req.body, { changedBy: req.user?.id ?? null });
     res.status(201).json({ success: true, data: product });
   } catch (error) {
     next(error);

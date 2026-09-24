@@ -29,7 +29,8 @@ describe('admin/product.controller — délégation au service', () => {
     service.create.mockResolvedValue({ id: 9 });
     const res = makeRes();
     await controller.create({ body: { slug: 'x' } }, res, jest.fn());
-    expect(service.create).toHaveBeenCalledWith({ slug: 'x' });
+    // L'auteur alimente le prix de départ de l'historique des prix (ADM-21)
+    expect(service.create).toHaveBeenCalledWith({ slug: 'x' }, { changedBy: null });
     expect(res.status).toHaveBeenCalledWith(201);
   });
 

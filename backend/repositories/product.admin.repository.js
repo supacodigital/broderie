@@ -5,31 +5,55 @@ const { toSearchTerms } = require('../utils/search.utils');
 const productCategoryRepository = require('./productCategory.repository');
 
 /* Journalise un changement de prix (ADM-21).
-   N'écrit QUE si un prix a réellement bougé : réenregistrer une fiche sans
+   N'écrit QUE si l'offre a réellement bougé : réenregistrer une fiche sans
    toucher au prix ne doit rien produire, sinon la table grossirait à chaque
    correction de libellé sur 15 000 articles.
+
+   L'offre, c'est le prix, le prix barré ET la période de promotion : c'est
+   cette période que l'ordonnance sur l'indication des prix contrôle (un prix
+   barré ne s'affiche que pendant une durée limitée). Déplacer seulement les
+   dates d'une promotion n'était pas enregistré.
 
    Les montants viennent de MySQL sous forme de chaînes ('15.50') et du
    formulaire sous forme de nombres : la comparaison passe donc par Number(),
    sinon '15.50' !== 15.5 déclencherait une écriture à chaque enregistrement.
+   Les dates viennent de MySQL en Date et du service en 'AAAA-MM-JJ HH:MM:SS' :
+   comparées à la minute, en heure locale du serveur.
+
+   `before` à null : création du produit, le prix de départ est enregistré.
 
    Reçoit la connexion de la transaction en cours : l'historique et le nouveau
    prix doivent être écrits ensemble ou pas du tout. */
 const recordPriceChange = async (connection, productId, before, after, { source = 'admin', changedBy = null } = {}) => {
   const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+  const minute = (v) => {
+    if (!v) return null;
+    const d = v instanceof Date ? v : new Date(String(v).replace(' ', 'T'));
+    if (Number.isNaN(d.getTime())) return null;
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
 
   const oldPrice   = num(before?.price_chf);
   const oldCompare = num(before?.compare_price_chf);
   const newPrice   = num(after?.priceChf);
   const newCompare = num(after?.comparePriceChf);
+  // Sans prix barré, des dates de promotion n'ont aucun effet : elles ne comptent pas
+  const newStart   = newCompare === null ? null : minute(after?.promoStartsAt);
+  const newEnd     = newCompare === null ? null : minute(after?.promoEndsAt);
 
-  if (oldPrice === newPrice && oldCompare === newCompare) return;
+  if (before
+      && oldPrice === newPrice && oldCompare === newCompare
+      && (oldCompare === null ? null : minute(before.promo_starts_at)) === newStart
+      && (oldCompare === null ? null : minute(before.promo_ends_at)) === newEnd) return;
 
   await connection.execute(
     `INSERT INTO product_price_history
-       (product_id, old_price_chf, old_compare_price_chf, new_price_chf, new_compare_price_chf, source, changed_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [productId, oldPrice, oldCompare, newPrice, newCompare, source, changedBy]
+       (product_id, old_price_chf, old_compare_price_chf, new_price_chf, new_compare_price_chf,
+        promo_starts_at, promo_ends_at, source, changed_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [productId, oldPrice, oldCompare, newPrice, newCompare,
+     newStart ? `${newStart}:00` : null, newEnd ? `${newEnd}:00` : null, source, changedBy]
   );
 };
 
@@ -47,7 +71,7 @@ const deleteImageFiles = (row) => {
 };
 
 // Création d'un produit avec ses traductions — transaction atomique
-const create = async ({ categoryId, secondaryCategoryIds, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, soldByLength, lengthStepCm, lengthMinCm, badge, brand, translations }) => {
+const create = async ({ categoryId, secondaryCategoryIds, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, soldByLength, lengthStepCm, lengthMinCm, badge, brand, translations }, { changedBy = null } = {}) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -63,6 +87,9 @@ const create = async ({ categoryId, secondaryCategoryIds, supplierId, slug, pric
       [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock || 0, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, cut, step, minLen, badge || null, brand || null]
     );
     const productId = result.insertId;
+
+    // Prix de départ (ADM-21) — premier jalon de l'historique du produit
+    await recordPriceChange(connection, productId, null, { priceChf, comparePriceChf, promoStartsAt, promoEndsAt }, { source: 'admin', changedBy });
 
     // Insertion des traductions
     for (const [locale, trans] of Object.entries(translations)) {
@@ -96,7 +123,7 @@ const update = async (id, { categoryId, secondaryCategoryIds, supplierId, slug, 
     /* Prix AVANT modification, lu dans la transaction (ADM-21). La lecture doit
        précéder l'UPDATE, sinon l'ancienne valeur est déjà perdue. */
     const [[previous]] = await connection.execute(
-      'SELECT price_chf, compare_price_chf FROM products WHERE id = ?',
+      'SELECT price_chf, compare_price_chf, promo_starts_at, promo_ends_at FROM products WHERE id = ?',
       [id]
     );
 
@@ -124,7 +151,7 @@ const update = async (id, { categoryId, secondaryCategoryIds, supplierId, slug, 
     );
 
     // Historique du prix — dans la même transaction que le changement lui-même
-    await recordPriceChange(connection, id, previous, { priceChf, comparePriceChf }, { source: 'admin', changedBy });
+    await recordPriceChange(connection, id, previous, { priceChf, comparePriceChf, promoStartsAt, promoEndsAt }, { source: 'admin', changedBy });
 
     if (translations) {
       for (const [locale, trans] of Object.entries(translations)) {
@@ -551,6 +578,7 @@ const findPriceHistory = async (productId, { limit = 50, offset = 0 } = {}) => {
   const [rows] = await pool.query(
     `SELECT h.id, h.old_price_chf, h.old_compare_price_chf,
             h.new_price_chf, h.new_compare_price_chf,
+            h.promo_starts_at, h.promo_ends_at,
             h.source, h.changed_at,
             u.first_name AS changed_by_first_name,
             u.last_name  AS changed_by_last_name

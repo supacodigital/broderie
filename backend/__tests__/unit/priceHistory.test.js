@@ -25,7 +25,7 @@ function makeConnection(previousPrice) {
     release: jest.fn(),
     execute: jest.fn(async (sql, params) => {
       executed.push({ sql, params });
-      if (sql.includes('SELECT price_chf, compare_price_chf FROM products')) {
+      if (sql.startsWith('SELECT price_chf, compare_price_chf') && sql.includes('FROM products WHERE id = ?')) {
         return [[previousPrice]];
       }
       return [{ affectedRows: 1 }];
@@ -54,8 +54,8 @@ describe('historique des prix — quand une ligne est écrite (ADM-21)', () => {
 
     const inserts = historyInserts(connection);
     expect(inserts).toHaveLength(1);
-    // product_id, ancien prix, ancien barré, nouveau prix, nouveau barré, source, auteur
-    expect(inserts[0].params).toEqual([1, 84.5, null, 99.9, null, 'admin', 7]);
+    // product_id, ancien prix, ancien barré, nouveau prix, nouveau barré, début promo, fin promo, source, auteur
+    expect(inserts[0].params).toEqual([1, 84.5, null, 99.9, null, null, null, 'admin', 7]);
   });
 
   /* Le point décisif : réenregistrer une fiche sans toucher au prix ne doit rien
@@ -91,7 +91,7 @@ describe('historique des prix — quand une ligne est écrite (ADM-21)', () => {
 
     const inserts = historyInserts(connection);
     expect(inserts).toHaveLength(1);
-    expect(inserts[0].params).toEqual([1, 84.5, null, 84.5, 119, 'admin', 7]);
+    expect(inserts[0].params).toEqual([1, 84.5, null, 84.5, 119, null, null, 'admin', 7]);
   });
 
   // Un changement passé hors administration n'a pas d'auteur nommé.
@@ -103,7 +103,7 @@ describe('historique des prix — quand une ligne est écrite (ADM-21)', () => {
 
     const inserts = historyInserts(connection);
     expect(inserts).toHaveLength(1);
-    expect(inserts[0].params[6]).toBeNull();
+    expect(inserts[0].params[8]).toBeNull();
   });
 
   /* L'historique part dans la même transaction que le prix : les deux doivent
@@ -121,5 +121,76 @@ describe('historique des prix — quand une ligne est écrite (ADM-21)', () => {
     const updateIndex = connection.executed.findIndex(e => e.sql.includes('UPDATE products SET'));
     // L'historique suit l'UPDATE, dans la même transaction
     expect(insertIndex).toBeGreaterThan(updateIndex);
+  });
+});
+
+/* Audit du 24/09 — la période de promotion fait partie de l'offre : c'est elle
+   que l'ordonnance sur l'indication des prix contrôle. */
+describe('historique des prix — période de promotion (ADM-21)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('enregistre un simple déplacement des dates de promotion', async () => {
+    const connection = makeConnection({
+      price_chf: '84.50', compare_price_chf: '119.00',
+      promo_starts_at: new Date(2026, 9, 1, 0, 0), promo_ends_at: new Date(2026, 9, 15, 23, 59),
+    });
+    pool.getConnection.mockResolvedValue(connection);
+
+    await repo.update(1, {
+      ...BASE, priceChf: 84.5, comparePriceChf: 119,
+      promoStartsAt: '2026-10-01 00:00:00', promoEndsAt: '2026-10-31 23:59:00',
+    }, { changedBy: 7 });
+
+    const inserts = historyInserts(connection);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].params).toEqual([1, 84.5, 119, 84.5, 119, '2026-10-01 00:00:00', '2026-10-31 23:59:00', 'admin', 7]);
+  });
+
+  // MySQL rend une Date, le service une chaîne : la même minute ne doit rien écrire
+  test("n'écrit rien quand les dates sont identiques sous deux formats", async () => {
+    const connection = makeConnection({
+      price_chf: '84.50', compare_price_chf: '119.00',
+      promo_starts_at: new Date(2026, 9, 1, 0, 0), promo_ends_at: null,
+    });
+    pool.getConnection.mockResolvedValue(connection);
+
+    await repo.update(1, {
+      ...BASE, priceChf: 84.5, comparePriceChf: 119,
+      promoStartsAt: '2026-10-01 00:00:00', promoEndsAt: null,
+    }, { changedBy: 7 });
+
+    expect(historyInserts(connection)).toHaveLength(0);
+  });
+
+  // Sans prix barré, des dates n'ont aucun effet sur le prix payé
+  test('ignore les dates quand il n\'y a pas de prix barré', async () => {
+    const connection = makeConnection({ price_chf: '10.00', compare_price_chf: null, promo_starts_at: null, promo_ends_at: null });
+    pool.getConnection.mockResolvedValue(connection);
+
+    await repo.update(1, { ...BASE, priceChf: 10, comparePriceChf: null, promoStartsAt: '2026-10-01 00:00:00' }, { changedBy: 7 });
+
+    expect(historyInserts(connection)).toHaveLength(0);
+  });
+});
+
+describe('historique des prix — création d\'un produit (ADM-21)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('enregistre le prix de départ, sans ancien prix', async () => {
+    const connection = makeConnection(null);
+    connection.execute.mockImplementation(async (sql, params) => {
+      connection.executed.push({ sql, params });
+      return [{ insertId: 42, affectedRows: 1 }];
+    });
+    pool.getConnection.mockResolvedValue(connection);
+
+    await repo.create({
+      ...BASE, slug: 'kit-test', priceChf: 25, comparePriceChf: null,
+      translations: { fr: { name: 'Kit test' } },
+    }, { changedBy: 7 });
+
+    const inserts = historyInserts(connection);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].params).toEqual([42, null, null, 25, null, null, null, 'admin', 7]);
   });
 });

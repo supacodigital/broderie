@@ -39,6 +39,7 @@ describe('product.admin.repository — create()', () => {
   test('insère le produit et ses traductions, retourne l\'id', async () => {
     const conn = makeConn([
       [{ insertId: 10 }, []],  // INSERT products
+      [[], []],                // INSERT historique des prix (prix de départ, ADM-21)
       [[], []],                // INSERT translation fr
       [[], []],                // INSERT translation de
     ]);
@@ -55,8 +56,8 @@ describe('product.admin.repository — create()', () => {
     });
 
     expect(id).toBe(10);
-    // 1 INSERT products + 2 INSERT translations + 1 DELETE des rayons (ADM-04)
-    expect(conn.execute).toHaveBeenCalledTimes(4);
+    // 1 INSERT products + 1 prix de départ (ADM-21) + 2 INSERT translations + 1 DELETE des rayons (ADM-04)
+    expect(conn.execute).toHaveBeenCalledTimes(5);
     expect(conn.commit).toHaveBeenCalled();
   });
 

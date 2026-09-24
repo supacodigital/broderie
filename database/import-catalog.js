@@ -204,6 +204,9 @@ const printReport = (report) => {
   console.log(`  en stock immédiat ................... ${report.inStock}`);
   console.log(`  « sur commande » (stock 0) .......... ${report.madeToOrder}`);
   console.log(`  avec prix barré (compare_price) .... ${report.withComparePrice}`);
+  if (report.priceChanges !== undefined) {
+    console.log(`  prix enregistrés dans l'historique . ${report.priceChanges}`);
+  }
 
   console.log('\nMarques distinctes (products.brand) .... ' + report.brands);
 
@@ -433,16 +436,22 @@ async function main() {
     // ── Écriture ──
     await connection.beginTransaction();
 
-    // 0) Photo des external_ref déjà présents → distinguer créés / mis à jour
+    // 0) Photo des external_ref déjà présents → distinguer créés / mis à jour.
+    //    Les prix d'avant l'import sont gardés pour l'historique des prix (ADM-21).
     const allRefs = mapped.map((m) => m.external_ref);
     const existingRefs = new Set();
+    const previousOfferByRef = new Map();
     for (let i = 0; i < allRefs.length; i += BATCH_SIZE) {
       const slice = allRefs.slice(i, i + BATCH_SIZE);
       const [rows] = await connection.query(
-        `SELECT external_ref FROM products WHERE external_ref IN (?)`,
+        `SELECT external_ref, price_chf, compare_price_chf, promo_starts_at, promo_ends_at
+         FROM products WHERE external_ref IN (?)`,
         [slice]
       );
-      for (const r of rows) existingRefs.add(r.external_ref);
+      for (const r of rows) {
+        existingRefs.add(r.external_ref);
+        previousOfferByRef.set(r.external_ref, r);
+      }
     }
 
     // 1) Produits : UPSERT par batch sur external_ref
@@ -539,6 +548,43 @@ async function main() {
         values
       );
     }
+
+    /* 4) Historique des prix (ADM-21) — l'import écrase prix et prix barré :
+       chaque article créé reçoit son prix de départ, chaque article dont le prix
+       ou le prix barré change reçoit une ligne. Même transaction que les prix
+       eux-mêmes, insertion par lots de 500. La période de promotion n'est pas
+       touchée par l'import : celle en vigueur est conservée avec l'offre. */
+    const num = (v) => (v === null || v === undefined ? null : Number(v));
+    const priceChanges = [];
+    for (const m of mapped) {
+      const productId = idByRef.get(m.external_ref);
+      if (!productId) continue;
+      const before = previousOfferByRef.get(m.external_ref);
+      const newCompare = num(m.compare_price_chf);
+      if (before
+          && num(before.price_chf) === num(m.price_chf)
+          && num(before.compare_price_chf) === newCompare) continue;
+      priceChanges.push([
+        productId,
+        before ? num(before.price_chf) : null,
+        before ? num(before.compare_price_chf) : null,
+        num(m.price_chf),
+        newCompare,
+        before && newCompare !== null ? before.promo_starts_at : null,
+        before && newCompare !== null ? before.promo_ends_at : null,
+      ]);
+    }
+    for (let i = 0; i < priceChanges.length; i += BATCH_SIZE) {
+      const batch = priceChanges.slice(i, i + BATCH_SIZE);
+      await connection.query(
+        `INSERT INTO product_price_history
+           (product_id, old_price_chf, old_compare_price_chf, new_price_chf, new_compare_price_chf,
+            promo_starts_at, promo_ends_at, source, changed_by)
+         VALUES ${batch.map(() => "(?, ?, ?, ?, ?, ?, ?, 'import', NULL)").join(', ')}`,
+        batch.flat()
+      );
+    }
+    report.priceChanges = priceChanges.length;
 
     await connection.commit();
 
