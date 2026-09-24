@@ -61,6 +61,16 @@ const getInvoiceSettings = async () => {
   };
 };
 
+/* Textes des e-mails d'inscription saisis dans l'admin (CLI-11). null tant que
+   le champ est vide : l'e-mail garde alors son texte actuel. */
+const getEmailSettings = async () => {
+  const v = await readGroup('emails', settingsRepository.EMAIL_KEYS);
+  return {
+    welcomeText: pick(v, 'email_welcome_text', null),
+    verifyText:  pick(v, 'email_verify_text',  null),
+  };
+};
+
 /* Appelé après un enregistrement depuis l'admin : la prochaine facture ou le
    prochain email reprend les nouvelles valeurs sans attendre l'expiration. */
 const invalidate = (group) => {
@@ -68,4 +78,4 @@ const invalidate = (group) => {
   else cache.clear();
 };
 
-module.exports = { getPickupSettings, getInvoiceSettings, invalidate };
+module.exports = { getPickupSettings, getInvoiceSettings, getEmailSettings, invalidate };

@@ -15,9 +15,12 @@ jest.mock('../../services/shopSettings.service', () => ({
   getPickupSettings: jest.fn().mockResolvedValue({
     name: 'Au Point-Compté', address: 'Chemin du Collège 6', zip: '1509', city: 'Vucherens', hours: 'Mar/Mer',
   }),
+  // Textes des e-mails d'inscription saisis dans l'admin (CLI-11) — vides par défaut
+  getEmailSettings: jest.fn().mockResolvedValue({ welcomeText: null, verifyText: null }),
 }));
 
 const transporter = require('../../config/mailer');
+const shopSettings = require('../../services/shopSettings.service');
 const service     = require('../../services/email.service');
 
 beforeEach(() => jest.clearAllMocks());
@@ -402,5 +405,69 @@ describe('email.service — consentement newsletter (CLI-05)', () => {
     expect(mail.html).toMatch(/ignorez simplement cet email/);
     // Pas de compte derrière une inscription newsletter : le pied de page le dit
     expect(mail.html).not.toContain('vous avez un compte');
+  });
+});
+
+
+/* CLI-11 — « besoin d'avoir la main pour modifier ce texte » : les textes des
+   deux e-mails d'inscription se modifient dans l'admin (super-administrateur). */
+describe('e-mails d\'inscription — texte modifiable par la boutique (CLI-11)', () => {
+  // Mise en forme retirée : balises en ligne supprimées, balises de bloc remplacées par une espace
+  const plain = (html) => html
+    .replace(/<\/?(strong|b|em|a)\b[^>]*>/g, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&#39;|&#x27;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  test('champ vide : l\'e-mail de bienvenue garde son texte actuel', async () => {
+    await service.sendWelcome({ user: fakeUser });
+    expect(transporter.sendMail.mock.calls[0][0].html).toContain('Votre compte Au Point-Compté est créé.');
+  });
+
+  test('texte saisi : il remplace le texte de bienvenue, en paragraphes, sans HTML interprété', async () => {
+    shopSettings.getEmailSettings.mockResolvedValueOnce({
+      welcomeText: 'Merci de votre confiance.\n\nÀ bientôt <b>en boutique</b> !',
+      verifyText: null,
+    });
+    await service.sendWelcome({ user: fakeUser });
+    const { html } = transporter.sendMail.mock.calls[0][0];
+    expect(html).toMatch(/<p[^>]*>Merci de votre confiance\.<\/p>/);
+    expect(html).toContain('À bientôt &lt;b&gt;en boutique&lt;/b&gt; !');
+    expect(html).not.toContain('broderies suisses');
+    // Titre et bouton inchangés
+    expect(html).toContain('Bienvenue, Marie !');
+    expect(html).toContain('Découvrir la boutique');
+  });
+
+  test('texte saisi : il remplace l\'introduction de l\'e-mail de confirmation, le lien et la newsletter restent', async () => {
+    shopSettings.getEmailSettings.mockResolvedValueOnce({ welcomeText: null, verifyText: 'Un dernier clic et c\'est prêt.' });
+    await service.sendEmailVerification({ user: fakeUser, verifyToken: 'tok', newsletter: true });
+    const { html } = transporter.sendMail.mock.calls[0][0];
+    expect(html).toMatch(/Un dernier clic et c(&#39;|&#x27;|')est prêt\./);
+    expect(html).not.toContain('Pour finaliser votre inscription');
+    expect(html).toContain('/verifier-email?token=tok');
+    expect(html).toContain('Confirmer mon adresse email');
+    expect(html).toMatch(/vous confirmez\s+également cette inscription/);
+  });
+
+  test('réglages illisibles : l\'e-mail part quand même, avec le texte actuel', async () => {
+    shopSettings.getEmailSettings.mockRejectedValueOnce(new Error('base indisponible'));
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    await service.sendWelcome({ user: fakeUser });
+    expect(transporter.sendMail.mock.calls[0][0].html).toContain('Votre compte Au Point-Compté est créé.');
+    spy.mockRestore();
+  });
+
+  /* Le texte affiché dans l'admin sous chaque champ doit être celui réellement
+     envoyé — sinon la boutique corrigerait un texte qui n'est pas le bon. */
+  test('le texte actuel montré dans l\'admin est bien celui envoyé', async () => {
+    await service.sendWelcome({ user: fakeUser });
+    await service.sendEmailVerification({ user: fakeUser, verifyToken: 'tok' });
+    const [welcome, verify] = transporter.sendMail.mock.calls.map(([m]) => plain(m.html));
+    for (const para of service.DEFAULT_EMAIL_TEXTS.email_welcome_text.split('\n\n')) {
+      expect(welcome).toContain(para);
+    }
+    expect(verify).toContain(service.DEFAULT_EMAIL_TEXTS.email_verify_text);
   });
 });

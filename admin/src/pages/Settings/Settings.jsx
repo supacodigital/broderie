@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound, Megaphone, MapPin, Wallet, BookOpen, House, Plus, Trash2 } from 'lucide-react'
+import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound, Megaphone, MapPin, Wallet, BookOpen, House, Plus, Trash2, Mail } from 'lucide-react'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import { useDirtyTracker } from '../../hooks/useDirtyTracker.js'
@@ -25,6 +25,8 @@ import {
   updateAboutSettings,
   getHomeSettings,
   updateHomeSettings,
+  getEmailSettings,
+  updateEmailSettings,
 } from '../../services/settings.service.js'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import s from './Settings.module.css'
@@ -636,6 +638,106 @@ function AboutTab({ onDirtyChange }) {
         <button className={s.btnSave} onClick={handleSave} disabled={saving || loading}>
           <Save size={14} />
           {saving ? 'Enregistrement…' : 'Enregistrer la page'}
+        </button>
+      </div>
+    </>
+  )
+}
+
+/* ── Onglet E-mails ── textes des e-mails d'inscription (CLI-11) ──
+   « Besoin d'avoir la main pour modifier ce texte ». Même principe que les
+   autres contenus : un champ laissé vide garde le texte actuellement envoyé,
+   affiché sous le champ pour savoir ce que l'on remplace. */
+const EMAIL_FIELDS = [
+  { key: 'email_welcome_text', label: 'E-mail de bienvenue',
+    desc: 'Envoyé dès la création d’un compte, sous le titre « Bienvenue, [prénom] ! » et au-dessus du bouton « Découvrir la boutique ».' },
+  { key: 'email_verify_text', label: 'E-mail de confirmation de l’adresse',
+    desc: 'Envoyé à l’inscription, sous le titre « Confirmez votre adresse email » et au-dessus du bouton de confirmation. Le lien de confirmation et la mention newsletter restent inchangés.' },
+]
+
+function EmailsTab({ onDirtyChange }) {
+  const [values,   setValues]   = useState({})
+  const [defaults, setDefaults] = useState({})
+  const [loading,  setLoading]  = useState(true)
+  const [error,    setError]    = useState(false)
+  const [status,   setStatus]   = useState(null)
+  const [saving,   setSaving]   = useState(false)
+  const { resetBaseline } = useDirtyTracker(values, loading, onDirtyChange)
+
+  const load = useCallback(async () => {
+    setError(false)
+    setLoading(true)
+    try {
+      const res = await getEmailSettings()
+      setValues(prev => ({ ...prev, ...res.values }))
+      setDefaults(res.defaults ?? {})
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const handleChange = (key, val) => setValues(prev => ({ ...prev, [key]: val }))
+
+  const handleSave = async () => {
+    setSaving(true)
+    setStatus(null)
+    try {
+      await updateEmailSettings(values)
+      setStatus('saved')
+      resetBaseline()
+    } catch {
+      setStatus('error')
+    } finally {
+      setSaving(false)
+      setTimeout(() => setStatus(null), 3000)
+    }
+  }
+
+  return (
+    <>
+      {error && <ErrorBanner onRetry={load} />}
+
+      <div className={s.legalNote}>
+        <AlertCircle size={13} />
+        Un champ laissé vide garde le texte actuellement envoyé. Laissez une ligne vide entre deux paragraphes pour les séparer.
+      </div>
+
+      <div className={s.sections}>
+        {EMAIL_FIELDS.map(({ key, label, desc }) => (
+          <SettingsSection key={key} title={label} desc={desc}>
+            {loading ? (
+              <div className={s.skeleton} style={{ height: 120 }} />
+            ) : (
+              <>
+                <textarea
+                  className={s.textarea}
+                  rows={6}
+                  value={values[key] ?? ''}
+                  onChange={e => handleChange(key, e.target.value)}
+                  placeholder="Laisser vide pour garder le texte actuel"
+                  aria-describedby={`${key}-current`}
+                />
+                {defaults[key] && (
+                  <div id={`${key}-current`} className={s.currentText}>
+                    <span className={s.currentTextLabel}>Texte actuellement envoyé si le champ est vide</span>
+                    {defaults[key]}
+                  </div>
+                )}
+              </>
+            )}
+          </SettingsSection>
+        ))}
+      </div>
+
+      <div className={s.formActions} style={{ marginTop: 8 }}>
+        <SaveFeedback status={status} />
+        <button className={s.btnSave} onClick={handleSave} disabled={saving || loading}>
+          <Save size={14} />
+          {saving ? 'Enregistrement…' : 'Enregistrer les textes'}
         </button>
       </div>
     </>
@@ -1318,6 +1420,7 @@ const TABS = [
   { key: 'home',     label: 'Page d’accueil', icon: House,      desc: 'Bandeau principal, blocs', group: 'Boutique', superAdmin: true },
   { key: 'banner',   label: 'Bandeau',       icon: Megaphone,   desc: 'Annonce en haut du site', group: 'Boutique', superAdmin: true },
   { key: 'about',    label: 'Notre Histoire', icon: BookOpen,   desc: 'Texte de la page « Qui sommes-nous »', group: 'Boutique', superAdmin: true },
+  { key: 'emails',   label: 'E-mails',       icon: Mail,        desc: 'Textes envoyés à l’inscription', group: 'Boutique', superAdmin: true },
   { key: 'shipping', label: 'Livraison',     icon: Truck,       desc: 'Tarifs Swiss Post',       group: 'Vente' },
   { key: 'tax',      label: 'TVA',           icon: Receipt,     desc: 'Taux AFC suisses',        group: 'Vente' },
   { key: 'invoice',  label: 'Facturation',   icon: Wallet,      desc: 'Coordonnées, échéance',   group: 'Vente' },
@@ -1414,6 +1517,7 @@ export default function Settings() {
           {tab === 'legal'    && <LegalTab    onDirtyChange={markDirty('legal')} />}
           {tab === 'about'    && <AboutTab    onDirtyChange={markDirty('about')} />}
           {tab === 'home'     && <HomeTab     onDirtyChange={markDirty('home')} />}
+          {tab === 'emails'   && <EmailsTab   onDirtyChange={markDirty('emails')} />}
           {tab === 'banner'   && <BannerTab   onDirtyChange={markDirty('banner')} />}
           {tab === 'pickup'   && <PickupTab   onDirtyChange={markDirty('pickup')} />}
           {tab === 'invoice'  && <InvoiceTab  onDirtyChange={markDirty('invoice')} />}

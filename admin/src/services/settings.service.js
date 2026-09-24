@@ -53,6 +53,19 @@ export async function updateAboutSettings(data) {
   return res.data?.data ?? {}
 }
 
+/* Textes des e-mails envoyés à l'inscription — super-administrateur (CLI-11).
+   Renvoie { values, defaults } : les textes saisis, et le texte actuellement
+   envoyé quand un champ est vide. */
+export async function getEmailSettings() {
+  const res = await api.get('/admin/settings/emails')
+  return res.data?.data ?? { values: {}, defaults: {} }
+}
+
+export async function updateEmailSettings(data) {
+  const res = await api.put('/admin/settings/emails', data)
+  return res.data?.data ?? { values: {}, defaults: {} }
+}
+
 /* Blocs de la page d'accueil — réservés au super-administrateur (ADM-08) */
 export async function getHomeSettings() {
   const res = await api.get('/admin/settings/home')

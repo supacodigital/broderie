@@ -95,6 +95,11 @@ const BANNER_KEYS = ['banner_enabled', 'banner_text', 'banner_link'];
    serveur pour un simple changement d'horaires. */
 const PICKUP_KEYS = ['pickup_name', 'pickup_address', 'pickup_zip', 'pickup_city', 'pickup_hours'];
 
+/* Textes des e-mails envoyés à l'inscription (CLI-11) : « besoin d'avoir la main
+   pour modifier ce texte ». Réservés au super-administrateur, comme les autres
+   contenus. Un champ laissé vide garde le texte actuel. */
+const EMAIL_KEYS = ['email_welcome_text', 'email_verify_text'];
+
 /* Coordonnées imprimées sur la facture QR et délai de paiement.
    Le QR-IBAN reste volontairement dans le .env : c'est une donnée bancaire, et
    une erreur de saisie enverrait de vrais paiements sur le mauvais compte. */
@@ -208,4 +213,5 @@ module.exports = {
   findAllTaxRates, updateTaxRate, findAllShippingRates, updateShippingRate,
   updateTaxRatesBulk, updateShippingRatesBulk, replaceShippingRates,
   findSettings, upsertSettings, STORE_KEYS, LEGAL_KEYS, ABOUT_KEYS, HOME_KEYS, BANNER_KEYS, PICKUP_KEYS, INVOICE_KEYS,
+  EMAIL_KEYS,
 };

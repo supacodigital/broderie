@@ -62,7 +62,11 @@ describe('Super-administrateur — protections du back-office (ADM-08)', () => {
 });
 
 describe('Pages de contenu et blocs promotionnels — réservés au super-administrateur', () => {
-  const CONTENT = ['/api/v1/admin/settings/legal', '/api/v1/admin/settings/about', '/api/v1/admin/settings/home', '/api/v1/admin/settings/banner'];
+  const CONTENT = [
+    '/api/v1/admin/settings/legal', '/api/v1/admin/settings/about', '/api/v1/admin/settings/home',
+    '/api/v1/admin/settings/banner',
+    '/api/v1/admin/settings/emails', // textes des e-mails d'inscription (CLI-11)
+  ];
 
   test('un administrateur simple est refusé (403)', async () => {
     for (const url of CONTENT) {
@@ -102,6 +106,50 @@ describe('Pages de contenu et blocs promotionnels — réservés au super-admini
     const res = await request(app).put('/api/v1/admin/settings/home')
       .set('Authorization', `Bearer ${superAdmin.token}`)
       .send({ hero_stats_enabled: 'oui' });
+    expect(res.status).toBe(400);
+  });
+});
+
+/* CLI-11 — « besoin d'avoir la main pour modifier ce texte » (e-mails envoyés à
+   l'inscription), sur le compte super-administrateur. */
+describe('Textes des e-mails d\'inscription — réservés au super-administrateur (CLI-11)', () => {
+  const URL = '/api/v1/admin/settings/emails';
+
+  afterAll(async () => {
+    await pool.execute("DELETE FROM settings WHERE `key` IN ('email_welcome_text', 'email_verify_text')");
+  });
+
+  test('un administrateur simple ne peut pas les modifier (403)', async () => {
+    const res = await request(app).put(URL).set('Authorization', `Bearer ${admin.token}`)
+      .send({ email_welcome_text: 'x' });
+    expect(res.status).toBe(403);
+  });
+
+  test('champs vides au départ, avec le texte actuellement envoyé pour référence', async () => {
+    await pool.execute("DELETE FROM settings WHERE `key` IN ('email_welcome_text', 'email_verify_text')");
+    const res = await request(app).get(URL).set('Authorization', `Bearer ${superAdmin.token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.values.email_welcome_text ?? '').toBe('');
+    expect(res.body.data.values.email_verify_text ?? '').toBe('');
+    expect(res.body.data.defaults.email_welcome_text).toMatch(/Votre compte Au Point-Compté est créé/);
+    expect(res.body.data.defaults.email_verify_text).toMatch(/Pour finaliser votre inscription/);
+  });
+
+  test('le super-administrateur enregistre un texte, puis peut le vider', async () => {
+    const put = await request(app).put(URL).set('Authorization', `Bearer ${superAdmin.token}`)
+      .send({ email_welcome_text: 'Merci pour votre inscription.' });
+    expect(put.status).toBe(200);
+    expect(put.body.data.values.email_welcome_text).toBe('Merci pour votre inscription.');
+
+    const emptied = await request(app).put(URL).set('Authorization', `Bearer ${superAdmin.token}`)
+      .send({ email_welcome_text: '' });
+    expect(emptied.status).toBe(200);
+    expect(emptied.body.data.values.email_welcome_text).toBe('');
+  });
+
+  test('un texte qui n\'en est pas un est refusé (400)', async () => {
+    const res = await request(app).put(URL).set('Authorization', `Bearer ${superAdmin.token}`)
+      .send({ email_verify_text: { html: '<script>' } });
     expect(res.status).toBe(400);
   });
 });

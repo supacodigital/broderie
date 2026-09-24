@@ -184,15 +184,58 @@ async function pickupDetailsFor(order) {
 }
 
 // ─────────────────────────────────────────────
+// Textes des e-mails d'inscription modifiables par la boutique (CLI-11)
+// « Besoin d'avoir la main pour modifier ce texte » : Admin → Paramètres →
+// E-mails (super-administrateur). Tant qu'un champ est vide, le texte actuel
+// ci-dessous est envoyé, à l'identique. Le titre, le bouton, le lien de
+// confirmation et la mention newsletter ne sont pas concernés.
+// ─────────────────────────────────────────────
+/* Texte actuel, tel qu'affiché dans l'admin sous chaque champ. Il reprend mot
+   pour mot les paragraphes HTML de sendWelcome / sendEmailVerification (un test
+   le vérifie). */
+const DEFAULT_EMAIL_TEXTS = {
+  email_welcome_text:
+    `Votre compte Au Point-Compté est créé. Découvrez notre catalogue de broderies suisses — kits, fils, accessoires — livrés partout en Suisse en ${DELIVERY_DELAY} pour les articles en stock.\n\n`
+    + 'Vous pouvez dès maintenant accéder à votre espace personnel pour suivre vos commandes, gérer vos adresses et consulter votre programme de fidélité.',
+  email_verify_text:
+    'Bienvenue chez Au Point-Compté ! Pour finaliser votre inscription, confirmez votre adresse email en cliquant sur le bouton ci-dessous. Ce lien est valable 24 heures.',
+};
+
+/* Texte saisi dans l'admin → paragraphes HTML. Tout est échappé : c'est du
+   texte, pas du code. Une ligne vide sépare deux paragraphes. */
+function customTextHtml(text) {
+  return String(text)
+    .replace(/\r\n/g, '\n')
+    .split(/\n\s*\n/)
+    .map((para) => para.trim())
+    .filter(Boolean)
+    .map((para) => `<p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">${escapeHtml(para).replace(/\n/g, '<br>')}</p>`)
+    .join('\n');
+}
+
+/* Textes saisis dans l'admin — require local : shopSettings tire la couche base
+   de données. Une lecture impossible n'empêche jamais l'envoi : le texte actuel
+   part à la place. */
+async function emailTexts() {
+  try {
+    const { getEmailSettings } = require('./shopSettings.service');
+    return await getEmailSettings();
+  } catch (err) {
+    console.error('[Email] Textes personnalisés illisibles, texte actuel utilisé :', err.message);
+    return { welcomeText: null, verifyText: null };
+  }
+}
+
+// ─────────────────────────────────────────────
 // 1. Email de bienvenue — après inscription
 // ─────────────────────────────────────────────
 async function sendWelcome({ user }) {
   const firstName = escapeHtml(user.first_name);
+  const { welcomeText } = await emailTexts();
 
-  const body = `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-           Bienvenue, ${firstName} !
-         </h1>
-         <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+  const text = welcomeText
+    ? customTextHtml(welcomeText)
+    : `<p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
            Votre compte Au Point-Compté est créé. Découvrez notre catalogue de broderies suisses
            — kits, fils, accessoires — livrés partout en Suisse en ${DELIVERY_DELAY}
            pour les articles en stock.
@@ -200,7 +243,12 @@ async function sendWelcome({ user }) {
          <p style="margin:0;font-size:14px;color:#374151;line-height:1.7;">
            Vous pouvez dès maintenant accéder à votre espace personnel pour suivre vos commandes,
            gérer vos adresses et consulter votre programme de fidélité.
-         </p>
+         </p>`;
+
+  const body = `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+           Bienvenue, ${firstName} !
+         </h1>
+         ${text}
          ${btn(`${BASE_URL}/catalogue`, 'Découvrir la boutique')}`;
 
   await transporter.sendMail({
@@ -543,15 +591,21 @@ const newsletterConsentNotice = `
 
 async function sendEmailVerification({ user, verifyToken, newsletter = false }) {
   const verifyUrl = `${BASE_URL}/verifier-email?token=${verifyToken}`;
+  const { verifyText } = await emailTexts();
+
+  // Texte saisi dans l'admin (CLI-11), sinon le texte actuel
+  const intro = verifyText
+    ? customTextHtml(verifyText)
+    : `<p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
+      Bienvenue chez Au Point-Compté ! Pour finaliser votre inscription, confirmez votre
+      adresse email en cliquant sur le bouton ci-dessous. Ce lien est valable <strong>24 heures</strong>.
+    </p>`;
 
   const body = `
     <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
       Confirmez votre adresse email
     </h1>
-    <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
-      Bienvenue chez Au Point-Compté ! Pour finaliser votre inscription, confirmez votre
-      adresse email en cliquant sur le bouton ci-dessous. Ce lien est valable <strong>24 heures</strong>.
-    </p>
+    ${intro}
     ${newsletter ? newsletterConsentNotice : ''}
     ${btn(verifyUrl, 'Confirmer mon adresse email')}
     <p style="margin:24px 0 0;font-size:12px;color:#9D6480;line-height:1.7;">
@@ -709,6 +763,7 @@ async function sendTwintQrEmail({ user, order, qrBuffer, expiresAt }) {
 }
 
 module.exports = {
+  DEFAULT_EMAIL_TEXTS,
   sendWelcome,
   sendOrderConfirmation,
   sendAdminOrderNotification,

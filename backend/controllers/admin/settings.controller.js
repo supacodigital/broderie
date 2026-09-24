@@ -1,6 +1,7 @@
 const settingsRepository = require('../../repositories/settings.repository');
 const { AppError } = require('../../middlewares/errorHandler');
 const shopSettingsService = require('../../services/shopSettings.service');
+const emailService = require('../../services/email.service');
 const { cache } = require('../../config/cache');
 
 /* Invalide le cache TVA et frais de port */
@@ -234,6 +235,34 @@ const updateHomeSettings = async (req, res, next) => {
   }
 };
 
+/* ── GET /admin/settings/emails ── textes des e-mails d'inscription (CLI-11) ──
+   Renvoie aussi le texte actuellement envoyé quand un champ est vide, pour que
+   la boutique voie ce qu'elle remplace. */
+const getEmailSettings = async (req, res, next) => {
+  try {
+    const values = await settingsRepository.findSettings(settingsRepository.EMAIL_KEYS);
+    res.json({ success: true, data: { values, defaults: emailService.DEFAULT_EMAIL_TEXTS } });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/* ── PUT /admin/settings/emails ── */
+const updateEmailSettings = async (req, res, next) => {
+  try {
+    const { values, error } = collectTextSettings(req.body, settingsRepository.EMAIL_KEYS);
+    if (error) {
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors: [error] });
+    }
+    await settingsRepository.upsertSettings(values);
+    shopSettingsService.invalidate('emails');  // le prochain e-mail reprend le nouveau texte
+    const saved = await settingsRepository.findSettings(settingsRepository.EMAIL_KEYS);
+    res.json({ success: true, data: { values: saved, defaults: emailService.DEFAULT_EMAIL_TEXTS } });
+  } catch (error) {
+    next(error);
+  }
+};
+
 /* ── GET /admin/settings/banner ── */
 const getBannerSettings = async (req, res, next) => {
   try {
@@ -386,6 +415,7 @@ module.exports = {
   getAboutSettings, updateAboutSettings,
   getHomeSettings, updateHomeSettings,
   getBannerSettings, updateBannerSettings,
+  getEmailSettings, updateEmailSettings,
   getPickupSettings, updatePickupSettings,
   getInvoiceSettings, updateInvoiceSettings,
 };

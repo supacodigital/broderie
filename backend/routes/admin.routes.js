@@ -108,6 +108,8 @@ router.get('/settings/home',       superAdminOnly, settingsController.getHomeSet
 router.put('/settings/home',       superAdminOnly, settingsController.updateHomeSettings);
 router.get('/settings/banner',     superAdminOnly, settingsController.getBannerSettings);
 router.put('/settings/banner',     superAdminOnly, settingsController.updateBannerSettings);
+router.get('/settings/emails',     superAdminOnly, settingsController.getEmailSettings);
+router.put('/settings/emails',     superAdminOnly, settingsController.updateEmailSettings);
 router.get('/settings/pickup',     settingsController.getPickupSettings);
 router.put('/settings/pickup',     settingsController.updatePickupSettings);
 router.get('/settings/invoice',    settingsController.getInvoiceSettings);
