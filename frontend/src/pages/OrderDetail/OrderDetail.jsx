@@ -297,7 +297,9 @@ export default function OrderDetail() {
                     </div>
                     <div className={s.totalRow}>
                       <span>TVA incluse</span>
-                      <span>CHF {roundCHF(order.tax_amount).toFixed(2)}</span>
+                      {/* TVA au centime, comme sur la facture (ADM-14) — l'arrondi au
+                          0.05 ne vaut que pour les montants à payer */}
+                      <span>CHF {Number(order.tax_amount).toFixed(2)}</span>
                     </div>
                     <div className={`${s.totalRow} ${s.totalFinal}`}>
                       <span>Total TTC</span>

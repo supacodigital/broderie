@@ -278,9 +278,11 @@ async function sendOrderConfirmation({ user, order }) {
 
   const itemsHtml = (order.items ?? []).map((item) => orderItemRow(item, { showSale: true })).join('');
 
+  /* TVA au centime, comme sur la facture (ADM-14) : arrondie au 0.05 comme un
+     montant à payer, elle affichait 1.60 quand la facture en imprime 1.61. */
   const summaryRows = `Sous-total|CHF ${roundCHF(order.subtotal).toFixed(2)}
 Frais de port|CHF ${roundCHF(order.shipping_cost).toFixed(2)}
-TVA incluse|CHF ${roundCHF(order.tax_amount).toFixed(2)}`.split('\n');
+TVA incluse|CHF ${Number(order.tax_amount).toFixed(2)}`.split('\n');
 
   const summaryHtml = summaryRows.map(row => {
     const [label, val] = row.split('|');

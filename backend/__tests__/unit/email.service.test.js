@@ -498,3 +498,15 @@ describe('e-mail de confirmation — articles en action (CLI-14)', () => {
     expect(transporter.sendMail.mock.calls[0][0].html).not.toMatch(/En action/);
   });
 });
+
+
+/* ADM-14 — la TVA se déclare au centime : l'e-mail de confirmation affiche le
+   même montant que la facture (1.61), pas un montant arrondi au 0.05 (1.60). */
+describe('e-mail de confirmation — TVA au centime (ADM-14)', () => {
+  test('TVA incluse affichée au centime', async () => {
+    await service.sendOrderConfirmation({ user: fakeUser, order: { ...fakeOrder, tax_amount: '1.61' } });
+    const { html } = transporter.sendMail.mock.calls[0][0];
+    expect(html).toContain('CHF 1.61');
+    expect(html).not.toContain('CHF 1.60');
+  });
+});

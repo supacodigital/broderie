@@ -6,7 +6,7 @@ import {
   Printer,
 } from 'lucide-react'
 import { getOrderById, updateOrderStatus, downloadInvoice, generateLabel, downloadLabel, updateTracking, sendTwintQr } from '../../services/orders.service.js'
-import { formatCHF } from '../../utils/chf.js'
+import { formatCHF, formatCents } from '../../utils/chf.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
 import { formatCustomerNumber } from '../../utils/customerNumber.js'
 import s from './OrderDetail.module.css'
@@ -407,7 +407,8 @@ export default function OrderDetail() {
               </div>
               <div className={s.infoBlock}>
                 <span className={s.infoLabel}>TVA incluse</span>
-                <span className={s.infoValue}>{formatCHF(order.tax_amount)}</span>
+                {/* TVA au centime, comme sur la facture (ADM-14) */}
+                <span className={s.infoValue}>{formatCents(order.tax_amount)}</span>
               </div>
               <div className={s.infoBlock}>
                 <span className={s.infoLabel}>Total TTC</span>

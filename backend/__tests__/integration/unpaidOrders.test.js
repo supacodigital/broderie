@@ -165,6 +165,11 @@ describe('CLI-07 — commandes carte / Twint impayées', () => {
 
   test('une commande carte impayée depuis plus de 2 h est annulée automatiquement', async () => {
     if (!product) return;
+    /* La tâche annule TOUTES les commandes impayées de plus de 2 h, y compris
+       celles laissées dans la base de test par des exécutions précédentes, et
+       leur rend leur stock : un premier passage les purge avant de mesurer,
+       sinon le stock mesuré dépend de l'heure des tests précédents. */
+    await unpaidOrderService.cancelExpiredUnpaidOrders();
     const stockBefore = await readStock(product.id);
     const card    = await placeOrder(token, product.id, 'card');
     const invoice = await placeOrder(token, product.id, 'invoice_qr');
