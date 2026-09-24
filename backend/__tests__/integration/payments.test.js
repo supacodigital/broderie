@@ -148,6 +148,76 @@ describe('Paiement — Stripe', () => {
   });
 });
 
+// ── CLI-15 — état du paiement au retour de l'app Twint ───────────────────────
+// Ces tests ne dépendent pas de Stripe : sans clé (environnement de test), la
+// route répond avec l'état de la commande en base. La logique Stripe elle-même
+// est couverte par payment.service.test.js.
+
+describe('Paiement — POST /payments/sync/:orderId', () => {
+  const address = {
+    first_name: 'Test', last_name: 'Retour',
+    street: 'Chemin du Collège', street_number: '6',
+    zip: '1509', city: 'Vucherens', canton: 'VD',
+  };
+  let token   = null;
+  let orderId = null;
+
+  beforeAll(async () => {
+    token = await registerAndLogin();
+    const prodRes = await request(app)
+      .get('/api/v1/products')
+      .query({ locale: 'fr', in_stock: 'true', limit: 1 });
+    const produit = prodRes.body.data?.[0];
+    if (!produit) return;
+    await request(app)
+      .post('/api/v1/cart/items')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ productId: produit.id, quantity: 1 });
+    const orderRes = await request(app)
+      .post('/api/v1/orders')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ address, payment_method: 'twint', items: [] });
+    orderId = orderRes.body.data?.id ?? null;
+  });
+
+  test('sans token retourne 401', async () => {
+    const res = await request(app).post('/api/v1/payments/sync/1');
+    expect(res.status).toBe(401);
+  });
+
+  test('commande inexistante retourne 404', async () => {
+    const res = await request(app)
+      .post('/api/v1/payments/sync/999999')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('la commande d\'un autre compte retourne 404 (IDOR)', async () => {
+    expect(orderId).toBeTruthy();
+    const autreToken = await registerAndLogin();
+
+    const res = await request(app)
+      .post(`/api/v1/payments/sync/${orderId}`)
+      .set('Authorization', `Bearer ${autreToken}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('retourne l\'état de la commande de la cliente', async () => {
+    expect(orderId).toBeTruthy();
+
+    const res = await request(app)
+      .post(`/api/v1/payments/sync/${orderId}`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toMatchObject({ orderStatus: 'awaiting_payment', paymentMethod: 'twint' });
+  });
+});
+
 // ── Webhook Stripe ────────────────────────────────────────────────────────────
 
 describe('Paiement — Webhook Stripe', () => {

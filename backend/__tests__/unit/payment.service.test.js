@@ -312,17 +312,35 @@ describe('payment.service — handleWebhook()', () => {
 
   /* CLI-07 — une carte refusée doit apparaître comme telle dans l'administration,
      et non comme une commande à traiter. */
-  test('passe la commande à « Paiement refusé » avec le motif de la banque', async () => {
+  test('passe la commande à « Paiement refusé » avec le motif de la banque, en français', async () => {
     mockEvent({ type: 'payment_intent.payment_failed',
       data: { id: 'pi_fail', metadata: { order_id: '3' }, payment_method_types: ['card'],
-              last_payment_error: { message: 'Votre carte a été refusée.' } } });
+              last_payment_error: { code: 'card_declined', decline_code: 'insufficient_funds',
+                                    message: 'Your card has insufficient funds.' } } });
     paymentRepository.updateStatusByOrder.mockResolvedValue();
     orderRepository.markPaymentFailed.mockResolvedValue(true);
 
     await paymentService.handleWebhook('raw', 'sig');
 
     expect(orderRepository.markPaymentFailed).toHaveBeenCalledWith(
-      3, 'Paiement par carte refusé : Votre carte a été refusée.'
+      3, 'Paiement par carte refusé : fonds insuffisants'
+    );
+  });
+
+  /* Le message brut de Stripe est en anglais : il s'affichait tel quel dans
+     l'historique de commande de l'administration. */
+  test('un refus Twint au motif inconnu garde un libellé français générique', async () => {
+    mockEvent({ type: 'payment_intent.payment_failed',
+      data: { id: 'pi_fail', metadata: { order_id: '3' }, payment_method_types: ['twint'],
+              last_payment_error: { code: 'payment_method_provider_decline', decline_code: 'generic_decline',
+                                    message: 'The PaymentIntent was declined by the provider.' } } });
+    paymentRepository.updateStatusByOrder.mockResolvedValue();
+    orderRepository.markPaymentFailed.mockResolvedValue(true);
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(orderRepository.markPaymentFailed).toHaveBeenCalledWith(
+      3, "Paiement Twint refusé : refusé ou annulé dans l'app Twint"
     );
   });
 
@@ -455,5 +473,132 @@ describe('payment.service — le webhook vérifie ce qu\'il encaisse', () => {
 
     expect(spy.mock.calls.flat().join(' ')).toMatch(/cancelled/);
     spy.mockRestore();
+  });
+});
+
+
+// ── CLI-15 : retour de l'app Twint / de 3-D Secure ───────────────────────────
+// Au retour de la redirection, la page de paiement redemandait un paiement : un
+// second PaymentIntent était créé pour une commande déjà réglée, ou la cliente
+// lisait « Impossible de générer le paiement Twint ».
+
+describe('payment.service — un paiement réglé n\'est jamais redemandé (CLI-15)', () => {
+  test.each(['succeeded', 'processing'])(
+    'createTwintIntent refuse (409) sans créer de PaymentIntent quand le précédent est « %s »',
+    async (status) => {
+      paymentRepository.findLatestIntentId.mockResolvedValue('pi_regle');
+      const create = jest.fn();
+      stripe.paymentIntents = {
+        retrieve: jest.fn().mockResolvedValue({ id: 'pi_regle', status }),
+        create,
+      };
+
+      await expect(paymentService.createTwintIntent(1, 10)).rejects.toMatchObject({ statusCode: 409 });
+      expect(create).not.toHaveBeenCalled();
+      expect(orderRepository.lockOrderForPaymentIntent).not.toHaveBeenCalled();
+    }
+  );
+
+  test('createCardIntent réutilise un paiement refusé plutôt que d\'en créer un second', async () => {
+    paymentRepository.findLatestIntentId.mockResolvedValue('pi_refuse');
+    const create = jest.fn();
+    stripe.paymentIntents = {
+      retrieve: jest.fn().mockResolvedValue({ id: 'pi_refuse', status: 'requires_payment_method', client_secret: 'cs_refuse' }),
+      create,
+    };
+
+    const result = await paymentService.createCardIntent(1, 10);
+
+    expect(result.clientSecret).toBe('cs_refuse');
+    expect(create).not.toHaveBeenCalled();
+  });
+});
+
+describe('payment.service — syncOrderPayment()', () => {
+  beforeEach(() => {
+    paymentRepository.findLatestIntentId.mockResolvedValue('pi_1');
+    orderRepository.markPaidFromWebhook.mockResolvedValue({ statusChanged: true });
+    loyaltyService.processOrderEarning.mockResolvedValue();
+  });
+
+  test('404 pour la commande d\'une autre cliente', async () => {
+    orderRepository.findById.mockResolvedValue(null);
+
+    await expect(paymentService.syncOrderPayment(1, 99)).rejects.toMatchObject({ statusCode: 404 });
+    expect(orderRepository.findById).toHaveBeenCalledWith(1, 99);
+  });
+
+  test('valide la commande dès le retour de la cliente si Stripe a encaissé, sans attendre le webhook', async () => {
+    orderRepository.findById
+      .mockResolvedValueOnce(makeOrder({ status: 'awaiting_payment', total: '18.50', payment_method: 'twint' }))
+      .mockResolvedValue(makeOrder({ status: 'paid', total: '18.50', payment_method: 'twint' }));
+    stripe.paymentIntents = {
+      retrieve: jest.fn().mockResolvedValue({
+        id: 'pi_1', status: 'succeeded', amount_received: 1850, currency: 'chf',
+        payment_method_types: ['twint'], metadata: { order_id: '1' },
+      }),
+    };
+
+    const result = await paymentService.syncOrderPayment(1, 10);
+
+    expect(orderRepository.markPaidFromWebhook).toHaveBeenCalledWith(1, 'pi_1', 'twint');
+    expect(loyaltyService.processOrderEarning).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ orderStatus: 'paid', intentStatus: 'succeeded', paymentMethod: 'twint' });
+  });
+
+  test('ne revalide pas une commande déjà payée', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'paid', payment_method: 'card' }));
+    stripe.paymentIntents = { retrieve: jest.fn().mockResolvedValue({ id: 'pi_1', status: 'succeeded' }) };
+
+    const result = await paymentService.syncOrderPayment(1, 10);
+
+    expect(orderRepository.markPaidFromWebhook).not.toHaveBeenCalled();
+    expect(result.orderStatus).toBe('paid');
+  });
+
+  test('inscrit un refus pas encore signalé par le webhook (CLI-07)', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'awaiting_payment', payment_method: 'card' }));
+    stripe.paymentIntents = {
+      retrieve: jest.fn().mockResolvedValue({
+        id: 'pi_1', status: 'requires_payment_method', payment_method_types: ['card'],
+        metadata: { order_id: '1' }, last_payment_error: { decline_code: 'expired_card' },
+      }),
+    };
+
+    await paymentService.syncOrderPayment(1, 10);
+
+    expect(orderRepository.markPaymentFailed).toHaveBeenCalledWith(1, 'Paiement par carte refusé : carte expirée');
+  });
+
+  test('un paiement simplement pas encore tenté ne change rien', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'awaiting_payment', payment_method: 'twint' }));
+    stripe.paymentIntents = {
+      retrieve: jest.fn().mockResolvedValue({ id: 'pi_1', status: 'requires_payment_method', last_payment_error: null }),
+    };
+
+    const result = await paymentService.syncOrderPayment(1, 10);
+
+    expect(orderRepository.markPaymentFailed).not.toHaveBeenCalled();
+    expect(orderRepository.markPaidFromWebhook).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ orderStatus: 'awaiting_payment', intentStatus: 'requires_payment_method' });
+  });
+
+  test('Stripe injoignable : 503, jamais « non payé »', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'awaiting_payment', payment_method: 'twint' }));
+    stripe.paymentIntents = { retrieve: jest.fn().mockRejectedValue(new Error('ETIMEDOUT')) };
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(paymentService.syncOrderPayment(1, 10)).rejects.toMatchObject({ statusCode: 503 });
+    spy.mockRestore();
+  });
+
+  test('commande par facture : rien à demander à Stripe', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'pending_invoice', payment_method: 'invoice_qr' }));
+    stripe.paymentIntents = { retrieve: jest.fn() };
+
+    const result = await paymentService.syncOrderPayment(1, 10);
+
+    expect(stripe.paymentIntents.retrieve).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ orderStatus: 'pending_invoice', intentStatus: null });
   });
 });

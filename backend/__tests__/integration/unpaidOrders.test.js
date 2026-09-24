@@ -199,6 +199,15 @@ describe('CLI-07 — commandes carte / Twint impayées', () => {
     );
     expect(history).toHaveLength(2);
 
+    /* Le même refus signalé une seconde fois — par le site au retour de la
+       cliente, puis par le webhook Stripe — ne double pas la ligne (CLI-15). */
+    await orderRepository.markPaymentFailed(order.id, 'Paiement par carte refusé : fonds insuffisants');
+    const [historyAfterWebhook] = await pool.execute(
+      "SELECT note FROM order_status_history WHERE order_id = ? AND status = 'payment_failed'",
+      [order.id]
+    );
+    expect(historyAfterWebhook).toHaveLength(2);
+
     // La cliente réessaie avec une autre carte : le paiement aboutit
     const { statusChanged } = await orderRepository.markPaidFromWebhook(order.id, 'pi_test_retry', 'card');
     expect(statusChanged).toBe(true);

@@ -51,6 +51,21 @@ const findByOrderIdAndMethod = async (orderId, method) => {
   return rows[0] || null;
 };
 
+/* Dernier paiement Stripe (PaymentIntent) créé pour une commande et une méthode.
+   Ne regarde que les lignes qui en portent un : la dernière ligne peut être une
+   réservation dont l'appel Stripe a échoué, ou la ligne créée avec la commande —
+   sans identifiant l'une comme l'autre. Les prendre faisait perdre de vue un
+   paiement existant, voire déjà réglé. */
+const findLatestIntentId = async (orderId, method) => {
+  const [rows] = await pool.execute(
+    `SELECT provider_payment_id FROM payments
+     WHERE order_id = ? AND method = ? AND provider_payment_id IS NOT NULL
+     ORDER BY created_at DESC, id DESC LIMIT 1`,
+    [orderId, method]
+  );
+  return rows[0]?.provider_payment_id ?? null;
+};
+
 // Identifiants Stripe (PaymentIntent) ouverts pour une commande — à annuler chez
 // Stripe avant d'annuler la commande, pour qu'aucun ne puisse encore être payé.
 const findOpenStripeIntentIds = async (orderId) => {
@@ -85,6 +100,6 @@ const hasProcessedWebhookEvent = async (eventId) => {
 };
 
 module.exports = {
-  create, updateStatusByOrder, findByOrderId, findByOrderIdAndMethod,
+  create, updateStatusByOrder, findByOrderId, findByOrderIdAndMethod, findLatestIntentId,
   registerWebhookEvent, hasProcessedWebhookEvent, findOpenStripeIntentIds,
 };

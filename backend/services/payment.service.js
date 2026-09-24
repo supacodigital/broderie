@@ -42,30 +42,42 @@ const asPaymentError = (err) => {
 };
 
 
+/* Paiement abouti, ou en cours de validation chez Stripe (Twint peut rester
+   quelques secondes en « processing ») : la commande est réglée, il ne faut
+   surtout pas proposer de payer une seconde fois. */
+const SETTLED_INTENT_STATUSES = ['succeeded', 'processing'];
+
 /* Réutilise le paiement déjà créé pour cette commande, s'il est encore utilisable.
 
    Recharger la page de paiement, revenir en arrière ou rouvrir l'onglet ne doit
    pas créer un second paiement pour la même commande : on rend le premier. Stripe
-   est interrogé pour connaître son état réel — un paiement annulé, échoué ou déjà
-   réglé ne peut pas resservir.
+   est interrogé pour connaître son état réel — un paiement annulé ou échoué ne
+   peut pas resservir.
 
-   Sans cela, chaque rechargement produisait soit un paiement de plus chez Stripe,
-   soit un refus, et l'écran de paiement restait vide. */
+   Un paiement déjà RÉGLÉ bloque toute nouvelle demande (CLI-15). Au retour de
+   l'app Twint, la page de paiement se rechargeait, voyait ce paiement réglé comme
+   « non réutilisable » et en créait un second, encore ouvert : la cliente se voyait
+   proposer de payer deux fois, ou, si la commande était déjà passée à « payée »,
+   recevait « Impossible de générer le paiement Twint ». */
 const reuseExistingIntent = async (orderId, method) => {
-  const existing = await paymentRepository.findByOrderIdAndMethod(orderId, method);
-  if (!existing?.provider_payment_id) return null;
+  const intentId = await paymentRepository.findLatestIntentId(orderId, method);
+  if (!intentId) return null;
 
+  let intent;
   try {
-    const intent = await stripe.paymentIntents.retrieve(existing.provider_payment_id);
-    const reusable = ['requires_payment_method', 'requires_confirmation', 'requires_action'];
-    if (!reusable.includes(intent.status)) return null;
-    return intent;
+    intent = await stripe.paymentIntents.retrieve(intentId);
   } catch (err) {
     // Paiement introuvable chez Stripe (clé changée, environnement différent) :
     // on repart sur un nouveau plutôt que de bloquer la cliente.
     console.warn('[Stripe] PaymentIntent existant illisible, un nouveau sera créé :', err.message);
     return null;
   }
+
+  if (SETTLED_INTENT_STATUSES.includes(intent.status)) {
+    throw new AppError('Cette commande est déjà réglée.', 409);
+  }
+  const reusable = ['requires_payment_method', 'requires_confirmation', 'requires_action'];
+  return reusable.includes(intent.status) ? intent : null;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -278,102 +290,11 @@ const handleWebhook = async (rawBody, signature) => {
   }
 
   if (event.type === 'payment_intent.succeeded') {
-    const intent  = event.data.object;
-    const orderId = parseInt(intent.metadata?.order_id);
-    if (!orderId) return;
-
-    const method = intent.payment_method_types?.includes('card') ? 'card' : 'twint';
-
-    /* Le montant encaissé doit couvrir la commande.
-
-       Rien ne le vérifiait : une commande passait à « payée » sur la seule
-       présence de son numéro dans les métadonnées du paiement. Un paiement créé
-       pour un autre montant — commande modifiée entre-temps, ou métadonnées
-       forgées via un compte Stripe tiers — aurait soldé la commande pour une
-       somme inférieure.
-
-       Comparaison en centimes, l'unité de Stripe : comparer des francs en
-       virgule flottante ferait échouer des paiements justes (0.1 + 0.2 ≠ 0.3).
-       Un encaissement SUPÉRIEUR est accepté — refuser une commande trop payée
-       pénaliserait la cliente ; l'écart se règle par un remboursement. */
-    const order = await orderRepository.findById(orderId);
-    if (!order) {
-      console.error('[Stripe] Webhook pour une commande inconnue :', orderId);
-      await paymentRepository.registerWebhookEvent(event.id, event.type);
-      return;
-    }
-
-    const expectedCents = Math.round(roundCHF(parseFloat(order.total)) * 100);
-    const paidCents     = intent.amount_received ?? intent.amount ?? 0;
-
-    if (paidCents < expectedCents) {
-      console.error(
-        `[Stripe] Montant insuffisant pour la commande ${orderId} : ` +
-        `${paidCents} centimes reçus pour ${expectedCents} attendus — commande NON validée.`
-      );
-      await paymentRepository.updateStatusByOrder(orderId, method, 'failed');
-      await paymentRepository.registerWebhookEvent(event.id, event.type);
-      return;
-    }
-
-    if (intent.currency && intent.currency.toLowerCase() !== 'chf') {
-      console.error(`[Stripe] Devise inattendue (${intent.currency}) pour la commande ${orderId} — commande NON validée.`);
-      await paymentRepository.registerWebhookEvent(event.id, event.type);
-      return;
-    }
-
-    // Transaction : passage à "paid" + historique + mise à jour du paiement
-    const { statusChanged } = await orderRepository.markPaidFromWebhook(orderId, intent.id, method);
-
-    /* Le statut n'a pas bougé : soit la commande était déjà payée (retry Stripe,
-       cas normal), soit elle n'était plus payable — annulée ou remboursée. Ce
-       second cas mérite un signalement : de l'argent a été encaissé pour une
-       commande qui ne sera pas honorée. */
-    if (!statusChanged) {
-      const current = await orderRepository.findById(orderId);
-      if (current && current.status !== 'paid') {
-        console.error(
-          `[Stripe] Paiement reçu pour la commande ${orderId} au statut « ${current.status} » : ` +
-          'elle ne peut plus être validée. Vérifier s\'il faut rembourser.'
-        );
-      }
-    }
-
-    // Crédit des points de fidélité — hors transaction (processOrderEarning gère
-    // ses propres transactions internes), et SEULEMENT si la commande vient de
-    // passer à "paid". Combiné à l'idempotence sur event_id, garantit un crédit unique.
-    if (statusChanged) {
-      const order = await orderRepository.findById(orderId);
-      if (order) {
-        await loyaltyService.processOrderEarning(order.user_id, orderId, order.total)
-          .catch((err) => console.error('[Fidélité] Crédit points échoué :', err.message));
-
-        /* Commande passée par carte / Twint : la confirmation n'est envoyée qu'à
-           présent, paiement accepté (CLI-07). Une commande par facture réglée
-           ensuite par un QR Twint a déjà reçu la sienne à sa création. */
-        if (['card', 'twint'].includes(order.payment_method)) {
-          orderService.sendOrderEmails(order, order.payment_method);
-        }
-      }
-    }
+    await applySucceededIntent(event.data.object);
   }
 
   if (event.type === 'payment_intent.payment_failed') {
-    const intent  = event.data.object;
-    const orderId = parseInt(intent.metadata?.order_id);
-    if (orderId) {
-      const method = intent.payment_method_types?.includes('card') ? 'card' : 'twint';
-      await paymentRepository.updateStatusByOrder(orderId, method, 'failed');
-
-      /* La commande passe à « Paiement refusé » (CLI-07), avec le motif de la
-         banque dans l'historique. La cliente peut encore réessayer avec une
-         autre carte ; sans paiement, elle est annulée au bout de 2 h. */
-      const reason = intent.last_payment_error?.message;
-      await orderRepository.markPaymentFailed(
-        orderId,
-        `Paiement ${method === 'card' ? 'par carte' : 'Twint'} refusé${reason ? ` : ${reason}` : ''}`
-      );
-    }
+    await applyFailedIntent(event.data.object);
   }
 
   // Traitement terminé sans exception : l'event peut être marqué comme acquitté.
@@ -382,4 +303,183 @@ const handleWebhook = async (rawBody, signature) => {
   await paymentRepository.registerWebhookEvent(event.id, event.type);
 };
 
-module.exports = { createCardIntent, createTwintIntent, createTwintQrForEmail, handleWebhook };
+
+/* Valide la commande d'un paiement Stripe abouti.
+
+   Appelé par le webhook, et au retour de la cliente sur le site (syncOrderPayment) :
+   la confirmation qu'elle voit ne dépend ainsi plus du délai d'arrivée du webhook.
+   Idempotent — markPaidFromWebhook ne fait passer la commande à « payée » qu'une
+   fois, et la fidélité comme les e-mails ne partent que sur ce passage. */
+const applySucceededIntent = async (intent) => {
+  const orderId = parseInt(intent.metadata?.order_id);
+  if (!orderId) return;
+
+  const method = intent.payment_method_types?.includes('card') ? 'card' : 'twint';
+
+  /* Le montant encaissé doit couvrir la commande.
+
+     Rien ne le vérifiait : une commande passait à « payée » sur la seule
+     présence de son numéro dans les métadonnées du paiement. Un paiement créé
+     pour un autre montant — commande modifiée entre-temps, ou métadonnées
+     forgées via un compte Stripe tiers — aurait soldé la commande pour une
+     somme inférieure.
+
+     Comparaison en centimes, l'unité de Stripe : comparer des francs en
+     virgule flottante ferait échouer des paiements justes (0.1 + 0.2 ≠ 0.3).
+     Un encaissement SUPÉRIEUR est accepté — refuser une commande trop payée
+     pénaliserait la cliente ; l'écart se règle par un remboursement. */
+  const order = await orderRepository.findById(orderId);
+  if (!order) {
+    console.error('[Stripe] Paiement pour une commande inconnue :', orderId);
+    return;
+  }
+
+  const expectedCents = Math.round(roundCHF(parseFloat(order.total)) * 100);
+  const paidCents     = intent.amount_received ?? intent.amount ?? 0;
+
+  if (paidCents < expectedCents) {
+    console.error(
+      `[Stripe] Montant insuffisant pour la commande ${orderId} : ` +
+      `${paidCents} centimes reçus pour ${expectedCents} attendus — commande NON validée.`
+    );
+    await paymentRepository.updateStatusByOrder(orderId, method, 'failed');
+    return;
+  }
+
+  if (intent.currency && intent.currency.toLowerCase() !== 'chf') {
+    console.error(`[Stripe] Devise inattendue (${intent.currency}) pour la commande ${orderId} — commande NON validée.`);
+    return;
+  }
+
+  // Transaction : passage à "paid" + historique + mise à jour du paiement
+  const { statusChanged } = await orderRepository.markPaidFromWebhook(orderId, intent.id, method);
+
+  /* Le statut n'a pas bougé : soit la commande était déjà payée (retry Stripe,
+     cas normal), soit elle n'était plus payable — annulée ou remboursée. Ce
+     second cas mérite un signalement : de l'argent a été encaissé pour une
+     commande qui ne sera pas honorée. */
+  if (!statusChanged) {
+    const current = await orderRepository.findById(orderId);
+    if (current && current.status !== 'paid') {
+      console.error(
+        `[Stripe] Paiement reçu pour la commande ${orderId} au statut « ${current.status} » : ` +
+        'elle ne peut plus être validée. Vérifier s\'il faut rembourser.'
+      );
+    }
+    return;
+  }
+
+  // Crédit des points de fidélité — hors transaction (processOrderEarning gère
+  // ses propres transactions internes), et SEULEMENT si la commande vient de
+  // passer à "paid". Combiné à l'idempotence sur event_id, garantit un crédit unique.
+  const paidOrder = await orderRepository.findById(orderId);
+  if (!paidOrder) return;
+
+  await loyaltyService.processOrderEarning(paidOrder.user_id, orderId, paidOrder.total)
+    .catch((err) => console.error('[Fidélité] Crédit points échoué :', err.message));
+
+  /* Commande passée par carte / Twint : la confirmation n'est envoyée qu'à
+     présent, paiement accepté (CLI-07). Une commande par facture réglée
+     ensuite par un QR Twint a déjà reçu la sienne à sa création. */
+  if (['card', 'twint'].includes(paidOrder.payment_method)) {
+    orderService.sendOrderEmails(paidOrder, paidOrder.payment_method);
+  }
+};
+
+/* Motif du refus, en français, pour l'historique de la commande.
+   Stripe répond en anglais (« The PaymentIntent was declined by the provider… ») :
+   ce texte brut s'affichait tel quel dans l'administration. Un code inconnu
+   donne un libellé générique plutôt qu'un message anglais. */
+const DECLINE_REASONS = {
+  insufficient_funds:                    'fonds insuffisants',
+  expired_card:                          'carte expirée',
+  incorrect_cvc:                         'code de sécurité (CVC) incorrect',
+  incorrect_number:                      'numéro de carte incorrect',
+  lost_card:                             'carte déclarée perdue',
+  stolen_card:                           'carte déclarée volée',
+  card_velocity_exceeded:                'plafond de la carte atteint',
+  authentication_required:               'authentification 3-D Secure non effectuée',
+  payment_intent_authentication_failure: 'authentification 3-D Secure échouée',
+  processing_error:                      'erreur technique de la banque',
+};
+const declineReason = (error, method) => {
+  const known = DECLINE_REASONS[error?.decline_code] ?? DECLINE_REASONS[error?.code];
+  if (known) return known;
+  return method === 'twint' ? 'refusé ou annulé dans l\'app Twint' : 'refusé par la banque';
+};
+
+/* La commande passe à « Paiement refusé » (CLI-07), avec le motif du refus
+   dans l'historique. La cliente peut encore réessayer avec une autre carte ;
+   sans paiement, elle est annulée au bout de 2 h. */
+const applyFailedIntent = async (intent) => {
+  const orderId = parseInt(intent.metadata?.order_id);
+  if (!orderId) return;
+
+  const method = intent.payment_method_types?.includes('card') ? 'card' : 'twint';
+  await paymentRepository.updateStatusByOrder(orderId, method, 'failed');
+
+  await orderRepository.markPaymentFailed(
+    orderId,
+    `Paiement ${method === 'card' ? 'par carte' : 'Twint'} refusé : ${declineReason(intent.last_payment_error, method)}`
+  );
+};
+
+// ─────────────────────────────────────────────────────────────
+// État du paiement d'une commande — interrogé par le site au retour de la
+// cliente (redirection Twint / 3-D Secure) et après un refus de carte.
+//
+// Stripe fait foi : si le paiement a abouti, la commande est validée sur-le-champ
+// sans attendre le webhook ; s'il a été refusé, elle passe à « Paiement refusé ».
+// Le webhook arrivant ensuite ne refait rien (traitements idempotents). Sans
+// cette vérification, la page de retour ignorait l'issue du paiement et en
+// redemandait un nouveau (CLI-15), et un refus de carte ne laissait aucune trace
+// tant que le webhook n'était pas passé (CLI-07).
+// `userId` : une cliente ne peut interroger que ses propres commandes (404 sinon).
+// ─────────────────────────────────────────────────────────────
+const syncOrderPayment = async (orderId, userId) => {
+  let order = await orderRepository.findById(orderId, userId);
+  if (!order) throw new AppError('Commande introuvable.', 404);
+
+  let intentStatus = null;
+  const method = order.payment_method;
+
+  if (stripe && ['card', 'twint'].includes(method)) {
+    const intentId = await paymentRepository.findLatestIntentId(orderId, method);
+    if (intentId) {
+      let intent;
+      try {
+        intent = await stripe.paymentIntents.retrieve(intentId);
+      } catch (err) {
+        // Sans réponse de Stripe, on ne sait pas si la cliente a payé : surtout
+        // ne pas lui laisser croire le contraire ni lui proposer de repayer.
+        console.error(`[Stripe] Vérification du paiement impossible (commande ${orderId}) :`, err.message);
+        throw new AppError('Impossible de vérifier le paiement pour le moment. Réessayez dans un instant.', 503);
+      }
+      intentStatus = intent.status;
+
+      if (intent.status === 'succeeded' && order.status !== 'paid') {
+        await applySucceededIntent(intent);
+      } else if (
+        intent.status === 'requires_payment_method'
+        && intent.last_payment_error
+        && order.status === 'awaiting_payment'
+      ) {
+        // Refus pas encore signalé par le webhook — une seule fois : ensuite la
+        // commande est déjà à « Paiement refusé ».
+        await applyFailedIntent(intent);
+      }
+      order = await orderRepository.findById(orderId, userId);
+    }
+  }
+
+  return {
+    orderStatus:   order.status,
+    intentStatus,
+    paymentMethod: method,
+    total:         order.total,
+  };
+};
+
+module.exports = {
+  createCardIntent, createTwintIntent, createTwintQrForEmail, handleWebhook, syncOrderPayment,
+};

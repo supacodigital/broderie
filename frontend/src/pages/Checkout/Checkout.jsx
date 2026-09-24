@@ -10,7 +10,7 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { useCart } from '../../contexts/CartContext.jsx'
 import { useAuth } from '../../contexts/AuthContext.jsx'
 import { abandonOrderPayment, createOrder } from '../../services/orders.service.js'
-import { createTwintIntent, createCardIntent } from '../../services/payments.service.js'
+import { createTwintIntent, createCardIntent, syncPayment } from '../../services/payments.service.js'
 import { validateCoupon } from '../../services/coupons.service.js'
 import { getAddresses } from '../../services/addresses.service.js'
 import { getShippingRate } from '../../services/shipping.service.js'
@@ -23,6 +23,19 @@ import s from './Checkout.module.css'
    tant que carte/Twint sont désactivés (MVP facture-only). */
 const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY
 const stripePromise = stripeKey ? loadStripe(stripeKey) : null
+
+/* État du parcours conservé pendant l'étape de paiement carte / Twint, pour
+   survivre à un rechargement et à la redirection vers l'app Twint. */
+const CHECKOUT_SESSION_KEYS = [
+  'checkout_step', 'checkout_order_id', 'checkout_order_total', 'checkout_subtotal',
+  'checkout_items', 'checkout_shipping', 'checkout_discount',
+]
+const clearCheckoutSession = () => {
+  for (const key of CHECKOUT_SESSION_KEYS) sessionStorage.removeItem(key)
+}
+
+// Statuts d'une commande encore payable en ligne
+const UNPAID_ORDER_STATUSES = ['pending', 'awaiting_payment', 'payment_failed']
 
 /* ── Cantons suisses — code officiel à 2 lettres + nom (26 cantons, ordre alphabétique du code) ── */
 const SWISS_CANTONS = [
@@ -686,6 +699,8 @@ function TwintForm({ orderId, onPaid, t }) {
       })
       if (stripeErr) {
         setError(stripeErr.message ?? t('checkout.errors.twintRefused'))
+        // Le refus est inscrit sur la commande sans attendre le webhook (CLI-07)
+        syncPayment(orderId).catch(() => {})
       } else {
         onPaid()
       }
@@ -744,8 +759,10 @@ function StepTwint({ orderId, total, onPaid, t }) {
     try {
       const res = await createTwintIntent(orderId)
       setClientSecret(res.clientSecret)
-    } catch {
-      setError(t('checkout.errors.twintInit'))
+    } catch (err) {
+      // Le motif du serveur (Twint non activé, commande déjà réglée…) est plus
+      // utile à la cliente qu'un message générique identique pour tous les cas.
+      setError(err.response?.data?.message ?? t('checkout.errors.twintInit'))
     } finally {
       setLoading(false)
     }
@@ -828,12 +845,16 @@ function CardForm({ orderId, total, onPaid, t }) {
       const { error: stripeErr } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: `${window.location.origin}/commande`,
+          // Le numéro de commande permet de retrouver le paiement au retour de
+          // 3-D Secure, même si l'onglet a perdu son état entre-temps.
+          return_url: `${window.location.origin}/commande?order=${orderId}`,
         },
         redirect: 'if_required',
       })
       if (stripeErr) {
         setError(stripeErr.message ?? t('checkout.errors.cardRefused'))
+        // Le refus est inscrit sur la commande sans attendre le webhook (CLI-07)
+        syncPayment(orderId).catch(() => {})
       } else {
         onPaid()
       }
@@ -886,8 +907,8 @@ function StepCard({ orderId, total, onPaid, t }) {
     try {
       const res = await createCardIntent(orderId)
       setClientSecret(res.clientSecret)
-    } catch {
-      setError('Impossible d\'initialiser le paiement. Veuillez réessayer.')
+    } catch (err) {
+      setError(err.response?.data?.message ?? 'Impossible d\'initialiser le paiement. Veuillez réessayer.')
     } finally {
       setLoading(false)
     }
@@ -958,7 +979,7 @@ function StepCard({ orderId, total, onPaid, t }) {
 }
 
 /* ── Étape 3 : Confirmation ── */
-function StepConfirm({ orderId, paymentMethod, t }) {
+function StepConfirm({ orderId, paymentMethod, paymentPending = false, t }) {
   /* Message de bas de page adapté à la méthode de paiement */
   const isInvoice = paymentMethod === 'invoice_qr'
   const isPickup  = paymentMethod === 'pickup'
@@ -978,7 +999,11 @@ function StepConfirm({ orderId, paymentMethod, t }) {
       )}
 
       {/* Instructions spécifiques facture QR / Click & Collect */}
-      {isInvoice ? (
+      {/* Paiement Twint encore en validation chez Stripe : la commande n'est pas
+          encore « payée », l'e-mail de confirmation partira à l'acceptation. */}
+      {paymentPending ? (
+        <p className={s.confirmDesc}>{t('checkout.confirmProcessing')}</p>
+      ) : isInvoice ? (
         <p className={s.confirmDesc}>{t('checkout.confirmInvoice')}</p>
       ) : isPickup ? (
         <p className={s.confirmDesc}>{t('checkout.confirmPickup')}</p>
@@ -1010,16 +1035,45 @@ export default function Checkout() {
   const { items, subtotal, totalWeightKg, clearCart, reloadCart } = useCart()
   const { user, isAuthenticated }                    = useAuth()
 
+  /* Retour d'une redirection Stripe (app Twint, 3-D Secure) : l'URL porte le
+     numéro de commande et l'issue annoncée. Lu une seule fois, au chargement. */
+  const [stripeReturn] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    const order = params.get('order')
+    const redirectStatus = params.get('redirect_status')
+    return order && redirectStatus ? { orderId: order, redirectStatus } : null
+  })
+
   /* Restauration depuis sessionStorage après refresh à l'étape paiement */
   const [step,           setStep]           = useState(() => {
     const saved = sessionStorage.getItem('checkout_step')
+    // Une étape de paiement sans commande mémorisée ne peut pas être reprise
+    if (!sessionStorage.getItem('checkout_order_id')) return 1
     return saved === 'twint' || saved === 'card' ? saved : 1
   })
   const [address,        setAddress]        = useState(null)
   const [billingAddress, setBillingAddress] = useState(null)
+  /* Le numéro de l'URL de retour sert de secours : l'app Twint peut rouvrir le
+     site dans un nouvel onglet, où sessionStorage est vide. */
   const [orderId,        setOrderId]        = useState(() => {
-    return sessionStorage.getItem('checkout_order_id') || null
+    return sessionStorage.getItem('checkout_order_id') || stripeReturn?.orderId || null
   })
+  /* Avant d'afficher un formulaire de paiement repris (retour de Twint, page
+     rechargée), on demande au serveur où en est le paiement de la commande.
+     Sans cette vérification, la page redemandait un paiement pour une commande
+     déjà réglée (CLI-15). 'checking' | 'error' | 'done' */
+  const [paymentCheck,   setPaymentCheck]   = useState(() => {
+    const resumedPayment = sessionStorage.getItem('checkout_order_id')
+      && ['twint', 'card'].includes(sessionStorage.getItem('checkout_step'))
+    return stripeReturn || resumedPayment ? 'checking' : 'done'
+  })
+  const [paymentCheckAttempt, setPaymentCheckAttempt] = useState(0)
+  const [paymentCheckError,   setPaymentCheckError]   = useState('')
+  const paymentCheckRef = useRef(-1)
+  // Message au-dessus du formulaire quand un paiement précédent n'a pas abouti
+  const [paymentNotice,  setPaymentNotice]  = useState('')
+  // Paiement accepté mais encore en validation chez Stripe (Twint « processing »)
+  const [paymentPending, setPaymentPending] = useState(false)
   const [paymentMethod,  setPaymentMethod]  = useState('invoice_qr')
   /* Méthode en cours de sélection à l'étape 2 (défaut 'invoice_qr' = défaut du radio) — sert au récap (frais à 0 si Click & Collect) */
   const [selectedMethod, setSelectedMethod] = useState('invoice_qr')
@@ -1104,13 +1158,84 @@ export default function Checkout() {
     return () => { cancelled = true }
   }, [isAuthenticated, user])
 
-  /* Redirection si panier vide (sauf après commande ou pendant la soumission) */
+  /* Redirection si panier vide (sauf après commande, pendant la soumission, ou
+     pendant la vérification d'un paiement — le panier est vide à ce stade, la
+     commande ayant été créée avant le paiement) */
   useEffect(() => {
     const isPaymentStep = step === 'twint' || step === 'card'
-    if (items.length === 0 && step < 3 && !isPaymentStep && !isSubmitting) {
+    if (items.length === 0 && step < 3 && !isPaymentStep && !isSubmitting && paymentCheck === 'done') {
       navigate('/panier', { replace: true })
     }
-  }, [items.length, step, isSubmitting, navigate])
+  }, [items.length, step, isSubmitting, paymentCheck, navigate])
+
+  /* Vérification de l'état du paiement (voir `paymentCheck`).
+     Une seule requête par tentative : React exécute les effets deux fois en
+     développement, et le résultat de la première serait sinon ignoré. */
+  useEffect(() => {
+    // Toujours un numéro de commande ici : 'checking' n'est posé qu'avec lui
+    if (paymentCheck !== 'checking' || !orderId) return
+    if (paymentCheckRef.current === paymentCheckAttempt) return
+    paymentCheckRef.current = paymentCheckAttempt
+
+    syncPayment(orderId)
+      .then(result => {
+        // L'URL de retour Stripe porte le secret du paiement : on la nettoie
+        if (stripeReturn) navigate('/commande', { replace: true })
+
+        const settled = result.orderStatus === 'paid'
+          || ['succeeded', 'processing'].includes(result.intentStatus)
+
+        if (settled) {
+          clearCheckoutSession()
+          setPaymentMethod(result.paymentMethod)
+          setPaymentPending(result.orderStatus !== 'paid')
+          setStep(3)
+        } else if (UNPAID_ORDER_STATUSES.includes(result.orderStatus)
+          && ['twint', 'card'].includes(result.paymentMethod)) {
+          setPaymentMethod(result.paymentMethod)
+          setOrderTotal(prev => prev || Number(result.total) || 0)
+          setStep(result.paymentMethod)
+          if (stripeReturn?.redirectStatus === 'failed' || result.orderStatus === 'payment_failed') {
+            setPaymentNotice(t('checkout.paymentNotCompleted'))
+          }
+        } else {
+          // Commande annulée entre-temps (délai de 2 h dépassé, abandon) : on
+          // montre son état réel plutôt qu'un formulaire de paiement inutile.
+          clearCheckoutSession()
+          navigate(`/commandes/${orderId}`, { replace: true })
+          return
+        }
+        setPaymentCheck('done')
+      })
+      .catch(err => {
+        // Commande introuvable (autre compte, supprimée) : on repart de zéro
+        if (err.response?.status === 404) {
+          clearCheckoutSession()
+          setOrderId(null)
+          setStep(1)
+          setPaymentCheck('done')
+          return
+        }
+        setPaymentCheckError(err.response?.data?.message ?? t('checkout.errors.generic'))
+        setPaymentCheck('error')
+      })
+  }, [paymentCheck, paymentCheckAttempt, orderId, stripeReturn, navigate, t])
+
+  const retryPaymentCheck = () => {
+    setPaymentCheckError('')
+    setPaymentCheck('checking')
+    setPaymentCheckAttempt(n => n + 1)
+  }
+
+  /* Paiement accepté sur la page (sans redirection). La confirmation s'affiche
+     tout de suite ; la commande est validée côté serveur sans attendre le
+     webhook — s'il arrive ensuite, il ne refait rien. */
+  const finishPayment = () => {
+    if (orderId) syncPayment(orderId).catch(() => {})
+    clearCheckoutSession()
+    setStep(3)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   /* Chargement des frais de port depuis l'API à l'entrée de l'étape 2 */
   useEffect(() => {
@@ -1173,12 +1298,10 @@ export default function Checkout() {
         return
       }
     }
-    for (const key of ['checkout_step', 'checkout_order_id', 'checkout_order_total',
-      'checkout_subtotal', 'checkout_items', 'checkout_shipping', 'checkout_discount']) {
-      sessionStorage.removeItem(key)
-    }
+    clearCheckoutSession()
     await reloadCart()
     setOrderId(null)
+    setPaymentNotice('')
     setIsLeavingPayment(false)
     // Après un rechargement de page, l'adresse saisie n'est plus en mémoire
     setStep(address ? 2 : 1)
@@ -1256,18 +1379,34 @@ export default function Checkout() {
         <span aria-current="page">{t('checkout.title')}</span>
       </nav>
 
-      {step !== 3 && step !== 'twint' && step !== 'card' && <h1 className={s.heading}>{t('checkout.title')}</h1>}
+      {paymentCheck === 'done' && step !== 3 && step !== 'twint' && step !== 'card' && <h1 className={s.heading}>{t('checkout.title')}</h1>}
 
       {/* Stepper — toujours visible, bloqué à l'étape 2 pendant le paiement */}
-      {step !== 3 && (
+      {paymentCheck === 'done' && step !== 3 && (
         <Stepper step={typeof step === 'number' ? step : 2} t={t} />
       )}
 
-      {step === 3 && (
-        <StepConfirm orderId={orderId} paymentMethod={paymentMethod} t={t} />
+      {/* Vérification du paiement en cours — au retour de Twint notamment */}
+      {paymentCheck === 'checking' && (
+        <div className={s.twintLoading} role="status">
+          <div className={s.twintSpinner} />
+          <p>{t('checkout.checkingPayment')}</p>
+        </div>
+      )}
+      {paymentCheck === 'error' && (
+        <div className={s.twintError} role="alert">
+          <AlertCircle size={16} aria-hidden="true" />{paymentCheckError}
+          <button type="button" onClick={retryPaymentCheck} className={s.twintRetryBtn}>
+            <RefreshCw size={14} /> {t('checkout.checkAgain')}
+          </button>
+        </div>
       )}
 
-      {(step === 'twint' || step === 'card') && (
+      {step === 3 && (
+        <StepConfirm orderId={orderId} paymentMethod={paymentMethod} paymentPending={paymentPending} t={t} />
+      )}
+
+      {paymentCheck === 'done' && (step === 'twint' || step === 'card') && (
         <div className={s.layout}>
           <div>
             {/* Sortie de l'étape paiement : annule la commande impayée et
@@ -1287,48 +1426,24 @@ export default function Checkout() {
               </div>
             )}
 
+            {paymentNotice && (
+              <div className={s.globalError} role="alert">
+                <AlertCircle size={16} aria-hidden="true" />{paymentNotice}
+              </div>
+            )}
+
             {step === 'twint' && (
-              <StepTwint
-                orderId={orderId}
-                total={orderTotal}
-                onPaid={() => {
-                  sessionStorage.removeItem('checkout_step')
-                  sessionStorage.removeItem('checkout_order_id')
-                  sessionStorage.removeItem('checkout_order_total')
-                  sessionStorage.removeItem('checkout_subtotal')
-                  sessionStorage.removeItem('checkout_items')
-                  sessionStorage.removeItem('checkout_shipping')
-                  sessionStorage.removeItem('checkout_discount')
-                  setStep(3)
-                  window.scrollTo({ top: 0, behavior: 'smooth' })
-                }}
-                t={t}
-              />
+              <StepTwint orderId={orderId} total={orderTotal} onPaid={finishPayment} t={t} />
             )}
             {step === 'card' && (
-              <StepCard
-                orderId={orderId}
-                total={orderTotal}
-                onPaid={() => {
-                  sessionStorage.removeItem('checkout_step')
-                  sessionStorage.removeItem('checkout_order_id')
-                  sessionStorage.removeItem('checkout_order_total')
-                  sessionStorage.removeItem('checkout_subtotal')
-                  sessionStorage.removeItem('checkout_items')
-                  sessionStorage.removeItem('checkout_shipping')
-                  sessionStorage.removeItem('checkout_discount')
-                  setStep(3)
-                  window.scrollTo({ top: 0, behavior: 'smooth' })
-                }}
-                t={t}
-              />
+              <StepCard orderId={orderId} total={orderTotal} onPaid={finishPayment} t={t} />
             )}
           </div>
           <OrderSummary items={itemsSnapshot} subtotal={subtotalSnapshot} discount={discount} couponCode={couponCode} shipping={shippingSnapshot ?? shipping} shippingLoading={false} confirmedTotal={orderTotal || null} t={t} />
         </div>
       )}
 
-      {(step === 1 || step === 2) && (
+      {paymentCheck === 'done' && (step === 1 || step === 2) && (
         <div className={s.layout}>
 
           {step === 1 && (

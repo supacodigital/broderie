@@ -18,6 +18,7 @@ jest.mock('../../repositories/order.repository', () => ({
 jest.mock('../../repositories/payment.repository', () => ({
   updateStatusByOrder: jest.fn(),
   findByOrderIdAndMethod: jest.fn(),
+  findLatestIntentId: jest.fn(),
 }));
 
 const stripe = require('../../config/stripe');

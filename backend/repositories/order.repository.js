@@ -837,11 +837,25 @@ const markPaymentFailed = async (orderId, note) => {
         [orderId]
       );
     }
-    await connection.execute(
-      `INSERT INTO order_status_history (order_id, status, note, created_by)
-       VALUES (?, 'payment_failed', ?, NULL)`,
-      [orderId, note]
+
+    /* Un même refus est signalé deux fois : par le site, dès le retour de la
+       cliente, puis par le webhook Stripe. Le second ne doit pas doubler la
+       ligne d'historique — même motif dans les 5 dernières minutes. */
+    const [[last]] = await connection.execute(
+      `SELECT status, note, created_at > (NOW() - INTERVAL 5 MINUTE) AS is_recent
+       FROM order_status_history WHERE order_id = ?
+       ORDER BY created_at DESC, id DESC LIMIT 1`,
+      [orderId]
     );
+    const alreadyLogged = last?.status === 'payment_failed' && last.note === note && Number(last.is_recent) === 1;
+
+    if (!alreadyLogged) {
+      await connection.execute(
+        `INSERT INTO order_status_history (order_id, status, note, created_by)
+         VALUES (?, 'payment_failed', ?, NULL)`,
+        [orderId, note]
+      );
+    }
 
     await connection.commit();
     return true;

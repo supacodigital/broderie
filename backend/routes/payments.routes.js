@@ -17,4 +17,8 @@ router.post('/card/:orderId', requireAuth, paymentController.createCardIntent);
 // Checkout web — crée un PaymentIntent Twint sans QR (client authentifié)
 router.post('/twint/:orderId', requireAuth, paymentController.createTwintIntent);
 
+// Checkout web — état du paiement au retour de la cliente (redirection Twint /
+// 3-D Secure) : valide la commande si Stripe a encaissé, sans attendre le webhook
+router.post('/sync/:orderId', requireAuth, paymentController.syncOrderPayment);
+
 module.exports = router;

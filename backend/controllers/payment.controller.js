@@ -27,6 +27,19 @@ const createTwintIntent = async (req, res, next) => {
   }
 };
 
+// État du paiement d'une commande — retour de redirection Twint / 3-D Secure
+const syncOrderPayment = async (req, res, next) => {
+  try {
+    const orderId = parseInt(req.params.orderId);
+    if (!orderId) return next(new AppError('orderId invalide.', 400));
+
+    const result = await paymentService.syncOrderPayment(orderId, req.user.id);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Webhook Stripe — corps brut obligatoire pour la vérification de signature
 const stripeWebhook = async (req, res, next) => {
   try {
@@ -44,4 +57,4 @@ const stripeWebhook = async (req, res, next) => {
   }
 };
 
-module.exports = { createCardIntent, createTwintIntent, stripeWebhook };
+module.exports = { createCardIntent, createTwintIntent, syncOrderPayment, stripeWebhook };
