@@ -200,10 +200,16 @@ const update = async (id, { parentId, slug, imageUrl, sortOrder, translations })
   try {
     await connection.beginTransaction();
 
+    /* L'image n'est modifiée que si elle est fournie (null = la retirer). Le
+       formulaire de l'admin n'a pas de champ image : sans cette garde, chaque
+       enregistrement d'une catégorie effaçait son image (ADM-04). */
+    const keepImage = imageUrl === undefined;
     await connection.execute(
-      `UPDATE categories SET parent_id = ?, slug = ?, image_url = ?, sort_order = ?
+      `UPDATE categories SET parent_id = ?, slug = ?, ${keepImage ? '' : 'image_url = ?, '}sort_order = ?
        WHERE id = ?`,
-      [parentId || null, slug, imageUrl || null, sortOrder ?? 0, id]
+      keepImage
+        ? [parentId || null, slug, sortOrder ?? 0, id]
+        : [parentId || null, slug, imageUrl || null, sortOrder ?? 0, id]
     );
 
     if (translations) {

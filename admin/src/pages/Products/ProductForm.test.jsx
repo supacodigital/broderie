@@ -504,3 +504,34 @@ describe('ProductForm — vente à la coupe (ADM-12)', () => {
     expect(screen.getByLabelText(/Longueur minimale/)).toHaveValue(25)
   })
 })
+
+/* ADM-04 — la fiche produit arrivait avant la liste des rayons et des
+   fournisseurs : le <select> restait sur « — Choisir — » / « — Aucun — », et
+   chaque catégorie enregistrée semblait perdue à la réouverture. */
+describe('ProductForm — rayon et fournisseur affichés quand les listes arrivent après la fiche', () => {
+  it('affiche le rayon principal et le fournisseur enregistrés', async () => {
+    getProductById.mockResolvedValue({
+      id: 12, name: 'Kit lent', sku: 'SKU-012', price_chf: 30, compare_price_chf: null,
+      stock: 3, category_id: 2, supplier_id: 5, tax_rate_id: 1, images: [],
+    })
+    // Listes volontairement plus lentes que la fiche
+    let releaseLists
+    const listsReady = new Promise((resolve) => { releaseLists = resolve })
+    getCategories.mockImplementation(() => listsReady.then(() => [
+      { id: 1, parent_id: null, slug: 'kits', translations: { fr: { name: 'Kits' } } },
+      { id: 2, parent_id: null, slug: 'toiles', translations: { fr: { name: 'Toiles' } } },
+    ]))
+    getSuppliers.mockImplementation(() => listsReady.then(() => ({ data: [{ id: 5, name: 'DMC sas' }] })))
+
+    renderForm({ id: 12 })
+    await screen.findByDisplayValue('Kit lent')
+    releaseLists()
+
+    await waitFor(() => {
+      const category = screen.getByLabelText(/Catégorie principale/)
+      expect(category.options[category.selectedIndex].text).toBe('Toiles')
+    })
+    const supplier = screen.getByLabelText(/Fournisseur/)
+    expect(supplier.options[supplier.selectedIndex].text).toBe('DMC sas')
+  })
+})

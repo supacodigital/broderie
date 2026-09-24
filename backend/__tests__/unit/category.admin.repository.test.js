@@ -220,6 +220,33 @@ describe('category.admin.repository — update()', () => {
     expect(conn.execute).toHaveBeenCalledTimes(1);
   });
 
+  /* ADM-04 — le formulaire de l'admin n'envoie pas d'image : l'enregistrement
+     ne doit pas effacer celle de la catégorie. */
+  test('garde l\'image existante quand aucune n\'est fournie', async () => {
+    const conn = makeConn([[[], []], [[], []]]);
+    pool.getConnection.mockResolvedValue(conn);
+
+    await repo.update(1, {
+      parentId: null, slug: 'fils', sortOrder: 0,
+      translations: { fr: { name: 'Fils', description: null } },
+    });
+
+    const [sql, params] = conn.execute.mock.calls[0];
+    expect(sql).not.toMatch(/image_url/);
+    expect(params).toEqual([null, 'fils', 0, 1]);
+  });
+
+  test('retire l\'image quand null est envoyé explicitement', async () => {
+    const conn = makeConn([[[], []]]);
+    pool.getConnection.mockResolvedValue(conn);
+
+    await repo.update(1, { parentId: null, slug: 'fils', imageUrl: null, sortOrder: 0 });
+
+    const [sql, params] = conn.execute.mock.calls[0];
+    expect(sql).toMatch(/image_url = \?/);
+    expect(params).toEqual([null, 'fils', null, 0, 1]);
+  });
+
   test('rollback si erreur', async () => {
     const conn = makeConn();
     conn.execute = jest.fn().mockRejectedValue(new Error('SQL'));

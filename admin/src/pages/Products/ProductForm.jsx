@@ -268,7 +268,7 @@ export default function ProductForm() {
   const [discountMode,  setDiscountMode]  = useState('none') // 'none' | 'percent' | 'fixed'
   const [discountValue, setDiscountValue] = useState('')
 
-  const { register, handleSubmit, reset, watch, setValue, setError, formState: { errors, isSubmitting, isDirty } } = useForm({
+  const { register, handleSubmit, reset, watch, setValue, getValues, setError, formState: { errors, isSubmitting, isDirty } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { isActive: true, isFeatured: false, isMadeToOrder: false, soldByLength: false, lengthStepCm: 10, lengthMinCm: 50, badge: '', stock: 0 },
   })
@@ -399,6 +399,22 @@ export default function ProductForm() {
     })
   }, [])
 
+  /* Rayon principal et fournisseur affichés une fois leurs listes arrivées (ADM-04).
+     La fiche produit revient avant ces listes : le formulaire posait la valeur sur
+     un <select> encore sans options, et le navigateur retombait sur « — Choisir — »
+     / « — Aucun — ». Chaque fiche semblait donc avoir perdu son rayon — alors qu'il
+     était bien enregistré — et une modification de catégorie paraissait ne jamais
+     tenir. La valeur du formulaire, elle, était juste : on la réapplique au <select>. */
+  useEffect(() => {
+    if (categories.length === 0) return
+    setValue('categoryId', getValues('categoryId') ?? '', { shouldDirty: false })
+  }, [categories, getValues, setValue])
+
+  useEffect(() => {
+    if (suppliers.length === 0) return
+    setValue('supplierId', getValues('supplierId') ?? '', { shouldDirty: false })
+  }, [suppliers, getValues, setValue])
+
   /* Taux TVA fixé automatiquement (toujours 8.1% pour ce catalogue) — appliqué
      uniquement en création, l'édition reprend le taux existant du produit via reset() */
   useEffect(() => {
@@ -521,6 +537,16 @@ export default function ProductForm() {
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [isDirty, saved])
 
+  /* Enregistrement refusé par la validation du formulaire (ADM-04). Le curseur
+     part sur le premier champ en erreur, mais rien n'expliquait le refus : en
+     cochant des rayons en bas de fiche, on voyait la page sauter sans savoir
+     pourquoi rien n'était enregistré — un article importé sans SKU ne pouvait
+     plus être modifié du tout. Les erreurs sont résumées dans le bandeau. */
+  const onInvalid = (formErrors) => {
+    const messages = [...new Set(Object.values(formErrors).map(e => e?.message).filter(Boolean))]
+    setApiError(`Rien n'a été enregistré — à corriger : ${messages.join(' · ') || 'champs signalés en rouge'}.`)
+  }
+
   const onSubmit = async (data) => {
     setApiError('')
     try {
@@ -638,7 +664,7 @@ export default function ProductForm() {
       )}
       <div className={s.body}>
         {apiError && (
-          <div className={s.apiError}><AlertTriangle size={13} /> {apiError}</div>
+          <div className={s.apiError} role="alert"><AlertTriangle size={13} /> {apiError}</div>
         )}
 
         {/* Deux colonnes : la fiche descriptive à gauche, ce qui relève de la mise
@@ -648,7 +674,7 @@ export default function ProductForm() {
             tout en bas. */}
         <div className={s.layout}>
         <div className={s.mainCol}>
-        <form onSubmit={handleSubmit(onSubmit)} id="product-form" className={s.formSections}>
+        <form onSubmit={handleSubmit(onSubmit, onInvalid)} id="product-form" className={s.formSections}>
           {/* Informations générales */}
           <section className={s.section}>
             <h2 className={s.sectionTitle}>Informations générales</h2>
