@@ -8,6 +8,7 @@ import {
 import { getOrderById, updateOrderStatus, downloadInvoice, generateLabel, downloadLabel, updateTracking, sendTwintQr } from '../../services/orders.service.js'
 import { formatCHF } from '../../utils/chf.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
+import { formatCustomerNumber } from '../../utils/customerNumber.js'
 import s from './OrderDetail.module.css'
 
 const STATUS_OPTIONS = [
@@ -337,6 +338,8 @@ export default function OrderDetail() {
                 <span className={s.infoLabel}>Client</span>
                 <span className={s.infoValue}>{order.first_name} {order.last_name}</span>
                 <span className={s.infoSub}>{order.email}</span>
+                {/* Numéro imprimé sur la facture (ADM-17) */}
+                {order.user_id && <span className={s.infoSub}>N° client {formatCustomerNumber(order.user_id)}</span>}
               </div>
               <div className={s.infoBlock}>
                 <span className={s.infoLabel}>Adresse de livraison</span>

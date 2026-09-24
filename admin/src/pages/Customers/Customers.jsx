@@ -7,6 +7,7 @@ import { getCustomers, getCustomerById } from '../../services/customers.service.
 import { formatCHF } from '../../utils/chf.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
 import { formatDate, formatDateLong } from '../../utils/date.js'
+import { formatCustomerNumber } from '../../utils/customerNumber.js'
 import SortIcon from '../../components/ui/SortIcon/SortIcon.jsx'
 import Pagination from '../../components/ui/Pagination/Pagination.jsx'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
@@ -52,7 +53,7 @@ function CustomerModal({ customerId, onClose }) {
               <h2 className={s.modalTitle}>
                 {data ? `${data.first_name} ${data.last_name}` : 'Fiche client'}
               </h2>
-              {data && <p className={s.modalSub}>Client #{data.id}</p>}
+              {data && <p className={s.modalSub}>N° client {formatCustomerNumber(data.id)}</p>}
             </div>
           </div>
           <button className={s.closeBtn} onClick={onClose} aria-label="Fermer"><X size={16} /></button>
@@ -302,7 +303,7 @@ export default function Customers() {
           <input
             type="search"
             className={s.searchInput}
-            placeholder="Rechercher par nom ou e-mail…"
+            placeholder="Rechercher par nom, e-mail ou n° client…"
             value={search}
             onChange={e => handleSearch(e.target.value)}
           />
@@ -333,7 +334,10 @@ export default function Customers() {
             <div key={c.id} className={s.tableRow} onClick={() => setSelected(c.id)}>
               <div className={s.clientCell}>
                 <div className={s.avatar}>{initials(c.first_name, c.last_name)}</div>
-                <span className={s.clientName}>{c.first_name} {c.last_name}</span>
+                <div className={s.clientText}>
+                  <span className={s.clientName}>{c.first_name} {c.last_name}</span>
+                  <span className={s.clientNumber}>{formatCustomerNumber(c.id)}</span>
+                </div>
               </div>
               <span className={s.muted}>{c.email}</span>
               <span className={s.localeBadge}>{c.locale?.toUpperCase()}</span>

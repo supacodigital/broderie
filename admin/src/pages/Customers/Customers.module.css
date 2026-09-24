@@ -90,7 +90,10 @@
   flex-shrink: 0;
 }
 
-.clientName { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clientText   { display: flex; flex-direction: column; min-width: 0; }
+.clientName   { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Numéro de client (ADM-17) — celui imprimé sur la facture */
+.clientNumber { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .muted      { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bold       { font-weight: 600; }
 

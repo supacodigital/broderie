@@ -11,9 +11,14 @@ const findAll = async ({ page = 1, limit = 20, search = '', sort = 'created_at',
   let where = "WHERE u.deleted_at IS NULL AND u.role = 'client'";
 
   if (search) {
-    where += ' AND (u.email LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)';
+    /* Numéro de client imprimé sur la facture (« C000667 », ADM-17) : une cliente
+       qui le cite au téléphone doit être retrouvée. « C000667 », « c667 » et
+       « 667 » désignent le même compte. */
+    const customerNumber = String(search).trim().match(/^c?0*(\d{1,9})$/i);
+    where += ` AND (u.email LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?${customerNumber ? ' OR u.id = ?' : ''})`;
     const term = `%${search}%`;
     params.push(term, term, term);
+    if (customerNumber) params.push(Number(customerNumber[1]));
   }
 
   const [countRows] = await pool.query(
