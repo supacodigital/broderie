@@ -12,15 +12,19 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k) => k, i18n: { language: 'fr' } }),
 }))
 
+const clearCartMock = vi.fn()
+const reloadCartMock = vi.fn()
+let cartItems = []
 vi.mock('../../contexts/CartContext.jsx', () => ({
   useCart: () => ({
-    items: [], subtotal: 0, totalWeightKg: 0,
-    clearCart: vi.fn(), reloadCart: vi.fn(),
+    items: cartItems, subtotal: cartItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0), totalWeightKg: 0.2,
+    clearCart: clearCartMock, reloadCart: reloadCartMock,
   }),
 }))
 
+let authValue = { user: null, isAuthenticated: false }
 vi.mock('../../contexts/AuthContext.jsx', () => ({
-  useAuth: () => ({ user: null, isAuthenticated: false }),
+  useAuth: () => authValue,
 }))
 
 // Stripe n'est pas chargé en test : le formulaire de paiement n'est pas rendu
@@ -39,13 +43,17 @@ vi.mock('../../services/payments.service.js', () => ({
   createTwintIntent: (...args) => createTwintIntentMock(...args),
   createCardIntent: vi.fn(),
 }))
+const createOrderMock = vi.fn()
 vi.mock('../../services/orders.service.js', () => ({
   abandonOrderPayment: vi.fn(),
-  createOrder: vi.fn(),
+  createOrder: (...args) => createOrderMock(...args),
 }))
 vi.mock('../../services/coupons.service.js', () => ({ validateCoupon: vi.fn() }))
-vi.mock('../../services/addresses.service.js', () => ({ getAddresses: vi.fn(() => Promise.resolve({ data: [] })) }))
-vi.mock('../../services/shipping.service.js', () => ({ getShippingRate: vi.fn(() => Promise.resolve(null)) }))
+let savedAddresses = []
+vi.mock('../../services/addresses.service.js', () => ({ getAddresses: vi.fn(() => Promise.resolve({ data: savedAddresses })) }))
+vi.mock('../../services/shipping.service.js', () => ({
+  getShippingRate: vi.fn(() => Promise.resolve({ price_chf: 8.5, carrier: 'Swiss Post', estimated_days: '3-5' })),
+}))
 
 // Étape de paiement Twint en cours, telle que le checkout la mémorise
 function resumeTwintStep(orderId = '68') {
@@ -69,6 +77,12 @@ function renderCheckout() {
 
 beforeEach(() => {
   sessionStorage.clear()
+  cartItems = []
+  savedAddresses = []
+  authValue = { user: null, isAuthenticated: false }
+  clearCartMock.mockReset()
+  reloadCartMock.mockReset()
+  createOrderMock.mockReset()
   syncPaymentMock.mockReset()
   createTwintIntentMock.mockReset().mockResolvedValue({ clientSecret: 'cs_test' })
   window.scrollTo = vi.fn()
@@ -159,5 +173,80 @@ describe('Checkout — retour de l\'app Twint (CLI-15)', () => {
 
     expect(await screen.findByText('checkout.confirmTitle')).toBeInTheDocument()
     expect(syncPaymentMock).toHaveBeenCalledTimes(2)
+  })
+})
+
+/* CLI-13 — « le retour vers la boutique vide complètement le panier ». Pour la
+   carte et Twint, le panier était vidé dès la création de la commande, avant
+   le paiement. */
+describe('Checkout — le panier est conservé pendant le paiement (CLI-13)', () => {
+  // Cliente connectée avec une adresse enregistrée et un article au panier
+  function readyToOrder() {
+    cartItems = [{ id: 1, product_id: 10, product_name: 'Coton mouliné', quantity: 2, unit_price: 3.9 }]
+    authValue = { user: { id: 7, first_name: 'Julie', last_name: 'Test' }, isAuthenticated: true }
+    savedAddresses = [{
+      id: 3, label: 'Maison', street: 'Chemin du Collège', street_number: '6',
+      zip: '1509', city: 'Vucherens', canton: 'VD', is_default: 1,
+    }]
+  }
+
+  async function placeOrderWith(method) {
+    renderCheckout()
+    // Adresse préremplie depuis le compte, puis étape 2
+    await waitFor(() => expect(screen.getByDisplayValue('Vucherens')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /checkout.continueToSummary/ }))
+    const radio = await screen.findByRole('radio', { name: method })
+    fireEvent.click(radio)
+    fireEvent.click(screen.getByLabelText(/checkout.cgvAccept/))
+    await waitFor(() => expect(screen.getByRole('button', { name: /checkout.placeOrder/ })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: /checkout.placeOrder/ }))
+  }
+
+  test('carte : le panier n\'est pas vidé à la création de la commande', async () => {
+    readyToOrder()
+    createOrderMock.mockResolvedValue({ data: { id: 80, total: 16.3 } })
+    createTwintIntentMock.mockResolvedValue({ clientSecret: 'cs' })
+
+    await placeOrderWith(/checkout.paymentCard/)
+
+    await waitFor(() => expect(createOrderMock).toHaveBeenCalledWith(expect.objectContaining({ payment_method: 'card' })))
+    await waitFor(() => expect(sessionStorage.getItem('checkout_step')).toBe('card'))
+    expect(clearCartMock).not.toHaveBeenCalled()
+  })
+
+  test('facture : la commande est définitive, le panier est vidé', async () => {
+    readyToOrder()
+    createOrderMock.mockResolvedValue({ data: { id: 81, total: 16.3 } })
+
+    await placeOrderWith(/checkout.paymentInvoice/)
+
+    expect(await screen.findByText('checkout.confirmTitle')).toBeInTheDocument()
+    expect(clearCartMock).toHaveBeenCalledTimes(1)
+  })
+
+  /* La cliente quitte l'étape de paiement pour la boutique : au prochain
+     passage par la caisse, elle repart de son panier au lieu de retomber sur
+     le paiement de l'ancienne commande. */
+  test('quitter l\'étape de paiement : elle n\'est pas reprise au prochain passage', async () => {
+    resumeTwintStep('90')
+    syncPaymentMock.mockResolvedValue({ orderStatus: 'awaiting_payment', intentStatus: 'requires_payment_method', paymentMethod: 'twint', total: '18.50' })
+    const { unmount } = renderCheckout()
+    await screen.findByText('checkout.twintTitle')
+
+    unmount()
+
+    await waitFor(() => expect(sessionStorage.getItem('checkout_step')).toBeNull())
+    expect(sessionStorage.getItem('checkout_order_id')).toBeNull()
+  })
+
+  test('paiement confirmé au retour de Twint : le panier est rechargé (articles payés retirés)', async () => {
+    resumeTwintStep()
+    returnFromStripe('order=68&payment_intent=pi_1&redirect_status=succeeded')
+    syncPaymentMock.mockResolvedValue({ orderStatus: 'paid', intentStatus: 'succeeded', paymentMethod: 'twint', total: '18.50' })
+
+    renderCheckout()
+
+    expect(await screen.findByText('checkout.confirmTitle')).toBeInTheDocument()
+    expect(reloadCartMock).toHaveBeenCalled()
   })
 })

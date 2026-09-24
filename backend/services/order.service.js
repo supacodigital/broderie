@@ -194,8 +194,15 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
     }
   }
 
-  // Vider le panier après confirmation de la commande
-  await cartRepository.clearCart(cart.id);
+  /* Vider le panier — sauf pour la carte et Twint, où il est conservé jusqu'au
+     paiement (CLI-13) : vidé dès la création de la commande, il apparaissait
+     vide à la cliente qui revenait à la boutique depuis l'étape de paiement.
+     Les articles payés en sont retirés à l'acceptation du paiement
+     (payment.service), et une nouvelle commande libère l'ancienne restée
+     impayée (releasePreviousUnpaidOrders, plus haut). */
+  if (!ONLINE_METHODS.includes(paymentMethod)) {
+    await cartRepository.clearCart(cart.id);
+  }
 
   const order = await orderRepository.findById(orderId);
 

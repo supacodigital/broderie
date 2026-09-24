@@ -1190,6 +1190,8 @@ export default function Checkout() {
           setPaymentMethod(result.paymentMethod)
           setPaymentPending(result.orderStatus !== 'paid')
           setStep(3)
+          // Les articles payés viennent de sortir du panier côté serveur
+          reloadCart()
         } else if (UNPAID_ORDER_STATUSES.includes(result.orderStatus)
           && ['twint', 'card'].includes(result.paymentMethod)) {
           setPaymentMethod(result.paymentMethod)
@@ -1219,7 +1221,28 @@ export default function Checkout() {
         setPaymentCheckError(err.response?.data?.message ?? t('checkout.errors.generic'))
         setPaymentCheck('error')
       })
-  }, [paymentCheck, paymentCheckAttempt, orderId, stripeReturn, navigate, t])
+  }, [paymentCheck, paymentCheckAttempt, orderId, stripeReturn, navigate, t, reloadCart])
+
+  /* La cliente quitte l'étape de paiement pour naviguer ailleurs sur le site
+     (retour à la boutique, « Mon panier ») : l'étape n'est pas reprise à son
+     prochain passage par la caisse, qui repart de son panier — conservé
+     (CLI-13). La commande impayée est libérée à la commande suivante, ou au
+     bout de 2 h. Une redirection vers Twint ou un rechargement de page ne
+     démontent pas la page : ils reprennent bien l'étape de paiement.
+     Le délai absorbe le démontage / remontage immédiat du mode strict de React
+     en développement. */
+  const mountedRef = useRef(false)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      setTimeout(() => {
+        if (!mountedRef.current && ['twint', 'card'].includes(sessionStorage.getItem('checkout_step'))) {
+          clearCheckoutSession()
+        }
+      }, 0)
+    }
+  }, [])
 
   const retryPaymentCheck = () => {
     setPaymentCheckError('')
@@ -1231,7 +1254,8 @@ export default function Checkout() {
      tout de suite ; la commande est validée côté serveur sans attendre le
      webhook — s'il arrive ensuite, il ne refait rien. */
   const finishPayment = () => {
-    if (orderId) syncPayment(orderId).catch(() => {})
+    // Puis rechargement du panier : les articles payés en sont retirés
+    if (orderId) syncPayment(orderId).then(() => reloadCart()).catch(() => {})
     clearCheckoutSession()
     setStep(3)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1344,8 +1368,11 @@ export default function Checkout() {
         sessionStorage.setItem('checkout_discount',    JSON.stringify({ discount, code: couponCode }))
       }
 
-      /* Transition vers l'étape de paiement AVANT clearCart() pour éviter
-         la redirection vers /panier (items.length=0 + step=2 déclencherait le guard) */
+      /* Carte / Twint : le panier est conservé jusqu'au paiement (CLI-13) — le
+         serveur ne le vide plus à la création de la commande, et en retire les
+         articles une fois le paiement accepté. La cliente qui revient à la
+         boutique depuis l'étape de paiement retrouve donc son panier intact.
+         Facture et retrait : la commande est définitive, le panier est vidé. */
       if (payment_method === 'twint') {
         setStep('twint')
       } else if (payment_method === 'card') {
@@ -1354,10 +1381,11 @@ export default function Checkout() {
         sessionStorage.removeItem('checkout_step')
         sessionStorage.removeItem('checkout_order_id')
         sessionStorage.removeItem('checkout_order_total')
+        // Étape 3 posée AVANT clearCart() : sinon le panier vide renverrait sur /panier
         setStep(3)
+        clearCart()
       }
 
-      clearCart()
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (err) {
       const msg = err.response?.data?.message ?? t('checkout.errors.generic')

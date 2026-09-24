@@ -33,7 +33,7 @@ const CartContext = createContext(null)
 
 export function CartProvider({ children }) {
   const [state, dispatch] = useReducer(cartReducer, INITIAL)
-  const { loading: authLoading } = useAuth()
+  const { loading: authLoading, user } = useAuth()
   const toast = useToastShortcuts()
   const { t }  = useTranslation()
 
@@ -41,13 +41,18 @@ export function CartProvider({ children }) {
   const stateRef = useRef(state)
   useEffect(() => { stateRef.current = state }, [state])
 
-  /* Charge le panier uniquement après la restauration de session auth */
+  /* Charge le panier après la restauration de session auth, puis à chaque
+     connexion ou déconnexion (CLI-13). Sans ce rechargement, la cliente qui se
+     connectait continuait de voir son panier d'invitée, sans les articles de
+     son compte fusionnés par le serveur, et gardait après déconnexion un
+     panier qui n'était plus le sien. */
+  const userId = user?.id ?? null
   useEffect(() => {
     if (authLoading) return
     fetchCart()
       .then(res => dispatch({ type: 'SET_ITEMS', payload: (res.data?.items ?? []).map(normalizeItem) }))
       .catch(() => dispatch({ type: 'SET_ITEMS', payload: [] }))
-  }, [authLoading])
+  }, [authLoading, userId])
 
   /* Ajouter un article — optimistic UI */
   const addItem = useCallback(async ({ product, variant = null, qty = 1 }) => {
@@ -133,11 +138,11 @@ export function CartProvider({ children }) {
   }, [])
 
   /* Valeurs calculées */
-  /* Nombre d'articles affiché dans la barre et le panier.
-     Un article vendu à la coupe compte pour 1, quelle que soit la longueur :
-     sa `quantity` est un nombre de tronçons de 10 cm, et l'additionner donnait
-     « 6 articles » pour une seule bande de 60 cm. */
-  const itemCount     = state.items.reduce((sum, i) => sum + (i.sold_by_length ? 1 : i.quantity), 0)
+  /* Nombre d'articles affiché dans la barre et le panier : le nombre de
+     POSITIONS (lignes distinctes), pas le cumul des unités (CLI-13) — trois
+     écheveaux du même coton comptent pour un article. Vaut aussi pour la vente
+     à la coupe, dont la `quantity` compte des tronçons de 10 cm. */
+  const itemCount     = state.items.length
   const subtotal      = roundCHF(state.items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0))
   /* Poids : `weight_kg` d'un article à la coupe est le poids AU MÈTRE, et
      `quantity` un nombre de tronçons — on ramène donc à la longueur réelle,

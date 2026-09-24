@@ -9,6 +9,7 @@ jest.mock('../../config/stripe', () => ({
 
 jest.mock('../../repositories/payment.repository');
 jest.mock('../../repositories/order.repository');
+jest.mock('../../repositories/cart.repository');
 jest.mock('../../services/loyalty.service');
 jest.mock('../../config/db', () => ({ pool: {} }));
 jest.mock('../../config/env', () => ({
@@ -21,6 +22,7 @@ const stripe            = require('../../config/stripe');
 const paymentRepository = require('../../repositories/payment.repository');
 const orderRepository   = require('../../repositories/order.repository');
 const loyaltyService    = require('../../services/loyalty.service');
+const cartRepository    = require('../../repositories/cart.repository');
 const paymentService    = require('../../services/payment.service');
 
 beforeEach(() => {
@@ -369,6 +371,38 @@ describe('payment.service — handleWebhook()', () => {
     await paymentService.handleWebhook('raw', 'sig');
 
     expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  /* CLI-13 — le panier est conservé pendant le paiement carte / Twint : les
+     articles payés en sortent à l'acceptation, pas avant. */
+  test('retire les articles payés du panier quand une commande Twint est payée', async () => {
+    const orderService = require('../../services/order.service');
+    const spy = jest.spyOn(orderService, 'sendOrderEmails').mockImplementation(() => {});
+    const items = [{ product_id: 12, variant_id: null, quantity: 2 }];
+    orderRepository.findById.mockResolvedValue({ id: 6, user_id: 10, total: '58.40', status: 'paid', payment_method: 'twint', items });
+    cartRepository.removeOrderedItems.mockResolvedValue();
+    mockEvent({ type: 'payment_intent.succeeded',
+      data: { id: 'pi_tw', metadata: { order_id: '6' }, payment_method_types: ['twint'] } });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(cartRepository.removeOrderedItems).toHaveBeenCalledWith(10, items);
+    spy.mockRestore();
+  });
+
+  test('ne touche pas au panier pour une facture réglée plus tard par QR Twint', async () => {
+    // Le panier de la facture a été vidé à sa création ; celui d'aujourd'hui
+    // appartient à un nouvel achat et ne doit pas être amputé.
+    const orderService = require('../../services/order.service');
+    const spy = jest.spyOn(orderService, 'sendOrderEmails').mockImplementation(() => {});
+    orderRepository.findById.mockResolvedValue({ id: 7, user_id: 10, total: '58.40', status: 'paid', payment_method: 'invoice_qr', items: [] });
+    mockEvent({ type: 'payment_intent.succeeded',
+      data: { id: 'pi_qr2', metadata: { order_id: '7' }, payment_method_types: ['twint'] } });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(cartRepository.removeOrderedItems).not.toHaveBeenCalled();
     spy.mockRestore();
   });
 

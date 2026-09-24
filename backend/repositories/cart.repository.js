@@ -6,10 +6,17 @@ const findCart = async ({ userId, sessionId }) => {
   const condition = userId ? 'user_id = ?' : 'session_id = ?';
   const param = userId || sessionId;
 
+  /* Un compte ne doit avoir qu'un panier. L'ancienne fusion à la connexion en
+     laissait parfois deux, dont un seul affiché (CLI-13) : s'il en reste, ils
+     sont réunis au premier accès — un cas rare, détecté par la même requête
+     (LIMIT 2). `ORDER BY id` : c'est toujours le même panier qui est lu. */
   const [carts] = await pool.execute(
-    `SELECT id FROM carts WHERE ${condition} LIMIT 1`,
+    `SELECT id FROM carts WHERE ${condition} ORDER BY id ASC LIMIT 2`,
     [param]
   );
+  if (userId && carts.length > 1) {
+    await mergeCart(null, userId);
+  }
   return carts[0] || null;
 };
 
@@ -118,16 +125,94 @@ const clearCart = async (cartId) => {
   await pool.execute(`DELETE FROM carts WHERE id = ?`, [cartId]);
 };
 
-// Rattache un panier anonyme à un utilisateur après connexion
+/* Rattache le panier anonyme au compte après connexion (CLI-13).
+
+   Le panier anonyme était simplement réattribué au compte : si la cliente avait
+   déjà un panier sur son compte, elle en avait désormais DEUX, et un seul était
+   affiché — les articles ajoutés avant la connexion disparaissaient. Ils sont
+   désormais versés dans le panier du compte, qui reste unique :
+   - article déjà présent : la plus grande des deux quantités (rien de perdu,
+     rien de doublé par mégarde) ;
+   - autre article : il rejoint le panier du compte.
+   Les paniers en double laissés par l'ancien comportement sont fusionnés au
+   passage. Une boucle sur les PANIERS (un, rarement deux), pas sur les
+   articles : chaque panier est traité par trois requêtes ensemblistes. */
 const mergeCart = async (sessionId, userId) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Sans session d'invitée : seuls les paniers en double du compte sont réunis
+    const [guestCarts] = sessionId
+      ? await connection.execute(`SELECT id FROM carts WHERE session_id = ? FOR UPDATE`, [sessionId])
+      : [[]];
+    const [ownCarts] = await connection.execute(
+      `SELECT id FROM carts WHERE user_id = ? ORDER BY id ASC FOR UPDATE`,
+      [userId]
+    );
+
+    if (ownCarts.length === 0 && sessionId) {
+      // Pas encore de panier sur le compte : le panier anonyme le devient
+      await connection.execute(
+        `UPDATE carts SET user_id = ?, session_id = NULL WHERE session_id = ?`,
+        [userId, sessionId]
+      );
+      await connection.commit();
+      return;
+    }
+    if (ownCarts.length === 0) {
+      await connection.commit();
+      return;
+    }
+
+    const targetId = ownCarts[0].id;
+    const sourceIds = [...guestCarts, ...ownCarts.slice(1)].map((c) => c.id);
+
+    for (const sourceId of sourceIds) {
+      await connection.execute(
+        `UPDATE cart_items t
+         JOIN cart_items s ON s.cart_id = ? AND s.product_id = t.product_id AND s.variant_id <=> t.variant_id
+         SET t.quantity = GREATEST(t.quantity, s.quantity)
+         WHERE t.cart_id = ?`,
+        [sourceId, targetId]
+      );
+      await connection.execute(
+        `UPDATE cart_items s
+         LEFT JOIN cart_items t ON t.cart_id = ? AND t.product_id = s.product_id AND t.variant_id <=> s.variant_id
+         SET s.cart_id = ?
+         WHERE s.cart_id = ? AND t.id IS NULL`,
+        [targetId, targetId, sourceId]
+      );
+      await connection.execute(`DELETE FROM cart_items WHERE cart_id = ?`, [sourceId]);
+      await connection.execute(`DELETE FROM carts WHERE id = ?`, [sourceId]);
+    }
+
+    await connection.commit();
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
+/* Retire du panier de la cliente les articles d'une commande carte / Twint,
+   une fois son paiement accepté (CLI-13). Jusque-là, le panier est conservé :
+   la cliente qui quitte l'étape de paiement pour revenir à la boutique le
+   retrouve intact. Une seule requête pour tous les articles. */
+const removeOrderedItems = async (userId, items) => {
+  if (!userId || !items?.length) return;
+  const pairs = items.map(() => '(?, ?)').join(', ');
   await pool.execute(
-    `UPDATE carts SET user_id = ?, session_id = NULL WHERE session_id = ?`,
-    [userId, sessionId]
+    `DELETE ci FROM cart_items ci
+     JOIN carts c ON c.id = ci.cart_id
+     WHERE c.user_id = ? AND (ci.product_id, COALESCE(ci.variant_id, 0)) IN (${pairs})`,
+    [userId, ...items.flatMap((item) => [item.product_id, item.variant_id ?? 0])]
   );
 };
 
 module.exports = {
   findCart, findCartItems, createCart,
   findCartItem, findCartItemById,
-  addItem, updateItemQuantity, removeItem, clearCart, mergeCart,
+  addItem, updateItemQuantity, removeItem, clearCart, mergeCart, removeOrderedItems,
 };

@@ -2,6 +2,7 @@ const stripe            = require('../config/stripe');
 const QRCode            = require('qrcode');
 const paymentRepository = require('../repositories/payment.repository');
 const orderRepository   = require('../repositories/order.repository');
+const cartRepository    = require('../repositories/cart.repository');
 const loyaltyService    = require('./loyalty.service');
 const orderService      = require('./order.service');
 const { AppError }      = require('../middlewares/errorHandler');
@@ -383,6 +384,15 @@ const applySucceededIntent = async (intent) => {
      ensuite par un QR Twint a déjà reçu la sienne à sa création. */
   if (['card', 'twint'].includes(paidOrder.payment_method)) {
     orderService.sendOrderEmails(paidOrder, paidOrder.payment_method);
+
+    /* Le panier avait été conservé pendant le paiement (CLI-13) : les articles
+       payés en sortent maintenant. Échec non bloquant — la commande est payée,
+       au pire la cliente retire elle-même un article resté dans son panier. */
+    try {
+      await cartRepository.removeOrderedItems(paidOrder.user_id, paidOrder.items);
+    } catch (err) {
+      console.error(`[Panier] Retrait des articles payés échoué (commande ${orderId}) :`, err.message);
+    }
   }
 };
 
