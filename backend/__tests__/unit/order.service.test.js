@@ -1,4 +1,5 @@
 const { roundCHF } = require('../../utils/chf.utils');
+const { computeOrderVat } = require('../../utils/tva.utils');
 
 // Frais de port par tranche de poids — miroir de shipping_rates en BDD de test
 // min_weight / max_weight / price_chf
@@ -24,14 +25,8 @@ function calculerCommande(items, weightKg = 0) {
     items.reduce((sum, item) => sum + parseFloat(item.unit_price) * item.quantity, 0)
   );
   const shippingCost = getShippingCost(weightKg);
-  const taxAmount = roundCHF(
-    items.reduce((sum, item) => {
-      const rate       = parseFloat(item.tax_rate_snapshot) / 100;
-      const proportion = (parseFloat(item.unit_price) * item.quantity) / subtotal;
-      const lineTotal  = subtotal * proportion;
-      return sum + (lineTotal * rate / (1 + rate));
-    }, 0)
-  );
+  // TVA frais de port compris, au centime (ADM-14) — même calcul que order.service
+  const taxAmount = computeOrderVat({ items, discountedSubtotal: subtotal, shippingCost }).total;
   const total = roundCHF(subtotal + shippingCost);
   return { subtotal, taxAmount, total, shippingCost };
 }
@@ -97,8 +92,8 @@ describe('Calcul total commande — frais dynamiques', () => {
   test('calcul TVA 8.1% correct sur un article', () => {
     const items = [{ unit_price: '49.90', quantity: 1, tax_rate_snapshot: '8.1' }];
     const { taxAmount } = calculerCommande(items, 0.35);
-    // TVA = 49.90 * 0.081 / 1.081 ≈ 3.74
-    expect(taxAmount).toBeCloseTo(3.74, 1);
+    // TVA = (49.90 + 8.50 de port) × 0.081 / 1.081 = 4.38 — le port porte la TVA
+    expect(taxAmount).toBe(4.38);
   });
 
   test('total arrondi au 0.05 CHF le plus proche', () => {

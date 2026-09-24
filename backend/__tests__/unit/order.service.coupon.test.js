@@ -209,15 +209,14 @@ describe('order.service — coupon invalide', () => {
 });
 
 describe('order.service — TVA recalculée après remise', () => {
-  test('taxAmount basé sur discountedSubtotal et non le subtotal brut', async () => {
+  test('taxAmount basé sur le montant remisé, frais de port compris', async () => {
     // Article à CHF 100 TTC, TVA 8.1%, coupon 10% = discount CHF 10
     const items = [makeCartItem('100.00', 1, '8.1')];
-    const subtotal   = 100;
-    const discount   = 10;
-    const discounted = 90; // après coupon
+    const discount = 10;
 
-    // TVA attendue = 90 * 0.081 / 1.081 ≈ 6.74
-    const expectedTax = roundCHF(90 * 0.081 / 1.081);
+    /* TVA attendue = (90 remisés + 8.50 de port) × 8.1 / 108.1 = 7.38 au centime.
+       Le port suit le taux de la marchandise livrée (ADM-14). */
+    const expectedTax = Math.round((90 + SHIPPING) * 8.1 / 108.1 * 100) / 100;
 
     setupMocks({
       items,
@@ -232,9 +231,22 @@ describe('order.service — TVA recalculée après remise', () => {
     await orderService.createOrder({ userId: 1, paymentMethod: 'twint', couponCode: 'PROMO10' });
 
     const callArg = orderRepository.createOrder.mock.calls[0][0];
-    expect(callArg.taxAmount).toBeCloseTo(expectedTax, 1);
+    expect(callArg.taxAmount).toBe(expectedTax);
     // La TVA sur le total remisé doit être inférieure à celle sur le total brut
-    const taxBrut = roundCHF(100 * 0.081 / 1.081);
+    const taxBrut = Math.round((100 + SHIPPING) * 8.1 / 108.1 * 100) / 100;
     expect(callArg.taxAmount).toBeLessThan(taxBrut);
+  });
+
+  test('retrait en boutique : TVA sur les seuls articles (pas de port)', async () => {
+    const items = [makeCartItem('100.00', 1, '8.1')];
+    setupMocks({ items });
+    orderRepository.createOrder.mockResolvedValue(1);
+    orderRepository.findById.mockResolvedValue({ id: 1, items: [] });
+
+    await orderService.createOrder({ userId: 1, paymentMethod: 'pickup' });
+
+    const callArg = orderRepository.createOrder.mock.calls[0][0];
+    expect(callArg.shippingCost).toBe(0);
+    expect(callArg.taxAmount).toBe(7.49); // 100 × 8.1 / 108.1
   });
 });

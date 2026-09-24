@@ -6,6 +6,7 @@ const couponRepository  = require('../repositories/coupon.repository');
 const loyaltyRepository = require('../repositories/loyalty.repository');
 const { AppError }      = require('../middlewares/errorHandler');
 const { roundCHF }      = require('../utils/chf.utils');
+const { computeOrderVat } = require('../utils/tva.utils');
 const { getShippingCost } = require('../utils/shipping.utils');
 const emailService      = require('./email.service');
 const invoiceService    = require('./invoice.service');
@@ -107,16 +108,6 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
 
   const discountedSubtotal = roundCHF(subtotal - discount);
 
-  // TVA extraite du TTC après réduction (taux snapshot figé par article)
-  const taxAmount = roundCHF(
-    activeItems.reduce((sum, item) => {
-      const rate       = parseFloat(item.tax_rate_snapshot) / 100;
-      const proportion = (parseFloat(item.unit_price) * item.quantity) / subtotal;
-      const lineTotal  = discountedSubtotal * proportion;
-      return sum + (lineTotal * rate / (1 + rate));
-    }, 0)
-  );
-
   // Click & Collect : aucun envoi postal → frais de port à 0 (seule exception à la règle « frais toujours payants »)
   const isPickup = paymentMethod === 'pickup';
   /* Poids réel de la commande.
@@ -131,6 +122,14 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
   }, 0);
   const shippingCost = isPickup ? 0 : await getShippingCost(totalWeightKg);
   const total = roundCHF(discountedSubtotal + shippingCost);
+
+  /* TVA incluse, frais de port compris (ADM-14) — le port suit le taux des
+     articles livrés. Même calcul que celui réimprimé sur la facture. */
+  const taxAmount = computeOrderVat({
+    items: activeItems,
+    discountedSubtotal,
+    shippingCost,
+  }).total;
 
   // Statut initial selon la méthode (Stripe : pending — facture/retrait : statut dédié)
   const initialStatus = INITIAL_STATUS_BY_METHOD[paymentMethod] ?? 'pending';

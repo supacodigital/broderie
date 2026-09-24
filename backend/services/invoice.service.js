@@ -4,7 +4,7 @@ const PDFDocument     = require('pdfkit');
 const { SwissQRBill } = require('swissqrbill/pdf');
 const { isQRIBAN, calculateQRReferenceChecksum } = require('swissqrbill/utils');
 const { roundCHF }    = require('../utils/chf.utils');
-const { ventilateTVAByRate } = require('../utils/tva.utils');
+const { computeOrderVat } = require('../utils/tva.utils');
 const env             = require('../config/env');
 const emailService    = require('./email.service');
 const { AppError }    = require('../middlewares/errorHandler');
@@ -14,34 +14,19 @@ const LOGO_PATH = path.join(__dirname, '../assets/logo.png');
 // IBAN de test public (UBS) livré par défaut — refuser d'émettre une facture avec lui en production
 const TEST_IBAN = 'CH9300762011623852957';
 
-// Ventile la TVA de la commande par taux et réconcilie la somme avec order.tax_amount
-// (l'agrégation par taux ne redonne pas au centime le cumul ligne-à-ligne d'order.service).
-// L'écart résiduel (≤ 0.05 par taux) est imputé sur la part à la plus grande base.
-const computeTaxBreakdown = (order) => {
-  const items      = order.items || [];
-  if (items.length === 0) return [];
+/* TVA de la facture, ventilée par taux, frais de port compris (ADM-14).
+   Recalculée depuis la composition de la commande avec le MÊME calcul que celui
+   stocké à la création (utils/tva.utils.js) — et non plus relue dans
+   orders.tax_amount : les commandes antérieures au 24.09.2026 y portent une TVA
+   calculée sans les frais de port, qu'une facture régénérée ne doit pas recopier. */
+const computeTaxBreakdown = (order) => computeOrderVat({
+  items:              order.items || [],
+  discountedSubtotal: parseFloat(order.subtotal),
+  shippingCost:       parseFloat(order.shipping_cost) || 0,
+});
 
-  const subStored     = roundCHF(parseFloat(order.subtotal));
-  const discount      = order.discount ? roundCHF(parseFloat(order.discount)) : 0;
-  const discountRatio = discount > 0 && subStored + discount > 0
-    ? subStored / (subStored + discount)
-    : 1;
-
-  const parts     = ventilateTVAByRate(items, discountRatio);
-  const taxAmount = roundCHF(parseFloat(order.tax_amount));
-  const sommeVent = roundCHF(parts.reduce((s, p) => s + p.tvaAmount, 0));
-  const ecart     = roundCHF(taxAmount - sommeVent);
-
-  if (ecart !== 0 && parts.length > 0) {
-    if (Math.abs(ecart) > 0.10) {
-      console.warn('[invoice] écart de ventilation TVA anormal', { orderId: order.id, ecart });
-    }
-    const biggest = parts.reduce((a, b) => (b.baseTTC > a.baseTTC ? b : a));
-    biggest.tvaAmount = roundCHF(biggest.tvaAmount + ecart);
-  }
-
-  return parts;
-};
+// Taux affiché comme sur les factures de la boutique : « 8.1 », pas « 8.10 »
+const formatRate = (ratePercent) => String(Number(Number(ratePercent).toFixed(2)));
 
 // ─────────────────────────────────────────────────────────────
 // Références de paiement
@@ -126,10 +111,14 @@ const resolveStructuredReference = (order) => {
   return buildStructuredReference(seq || order.id, year);
 };
 
-const formatDate = (date) => {
-  const d = new Date(date);
-  return d.toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
-};
+/* Dates à l'heure suisse : le serveur tourne en UTC, et une commande passée à
+   00h30 à Vucherens aurait porté la date de la veille. */
+const formatDate = (date) => new Date(date)
+  .toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Zurich' });
+
+// « 15 septembre 2026 » — date en toutes lettres du bulletin QR
+const formatLongDate = (date) => new Date(date)
+  .toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Zurich' });
 
 // Construit l'objet de données attendu par SwissQRBill à partir d'une commande
 const buildQrBillData = (order, issuer = null) => {
@@ -178,15 +167,14 @@ const buildQrBillData = (order, issuer = null) => {
        Dans ces deux cas on reconstruit une référence structurée à partir du
        numéro de facture — régénérer une ancienne facture ne doit pas planter. */
     ...(structured ? { reference: resolveStructuredReference(order) } : {}),
-    /* Champ « Informations supplémentaires » du bulletin (ADM-19).
-       Les spécifications SIX le limitent à 140 caractères et attendent une
-       référence de facture, pas une phrase : le délai de paiement ne s'y met pas,
-       il figure déjà sur la facture et dans le champ « Payable jusqu'au ». Un
-       tiret cadratin et les caractères hors du jeu latin autorisé sont évités —
-       ils font échouer la lecture du QR chez certaines banques.
-       Tronqué par sécurité : un numéro anormalement long ne doit pas produire un
-       bulletin invalide. */
-    message: `Facture ${invoiceLabel}`.slice(0, 140),
+    /* Champ « Informations supplémentaires » du bulletin (ADM-19), au format des
+       factures de la boutique : « Facture N° 2026-000009 du 24 septembre 2026 ».
+       Les spécifications SIX le limitent à 140 caractères (message non structuré)
+       et au jeu de caractères latin — « ° » et les accents en font partie ; le
+       tiret cadratin non, il est évité. Le délai de paiement ne s'y met pas : il
+       figure sur la facture. Tronqué par sécurité : un numéro anormalement long ne
+       doit pas produire un bulletin invalide. */
+    message: `Facture N° ${invoiceLabel} du ${formatLongDate(order.created_at ?? Date.now())}`.slice(0, 140),
   };
 };
 
@@ -201,7 +189,9 @@ const COLORS = {
 };
 const PAGE_MARGIN  = 50;
 const CONTENT_W    = 495; // largeur utile (595 - 2×50)
-const TABLE_COLS   = { name: 55, nameW: 230, qty: 290, qtyW: 50, price: 345, priceW: 90, total: 440, totalW: 105 };
+/* Colonne « TVA » par ligne, comme sur les factures de la boutique (ADM-14) :
+   le taux appliqué à chaque article se lit sans calcul. */
+const TABLE_COLS   = { name: 55, nameW: 215, qty: 270, qtyW: 40, price: 310, priceW: 80, vat: 390, vatW: 50, total: 440, totalW: 105 };
 // Hauteur réservée en bas de la dernière page pour le bulletin QR suisse (bulletin
 // officiel ≈ 105mm ≈ 297pt) — le tableau ne doit jamais empiéter dessus.
 const QR_BILL_HEIGHT = 300;
@@ -311,7 +301,8 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
            .text('PRODUIT',     TABLE_COLS.name,  top + 2, { width: TABLE_COLS.nameW })
            .text('QTÉ',         TABLE_COLS.qty,   top + 2, { width: TABLE_COLS.qtyW,   align: 'center' })
            .text('PRIX UNIT.',  TABLE_COLS.price, top + 2, { width: TABLE_COLS.priceW, align: 'right' })
-           .text('TOTAL',       TABLE_COLS.total, top + 2, { width: TABLE_COLS.totalW, align: 'right' });
+           .text('TVA',         TABLE_COLS.vat,   top + 2, { width: TABLE_COLS.vatW,   align: 'right' })
+           .text('TOTAL TTC',   TABLE_COLS.total, top + 2, { width: TABLE_COLS.totalW, align: 'right' });
         return top + 24;
       };
 
@@ -320,9 +311,11 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
       let y = drawTableHeader(Math.max(244, addrY + 26));
       const items = order.items || [];
 
-      // Nombre de lignes de TVA qui seront affichées sous les totaux — sert à
-      // réserver assez de place au-dessus du bulletin QR (une ligne = 18pt).
-      const taxLineCount = Math.max(1, computeTaxBreakdown(order).length);
+      // Lignes de totaux au-delà du minimum (une ligne de TVA, pas de remise) —
+      // sert à réserver assez de place au-dessus du bulletin QR (une ligne = 18pt).
+      const vat         = computeTaxBreakdown(order);
+      const discount    = order.discount ? roundCHF(parseFloat(order.discount)) : 0;
+      const extraTotals = Math.max(1, vat.parts.length) - 1 + (discount > 0 ? 1 : 0);
 
       items.forEach((item, idx) => {
         const snapshot = typeof item.product_snapshot_json === 'string'
@@ -333,13 +326,14 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
         const sku       = snapshot.sku  || '';
         const unitPrice = roundCHF(parseFloat(item.unit_price));
         const lineTotal = roundCHF(unitPrice * item.quantity);
+        const lineRate  = parseFloat(item.tax_rate_snapshot) > 0 ? parseFloat(item.tax_rate_snapshot) : 8.1;
         const rowHeight = sku ? 26 : 22;
 
         // Saut de page si la ligne dépasserait la zone réservée au bulletin QR
         // (uniquement sur la dernière page — les pages intermédiaires vont jusqu'au bas)
         const isLastItem = idx === items.length - 1;
-        // +18pt par ligne de TVA au-delà de la première (base = 108 : 1 ligne de TVA + la ligne HT)
-        const reserved = isLastItem ? QR_BILL_HEIGHT + 90 + (taxLineCount - 1) * 18 : 40;
+        // +18pt par ligne de totaux au-delà du minimum (remise, taux supplémentaire)
+        const reserved = isLastItem ? QR_BILL_HEIGHT + 90 + extraTotals * 18 : 40;
         if (y + rowHeight > PAGE_BOTTOM - reserved) {
           doc.addPage();
           y = drawTableHeader(PAGE_MARGIN);
@@ -360,6 +354,7 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
         doc.fontSize(9).fillColor(dark).font('Helvetica')
            .text(String(item.quantity),         TABLE_COLS.qty,   y, { width: TABLE_COLS.qtyW,   align: 'center' })
            .text(`CHF ${unitPrice.toFixed(2)}`, TABLE_COLS.price, y, { width: TABLE_COLS.priceW, align: 'right' })
+           .text(`${formatRate(lineRate)} %`,   TABLE_COLS.vat,   y, { width: TABLE_COLS.vatW,   align: 'right' })
            .text(`CHF ${lineTotal.toFixed(2)}`, TABLE_COLS.total, y, { width: TABLE_COLS.totalW, align: 'right' });
 
         y += rowHeight;
@@ -372,47 +367,49 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
       const totalsWidth = 215;
       let ty = y + 16;
 
-      const subtotal  = roundCHF(parseFloat(order.subtotal));
-      const shipping  = roundCHF(parseFloat(order.shipping_cost));
-      const taxAmount = roundCHF(parseFloat(order.tax_amount));
-      const total     = roundCHF(parseFloat(order.total));
+      const subtotal = roundCHF(parseFloat(order.subtotal)); // articles, remise déduite
+      const shipping = roundCHF(parseFloat(order.shipping_cost));
+      const total    = roundCHF(parseFloat(order.total));
 
       const rowTotals = (label, value) => {
         doc.fontSize(9).font('Helvetica').fillColor(muted)
-           .text(label, totalsLeft, ty, { width: 120 })
-           .text(value, totalsLeft + 120, ty, { width: 95, align: 'right' });
+           .text(label, totalsLeft, ty, { width: 140 })
+           .text(value, totalsLeft + 140, ty, { width: 75, align: 'right' });
         ty += 18;
       };
 
-      rowTotals('Sous-total TTC', `CHF ${subtotal.toFixed(2)}`);
-      rowTotals('Frais de livraison', `CHF ${shipping.toFixed(2)}`);
+      /* Montant des articles AVANT remise : c'est la somme des lignes du tableau.
+         La remise vient en ligne distincte — sans elle, le sous-total imprimé
+         (déjà remisé) ne correspondait plus à l'addition des lignes. */
+      rowTotals('Articles TTC', `CHF ${roundCHF(subtotal + discount).toFixed(2)}`);
+      if (discount > 0) {
+        rowTotals(
+          order.coupon_code ? `Remise (${order.coupon_code})` : 'Remise',
+          `- CHF ${discount.toFixed(2)}`
+        );
+      }
+
+      // Le port porte la TVA des articles livrés — un seul taux en pratique
+      const shippingRates = vat.parts.filter((p) => p.shippingTTC > 0);
+      const shippingLabel = shippingRates.length === 1
+        ? `Frais de livraison (TVA ${formatRate(shippingRates[0].ratePercent)} %)`
+        : 'Frais de livraison';
+      rowTotals(shippingLabel, `CHF ${shipping.toFixed(2)}`);
 
       /* Détail hors taxe / TVA / TTC (ADM-14).
          Les prix affichés en boutique sont TTC — obligation suisse envers le
          consommateur — donc la TVA y est déjà comprise et se retranche du total
-         pour obtenir le montant hors taxe. Une facture qui n'indiquait que
-         « TVA incluse » ne permettait pas de lire le montant hors taxe, que la
-         LTVA art. 26 impose de faire figurer. */
-      const totalHT = roundCHF(total - taxAmount);
-      rowTotals('Total hors taxe (HT)', `CHF ${totalHT.toFixed(2)}`);
+         pour obtenir le montant hors taxe (LTVA art. 26). Frais de port compris :
+         ils étaient auparavant laissés hors TVA. */
+      const totalHT = vat.parts.reduce((sum, p) => sum + p.baseHT, 0);
+      rowTotals('Sous-total HT', `CHF ${totalHT.toFixed(2)}`);
 
-      // TVA détaillée par taux (LTVA art. 26). Les frais de port ne portent pas de TVA
-      // dans ce modèle (order.tax_amount est calculé sur les seuls articles) — les
-      // inclure impliquerait un changement dans order.service et une migration.
-      const taxParts = computeTaxBreakdown(order);
-      if (taxParts.length > 0) {
-        for (const part of taxParts) {
-          /* Base hors taxe de ce taux : le montant TTC de ses lignes moins sa TVA.
-             `baseTTC` est fourni par ventilateTVAByRate (utils/tva.utils.js). */
-          const partHT = roundCHF(part.baseTTC - part.tvaAmount);
-          rowTotals(
-            `TVA ${part.ratePercent.toFixed(2)} % sur CHF ${partHT.toFixed(2)}`,
-            `CHF ${part.tvaAmount.toFixed(2)}`
-          );
-        }
-      } else {
-        // Repli : commande sans lignes détaillées
-        rowTotals('TVA', `CHF ${taxAmount.toFixed(2)}`);
+      // TVA détaillée par taux, au centime, avec sa base hors taxe (LTVA art. 26)
+      for (const part of vat.parts) {
+        rowTotals(
+          `TVA ${formatRate(part.ratePercent)} % sur CHF ${part.baseHT.toFixed(2)}`,
+          `CHF ${part.tvaAmount.toFixed(2)}`
+        );
       }
 
       doc.rect(totalsLeft, ty - 2, totalsWidth, 26).fillColor(roseLight).fill();

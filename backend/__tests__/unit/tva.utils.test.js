@@ -1,4 +1,4 @@
-const { extractTVA, toHT, toTTC, ventilateTVAByRate } = require('../../utils/tva.utils');
+const { extractTVA, toHT, toTTC, computeOrderVat } = require('../../utils/tva.utils');
 
 describe('extractTVA — extraction TVA depuis le TTC', () => {
   test('taux normal 8.1%', () => {
@@ -41,63 +41,54 @@ describe('toTTC — conversion HT → TTC', () => {
   });
 });
 
-describe('ventilateTVAByRate — ventilation par taux (LTVA art. 26)', () => {
-  test('un seul taux : une entrée', () => {
-    const parts = ventilateTVAByRate([
-      { unit_price: '10.00', quantity: 2, tax_rate_snapshot: '8.10' },
-      { unit_price: '30.00', quantity: 1, tax_rate_snapshot: '8.10' },
-    ]);
-    expect(parts).toHaveLength(1);
-    expect(parts[0].ratePercent).toBe(8.1);
-    expect(parts[0].baseTTC).toBe(50.00);
-    expect(parts[0].tvaAmount).toBe(extractTVA(50.00, 0.081));
+/* ADM-14 — TVA d'une commande, frais de port compris, au centime.
+   Source unique : order.service la stocke, la facture la réimprime. */
+describe('computeOrderVat — TVA de la commande, port compris', () => {
+  const item = (price, qty, rate = '8.10') => ({ unit_price: price, quantity: qty, tax_rate_snapshot: rate });
+
+  test('le port porte la TVA de la marchandise (facture 2026-000009)', () => {
+    const vat = computeOrderVat({ items: [item('33.75', 1)], discountedSubtotal: 33.75, shippingCost: 11.25 });
+    expect(vat.total).toBe(3.37);
+    expect(vat.parts).toEqual([{
+      ratePercent: 8.1, itemsTTC: 33.75, shippingTTC: 11.25, baseTTC: 45, tvaAmount: 3.37, baseHT: 41.63,
+    }]);
   });
 
-  test('deux taux : triés par taux croissant', () => {
-    const parts = ventilateTVAByRate([
-      { unit_price: '20.00', quantity: 1, tax_rate_snapshot: '8.10' },
-      { unit_price: '10.00', quantity: 1, tax_rate_snapshot: '2.60' },
-    ]);
-    expect(parts.map((p) => p.ratePercent)).toEqual([2.6, 8.1]);
-    expect(parts[0].baseTTC).toBe(10.00);
-    expect(parts[1].baseTTC).toBe(20.00);
+  test('TVA au centime, pas au 5 centimes', () => {
+    // 15.50 × 8.1 / 108.1 = 1.1614 → 1.16 (l'arrondi CHF donnait 1.15)
+    expect(computeOrderVat({ items: [item('15.50', 1)], discountedSubtotal: 15.5, shippingCost: 0 }).total).toBe(1.16);
   });
 
-  test('trois taux distincts', () => {
-    const parts = ventilateTVAByRate([
-      { unit_price: '10.00', quantity: 1, tax_rate_snapshot: '8.10' },
-      { unit_price: '10.00', quantity: 1, tax_rate_snapshot: '3.80' },
-      { unit_price: '10.00', quantity: 1, tax_rate_snapshot: '2.60' },
-    ]);
-    expect(parts.map((p) => p.ratePercent)).toEqual([2.6, 3.8, 8.1]);
+  test('sans port (retrait en boutique) : TVA sur les seuls articles', () => {
+    const vat = computeOrderVat({ items: [item('100.00', 1)], discountedSubtotal: 100, shippingCost: 0 });
+    expect(vat.total).toBe(7.49);
+    expect(vat.parts[0].shippingTTC).toBe(0);
   });
 
-  test('snapshot de taux manquant : repli sur 8.1 %', () => {
-    const parts = ventilateTVAByRate([
-      { unit_price: '10.00', quantity: 1 },
-      { unit_price: '10.00', quantity: 1, tax_rate_snapshot: null },
-    ]);
-    expect(parts).toHaveLength(1);
-    expect(parts[0].ratePercent).toBe(8.1);
-    expect(parts[0].baseTTC).toBe(20.00);
+  test('plusieurs taux : port et remise répartis au prorata, bases exactes', () => {
+    const vat = computeOrderVat({
+      items: [item('33.35', 1, '8.10'), item('16.65', 1, '2.60')],
+      discountedSubtotal: 45.00, // 50.00 - 5.00 de remise
+      shippingCost: 8.50,
+    });
+    expect(vat.parts.map((p) => p.ratePercent)).toEqual([2.6, 8.1]);
+    // Aucun centime perdu ni créé par la répartition
+    const sum = (key) => Math.round(vat.parts.reduce((s, p) => s + p[key], 0) * 100) / 100;
+    expect(sum('itemsTTC')).toBe(45.00);
+    expect(sum('shippingTTC')).toBe(8.50);
+    expect(sum('baseTTC')).toBe(53.50);
+    expect(Math.round((sum('baseHT') + vat.total) * 100) / 100).toBe(53.50);
   });
 
-  test('applique le discountRatio à la base', () => {
-    const parts = ventilateTVAByRate(
-      [{ unit_price: '100.00', quantity: 1, tax_rate_snapshot: '8.10' }],
-      0.9,
-    );
-    expect(parts[0].baseTTC).toBe(90.00);
+  test('remise de 100 % : le port reste taxé', () => {
+    const vat = computeOrderVat({ items: [item('20.00', 1)], discountedSubtotal: 0, shippingCost: 8.50 });
+    expect(vat.parts[0].itemsTTC).toBe(0);
+    expect(vat.parts[0].shippingTTC).toBe(8.5);
+    expect(vat.total).toBe(0.64);
   });
 
-  test('liste vide : tableau vide', () => {
-    expect(ventilateTVAByRate([])).toEqual([]);
-  });
-
-  test('arrondit la base au 0.05 CHF', () => {
-    const parts = ventilateTVAByRate([
-      { unit_price: '10.03', quantity: 1, tax_rate_snapshot: '8.10' },
-    ]);
-    expect(parts[0].baseTTC * 20 % 1).toBe(0); // multiple de 0.05
+  test('taux manquant : repli sur 8.1 %', () => {
+    const vat = computeOrderVat({ items: [{ unit_price: '10.00', quantity: 1 }], discountedSubtotal: 10, shippingCost: 0 });
+    expect(vat.parts[0].ratePercent).toBe(8.1);
   });
 });

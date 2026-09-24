@@ -208,42 +208,47 @@ describe('invoice.service — generateInvoicePDF()', () => {
   });
 });
 
+/* ADM-14 — la TVA de la facture est recalculée depuis la composition de la
+   commande, FRAIS DE PORT COMPRIS, au centime. */
 describe('invoice.service — computeTaxBreakdown()', () => {
-  test('commande sans items : tableau vide', () => {
-    expect(computeTaxBreakdown(makeOrder({ items: [] }))).toEqual([]);
+  test('commande sans lignes détaillées : taux normal sur articles + port', () => {
+    // 49.90 + 8.50 = 58.40 TTC → TVA 8.1 % = 4.38
+    const vat = computeTaxBreakdown(makeOrder({ items: [] }));
+    expect(vat.parts).toHaveLength(1);
+    expect(vat.parts[0].ratePercent).toBe(8.1);
+    expect(vat.total).toBe(4.38);
   });
 
-  test('un seul taux : la somme des TVA ventilées == order.tax_amount', () => {
-    const items = [
-      { unit_price: '54.05', quantity: 1, tax_rate_snapshot: '8.10' },
-      { unit_price: '54.05', quantity: 1, tax_rate_snapshot: '8.10' },
-    ];
-    const order = makeOrder({ items, subtotal: '108.10', discount: '0.00', tax_amount: '8.10' });
-    const parts = computeTaxBreakdown(order);
-    expect(parts).toHaveLength(1);
-    expect(roundCHF(parts.reduce((s, p) => s + p.tvaAmount, 0))).toBe(8.10);
+  test('les frais de port portent la TVA des articles (facture 2026-000009)', () => {
+    // 33.75 d'articles + 11.25 de port = 45.00 TTC → TVA 3.37 (et non 2.53)
+    const items = [{ unit_price: '33.75', quantity: 1, tax_rate_snapshot: '8.10' }];
+    const vat = computeTaxBreakdown(makeOrder({ items, subtotal: '33.75', shipping_cost: '11.25', total: '45.00' }));
+    expect(vat.total).toBe(3.37);
+    expect(vat.parts[0].baseHT).toBe(41.63);
+    expect(vat.parts[0].shippingTTC).toBe(11.25);
   });
 
-  test('deux taux : la somme des TVA ventilées == order.tax_amount', () => {
+  test('deux taux : le port est réparti au prorata des articles', () => {
     const items = [
-      { unit_price: '108.10', quantity: 1, tax_rate_snapshot: '8.10' },
-      { unit_price: '102.60', quantity: 1, tax_rate_snapshot: '2.60' },
+      { unit_price: '75.00', quantity: 1, tax_rate_snapshot: '8.10' },
+      { unit_price: '25.00', quantity: 1, tax_rate_snapshot: '2.60' },
     ];
-    // TVA réelle : 8.10 (sur 108.10) + 2.60 (sur 102.60) = 10.70
-    const order = makeOrder({ items, subtotal: '210.70', discount: '0.00', tax_amount: '10.70' });
-    const parts = computeTaxBreakdown(order);
-    expect(parts.map((p) => p.ratePercent)).toEqual([2.6, 8.1]);
-    expect(roundCHF(parts.reduce((s, p) => s + p.tvaAmount, 0))).toBe(10.70);
+    const vat = computeTaxBreakdown(makeOrder({ items, subtotal: '100.00', shipping_cost: '10.00', discount: '0.00' }));
+    expect(vat.parts.map((p) => p.ratePercent)).toEqual([2.6, 8.1]);
+    expect(vat.parts[0].shippingTTC).toBe(2.5);
+    expect(vat.parts[1].shippingTTC).toBe(7.5);
+    // 27.50 à 2.6 % → 0.70 ; 82.50 à 8.1 % → 6.18
+    expect(vat.parts[0].tvaAmount).toBe(0.7);
+    expect(vat.parts[1].tvaAmount).toBe(6.18);
+    expect(vat.total).toBe(6.88);
   });
 
-  test('avec remise : réconcilie toujours avec order.tax_amount', () => {
-    const items = [
-      { unit_price: '100.00', quantity: 1, tax_rate_snapshot: '8.10' },
-    ];
-    // subtotal stocké 90 (après remise 10), tax_amount recalculé côté order.service
-    const order = makeOrder({ items, subtotal: '90.00', discount: '10.00', tax_amount: '6.75' });
-    const parts = computeTaxBreakdown(order);
-    expect(roundCHF(parts.reduce((s, p) => s + p.tvaAmount, 0))).toBe(6.75);
+  test('avec remise : la TVA porte sur le montant remisé', () => {
+    const items = [{ unit_price: '100.00', quantity: 1, tax_rate_snapshot: '8.10' }];
+    // 90 (après remise de 10) + 8.50 de port = 98.50 → 7.38
+    const vat = computeTaxBreakdown(makeOrder({ items, subtotal: '90.00', discount: '10.00', shipping_cost: '8.50' }));
+    expect(vat.parts[0].itemsTTC).toBe(90);
+    expect(vat.total).toBe(7.38);
   });
 });
 
@@ -289,13 +294,21 @@ describe('invoice.service — mentions légales de la facture', () => {
   });
 
   /* ADM-14 — « TVA incluse » ne permet pas de lire le montant hors taxe, que la
-     LTVA art. 26 impose de faire figurer. 15.50 TTC à 8.1 % → 14.35 HT + 1.15. */
+     LTVA art. 26 impose de faire figurer. 15.50 TTC à 8.1 % → 14.34 HT + 1.16
+     (TVA au centime). */
   test('détaille le montant hors taxe, la TVA et le total TTC', () => {
-    expect(text).toContain('Total hors taxe (HT)');
-    expect(text).toContain('CHF 14.35');
-    expect(text).toContain('TVA 8.10 % sur CHF 14.35');
+    expect(text).toContain('Sous-total HT');
+    expect(text).toContain('CHF 14.34');
+    expect(text).toContain('TVA 8.1 % sur CHF 14.34');
+    expect(text).toContain('CHF 1.16');
     expect(text).toContain('TOTAL TTC');
     expect(text).not.toContain('TVA 8.10 % incluse');
+  });
+
+  // ADM-14 — taux lisible ligne par ligne, comme sur les factures de la boutique
+  test('affiche le taux de TVA de chaque ligne', () => {
+    expect(text).toMatch(/^TVA$/m);
+    expect(text).toMatch(/^8\.1 %$/m);
   });
 
   // ADM-13 — le logo est une image, il ne vaut pas mention de l'émetteur
@@ -308,7 +321,7 @@ describe('invoice.service — mentions légales de la facture', () => {
    140 caractères par les spécifications SIX et attend une référence de facture,
    pas une phrase. */
 describe('invoice.service — champ « Informations supplémentaires » (ADM-19)', () => {
-  test('ne porte que le numéro de facture, sans délai de paiement', async () => {
+  test('porte « Facture N° … du … », sans délai de paiement', async () => {
     const order = {
       id: 32, user_id: 161, created_at: new Date('2026-09-14'),
       invoice_number: '2026-000032', invoice_seq: 32,
@@ -317,9 +330,43 @@ describe('invoice.service — champ « Informations supplémentaires » (ADM-19)
     };
     const text = extractPdfText(await generateInvoicePDF({ order, user: makeUser() }));
 
-    expect(text).toContain('Facture 2026-000032');
+    // Format des factures de la boutique : « Facture N° 93979 du 15 septembre 2026 »
+    expect(text).toContain('Facture N° 2026-000032 du 14 septembre 2026');
     // La phrase précédente débordait du cadre prévu par la norme
-    expect(text).not.toContain('Facture 2026-000032 — payable sous');
+    expect(text).not.toContain('payable sous');
+  });
+});
+
+/* ADM-14 — facture 2026-000009 : « TVA 8.10 % sur CHF 33.75 » pour un total de
+   CHF 45.00, les frais de port étaient laissés hors TVA. */
+describe('invoice.service — frais de port et remise sur la facture (ADM-14)', () => {
+  let text;
+  beforeAll(async () => {
+    const order = {
+      id: 66, user_id: 161, created_at: new Date('2026-09-24T08:00:00Z'),
+      invoice_number: '2026-000009', invoice_seq: 9,
+      subtotal: '33.75', discount: '3.75', coupon_code: 'PE34-4215',
+      shipping_cost: '11.25', tax_amount: '3.37', total: '45.00',
+      items: [{
+        product_id: 1, quantity: 1, unit_price: '37.50', tax_rate_snapshot: '8.10',
+        product_snapshot_json: JSON.stringify({ name: 'Kit diamant', sku: 'WIWD2432' }),
+      }],
+    };
+    text = extractPdfText(await generateInvoicePDF({ order, user: makeUser() }));
+  });
+
+  test('la TVA porte aussi sur les frais de port', () => {
+    // 45.00 TTC à 8.1 % → 41.63 HT + 3.37
+    expect(text).toContain('TVA 8.1 % sur CHF 41.63');
+    expect(text).toContain('CHF 3.37');
+    expect(text).toContain('Frais de livraison (TVA 8.1 %)');
+  });
+
+  test('la remise figure en ligne distincte sous le montant des articles', () => {
+    expect(text).toContain('Articles TTC');
+    expect(text).toContain('CHF 37.50');
+    expect(text).toContain('Remise (PE34-4215)');
+    expect(text).toContain('- CHF 3.75');
   });
 });
 
