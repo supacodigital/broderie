@@ -150,3 +150,25 @@ describe('Auth — invalidation de session au changement de mot de passe (H1)', 
     await pool.execute('DELETE FROM users WHERE email = ?', [email]);
   });
 });
+
+/* Constaté en production le 22.09 : deux inscriptions identiques simultanées
+   (double-clic). La seconde recevait une erreur 500 alors que le compte venait
+   d'être créé par la première. */
+describe('Inscription — double envoi simultané', () => {
+  test('une inscription réussit, l\'autre reçoit « compte existant » (409), jamais 500', async () => {
+    const email = `double.${Date.now()}@broderie-test.ch`;
+    const body = { email, password: 'DoubleClic1234!', firstName: 'Double', lastName: 'Clic' };
+    const results = await Promise.all([
+      request(app).post('/api/v1/auth/register').send(body),
+      request(app).post('/api/v1/auth/register').send(body),
+    ]);
+    const statuses = results.map((r) => r.status).sort();
+    expect(statuses).not.toContain(500);
+    expect(statuses[0]).toBe(201);
+    // Selon l'ordre d'arrivée : l'autre est refusée proprement, ou les deux sont
+    // séparées dans le temps et la seconde trouve le compte déjà créé
+    expect([201, 409]).toContain(statuses[1]);
+    const conflict = results.find((r) => r.status === 409);
+    if (conflict) expect(conflict.body.message).toBe('Un compte existe déjà avec cet email.');
+  });
+});

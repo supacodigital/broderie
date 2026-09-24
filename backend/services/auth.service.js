@@ -87,7 +87,17 @@ const register = async ({ email, password, firstName, lastName, locale, newslett
   }
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-  const userId = await userRepository.create({ email, passwordHash, firstName, lastName, locale });
+  /* Deux inscriptions identiques simultanées (double-clic) passent toutes deux
+     la vérification ci-dessus : la base refuse la seconde. Elle recevait une
+     erreur technique (500) alors que son compte venait d'être créé par la
+     première — constaté en production le 22.09. */
+  let userId;
+  try {
+    userId = await userRepository.create({ email, passwordHash, firstName, lastName, locale });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') throw new AppError('Un compte existe déjà avec cet email.', 409);
+    throw err;
+  }
   const user = await userRepository.findById(userId);
 
   const accessToken = generateAccessToken(user);

@@ -59,6 +59,18 @@ describe('auth.service — register()', () => {
     expect(result.user.email).toBe('test@broderie.ch');
   });
 
+  /* Constaté en production le 22.09 : deux inscriptions simultanées (double-clic)
+     passent la vérification ; la seconde recevait une erreur 500. */
+  test('inscription en double simultanée : 409 et non erreur technique', async () => {
+    userRepository.emailExists.mockResolvedValue(false);
+    bcrypt.hash.mockResolvedValue('$2b$12$hashed');
+    userRepository.create.mockRejectedValue(Object.assign(new Error("Duplicate entry 'x@y.ch' for key 'users.uq_users_email'"), { code: 'ER_DUP_ENTRY' }));
+
+    await expect(authService.register({
+      email: 'x@y.ch', password: 'Test1234!', firstName: 'A', lastName: 'B', locale: 'fr',
+    })).rejects.toMatchObject({ statusCode: 409, message: 'Un compte existe déjà avec cet email.' });
+  });
+
   test('lève 409 si email déjà utilisé', async () => {
     userRepository.emailExists.mockResolvedValue(true);
 

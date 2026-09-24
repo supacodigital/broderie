@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -50,7 +50,13 @@ export default function RegisterForm() {
     if (first) setFocus(first)
   }
 
+  /* Verrou d'envoi : un double-clic rapide partait avant que le bouton ne se
+     désactive, et deux inscriptions identiques arrivaient ensemble au serveur. */
+  const submittingRef = useRef(false)
+
   const onSubmit = async (values) => {
+    if (submittingRef.current) return
+    submittingRef.current = true
     setGlobalError('')
     const { password_confirm, cgv, first_name, last_name, newsletter, ...rest } = values
     try {
@@ -63,6 +69,8 @@ export default function RegisterForm() {
       } else {
         setGlobalError(t('auth.errors.generic'))
       }
+    } finally {
+      submittingRef.current = false
     }
   }
 
