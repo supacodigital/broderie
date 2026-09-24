@@ -67,7 +67,8 @@ CREATE TABLE users (
   password_hash VARCHAR(255)    NULL DEFAULT NULL,
   first_name    VARCHAR(100)    NOT NULL,
   last_name     VARCHAR(100)    NOT NULL,
-  role          ENUM('client', 'admin') NOT NULL DEFAULT 'client',
+  -- super_admin : admin + pages de contenu et blocs promotionnels (migration 2026-09-24)
+  role          ENUM('client', 'admin', 'super_admin') NOT NULL DEFAULT 'client',
   locale        ENUM('fr', 'de', 'en') NOT NULL DEFAULT 'fr',
   is_active     TINYINT(1)      NOT NULL DEFAULT 1,
   -- Incrémenté à chaque changement de mot de passe → invalide les refresh tokens antérieurs

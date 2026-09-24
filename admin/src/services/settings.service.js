@@ -53,6 +53,17 @@ export async function updateAboutSettings(data) {
   return res.data?.data ?? {}
 }
 
+/* Blocs de la page d'accueil — réservés au super-administrateur (ADM-08) */
+export async function getHomeSettings() {
+  const res = await api.get('/admin/settings/home')
+  return res.data?.data ?? {}
+}
+
+export async function updateHomeSettings(data) {
+  const res = await api.put('/admin/settings/home', data)
+  return res.data?.data ?? {}
+}
+
 export async function getBannerSettings() {
   const res = await api.get('/admin/settings/banner')
   return res.data.data ?? {}

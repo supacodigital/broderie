@@ -142,6 +142,20 @@ describe('auth.service — login()', () => {
     expect(result.accessToken).toBeUndefined();
   });
 
+  // ADM-08 — un rôle plus large ne doit jamais être moins protégé
+  test('role super_admin : double authentification exigée comme pour un admin', async () => {
+    userRepository.findByEmail.mockResolvedValue(makeUser({ role: 'super_admin' }));
+    bcrypt.compare.mockResolvedValue(true);
+    mfaRepository.findByUserId.mockResolvedValue(null);
+    jwt.sign.mockReturnValue('mfa_pending_token');
+
+    const result = await authService.login({ email: 'super@broderie.ch', password: 'Test1234!' });
+
+    expect(result.mfaRequired).toBe('setup');
+    expect(result.accessToken).toBeUndefined();
+    expect(result.refreshToken).toBeUndefined();
+  });
+
   test('mot de passe incorrect sur un compte admin : lève 401 avant toute consultation MFA', async () => {
     userRepository.findByEmail.mockResolvedValue(makeUser({ role: 'admin' }));
     bcrypt.compare.mockResolvedValue(false);
@@ -322,6 +336,18 @@ describe('auth.service — resetPassword()', () => {
     await expect(
       authService.resetPassword('valid', 'court')
     ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  /* ADM-08 — c'est par ce lien que le compte super-administrateur choisit son
+     premier mot de passe : même exigence qu'au changement depuis le profil. */
+  test('compte du back-office : exige 12 caractères dont une majuscule', async () => {
+    userRepository.findByResetToken.mockResolvedValue(makeUser({ role: 'super_admin' }));
+    bcrypt.hash.mockResolvedValue('$2b$12$newHash');
+
+    await expect(authService.resetPassword('valid', 'Court1234!')).rejects.toMatchObject({ statusCode: 400 });
+    await expect(authService.resetPassword('valid', 'sansmajuscule123')).rejects.toMatchObject({ statusCode: 400 });
+    await authService.resetPassword('valid', 'MotDePasseSolide1');
+    expect(userRepository.updatePassword).toHaveBeenCalled();
   });
 });
 

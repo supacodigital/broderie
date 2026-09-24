@@ -11,4 +11,7 @@ router.get('/banner', legalController.getBanner);
 // GET /api/v1/legal/about — contenu de la page « Notre Histoire » (sans auth)
 router.get('/about', legalController.getAboutContent);
 
+// GET /api/v1/legal/home — textes des blocs de la page d'accueil (sans auth)
+router.get('/home', legalController.getHomeContent);
+
 module.exports = router;

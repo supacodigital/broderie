@@ -18,3 +18,16 @@ export async function getAboutContent() {
   const res = await api.get('/legal/about')
   return res.data?.data ?? {}
 }
+
+/* Textes éditables de la page d'accueil (ADM-08). Trois blocs les lisent sur la
+   même page : la requête est partagée, puis gardée le temps de la visite. Un
+   échec n'est pas mémorisé — la page garde alors ses textes d'origine. */
+let homeContentRequest = null
+export function getHomeContent() {
+  if (!homeContentRequest) {
+    homeContentRequest = api.get('/legal/home')
+      .then(res => res.data?.data ?? {})
+      .catch(err => { homeContentRequest = null; throw err })
+  }
+  return homeContentRequest
+}

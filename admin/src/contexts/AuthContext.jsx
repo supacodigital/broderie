@@ -78,11 +78,14 @@ export function AuthProvider({ children }) {
     setMfaPending(null)
   }, [])
 
-  const isAdmin = user?.role === 'admin'
+  /* Deux rôles donnent accès au back-office ; le super-administrateur a en plus
+     les pages de contenu et les blocs promotionnels (ADM-08). */
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const isSuperAdmin = user?.role === 'super_admin'
 
   return (
     <AuthContext.Provider value={{
-      user, loading, login, logout, isAdmin,
+      user, loading, login, logout, isAdmin, isSuperAdmin,
       mfaPending, initMfaSetup, confirmMfaSetup, finishMfaSetup, verifyMfa, verifyMfaRecoveryCode,
     }}>
       {children}

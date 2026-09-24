@@ -163,6 +163,38 @@ const updateAboutSettings = async (req, res, next) => {
   }
 };
 
+/* ── GET /admin/settings/home ── blocs de la page d'accueil (ADM-08) ── */
+const getHomeSettings = async (req, res, next) => {
+  try {
+    const data = await settingsRepository.findSettings(settingsRepository.HOME_KEYS);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/* ── PUT /admin/settings/home ── */
+const updateHomeSettings = async (req, res, next) => {
+  try {
+    const { values, error } = collectTextSettings(req.body, settingsRepository.HOME_KEYS);
+    if (error) {
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors: [error] });
+    }
+    // Interrupteur : seules les valeurs '0' et '1' ont un sens
+    if (values.hero_stats_enabled !== undefined && !['0', '1'].includes(values.hero_stats_enabled)) {
+      return res.status(400).json({
+        success: false, message: 'Données invalides.',
+        errors: [{ field: 'hero_stats_enabled', message: 'Valeur attendue : 0 ou 1.' }],
+      });
+    }
+    await settingsRepository.upsertSettings(values);
+    const data = await settingsRepository.findSettings(settingsRepository.HOME_KEYS);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
 /* ── GET /admin/settings/banner ── */
 const getBannerSettings = async (req, res, next) => {
   try {
@@ -313,6 +345,7 @@ module.exports = {
   getStoreSettings, updateStoreSettings,
   getLegalSettings, updateLegalSettings,
   getAboutSettings, updateAboutSettings,
+  getHomeSettings, updateHomeSettings,
   getBannerSettings, updateBannerSettings,
   getPickupSettings, updatePickupSettings,
   getInvoiceSettings, updateInvoiceSettings,

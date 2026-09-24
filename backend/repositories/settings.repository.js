@@ -70,6 +70,22 @@ const ABOUT_KEYS = [
   'about_year_2',
   'about_year_2_text',
 ];
+/* Blocs de la page d'accueil (ADM-08 — « blocs promotionnels »). Même principe
+   que « Notre Histoire » : un champ par texte, et toute clé laissée vide retombe
+   sur le texte d'origine côté boutique. `hero_stats_enabled` vaut '0' pour
+   masquer les deux chiffres clés du bandeau principal. */
+const HOME_KEYS = [
+  'hero_eyebrow', 'hero_title', 'hero_subtitle', 'hero_desc',
+  'hero_cta', 'hero_cta_secondary',
+  'hero_stats_enabled',
+  'hero_stat1_value', 'hero_stat1_label', 'hero_stat2_value', 'hero_stat2_label',
+  'crafts_eyebrow', 'crafts_title', 'crafts_text',
+  'crafts_points',   // un engagement par ligne
+  'crafts_cta',
+  'advantage_1_title', 'advantage_1_desc',
+  'advantage_2_title', 'advantage_2_desc',
+  'advantage_3_title', 'advantage_3_desc',
+];
 /* Bandeau d'annonce affiché en haut de la boutique (promotion, fermeture, délais).
    `banner_enabled` vaut '1' ou '0' — la table settings ne stocke que du texte. */
 const BANNER_KEYS = ['banner_enabled', 'banner_text', 'banner_link'];
@@ -157,5 +173,5 @@ const updateShippingRatesBulk = async (rates) => {
 module.exports = {
   findAllTaxRates, updateTaxRate, findAllShippingRates, updateShippingRate,
   updateTaxRatesBulk, updateShippingRatesBulk,
-  findSettings, upsertSettings, STORE_KEYS, LEGAL_KEYS, ABOUT_KEYS, BANNER_KEYS, PICKUP_KEYS, INVOICE_KEYS,
+  findSettings, upsertSettings, STORE_KEYS, LEGAL_KEYS, ABOUT_KEYS, HOME_KEYS, BANNER_KEYS, PICKUP_KEYS, INVOICE_KEYS,
 };

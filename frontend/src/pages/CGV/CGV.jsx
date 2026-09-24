@@ -93,12 +93,19 @@ Pour toute réclamation : contact@broderie.ch — nous nous engageons à répond
 
 export default function CGV() {
   const [customText, setCustomText] = useState('')
+  /* Politique de retour saisie dans l'admin (Paramètres → Textes légaux) :
+     affichée à la suite des CGV. Elle n'était visible nulle part (ADM-08). */
+  const [returnPolicy, setReturnPolicy] = useState('')
 
   useEffect(() => {
     getLegalContent()
-      .then(data => setCustomText(data?.data?.cgv ?? ''))
+      .then(data => {
+        setCustomText(data?.data?.cgv ?? '')
+        setReturnPolicy(data?.data?.politique_retour ?? '')
+      })
       .catch(() => {})
   }, [])
+  const hasReturnPolicy = returnPolicy.trim().length > 0
 
   /* Si l'admin a saisi un texte personnalisé, on l'affiche seul */
   const hasCustom = customText.trim().length > 0
@@ -133,6 +140,9 @@ export default function CGV() {
                   {sec.title}
                 </a>
               ))}
+              {hasReturnPolicy && (
+                <a href="#retours" className={s.tocLink}>Politique de retour</a>
+              )}
             </nav>
           </aside>
         )}
@@ -158,6 +168,17 @@ export default function CGV() {
                 </div>
               </section>
             ))
+          )}
+
+          {hasReturnPolicy && (
+            <section id="retours" className={s.section}>
+              <h2 className={s.sectionTitle}>Politique de retour</h2>
+              <div className={s.sectionBody}>
+                {returnPolicy.split(/\n\s*\n/).map((para, i) => (
+                  <p key={i}>{para}</p>
+                ))}
+              </div>
+            </section>
           )}
 
           <div className={s.footer}>

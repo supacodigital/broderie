@@ -8,6 +8,7 @@ const authService = require('../services/auth.service');
 const dataExportService = require('../services/dataExport.service');
 const env = require('../config/env');
 const { AppError } = require('../middlewares/errorHandler');
+const { isAdminRole } = require('../middlewares/roles');
 
 // Cantons suisses officiels (2 lettres)
 const SWISS_CANTONS = ['AG','AI','AR','BE','BL','BS','FR','GE','GL','GR','JU','LU','NE','NW','OW','SG','SH','SO','SZ','TG','TI','UR','VD','VS','ZG','ZH'];
@@ -169,7 +170,7 @@ const changePassword = async (req, res, next) => {
     }
     // Exigence renforcée pour les comptes admin — accès complet au back-office,
     // le MFA obligatoire ne dispense pas d'un mot de passe robuste (défense en profondeur).
-    const minLength = req.user.role === 'admin' ? 12 : 5;
+    const minLength = isAdminRole(req.user.role) ? 12 : 5;
     if (new_password.length < minLength) {
       return next(new AppError(`Le nouveau mot de passe doit contenir au moins ${minLength} caractères.`, 400));
     }

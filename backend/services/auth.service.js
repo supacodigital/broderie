@@ -7,6 +7,7 @@ const mfaRepository = require('../repositories/mfa.repository');
 const { AppError } = require('../middlewares/errorHandler');
 const emailService = require('./email.service');
 const env = require('../config/env');
+const { isAdminRole } = require('../middlewares/roles');
 
 const SALT_ROUNDS = 12;
 
@@ -168,11 +169,11 @@ const login = async ({ email, password }) => {
     throw new AppError('Email ou mot de passe incorrect.', 401);
   }
 
-  // MFA obligatoire pour le rôle admin — jamais pour un compte client.
+  // MFA obligatoire pour les rôles du back-office (admin, super_admin) — jamais pour un compte client.
   // Aucun cookie refresh n'est posé tant que le second facteur n'est pas validé :
   // un attaquant en possession du seul mot de passe ne peut obtenir aucun artefact
   // de session longue durée.
-  if (user.role === 'admin') {
+  if (isAdminRole(user.role)) {
     const mfaRow = await mfaRepository.findByUserId(user.id);
     const mfaPendingToken = generateMfaPendingToken(user);
 
@@ -245,7 +246,16 @@ const resetPassword = async (rawToken, newPassword) => {
 
   if (!user) throw new AppError('Lien de réinitialisation invalide ou expiré.', 400);
 
-  if (newPassword.length < 8) throw new AppError('Le mot de passe doit contenir au moins 8 caractères.', 400);
+  /* Compte du back-office : même exigence qu'au changement de mot de passe depuis
+     le profil (12 caractères, une majuscule) — c'est par ce lien que le compte
+     super-administrateur choisit son premier mot de passe. */
+  if (isAdminRole(user.role)) {
+    if (newPassword.length < 12 || !/[A-Z]/.test(newPassword)) {
+      throw new AppError('Le mot de passe doit contenir au moins 12 caractères, dont une majuscule.', 400);
+    }
+  } else if (newPassword.length < 8) {
+    throw new AppError('Le mot de passe doit contenir au moins 8 caractères.', 400);
+  }
 
   const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
   await userRepository.updatePassword(user.id, passwordHash);

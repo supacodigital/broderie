@@ -40,4 +40,16 @@ const getAboutContent = async (req, res, next) => {
   }
 };
 
-module.exports = { getLegalTexts, getBanner, getAboutContent };
+/* GET /api/v1/legal/home — textes éditables de la page d'accueil (ADM-08).
+   Même règle que « Notre Histoire » : une clé vide laisse la boutique afficher
+   son texte d'origine. */
+const getHomeContent = async (req, res, next) => {
+  try {
+    const data = await settingsRepository.findSettings(settingsRepository.HOME_KEYS);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getLegalTexts, getBanner, getAboutContent, getHomeContent };

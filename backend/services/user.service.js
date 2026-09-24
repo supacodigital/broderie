@@ -7,6 +7,7 @@ const wishlistRepository   = require('../repositories/wishlist.repository');
 const newsletterRepository = require('../repositories/newsletter.repository');
 const consentRepository    = require('../repositories/consent.repository');
 const { AppError } = require('../middlewares/errorHandler');
+const { isAdminRole } = require('../middlewares/roles');
 
 // ─────────────────────────────────────────────────────────────
 // Export des données personnelles (LPD art. 25 — droit d'accès)
@@ -83,7 +84,7 @@ const deleteAccount = async (userId, { password, confirm } = {}) => {
 
   // Un compte administrateur ne se supprime pas via cet endpoint self-service
   const full = await userRepository.findByIdRaw(userId);
-  if (full?.role === 'admin' || full?.role === 'super_admin') {
+  if (isAdminRole(full?.role)) {
     throw new AppError('Un compte administrateur ne peut pas être supprimé via cet endpoint.', 403);
   }
 

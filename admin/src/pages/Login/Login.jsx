@@ -37,7 +37,7 @@ export default function Login() {
       }
 
       const user = result
-      if (!user || user.role !== 'admin') {
+      if (!user || !['admin', 'super_admin'].includes(user.role)) {
         setGlobalError('Accès réservé aux administrateurs.')
         return
       }

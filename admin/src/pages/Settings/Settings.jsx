@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound, Megaphone, MapPin, Wallet, BookOpen } from 'lucide-react'
+import { Save, Check, AlertCircle, Store, Truck, Receipt, FileText, ShieldCheck, RefreshCw, KeyRound, Megaphone, MapPin, Wallet, BookOpen, House } from 'lucide-react'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import { useDirtyTracker } from '../../hooks/useDirtyTracker.js'
@@ -21,7 +21,12 @@ import {
   updateInvoiceSettings,
   getBannerSettings,
   updateBannerSettings,
+  getAboutSettings,
+  updateAboutSettings,
+  getHomeSettings,
+  updateHomeSettings,
 } from '../../services/settings.service.js'
+import { useAuth } from '../../contexts/AuthContext.jsx'
 import s from './Settings.module.css'
 
 /* ── Composant section générique ── */
@@ -539,6 +544,152 @@ function AboutTab({ onDirtyChange }) {
         <button className={s.btnSave} onClick={handleSave} disabled={saving || loading}>
           <Save size={14} />
           {saving ? 'Enregistrement…' : 'Enregistrer la page'}
+        </button>
+      </div>
+    </>
+  )
+}
+
+/* ── Onglet Page d'accueil ── blocs promotionnels (ADM-08) ──
+   Même principe que « Notre Histoire » : un champ par texte, et un champ laissé
+   vide garde le texte actuellement affiché. Les champs sont groupés par bloc,
+   dans l'ordre où ils apparaissent sur la page. */
+const HOME_GROUPS = [
+  {
+    title: 'Bandeau principal',
+    desc: 'Le grand bloc tout en haut de la page d’accueil.',
+    fields: [
+      { key: 'hero_eyebrow',       label: 'Petite ligne au-dessus du titre', rows: 1 },
+      { key: 'hero_title',         label: 'Titre', rows: 2 },
+      { key: 'hero_subtitle',      label: 'Sous-titre', rows: 2 },
+      { key: 'hero_desc',          label: 'Texte', rows: 3 },
+      { key: 'hero_cta',           label: 'Bouton principal (vers la boutique)', rows: 1 },
+      { key: 'hero_cta_secondary', label: 'Second bouton (vers les nouveautés)', rows: 1 },
+      { key: 'hero_stat1_value',   label: 'Premier chiffre', rows: 1 },
+      { key: 'hero_stat1_label',   label: 'Légende du premier chiffre', rows: 1 },
+      { key: 'hero_stat2_value',   label: 'Second chiffre', rows: 1 },
+      { key: 'hero_stat2_label',   label: 'Légende du second chiffre', rows: 1 },
+    ],
+  },
+  {
+    title: 'Bloc « Notre histoire »',
+    desc: 'Le bloc avec la photo de fils, sous les coups de cœur.',
+    fields: [
+      { key: 'crafts_eyebrow', label: 'Petite ligne au-dessus du titre', rows: 1 },
+      { key: 'crafts_title',   label: 'Titre', rows: 1 },
+      { key: 'crafts_text',    label: 'Texte', rows: 4 },
+      { key: 'crafts_points',  label: 'Engagements', rows: 4, hint: 'Un engagement par ligne.' },
+      { key: 'crafts_cta',     label: 'Bouton (vers la page Notre Histoire)', rows: 1 },
+    ],
+  },
+  {
+    title: 'Avantages',
+    desc: 'Les trois arguments affichés côte à côte.',
+    fields: [
+      { key: 'advantage_1_title', label: 'Premier avantage — titre', rows: 1 },
+      { key: 'advantage_1_desc',  label: 'Premier avantage — texte', rows: 2 },
+      { key: 'advantage_2_title', label: 'Deuxième avantage — titre', rows: 1 },
+      { key: 'advantage_2_desc',  label: 'Deuxième avantage — texte', rows: 2 },
+      { key: 'advantage_3_title', label: 'Troisième avantage — titre', rows: 1 },
+      { key: 'advantage_3_desc',  label: 'Troisième avantage — texte', rows: 2 },
+    ],
+  },
+]
+
+function HomeTab({ onDirtyChange }) {
+  const [values,  setValues]  = useState({})
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(false)
+  const [status,  setStatus]  = useState(null)
+  const [saving,  setSaving]  = useState(false)
+  const { resetBaseline } = useDirtyTracker(values, loading, onDirtyChange)
+
+  const load = useCallback(async () => {
+    setError(false)
+    setLoading(true)
+    try {
+      const res = await getHomeSettings()
+      setValues(prev => ({ ...prev, ...res }))
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const handleChange = (key, val) => setValues(prev => ({ ...prev, [key]: val }))
+
+  const handleSave = async () => {
+    setSaving(true)
+    setStatus(null)
+    try {
+      await updateHomeSettings(values)
+      setStatus('saved')
+      resetBaseline()
+    } catch {
+      setStatus('error')
+    } finally {
+      setSaving(false)
+      setTimeout(() => setStatus(null), 3000)
+    }
+  }
+
+  // Chiffres clés affichés tant que la case n'a pas été décochée
+  const statsShown = values.hero_stats_enabled !== '0'
+
+  return (
+    <>
+      {error && <ErrorBanner onRetry={load} />}
+
+      <div className={s.legalNote}>
+        <AlertCircle size={13} />
+        Un champ laissé vide garde le texte actuellement affiché sur la boutique. Vous pouvez donc ne modifier qu’un seul texte.
+      </div>
+
+      <div className={s.sections}>
+        {HOME_GROUPS.map(group => (
+          <SettingsSection key={group.title} title={group.title} desc={group.desc}>
+            {loading ? (
+              <div className={s.skeleton} style={{ height: 160 }} />
+            ) : (
+              <div className={s.contentFields}>
+                {group.title === 'Bandeau principal' && (
+                  <label className={s.checkRow}>
+                    <input
+                      type="checkbox"
+                      checked={statsShown}
+                      onChange={e => handleChange('hero_stats_enabled', e.target.checked ? '1' : '0')}
+                    />
+                    <span>Afficher les deux chiffres clés sous les boutons</span>
+                  </label>
+                )}
+                {group.fields.map(({ key, label, rows, hint }) => (
+                  <div key={key} className={s.field}>
+                    <label className={s.label} htmlFor={key}>{label}</label>
+                    <textarea
+                      id={key}
+                      className={s.textarea}
+                      rows={rows}
+                      value={values[key] ?? ''}
+                      onChange={e => handleChange(key, e.target.value)}
+                      placeholder="Laisser vide pour garder le texte actuel"
+                    />
+                    {hint && <span className={s.hint}>{hint}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </SettingsSection>
+        ))}
+      </div>
+
+      <div className={s.formActions} style={{ marginTop: 8 }}>
+        <SaveFeedback status={status} />
+        <button className={s.btnSave} onClick={handleSave} disabled={saving || loading}>
+          <Save size={14} />
+          {saving ? 'Enregistrement…' : 'Enregistrer la page d’accueil'}
         </button>
       </div>
     </>
@@ -1067,15 +1218,18 @@ function SecurityTab() {
 /* Onglets groupés par domaine : l'identité de la boutique, puis ce qui touche
    à la vente, puis le compte. Sans regroupement, « Bandeau » voisinait avec
    « TVA » sans rapport de sens. */
+/* `superAdmin` : pages de contenu et blocs promotionnels, réservés au compte
+   super-administrateur (ADM-08) — le serveur refuse de toute façon (403). */
 const TABS = [
   { key: 'store',    label: 'Boutique',      icon: Store,       desc: 'Nom, email, téléphone',   group: 'Boutique' },
   { key: 'pickup',   label: 'Retrait',       icon: MapPin,      desc: 'Adresse et horaires',     group: 'Boutique' },
-  { key: 'banner',   label: 'Bandeau',       icon: Megaphone,   desc: 'Annonce en haut du site', group: 'Boutique' },
-  { key: 'about',    label: 'Notre Histoire', icon: BookOpen,   desc: 'Texte de la page « Qui sommes-nous »', group: 'Boutique' },
+  { key: 'home',     label: 'Page d’accueil', icon: House,      desc: 'Bandeau principal, blocs', group: 'Boutique', superAdmin: true },
+  { key: 'banner',   label: 'Bandeau',       icon: Megaphone,   desc: 'Annonce en haut du site', group: 'Boutique', superAdmin: true },
+  { key: 'about',    label: 'Notre Histoire', icon: BookOpen,   desc: 'Texte de la page « Qui sommes-nous »', group: 'Boutique', superAdmin: true },
   { key: 'shipping', label: 'Livraison',     icon: Truck,       desc: 'Tarifs Swiss Post',       group: 'Vente' },
   { key: 'tax',      label: 'TVA',           icon: Receipt,     desc: 'Taux AFC suisses',        group: 'Vente' },
   { key: 'invoice',  label: 'Facturation',   icon: Wallet,      desc: 'Coordonnées, échéance',   group: 'Vente' },
-  { key: 'legal',    label: 'Textes légaux', icon: FileText,    desc: 'CGV, mentions, retours',  group: 'Vente' },
+  { key: 'legal',    label: 'Textes légaux', icon: FileText,    desc: 'CGV, mentions, retours',  group: 'Vente', superAdmin: true },
   { key: 'security', label: 'Sécurité',      icon: ShieldCheck, desc: 'Double authentification', group: 'Compte' },
 ]
 
@@ -1084,8 +1238,10 @@ export default function Settings() {
      partageable, le bouton Retour ramène à l'onglet précédent, et un
      rafraîchissement ne renvoie plus sur « Boutique ». */
   const [searchParams, setSearchParams] = useSearchParams()
+  const { isSuperAdmin } = useAuth()
+  const visibleTabs = TABS.filter(t => !t.superAdmin || isSuperAdmin)
   const requested = searchParams.get('onglet')
-  const tab = TABS.some(t => t.key === requested) ? requested : 'store'
+  const tab = visibleTabs.some(t => t.key === requested) ? requested : 'store'
 
   /* Un onglet en cours de saisie non enregistrée prévient avant qu'on le quitte.
      Les textes légaux (CGV, mentions) sont de longs textes rédigés à la main :
@@ -1134,9 +1290,9 @@ export default function Settings() {
 
       <div className={s.settingsLayout}>
         <nav className={s.tabs}>
-          {TABS.map((t, i) => {
+          {visibleTabs.map((t, i) => {
             const Icon = t.icon
-            const startsGroup = i === 0 || TABS[i - 1].group !== t.group
+            const startsGroup = i === 0 || visibleTabs[i - 1].group !== t.group
             return (
               <div key={`w-${t.key}`} className={s.tabGroup}>
               {startsGroup && <span className={s.tabGroupLabel}>{t.group}</span>}
@@ -1165,6 +1321,7 @@ export default function Settings() {
           {tab === 'tax'      && <TaxTab      onDirtyChange={markDirty('tax')} />}
           {tab === 'legal'    && <LegalTab    onDirtyChange={markDirty('legal')} />}
           {tab === 'about'    && <AboutTab    onDirtyChange={markDirty('about')} />}
+          {tab === 'home'     && <HomeTab     onDirtyChange={markDirty('home')} />}
           {tab === 'banner'   && <BannerTab   onDirtyChange={markDirty('banner')} />}
           {tab === 'pickup'   && <PickupTab   onDirtyChange={markDirty('pickup')} />}
           {tab === 'invoice'  && <InvoiceTab  onDirtyChange={markDirty('invoice')} />}

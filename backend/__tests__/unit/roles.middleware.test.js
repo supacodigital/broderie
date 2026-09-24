@@ -1,6 +1,6 @@
 // Tests unitaires middleware roles.js
 
-const { requireRole } = require('../../middlewares/roles');
+const { requireRole, isAdminRole } = require('../../middlewares/roles');
 
 function makeNext() { return jest.fn(); }
 
@@ -51,5 +51,34 @@ describe('middleware — requireRole()', () => {
     const next = makeNext();
     middleware(req, {}, next);
     expect(next).toHaveBeenCalledWith();
+  });
+});
+
+/* ADM-08 — le super-administrateur a tout ce qu'a un administrateur, plus les
+   contenus ; l'inverse n'est pas vrai. */
+describe('middleware — rôle super_admin', () => {
+  test('passe partout où un administrateur passe', () => {
+    const next = makeNext();
+    requireRole('admin')({ user: { id: 1, role: 'super_admin' } }, {}, next);
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  test('un administrateur simple est refusé sur une route super-administrateur', () => {
+    const next = makeNext();
+    requireRole('super_admin')({ user: { id: 1, role: 'admin' } }, {}, next);
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 403 }));
+  });
+
+  test('un client reste refusé partout', () => {
+    const next = makeNext();
+    requireRole('admin')({ user: { id: 1, role: 'client' } }, {}, next);
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 403 }));
+  });
+
+  test('isAdminRole reconnaît les deux rôles du back-office', () => {
+    expect(isAdminRole('admin')).toBe(true);
+    expect(isAdminRole('super_admin')).toBe(true);
+    expect(isAdminRole('client')).toBe(false);
+    expect(isAdminRole(undefined)).toBe(false);
   });
 });

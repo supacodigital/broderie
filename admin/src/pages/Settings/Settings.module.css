@@ -126,6 +126,9 @@
 
 .field { display: flex; flex-direction: column; gap: 5px; }
 
+/* Champs d'un bloc de la page d'accueil, empilés (ADM-08) */
+.contentFields { display: flex; flex-direction: column; gap: 14px; }
+
 .label { font-size: 12px; font-weight: 600; color: var(--text-dark); }
 .hint  { font-size: 11px; color: var(--text-muted); }
 

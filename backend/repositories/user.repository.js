@@ -36,6 +36,19 @@ const create = async ({ email, passwordHash = null, firstName, lastName, locale 
   return result.insertId;
 };
 
+/* Compte du back-office (ADM-08) — créé SANS mot de passe : son titulaire le
+   choisit via le lien de réinitialisation reçu par e-mail, et aucun mot de
+   passe ne transite par un script ou un terminal. Tant qu'il ne l'a pas fait,
+   la connexion est refusée (voir auth.service login). */
+const createBackOfficeAccount = async ({ email, firstName, lastName, role }) => {
+  const [result] = await pool.execute(
+    `INSERT INTO users (email, password_hash, first_name, last_name, role, locale, is_active, email_verified_at)
+     VALUES (?, NULL, ?, ?, ?, 'fr', 1, NOW())`,
+    [email, firstName, lastName, role]
+  );
+  return result.insertId;
+};
+
 // Vérification si un email est déjà utilisé
 const emailExists = async (email) => {
   const [rows] = await pool.execute(
@@ -259,7 +272,7 @@ const saveResetToken = async (userId, tokenHash, expiresAt) => {
 // Recherche un utilisateur par token de réinitialisation valide
 const findByResetToken = async (tokenHash) => {
   const [rows] = await pool.execute(
-    `SELECT id, email, first_name, last_name, locale
+    `SELECT id, email, first_name, last_name, locale, role
      FROM users
      WHERE reset_token_hash = ? AND reset_token_expires > NOW() AND deleted_at IS NULL
      LIMIT 1`,
@@ -312,6 +325,7 @@ const markEmailVerified = async (userId) => {
 };
 
 module.exports = {
+  createBackOfficeAccount,
   findByEmail, findById, findByIdWithPassword, findByIdRaw,
   create, emailExists, update, anonymizeUser,
   findAddresses, createAddress, updateAddress, deleteAddress,

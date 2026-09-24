@@ -321,7 +321,7 @@ export default function AdminLayout() {
             <p className={s.userName}>
               {user?.firstName} {user?.lastName}
             </p>
-            <p className={s.userRole}>Administratrice</p>
+            <p className={s.userRole}>{user?.role === 'super_admin' ? 'Super-administratrice' : 'Administratrice'}</p>
           </div>
           <button
             className={s.logoutBtn}

@@ -1,10 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import { useHomeContent } from '../../../hooks/useHomeContent.js'
 import s from './CraftsSection.module.css'
 
 export default function CraftsSection() {
   const { t } = useTranslation()
-  const points = t('crafts.points', { returnObjects: true })
+  // Textes modifiables depuis Paramètres → Page d'accueil (ADM-08)
+  const { text, isCustom } = useHomeContent()
+  // Engagements saisis dans l'admin : un par ligne
+  const points = isCustom('crafts_points')
+    ? text('crafts_points').split('\n').map(p => p.trim()).filter(Boolean)
+    : t('crafts.points', { returnObjects: true })
 
   return (
     <section className={s.section} id="savoir-faire" aria-label="Notre savoir-faire">
@@ -20,9 +26,9 @@ export default function CraftsSection() {
       </div>
 
       <div className={s.content}>
-        <p className={s.eyebrow}>{t('crafts.eyebrow')}</p>
-        <h2 className={s.title}>{t('crafts.title')}</h2>
-        <p className={s.text}>{t('crafts.text')}</p>
+        <p className={s.eyebrow}>{text('crafts_eyebrow', t('crafts.eyebrow'))}</p>
+        <h2 className={s.title}>{text('crafts_title', t('crafts.title'))}</h2>
+        <p className={s.text}>{text('crafts_text', t('crafts.text'))}</p>
 
         <ul className={s.list} aria-label="Nos engagements">
           {Array.isArray(points) && points.map((item, i) => (
@@ -31,7 +37,7 @@ export default function CraftsSection() {
         </ul>
 
         <Link to="/notre-histoire" className={s.btnPrimary}>
-          {t('crafts.cta')}
+          {text('crafts_cta', t('crafts.cta'))}
         </Link>
       </div>
     </section>
