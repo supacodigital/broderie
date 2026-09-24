@@ -1,0 +1,182 @@
+/* Suivi des factures QR (ADM-09) */
+.page {}
+
+.pageHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.pageTitle { font-size: 22px; font-weight: 700; color: var(--text-dark); }
+.pageSub   { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+.exportBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  /* Rose foncé : texte blanc lisible (contraste AA), le rose clair ne l'était pas */
+  background: var(--rose-dark);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s;
+  white-space: nowrap;
+}
+.exportBtn:hover:not(:disabled) { opacity: .9; }
+.exportBtn:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Montant restant à encaisser — le chiffre que la cliente vient chercher */
+.summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  background: #fff;
+  border: 1px solid var(--rose-border);
+  border-radius: var(--radius);
+}
+.summaryLabel { font-size: 13px; color: var(--text-muted); }
+.summaryValue { font-size: 20px; font-weight: 700; color: var(--text-dark); font-variant-numeric: tabular-nums; }
+.summaryWarn  { font-size: 12px; font-weight: 600; color: var(--warning-text); }
+
+/* Recherche — retrouver la facture d'un virement du relevé */
+.searchWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  max-width: 420px;
+}
+.searchIcon { position: absolute; left: 10px; color: var(--text-muted); pointer-events: none; }
+.searchInput {
+  width: 100%;
+  padding: 8px 12px 8px 32px;
+  border: 1px solid var(--rose-border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-dark);
+  background: #fff;
+  outline: none;
+  transition: border-color .15s;
+}
+.searchInput:focus { border-color: var(--rose); }
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--rose-border);
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s;
+}
+.tab:hover  { color: var(--text-dark); }
+.tabActive  { color: var(--rose-dark); border-bottom-color: var(--rose); font-weight: 600; }
+.tabCount {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--rose-pale);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--rose-dark);
+  text-align: center;
+}
+
+.table { display: flex; flex-direction: column; gap: 4px; }
+
+.tableHead, .row {
+  display: grid;
+  grid-template-columns: 120px 1.6fr 90px 90px 100px 150px 1.4fr;
+  gap: 12px;
+  align-items: center;
+}
+.tableHead {
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.row {
+  width: 100%;
+  padding: 12px 16px;
+  background: #fff;
+  border: 1px solid var(--rose-border);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-dark);
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow .15s;
+}
+.row:hover { box-shadow: var(--shadow); }
+.row:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+.number    { font-weight: 600; font-variant-numeric: tabular-nums; }
+.customer  { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.muted     { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.right     { text-align: right; }
+.amount    { font-weight: 600; font-variant-numeric: tabular-nums; }
+.reference { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.badgePaid, .badgeUnpaid, .badgeOverdue {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badgePaid    { color: #047857; background: #ecfdf5; }
+.badgeUnpaid  { color: var(--rose-dark); background: var(--rose-pale); }
+.badgeOverdue { color: var(--warning-text); background: var(--warning-bg); }
+
+.empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.skeleton {
+  height: 52px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (max-width: 768px) {
+  .tableHead { display: none; }
+  .row { grid-template-columns: 1fr auto; row-gap: 4px; }
+  .row > :nth-child(3), .row > :nth-child(4), .row > :nth-child(7) { display: none; }
+}

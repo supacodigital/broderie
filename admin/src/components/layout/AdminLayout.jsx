@@ -26,6 +26,8 @@ import {
   AlertTriangle,
   Star,
   ChevronRight,
+  Receipt,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext.jsx";
 import { getOrders } from "../../services/orders.service.js";
@@ -43,6 +45,8 @@ function buildNavMain(pendingOrders, pendingReviews) {
       label: "Commandes",
       badge: pendingOrders || null,
     },
+    // Suivi des factures QR payées / à payer / en retard (ADM-09)
+    { to: "/factures", icon: Receipt, label: "Factures" },
     { to: "/clients", icon: Users, label: "Clients" },
     {
       to: "/avis",
@@ -57,6 +61,8 @@ const NAV_CATALOG = [
   { to: "/produits", icon: Package, label: "Produits" },
   { to: "/categories", icon: Tag, label: "Catégories" },
   { to: "/fournisseurs", icon: Truck, label: "Fournisseurs" },
+  // Ce qu'il faut commander chez chaque fournisseur (ADM-09)
+  { to: "/reassort", icon: ClipboardList, label: "Réassort" },
 ];
 
 const NAV_TOOLS = [
@@ -99,6 +105,8 @@ const ROUTE_LABELS = {
   "/clients": "Clients",
   "/avis": "Avis clients",
   "/fournisseurs": "Fournisseurs",
+  "/factures": "Factures",
+  "/reassort": "Réassort",
   "/fidelite": "Fidélité",
   "/categories": "Catégories",
   "/coupons": "Promotions",

@@ -1,0 +1,165 @@
+/* État des réassorts fournisseurs (ADM-09) */
+.page {}
+
+.pageHead { margin-bottom: 16px; }
+.pageTitle { font-size: 22px; font-weight: 700; color: var(--text-dark); }
+.pageSub   { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+/* ── Fournisseurs ── */
+.suppliers {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+.supplier {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--rose-border);
+  border-radius: 8px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.supplier:hover { border-color: var(--rose); }
+.supplier:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+.supplierActive { background: var(--rose-pale); border-color: var(--rose); }
+.supplierName { font-size: 13px; font-weight: 600; color: var(--text-dark); }
+.supplierCounts { display: flex; gap: 6px; flex-wrap: wrap; }
+.countExpected, .countLow {
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.countExpected { color: var(--rose-dark); background: var(--rose-border); }
+.countLow      { color: var(--text-muted); background: #f3f4f6; }
+
+/* ── Liste du fournisseur ── */
+.panel {
+  padding: 18px 20px;
+  background: #fff;
+  border: 1px solid var(--rose-border);
+  border-radius: var(--radius);
+  min-width: 0;
+}
+.panelHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.panelTitle { font-size: 17px; font-weight: 700; color: var(--text-dark); }
+.contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.contact a, .contact span { display: inline-flex; align-items: center; gap: 4px; }
+.contact a { color: var(--rose-dark); text-decoration: none; }
+.contact a:hover { text-decoration: underline; }
+
+.panelActions { display: flex; gap: 8px; align-items: flex-start; }
+.btnPrimary, .btnGhost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .15s;
+}
+/* Rose foncé : texte blanc lisible (contraste AA), le rose clair ne l'était pas */
+.btnPrimary { background: var(--rose-dark); color: #fff; border: none; }
+.btnPrimary:hover:not(:disabled) { opacity: .9; }
+.btnPrimary:disabled { opacity: .6; cursor: not-allowed; }
+.btnGhost { background: none; color: var(--rose-dark); border: 1px solid var(--rose-border); }
+.btnGhost:hover { background: var(--rose-pale); }
+
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+.groupCount {
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--rose-pale);
+  font-size: 11px;
+  color: var(--rose-dark);
+}
+.groupEmpty { font-size: 12.5px; color: var(--text-muted); margin: 0; }
+
+.table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.table th {
+  text-align: left;
+  padding: 7px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--rose-border);
+}
+.table td { padding: 8px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+.table tr:last-child td { border-bottom: none; }
+.num    { text-align: right; font-variant-numeric: tabular-nums; }
+.strong { font-weight: 700; }
+.out    { color: var(--warning-text); font-weight: 700; }
+.sku    { color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.orders { display: flex; flex-wrap: wrap; gap: 6px; }
+.orders a, .productLink { color: var(--rose-dark); text-decoration: none; }
+.orders a:hover, .productLink:hover { text-decoration: underline; }
+
+.empty { font-size: 13px; color: var(--text-muted); padding: 12px; }
+
+.skeleton, .skeletonSm {
+  border-radius: 10px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+.skeleton   { height: 220px; }
+.skeletonSm { height: 52px; }
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (max-width: 768px) {
+  .layout { grid-template-columns: 1fr; }
+  .suppliers { position: static; max-height: 260px; }
+}
+
+/* Impression : seule la liste du fournisseur, sans le menu de l'administration */
+@media print {
+  .noPrint { display: none !important; }
+  .layout { display: block; }
+  .panel { border: none; padding: 0; }
+  :global(aside), :global(header) { display: none !important; }
+}

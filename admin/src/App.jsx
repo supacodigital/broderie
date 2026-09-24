@@ -18,6 +18,8 @@ const Reviews    = lazy(() => import('./pages/Reviews/Reviews.jsx'))
 const Suppliers   = lazy(() => import('./pages/Suppliers/Suppliers.jsx'))
 const SupplierForm = lazy(() => import('./pages/Suppliers/SupplierForm.jsx'))
 const Loyalty    = lazy(() => import('./pages/Loyalty/Loyalty.jsx'))
+const Invoices   = lazy(() => import('./pages/Invoices/Invoices.jsx'))
+const Restock    = lazy(() => import('./pages/Restock/Restock.jsx'))
 const Categories = lazy(() => import('./pages/Categories/Categories.jsx'))
 const Coupons    = lazy(() => import('./pages/Coupons/Coupons.jsx'))
 const Settings    = lazy(() => import('./pages/Settings/Settings.jsx'))
@@ -87,6 +89,8 @@ export default function App() {
             <Route path="produits/:id"     element={<KeyedByRouteId><ProductForm /></KeyedByRouteId>} />
             <Route path="commandes"  element={<Orders />} />
             <Route path="commandes/:id" element={<OrderDetail />} />
+            <Route path="factures"   element={<Invoices />} />
+            <Route path="reassort"   element={<Restock />} />
             <Route path="clients"    element={<Customers />} />
             <Route path="avis"       element={<Reviews />} />
             <Route path="fournisseurs" element={<Suppliers />} />

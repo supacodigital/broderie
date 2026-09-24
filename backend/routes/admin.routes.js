@@ -16,6 +16,8 @@ const couponController          = require('../controllers/admin/coupon.controlle
 const newsletterAdminController = require('../controllers/admin/newsletter.controller');
 const settingsController        = require('../controllers/admin/settings.controller');
 const shippingAdminController   = require('../controllers/admin/shipping.controller');
+const restockController         = require('../controllers/admin/restock.controller');
+const invoiceTrackingController = require('../controllers/admin/invoiceTracking.controller');
 const { upload } = require('../middlewares/upload');
 const { validate } = require('../middlewares/validate');
 const { createCouponSchema, updateCouponSchema } = require('../validators/coupon.validator');
@@ -49,6 +51,15 @@ router.put('/categories/:id', categoryAdminController.update);
 router.delete('/categories/:id', categoryAdminController.remove);
 
 // Fournisseurs
+// État des réassorts fournisseurs (ADM-09) — lecture seule
+router.get('/restock',                     restockController.getSummary);
+router.get('/restock/:supplierId',         restockController.getSupplierItems);
+router.get('/restock/:supplierId/export',  restockController.exportSupplierCsv);
+
+// Suivi des factures QR payées / à payer / en retard (ADM-09)
+router.get('/invoices',        invoiceTrackingController.list);
+router.get('/invoices/export', invoiceTrackingController.exportCsv);
+
 router.get('/suppliers', supplierController.getAll);
 router.post('/suppliers', supplierController.create);
 router.get('/suppliers/:id/details', supplierController.getDetails);
