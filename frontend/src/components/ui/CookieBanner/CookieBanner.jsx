@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react'
-import { Cookie, X, ChevronDown, ChevronUp, Check } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Cookie, ChevronDown, ChevronUp, Check } from 'lucide-react'
 import { logConsent } from '../../../services/consent.service.js'
 import s from './CookieBanner.module.css'
 
 const STORAGE_KEY = 'cookie_consent'
-const VERSION     = '1.0'
+/* 1.1 (25.09.2026) : textes rendus exacts — ni cookie de langue ni mesure
+   d'audience, Google Fonts retiré. Le bandeau réapparaît une fois chez qui
+   avait choisi sur la foi de l'ancien texte ; le choix est journalisé avec
+   cette version. */
+const VERSION     = '1.1'
 
 export default function CookieBanner() {
   const [visible,  setVisible]  = useState(false)
@@ -34,8 +39,9 @@ export default function CookieBanner() {
         <div className={s.top}>
           <Cookie size={20} className={s.icon} aria-hidden="true" />
           <p className={s.text}>
-            Nous utilisons des cookies essentiels (session, panier, langue) et des cookies tiers
-            (Stripe) pour le paiement sécurisé.{' '}
+            Ce site n'utilise que des cookies nécessaires à son fonctionnement (panier, connexion
+            à votre compte), et ceux de Stripe au moment du paiement. Aucune publicité ni mesure
+            d'audience.{' '}
             <button className={s.detailToggle} onClick={() => setExpanded(o => !o)} aria-expanded={expanded}>
               En savoir plus {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             </button>
@@ -47,15 +53,16 @@ export default function CookieBanner() {
           <div className={s.detail}>
             <div className={s.detailRow}>
               <Check size={13} className={s.checkIcon} />
-              <span><strong>Essentiels</strong> — session, authentification, panier, langue. Toujours actifs.</span>
+              <span><strong>Essentiels</strong> — panier, connexion à votre compte. Toujours actifs.</span>
             </div>
             <div className={s.detailRow}>
               <Check size={13} className={s.checkIcon} />
-              <span><strong>Stripe</strong> — traitement sécurisé des paiements. Actifs uniquement lors du paiement.</span>
+              <span><strong>Stripe</strong> — sécurité du paiement et prévention de la fraude. Déposés uniquement au moment du paiement.</span>
             </div>
             <p className={s.detailLegal}>
-              Conformément à la LPD révisée (sept. 2023). Vos données restent hébergées en Suisse.{' '}
-              <a href="/confidentialite" className={s.detailLink}>Politique de confidentialité</a>
+              Conformément à la LPD révisée (sept. 2023). Site hébergé en Suisse.{' '}
+              {/* /confidentialite n'a jamais existé : le lien menait à la page 404 */}
+              <Link to="/mentions-legales#donnees" className={s.detailLink}>Données personnelles et cookies</Link>
             </p>
           </div>
         )}
