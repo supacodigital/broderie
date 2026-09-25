@@ -1,0 +1,79 @@
+.body { padding: 12px 18px 16px; }
+
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 0;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.chevron { transition: transform .2s var(--ease-out); }
+.chevron[data-open="true"] { transform: rotate(180deg); }
+
+.toggle:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; border-radius: 6px; }
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.label { font-size: 12px; font-weight: 600; color: var(--text-dark); }
+.optional { font-weight: 400; color: var(--text-muted); }
+
+.select,
+.textarea {
+  width: 100%;
+  padding: 8px 11px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-dark);
+  background: #fff;
+  outline: none;
+  transition: border-color .15s ease;
+}
+
+.textarea { resize: vertical; margin-bottom: 4px; }
+
+.select:focus-visible,
+.textarea:focus-visible { border-color: var(--rose); }
+
+.btnSave {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: 1.5px solid var(--rose-dark);
+  border-radius: 8px;
+  background: var(--rose-dark);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color .15s ease, transform .12s var(--ease-out);
+}
+
+.btnSave:active:not(:disabled) { transform: scale(.97); }
+.btnSave:disabled { opacity: .5; cursor: not-allowed; }
+.btnSave:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+.spin { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (hover: hover) and (pointer: fine) {
+  .toggle:hover { color: var(--rose-dark); }
+  .btnSave:hover:not(:disabled) { background: var(--rose-darker); border-color: var(--rose-darker); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron { transition: none; }
+}

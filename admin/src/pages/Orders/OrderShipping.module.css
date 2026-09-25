@@ -1,0 +1,110 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.tracking { display: flex; flex-direction: column; gap: 4px; }
+
+.trackingRow { display: flex; align-items: center; gap: 4px; min-width: 0; }
+
+.code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rose-dark);
+  text-decoration: underline;
+  text-decoration-color: var(--rose-border);
+  text-underline-offset: 3px;
+  transition: text-decoration-color .15s ease;
+}
+
+.empty { font-size: 13px; color: var(--text-muted); }
+
+.manual {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rose-pale);
+}
+
+.inputRow { display: flex; gap: 6px; }
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 11px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-dark);
+  background: #fff;
+  outline: none;
+  transition: border-color .15s ease;
+}
+
+.input:focus-visible { border-color: var(--rose); }
+
+.hint { font-size: 11px; color: var(--text-muted); }
+
+.btnGhost,
+.btnIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--rose-dark);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background-color .15s ease, border-color .15s ease, transform .12s var(--ease-out);
+}
+
+.btnGhost { align-self: flex-start; padding: 7px 12px; }
+.btnIcon  { width: 36px; flex-shrink: 0; }
+
+.btnGhost:active:not(:disabled),
+.btnIcon:active:not(:disabled) { transform: scale(.97); }
+
+.btnIcon:disabled { opacity: .5; cursor: not-allowed; }
+
+.btnGhost:focus-visible,
+.btnIcon:focus-visible,
+.link:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+.spin { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (hover: hover) and (pointer: fine) {
+  .btnGhost:hover,
+  .btnIcon:hover:not(:disabled) { border-color: var(--rose); background: var(--rose-pale); }
+  .link:hover { text-decoration-color: var(--rose-dark); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation-duration: 2s; }
+}

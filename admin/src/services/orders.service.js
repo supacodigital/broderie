@@ -19,6 +19,12 @@ export async function updateOrderStatus(id, status, note, { shippingMethod } = {
   return res.data.data ?? null
 }
 
+// Détail de la transaction : moyen, encaissement, frais Stripe, tentatives
+export async function getOrderPayment(orderId) {
+  const res = await api.get(`/admin/orders/${orderId}/payment`)
+  return res.data.data ?? null
+}
+
 export async function sendTwintQr(orderId) {
   await api.post(`/admin/orders/${orderId}/twint-email`)
 }

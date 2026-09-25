@@ -148,3 +148,42 @@ describe('Facture d\'une commande payée par Twint', () => {
     expect((await clientPdf(client.token, pickupId)).status).toBe(404);
   });
 });
+
+/* Détail de la transaction dans la commande admin (25.09) */
+describe('GET /admin/orders/:id/payment', () => {
+  let client;
+  let adminToken;
+  let orderId;
+
+  beforeAll(async () => {
+    client = await registerVerifiedUser('transaction.jest');
+    adminToken = await createAdminToken();
+    const product = await pickProduct();
+    if (!product) return;
+    orderId = await placeOrder(client.token, product.id, 'twint');
+    await payWithTwint(orderId);
+  });
+
+  test('commande payée par Twint : moyen, date de paiement et tentative', async () => {
+    if (!orderId) return;
+    const res = await request(app)
+      .get(`/api/v1/admin/orders/${orderId}/payment`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ status: 'paid', method: 'twint', chosen_method: 'twint' });
+    expect(res.body.data.paid_at).toBeTruthy();
+    expect(res.body.data.attempts).toEqual([
+      expect.objectContaining({ method: 'twint', status: 'succeeded', reference: `pi_test_paid_invoice_${orderId}` }),
+    ]);
+    // Paiement fictif du test, inconnu de Stripe : signalé, sans faire échouer la fiche
+    expect(res.body.data.stripe_unavailable).toBe(true);
+  });
+
+  test('commande inconnue : 404 ; cliente : 403', async () => {
+    const missing = await request(app).get('/api/v1/admin/orders/999999999/payment').set('Authorization', `Bearer ${adminToken}`);
+    expect(missing.status).toBe(404);
+    const forbidden = await request(app).get(`/api/v1/admin/orders/${orderId ?? 1}/payment`).set('Authorization', `Bearer ${client.token}`);
+    expect(forbidden.status).toBe(403);
+  });
+});

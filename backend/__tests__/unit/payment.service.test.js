@@ -812,3 +812,80 @@ describe('payment.service — confirmQrPaymentReturn()', () => {
     spy.mockRestore();
   });
 });
+
+/* Détail de la transaction dans l'admin (25.09) : ce que la base sait, complété
+   par Stripe — moyen exact, encaissement, frais, antifraude, motif de refus. */
+describe('paymentService.getOrderTransaction', () => {
+  const cardIntent = {
+    id: 'pi_card', status: 'succeeded', livemode: true, amount: 4200, amount_received: 4200, currency: 'chf',
+    created: 1790330000, payment_method_types: ['card'], last_payment_error: null,
+    latest_charge: {
+      id: 'ch_1', paid: true, created: 1790330060, amount_refunded: 0, receipt_url: 'https://pay.stripe.com/r/1',
+      outcome: { risk_level: 'normal', network_status: 'approved_by_network' },
+      payment_method_details: {
+        type: 'card',
+        card: { brand: 'visa', last4: '4242', exp_month: 4, exp_year: 2028, country: 'CH', wallet: { type: 'apple_pay' }, three_d_secure: { result: 'authenticated' } },
+      },
+      balance_transaction: { fee: 152, net: 4048, available_on: 1790899200 },
+    },
+  };
+
+  beforeEach(() => {
+    orderRepository.findById.mockResolvedValue({
+      id: 7, status: 'paid', total: '42.00', payment_method: 'card', paid_method: 'card',
+      paid_at: new Date('2026-09-25T09:00:00Z'), invoice_number: '2026-09/03', qr_reference: null,
+    });
+    paymentRepository.findAllByOrderId = jest.fn().mockResolvedValue([
+      // Réservation créée avec la commande, avant l'appel à Stripe : pas une tentative
+      { id: 1, provider: 'stripe', provider_payment_id: null, method: 'card', status: 'pending', amount: '42.00', created_at: new Date() },
+      { id: 2, provider: 'stripe', provider_payment_id: 'pi_card', method: 'card', status: 'succeeded', amount: '42.00', created_at: new Date() },
+    ]);
+  });
+
+  test('carte encaissée : marque, 4 derniers chiffres, frais, net, antifraude et liens Stripe', async () => {
+    stripe.paymentIntents = { retrieve: jest.fn().mockResolvedValue(cardIntent) };
+
+    const t = await paymentService.getOrderTransaction(7);
+
+    expect(stripe.paymentIntents.retrieve).toHaveBeenCalledWith('pi_card', { expand: ['latest_charge.balance_transaction'] }, { timeout: 8000 });
+    expect(t.status).toBe('paid');
+    expect(t.attempts).toHaveLength(1);
+    expect(t.stripe).toMatchObject({
+      intent_id: 'pi_card', charge_id: 'ch_1', amount_received: 42, fee: 1.52, net: 40.48,
+      risk_level: 'normal', network_status: 'approved_by_network',
+      card: { brand: 'Visa', last4: '4242', wallet: 'Apple Pay', three_d_secure: 'authenticated' },
+      dashboard_url: 'https://dashboard.stripe.com/payments/pi_card',
+      receipt_url: 'https://pay.stripe.com/r/1',
+    });
+  });
+
+  test('paiement refusé : motif en français, jamais le message anglais de Stripe', async () => {
+    orderRepository.findById.mockResolvedValue({ id: 7, status: 'payment_failed', total: '42.00', payment_method: 'card', paid_at: null });
+    stripe.paymentIntents = {
+      retrieve: jest.fn().mockResolvedValue({
+        ...cardIntent, status: 'requires_payment_method', amount_received: 0, latest_charge: null,
+        last_payment_error: { code: 'card_declined', decline_code: 'insufficient_funds', message: 'Your card has insufficient funds.' },
+      }),
+    };
+
+    const t = await paymentService.getOrderTransaction(7);
+
+    expect(t.status).toBe('failed');
+    expect(t.stripe.last_error).toEqual({ code: 'insufficient_funds', reason: 'fonds insuffisants' });
+  });
+
+  test('Stripe injoignable : le signale sans échouer, avec les données de la boutique', async () => {
+    stripe.paymentIntents = { retrieve: jest.fn().mockRejectedValue(new Error('timeout')) };
+
+    const t = await paymentService.getOrderTransaction(7);
+
+    expect(t.stripe).toBeNull();
+    expect(t.stripe_unavailable).toBe(true);
+    expect(t).toMatchObject({ status: 'paid', method: 'card', attempts: [expect.objectContaining({ reference: 'pi_card' })] });
+  });
+
+  test('commande inconnue : 404', async () => {
+    orderRepository.findById.mockResolvedValue(null);
+    await expect(paymentService.getOrderTransaction(999)).rejects.toMatchObject({ statusCode: 404 });
+  });
+});

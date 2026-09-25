@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import OrderDetail from './OrderDetail.jsx'
 
@@ -11,9 +12,13 @@ vi.mock('../../services/orders.service.js', () => ({
   downloadLabel:     vi.fn(),
   updateTracking:    vi.fn(),
   sendTwintQr:       vi.fn(),
+  getOrderPayment:   vi.fn().mockResolvedValue(null),
+}))
+vi.mock('../../contexts/ToastContext.jsx', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn() }),
 }))
 
-import { getOrderById } from '../../services/orders.service.js'
+import { getOrderById, updateOrderStatus } from '../../services/orders.service.js'
 
 const ORDER = {
   id: 94, user_id: 7, status: 'pending_invoice', payment_method: 'invoice_qr',
@@ -37,7 +42,7 @@ const renderOrder = async (order) => {
   await screen.findAllByText(/Marie/)
 }
 
-const twintButton = () => screen.queryByRole('button', { name: /Envoyer un QR Twint par email/ })
+const twintButton = () => screen.queryByRole('button', { name: /Envoyer un QR Twint par e-mail/ })
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -53,5 +58,53 @@ describe('OrderDetail — QR Twint par e-mail', () => {
   it('absent pour une commande à retirer et payer en boutique', async () => {
     await renderOrder({ ...ORDER, status: 'pending_pickup', payment_method: 'pickup', shipping_street: null })
     expect(twintButton()).not.toBeInTheDocument()
+  })
+})
+
+/* Refonte du 25.09 : la carte « Traitement » dit où en est la commande et ne
+   propose que les actions de l'étape en cours. */
+describe('OrderDetail — Traitement', () => {
+  const traitement = () => within(screen.getByRole('region', { name: 'Traitement' }))
+
+  it('facture à payer : étape, frise et actions de paiement', async () => {
+    await renderOrder(ORDER)
+    const card = traitement()
+    expect(card.getByText('En attente du paiement de la facture')).toBeInTheDocument()
+    expect(card.getByRole('button', { name: /Marquer comme payée/ })).toBeInTheDocument()
+    expect(card.getByText('Payée').closest('li')).toHaveAttribute('data-state', 'current')
+    expect(card.queryByRole('button', { name: /Marquer comme expédiée/ })).not.toBeInTheDocument()
+  })
+
+  it('payée : expédition proposée, avec confirmation avant tout e-mail ou étiquette', async () => {
+    const user = userEvent.setup()
+    await renderOrder({ ...ORDER, status: 'paid', paid_at: '2026-09-25T10:00:00Z', payment_method: 'twint' })
+    const card = traitement()
+    expect(card.getByText('À préparer et expédier')).toBeInTheDocument()
+    expect(card.getByLabelText('Mode d’envoi')).toHaveValue('ECO')
+
+    await user.click(card.getByRole('button', { name: /Marquer comme expédiée/ }))
+    expect(screen.getByText(/une étiquette PostPac Economy sera générée/)).toBeInTheDocument()
+    expect(updateOrderStatus).not.toHaveBeenCalled()
+  })
+
+  it('facture expédiée avant paiement : l\'étape « Payée » reste en attente', async () => {
+    await renderOrder({ ...ORDER, status: 'shipped', tracking_number: '99.00.1' })
+    const card = traitement()
+    expect(card.getByText('Payée').closest('li')).toHaveAttribute('data-state', 'waiting')
+    expect(card.getByText('Expédiée', { selector: 'p' })).toBeInTheDocument()
+    expect(card.getByRole('button', { name: /Marquer comme livrée/ })).toBeInTheDocument()
+  })
+
+  it('retrait à préparer : parcours retrait, sans expédition', async () => {
+    await renderOrder({ ...ORDER, status: 'pending_pickup', payment_method: 'pickup', shipping_street: null })
+    const card = traitement()
+    expect(card.getByText('Retrait en boutique')).toBeInTheDocument()
+    expect(card.getByRole('button', { name: /Marquer prête pour le retrait/ })).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Expédition' })).not.toBeInTheDocument()
+  })
+
+  it('facture papier demandée : rappel tant que le colis n\'est pas parti', async () => {
+    await renderOrder({ ...ORDER, wants_printed_invoice: 1 })
+    expect(traitement().getByText('Facture imprimée demandée')).toBeInTheDocument()
   })
 })

@@ -556,7 +556,132 @@ const syncOrderPayment = async (orderId, userId) => {
   };
 };
 
+/* ─────────────────────────────────────────────────────────────
+   Détail de la transaction d'une commande (admin)
+   Ce que la boutique sait (table payments) complété par Stripe : moyen exact,
+   heure d'encaissement, frais, contrôle antifraude, remboursements. Stripe
+   injoignable ne bloque rien : la fiche affiche alors les seules données locales.
+   ───────────────────────────────────────────────────────────── */
+const CARD_BRANDS = {
+  visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express', maestro: 'Maestro',
+  discover: 'Discover', jcb: 'JCB', diners: 'Diners Club', unionpay: 'UnionPay',
+};
+const WALLETS = { apple_pay: 'Apple Pay', google_pay: 'Google Pay', samsung_pay: 'Samsung Pay', link: 'Link' };
+
+const fromCents = (cents) => (cents == null ? null : Math.round(cents) / 100);
+const fromUnix  = (seconds) => (seconds ? new Date(seconds * 1000) : null);
+
+const describeStripeIntent = (intent) => {
+  const charge  = intent.latest_charge && typeof intent.latest_charge === 'object' ? intent.latest_charge : null;
+  const details = charge?.payment_method_details ?? null;
+  const card    = details?.card ?? null;
+  const balance = charge?.balance_transaction && typeof charge.balance_transaction === 'object'
+    ? charge.balance_transaction : null;
+
+  return {
+    intent_id:       intent.id,
+    charge_id:       charge?.id ?? null,
+    status:          intent.status,
+    livemode:        !!intent.livemode,
+    amount:          fromCents(intent.amount),
+    amount_received: fromCents(intent.amount_received),
+    amount_refunded: fromCents(charge?.amount_refunded ?? 0),
+    currency:        (intent.currency ?? 'chf').toUpperCase(),
+    created_at:      fromUnix(intent.created),
+    paid_at:         charge?.paid ? fromUnix(charge.created) : null,
+    method:          details?.type ?? intent.payment_method_types?.[0] ?? null,
+    card: card ? {
+      brand:     CARD_BRANDS[card.brand] ?? card.brand ?? null,
+      last4:     card.last4 ?? null,
+      exp_month: card.exp_month ?? null,
+      exp_year:  card.exp_year ?? null,
+      country:   card.country ?? null,
+      wallet:    WALLETS[card.wallet?.type] ?? null,
+      three_d_secure: card.three_d_secure?.result ?? null,
+    } : null,
+    risk_level:     charge?.outcome?.risk_level ?? null,
+    network_status: charge?.outcome?.network_status ?? null,
+    fee:            balance ? fromCents(balance.fee) : null,
+    net:            balance ? fromCents(balance.net) : null,
+    available_on:   balance ? fromUnix(balance.available_on) : null,
+    receipt_url:    charge?.receipt_url ?? null,
+    dashboard_url:  `https://dashboard.stripe.com/${intent.livemode ? '' : 'test/'}payments/${intent.id}`,
+    // Motif du dernier refus, en français (le message de Stripe est en anglais)
+    last_error: intent.last_payment_error ? {
+      code:   intent.last_payment_error.decline_code ?? intent.last_payment_error.code ?? null,
+      reason: declineReason(intent.last_payment_error, details?.type ?? intent.payment_method_types?.[0]),
+    } : null,
+  };
+};
+
+const getOrderTransaction = async (orderId) => {
+  const order = await orderRepository.findById(orderId);
+  if (!order) throw new AppError('Commande introuvable.', 404);
+
+  const rows = await paymentRepository.findAllByOrderId(orderId);
+
+  /* Tentatives affichées : paiements Stripe réels (identifiant connu) et QR
+     Twint envoyés par e-mail. Les lignes « réservation » sans identifiant et la
+     ligne interne du moyen choisi (facture, retrait) ne sont pas des tentatives. */
+  const attempts = rows
+    .filter((r) => r.provider_payment_id)
+    .map((r) => ({
+      id:         r.id,
+      method:     r.method,
+      status:     r.status,
+      amount:     parseFloat(r.amount),
+      created_at: r.created_at,
+      reference:  r.provider_payment_id,
+      via_email:  r.provider === 'stripe_qr_email',
+    }));
+
+  // Paiement Stripe à détailler : celui encaissé, sinon le dernier tenté (motif de refus)
+  const settled = [...attempts].reverse().find((a) => a.status === 'succeeded');
+  const target  = settled ?? attempts[attempts.length - 1] ?? null;
+
+  let stripeDetails = null;
+  let stripeUnavailable = false;
+  if (target && stripe) {
+    try {
+      const intent = await stripe.paymentIntents.retrieve(
+        target.reference,
+        { expand: ['latest_charge.balance_transaction'] },
+        { timeout: 8000 }
+      );
+      stripeDetails = describeStripeIntent(intent);
+    } catch (err) {
+      console.error(`[Stripe] Détail du paiement ${target.reference} (commande ${orderId}) indisponible :`, err.message);
+      stripeUnavailable = true;
+    }
+  } else if (target) {
+    stripeUnavailable = true;
+  }
+
+  const refunded = stripeDetails?.amount_refunded ?? 0;
+  const received = stripeDetails?.amount_received ?? 0;
+  let status = 'pending';
+  if (refunded > 0) status = refunded >= received ? 'refunded' : 'partially_refunded';
+  else if (order.paid_at) status = 'paid';
+  else if (order.status === 'cancelled') status = 'cancelled';
+  else if (order.status === 'payment_failed' || stripeDetails?.last_error) status = 'failed';
+
+  return {
+    status,
+    method:       order.paid_method ?? order.payment_method,
+    chosen_method: order.payment_method,
+    paid_at:      order.paid_at,
+    total:        parseFloat(order.total),
+    invoice: order.payment_method === 'invoice_qr' ? {
+      number:       order.invoice_number,
+      qr_reference: order.qr_reference,
+    } : null,
+    stripe: stripeDetails,
+    stripe_unavailable: stripeUnavailable,
+    attempts,
+  };
+};
+
 module.exports = {
   createCardIntent, createTwintIntent, createTwintQrForEmail, confirmQrPaymentReturn,
-  handleWebhook, syncOrderPayment,
+  handleWebhook, syncOrderPayment, getOrderTransaction,
 };

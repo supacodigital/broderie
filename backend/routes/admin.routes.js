@@ -75,6 +75,7 @@ router.get('/orders', adminOrderController.getAll);
 router.get('/orders/:id', adminOrderController.getById);
 router.put('/orders/:id/status', adminOrderController.updateStatus);
 router.get('/orders/:id/invoice', adminOrderController.downloadInvoice);
+router.get('/orders/:id/payment', adminOrderController.getPayment);
 router.post('/orders/:id/twint-email', adminOrderController.sendTwintQr);
 
 // Expédition — étiquette La Poste CH + tracking manuel

@@ -118,8 +118,21 @@ const hasProcessedWebhookEvent = async (eventId) => {
   return rows.length > 0;
 };
 
+// Tous les paiements d'une commande — tentatives carte / Twint, QR envoyés par
+// e-mail, encaissement — pour le détail de la transaction dans l'admin
+const findAllByOrderId = async (orderId) => {
+  const [rows] = await pool.execute(
+    `SELECT id, provider, provider_payment_id, amount, currency, method, status, created_at
+     FROM payments WHERE order_id = ?
+     ORDER BY created_at ASC, id ASC
+     LIMIT 50`,
+    [orderId]
+  );
+  return rows;
+};
+
 module.exports = {
-  create, updateStatusByOrder, findByOrderId, findByOrderIdAndMethod, findLatestIntentId,
+  create, updateStatusByOrder, findByOrderId, findByOrderIdAndMethod, findLatestIntentId, findAllByOrderId,
   findByIntentId, updateStatusByIntentId,
   registerWebhookEvent, hasProcessedWebhookEvent, findOpenStripeIntentIds,
 };

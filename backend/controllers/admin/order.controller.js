@@ -179,4 +179,16 @@ const sendTwintQr = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, updateStatus, downloadInvoice, sendTwintQr };
+// Détail de la transaction : moyen, encaissement, frais, tentatives (Stripe + base)
+const getPayment = async (req, res, next) => {
+  try {
+    const orderId = parseInt(req.params.id);
+    if (!Number.isInteger(orderId) || orderId <= 0) return next(new AppError('Commande introuvable.', 404));
+    const data = await paymentService.getOrderTransaction(orderId);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getAll, getById, updateStatus, downloadInvoice, sendTwintQr, getPayment };

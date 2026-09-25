@@ -1,0 +1,242 @@
+/* ── Transaction de la cliente (page commande admin) ── */
+/* ── Pastilles ── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chip[data-tone="success"] { background: var(--success-bg); color: var(--success-text); }
+.chip[data-tone="warning"] { background: var(--warning-bg); color: var(--warning-text); }
+.chip[data-tone="danger"]  { background: var(--danger-bg);  color: var(--danger-text); }
+.chip[data-tone="muted"]   { background: var(--surface-muted); color: var(--text-dark); }
+
+/* ── Indisponibilité / erreur ── */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 18px 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 12px;
+}
+
+.errorBox {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 18px;
+  font-size: 13px;
+  color: var(--danger-text);
+}
+
+.retryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--rose-dark);
+  font-size: 12px;
+  font-weight: 600;
+  transition: border-color .15s ease, background-color .15s ease, transform .12s var(--ease-out);
+}
+
+.retryBtn:active { transform: scale(.97); }
+.retryBtn:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+/* ── Faits : libellé / valeur, sur deux colonnes quand la carte est large ── */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px 24px;
+  padding: 16px 18px;
+}
+
+.fact { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.factLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.factValue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  font-size: 13px;
+  color: var(--text-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.factSub {
+  flex-basis: 100%;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.method {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.method svg { color: var(--rose-dark); }
+
+.amount  { font-size: 15px; font-weight: 700; }
+.refund  { font-weight: 700; color: var(--warning-text); }
+.decline { font-weight: 600; color: var(--danger-text); }
+
+.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  letter-spacing: .02em;
+}
+
+/* ── Références Stripe ── */
+.refs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 18px;
+  padding: 12px 0 14px;
+  border-top: 1px solid var(--rose-pale);
+}
+
+.ref {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.refLabel {
+  flex-shrink: 0;
+  width: 112px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.refCode {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-dark);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rose-dark);
+  text-decoration: underline;
+  text-decoration-color: var(--rose-border);
+  text-underline-offset: 3px;
+  transition: text-decoration-color .15s ease;
+}
+
+.link:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .link:hover { text-decoration-color: var(--rose-dark); }
+  .retryBtn:hover { border-color: var(--rose); background: var(--rose-pale); }
+}
+
+/* ── Tentatives ── */
+.attempts {
+  margin: 0 18px;
+  padding: 12px 0 16px;
+  border-top: 1px solid var(--rose-pale);
+}
+
+.subTitle {
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.attemptList { list-style: none; }
+
+.attempt {
+  display: grid;
+  grid-template-columns: 136px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--rose-pale);
+  font-size: 12px;
+}
+
+.attempt:last-child { border-bottom: none; }
+
+.attemptDate   { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.attemptMethod { color: var(--text-dark); font-weight: 600; min-width: 0; }
+.attemptVia    { font-weight: 400; color: var(--text-muted); }
+.attemptAmount { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+
+@media (max-width: 560px) {
+  .attempt {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 10px;
+  }
+  .attemptDate { grid-column: 1 / -1; }
+}
+
+/* ── Squelette ── */
+.skeletonWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 18px;
+}
+
+.skeletonLine {
+  display: block;
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface-muted) 25%, var(--surface-muted-strong) 50%, var(--surface-muted) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.skeletonLine:nth-child(2n) { width: 70%; }
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeletonLine { animation: none; }
+}
