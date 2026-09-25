@@ -402,6 +402,19 @@ describe('invoice.service — articles en action sur la facture (CLI-14)', () =>
     expect(text).toContain('CHF 10.00');
     expect(text).toContain('CHF 21.50');
   });
+
+  /* Article à la coupe : la longueur et le prix du tronçon facturé, jamais
+     « 5 × 0.30 » — ce que la cliente et la boutique lisaient avant. */
+  test('article à la coupe : « 50 cm » et « CHF 0.30 / 10 cm »', () => {
+    expect(text).toMatch(/^50 cm$/m);
+    expect(text).toContain('CHF 0.30 / 10 cm');
+    expect(text).not.toMatch(/^5$/m);
+  });
+
+  test('article à la pièce : la quantité seule, sans unité', () => {
+    expect(text).toMatch(/^1$/m);
+    expect(text).toMatch(/^CHF 1\.50$/m);
+  });
 });
 
 /* Non-régression — bascule vers le QR-IBAN.

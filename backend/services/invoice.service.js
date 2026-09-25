@@ -5,6 +5,7 @@ const { SwissQRBill } = require('swissqrbill/pdf');
 const { isQRIBAN, calculateQRReferenceChecksum } = require('swissqrbill/utils');
 const { roundCHF }    = require('../utils/chf.utils');
 const { compareUnitPrice, salePercent } = require('../utils/sale.utils');
+const lengthUtils     = require('../utils/length.utils');
 const { computeOrderVat } = require('../utils/tva.utils');
 const env             = require('../config/env');
 const emailService    = require('./email.service');
@@ -379,9 +380,11 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
              .text(`CHF ${normalPrice.toFixed(2)}`, TABLE_COLS.price, y + 11, { width: TABLE_COLS.priceW, align: 'right', strike: true });
         }
 
+        /* Article à la coupe : « 60 cm » et « CHF 1.80 / 10 cm » — la longueur
+           vendue et le prix du tronçon réellement facturé, jamais « 6 × 1.80 ». */
         doc.fontSize(9).fillColor(dark).font('Helvetica')
-           .text(String(item.quantity),         TABLE_COLS.qty,   y, { width: TABLE_COLS.qtyW,   align: 'center' })
-           .text(`CHF ${unitPrice.toFixed(2)}`, TABLE_COLS.price, y, { width: TABLE_COLS.priceW, align: 'right' })
+           .text(lengthUtils.lineQuantityLabel(item), TABLE_COLS.qty, y, { width: TABLE_COLS.qtyW, align: 'center' })
+           .text(`CHF ${unitPrice.toFixed(2)}${lengthUtils.lineUnitSuffix(item)}`, TABLE_COLS.price, y, { width: TABLE_COLS.priceW, align: 'right' })
            .text(`${formatRate(lineRate)} %`,   TABLE_COLS.vat,   y, { width: TABLE_COLS.vatW,   align: 'right' })
            .text(`CHF ${lineTotal.toFixed(2)}`, TABLE_COLS.total, y, { width: TABLE_COLS.totalW, align: 'right' });
 

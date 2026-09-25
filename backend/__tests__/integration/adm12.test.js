@@ -127,6 +127,30 @@ describe('Stock au centimètre des articles vendus au mètre (ADM-12)', () => {
     expect(await readStock()).toBe(215);
   });
 
+  /* La facture, les e-mails et les détails de commande affichent « 60 cm » à
+     partir de la coupe FIGÉE dans la commande : si la fiche repasse ensuite à
+     la pièce, la commande passée ne doit pas se relire « 6 pièces ». */
+  test('la coupe est figée dans la commande, même si la fiche change ensuite', async () => {
+    await setStock(215);
+    const { token } = await registerVerifiedUser('adm12.fige');
+    expect((await fillCart(token, 6)).status).toBe(200);
+    const order = await placeOrder(token);
+    expect(order.status).toBe(201);
+
+    await pool.query('UPDATE products SET sold_by_length = 0 WHERE id = ?', [productId]);
+    try {
+      const client = await request(app).get(`/api/v1/orders/${order.body.data.id}`).set(bearer(token));
+      const line = client.body.data.items.find((i) => i.product_id === productId);
+      expect(line).toMatchObject({ quantity: 6, sold_by_length: 1, length_step_cm: 10 });
+      expect(line.product_snapshot_json).toMatchObject({ sold_by_length: true, length_step_cm: 10 });
+
+      const admin = await request(app).get(`/api/v1/admin/orders/${order.body.data.id}`).set(adminAuth());
+      expect(admin.body.data.items.find((i) => i.product_id === productId)).toMatchObject({ sold_by_length: 1, length_step_cm: 10 });
+    } finally {
+      await pool.query('UPDATE products SET sold_by_length = 1 WHERE id = ?', [productId]);
+    }
+  });
+
   test('une bande de moins de 5 m se commande (le minimum de 50 cm suffit)', async () => {
     await setStock(120); // 1.20 m
     const { token } = await registerVerifiedUser('adm12.court');

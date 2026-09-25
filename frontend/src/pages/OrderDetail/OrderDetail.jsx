@@ -8,6 +8,7 @@ import { getOrderById, downloadInvoice } from '../../services/orders.service.js'
 import { roundCHF, salePercent } from '../../utils/chf.js'
 import { formatDate, formatDateTime } from '../../utils/date.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
+import { lineQuantityLabel, lineUnitSuffix } from '../../utils/stock.js'
 import s from './OrderDetail.module.css'
 
 const PAYMENT_LABELS = {
@@ -268,7 +269,8 @@ export default function OrderDetail() {
                               <span className={s.itemOnSale}>En action -{sale} %</span>
                             )}
                           </div>
-                          <span className={s.itemQty}>{item.quantity}</span>
+                          {/* Article à la coupe : « 60 cm », et le prix du tronçon facturé */}
+                          <span className={s.itemQty}>{lineQuantityLabel(item)}</span>
                           <div className={s.itemPrices}>
                             {sale > 0 && (
                               <span className={s.itemTotalOld}>
@@ -277,7 +279,9 @@ export default function OrderDetail() {
                             )}
                             <span className={s.itemTotal}>CHF {lineTotal.toFixed(2)}</span>
                             {item.quantity > 1 && (
-                              <span className={s.itemUnit}>CHF {unitPrice.toFixed(2)} / u.</span>
+                              <span className={s.itemUnit}>
+                                CHF {unitPrice.toFixed(2)}{item.sold_by_length ? lineUnitSuffix(item) : ' / u.'}
+                              </span>
                             )}
                           </div>
                         </div>

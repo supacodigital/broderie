@@ -85,7 +85,7 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
     for (const [index, item] of items.entries()) {
       const [productRows] = await connection.execute(
         `SELECT p.price_chf, ${displayComparePriceSql('p')} AS compare_price_chf,
-                p.sku, p.weight_kg, p.is_made_to_order,
+                p.sku, p.weight_kg, p.is_made_to_order, p.sold_by_length, p.length_step_cm,
                 COALESCE(pt.name, pt_fr.name) AS name,
                 COALESCE(pt.description, pt_fr.description) AS description
          FROM products p
@@ -117,6 +117,10 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
             description: product.description,
             is_made_to_order: !!product.is_made_to_order,
             compare_price_chf: product.compare_price_chf,
+            /* Vente à la coupe figée à l'achat : la ligne compte des tronçons de
+               ce pas, même si la fiche change ensuite */
+            sold_by_length: !!product.sold_by_length,
+            length_step_cm: product.sold_by_length ? (Number(product.length_step_cm) || 10) : null,
           }),
         ]
       );
@@ -329,11 +333,17 @@ const findById = async (orderId, userId = null) => {
       const snapshot = typeof i.product_snapshot_json === 'string'
         ? JSON.parse(i.product_snapshot_json)
         : i.product_snapshot_json;
+      /* Vente à la coupe : l'état figé à l'achat fait foi ; la fiche produit
+         sert de repli aux lignes antérieures au snapshot. */
+      const cut = snapshot?.sold_by_length === undefined
+        ? { sold_by_length: i.sold_by_length, length_step_cm: i.length_step_cm }
+        : { sold_by_length: snapshot.sold_by_length ? 1 : 0, length_step_cm: snapshot.length_step_cm };
+      const line = { ...i, ...cut };
       return {
-        ...i,
+        ...line,
         product_snapshot_json: snapshot,
         // Prix normal d'un article acheté en action, à l'unité facturée (CLI-14)
-        compare_unit_price: compareUnitPrice(snapshot, i),
+        compare_unit_price: compareUnitPrice(snapshot, line),
       };
     }),
     history,

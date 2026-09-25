@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { stockToInput, stockFromInput, stockInSaleUnit, formatStock, formatQuantity } from './stock.js'
+import { stockToInput, stockFromInput, stockInSaleUnit, formatStock, formatQuantity, lineQuantityLabel, lineUnitSuffix } from './stock.js'
 
 /* ADM-12 — stock d'un article à la coupe tenu en centimètres, saisi et lu en mètres */
 const bande = { sold_by_length: 1, length_step_cm: 10 }
@@ -33,5 +33,14 @@ describe('stock — affichage', () => {
   it('quantité commandée : tronçons convertis en mètres', () => {
     expect(formatQuantity(bande, 6)).toBe('0.60 m')
     expect(formatQuantity(kit, 2)).toBe('2')
+  })
+})
+
+describe('stock — ligne de commande', () => {
+  it('« 60 cm » et « / 10 cm » pour la coupe, comme sur la facture', () => {
+    expect(lineQuantityLabel({ ...bande, quantity: 6 })).toBe('60 cm')
+    expect(lineUnitSuffix(bande)).toBe(' / 10 cm')
+    expect(lineQuantityLabel({ ...kit, quantity: 2 })).toBe('2')
+    expect(lineUnitSuffix(kit)).toBe('')
   })
 })

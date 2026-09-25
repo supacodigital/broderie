@@ -9,6 +9,7 @@ import { getOrderById, updateOrderStatus, downloadInvoice, generateLabel, downlo
 import { formatCHF, formatCents } from '../../utils/chf.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
 import { formatCustomerNumber } from '../../utils/customerNumber.js'
+import { lineQuantityLabel, lineUnitSuffix } from '../../utils/stock.js'
 import s from './OrderDetail.module.css'
 
 const STATUS_OPTIONS = [
@@ -429,7 +430,9 @@ export default function OrderDetail() {
               {(order.items ?? []).map(item => {
                 const p = snap(item)
                 const unitPrice    = parseFloat(item.unit_price)
-                const comparePrice = p.compare_price_chf ? parseFloat(p.compare_price_chf) : null
+                /* Prix normal ramené à l'unité facturée par le serveur (CLI-14) :
+                   au tronçon pour la coupe — le snapshot, lui, est au mètre. */
+                const comparePrice = item.compare_unit_price != null ? parseFloat(item.compare_unit_price) : null
                 const isDiscounted = comparePrice != null && comparePrice > unitPrice
                 return (
                   <div key={item.id} className={s.itemRow}>
@@ -437,8 +440,8 @@ export default function OrderDetail() {
                     <div className={s.itemInfo}>
                       <span className={s.itemName}>{p.name ?? `Produit #${item.product_id}`}</span>
                       <span className={s.itemSub}>
-                        {p.sku && `Réf. ${p.sku} · `}× {item.quantity}
-                        {isDiscounted && ` · Promo ${formatCHF(unitPrice)} au lieu de ${formatCHF(comparePrice)}`}
+                        {p.sku && `Réf. ${p.sku} · `}{item.sold_by_length ? lineQuantityLabel(item) : `× ${item.quantity}`}
+                        {isDiscounted && ` · Promo ${formatCHF(unitPrice)}${lineUnitSuffix(item)} au lieu de ${formatCHF(comparePrice)}`}
                       </span>
                     </div>
                     <span className={s.itemPrice}>{formatCHF(unitPrice * item.quantity)}</span>

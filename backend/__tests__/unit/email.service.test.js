@@ -110,6 +110,25 @@ describe('email.service — sendOrderConfirmation()', () => {
     expect(mail.html).toContain('65.90');
   });
 
+  /* Article à la coupe : la longueur (« 60 cm »), jamais le nombre de tronçons
+     de 10 cm (« × 6 ») — dans la confirmation comme dans la notification boutique. */
+  test('affiche la longueur d\'un article vendu à la coupe', async () => {
+    const orderCut = {
+      ...fakeOrder,
+      items: [
+        { product_id: 7, unit_price: '1.80', quantity: 6, sold_by_length: 1, length_step_cm: 10,
+          product_snapshot_json: { name: 'Bande à broder lin' } },
+        { product_id: 8, unit_price: '2.00', quantity: 3, product_snapshot_json: { name: 'Fil DMC 310' } },
+      ],
+    };
+    await service.sendOrderConfirmation({ user: fakeUser, order: orderCut });
+    const mail = transporter.sendMail.mock.calls[0][0];
+    expect(mail.html).toContain('Bande à broder lin — 60 cm');
+    expect(mail.html).not.toContain('× 6');
+    expect(mail.html).toContain('CHF 10.80');
+    expect(mail.html).toContain('Fil DMC 310 × 3');
+  });
+
   test('gère un product_snapshot_json déjà parsé (objet)', async () => {
     const orderParsed = {
       ...fakeOrder,

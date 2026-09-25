@@ -32,6 +32,16 @@ export function formatStock(item) {
     : String(stockInSaleUnit(item))
 }
 
+// Ligne de commande : « 60 cm » pour 6 tronçons de 10 cm, comme sur la facture
+export function lineQuantityLabel(item) {
+  return item?.sold_by_length ? `${(Number(item.quantity) || 0) * stepCmOf(item)} cm` : String(item?.quantity)
+}
+
+// Unité du prix facturé : « / 10 cm » pour un article à la coupe, rien sinon
+export function lineUnitSuffix(item) {
+  return item?.sold_by_length ? ` / ${stepCmOf(item)} cm` : ''
+}
+
 // Quantité commandée : « 0.60 m » pour 6 tronçons de 10 cm, le nombre de pièces sinon
 export function formatQuantity(item, quantity) {
   return item?.sold_by_length

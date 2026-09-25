@@ -108,8 +108,18 @@ const formatQuantity = (product, quantity) =>
     ? `${((Number(quantity) || 0) * stepCm(product) / CM_PER_METER).toFixed(2)} m`
     : String(quantity));
 
+/* Ligne de commande d'un article à la coupe : quantité en centimètres
+   (« 60 cm » pour 6 tronçons de 10 cm) et prix unitaire rapporté au tronçon
+   (« / 10 cm ») — ce qui a été facturé, sans reconversion au mètre d'un prix
+   déjà arrondi. Pour un article à la pièce : la quantité seule, sans unité. */
+const lineQuantityLabel = (item) =>
+  (isSoldByLength(item) ? `${lengthFromQuantity(item, Number(item.quantity) || 0)} cm` : String(item.quantity));
+const lineUnitSuffix = (item) => (isSoldByLength(item) ? ` / ${stepCm(item)} cm` : '');
+
 module.exports = {
   CM_PER_METER,
+  lineQuantityLabel,
+  lineUnitSuffix,
   formatStock,
   formatQuantity,
   stockUnits,

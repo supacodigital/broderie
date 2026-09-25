@@ -1,6 +1,7 @@
 const transporter = require('../config/mailer');
 const { roundCHF } = require('../utils/chf.utils');
 const { compareUnitPrice, salePercent } = require('../utils/sale.utils');
+const lengthUtils = require('../utils/length.utils');
 const env = require('../config/env');
 
 const FROM     = env.mailFrom    || '"Au Point-Compté" <contact@broderie.ch>';
@@ -100,6 +101,11 @@ function orderItemRow(item, { showSale = false } = {}) {
     : (item.product_snapshot_json ?? {});
   const name   = escapeHtml(snap.name ?? `Produit #${item.product_id}`);
   const price  = roundCHF(parseFloat(item.unit_price) * item.quantity);
+  /* Article à la coupe : la longueur (« — 60 cm »), jamais le nombre de
+     tronçons ; à la pièce : « × 3 » au-delà d'une unité. */
+  const quantityNote = lengthUtils.isSoldByLength(item)
+    ? ` — ${lengthUtils.lineQuantityLabel(item)}`
+    : (item.quantity > 1 ? ` × ${item.quantity}` : '');
   /* Référence article (SKU) figée à l'achat — demandée par la boutique (CLI-08) :
      c'est elle qui identifie l'article sans ambiguïté, un même nom pouvant
      désigner plusieurs coloris. */
@@ -119,7 +125,7 @@ function orderItemRow(item, { showSale = false } = {}) {
     : '';
   return `<tr>
     <td style="padding:8px 0;border-bottom:1px solid #fbcfe8;font-size:13px;color:#1E1020;">
-      ${name}${item.quantity > 1 ? ` × ${item.quantity}` : ''}${skuNote}${madeToOrderNote}${saleNote}
+      ${name}${quantityNote}${skuNote}${madeToOrderNote}${saleNote}
     </td>
     <td style="padding:8px 0;border-bottom:1px solid #fbcfe8;font-size:13px;font-weight:600;color:#1E1020;text-align:right;white-space:nowrap;">
       ${normalTotal}CHF ${price.toFixed(2)}

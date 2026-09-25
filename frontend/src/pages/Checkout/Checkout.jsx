@@ -15,6 +15,7 @@ import { validateCoupon } from '../../services/coupons.service.js'
 import { getAddresses } from '../../services/addresses.service.js'
 import { getShippingRate } from '../../services/shipping.service.js'
 import { roundCHF, salePercent } from '../../utils/chf.js'
+import { lineQuantityLabel } from '../../utils/stock.js'
 import s from './Checkout.module.css'
 
 /* Chargement différé de Stripe — singleton garanti.
@@ -162,7 +163,8 @@ function OrderSummary({ items, subtotal, discount, couponCode, shipping, shippin
               </span>
             )}
           </span>
-          <span className={s.summaryItemQty}>×{item.quantity}</span>
+          {/* Article à la coupe : la longueur (« 60 cm »), pas le nombre de tronçons */}
+          <span className={s.summaryItemQty}>{item.sold_by_length ? lineQuantityLabel(item) : `×${item.quantity}`}</span>
           <span className={s.summaryItemPrice}>
             {salePercent(item.unit_price, item.compare_unit_price) > 0 && (
               <span className={s.summaryItemPriceOld}>
