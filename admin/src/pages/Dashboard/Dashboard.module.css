@@ -159,20 +159,21 @@
   gap: 3px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--rose);
+  color: var(--rose-dark);
   white-space: nowrap;
   flex-shrink: 0;
   transition: color .15s;
 }
 
-.cardLink:hover { color: var(--rose-dark); }
+.cardLink:hover { color: var(--rose-darker); } /* repos en rose foncé : un cran plus sombre au survol */
 
 /* ── Tableau commandes ── */
 .ordersTable { overflow-x: auto; }
 
 .ordersHead, .ordersRow {
   display: grid;
-  grid-template-columns: 60px 1fr 110px 90px 130px 80px;
+  /* 84 px : un n° de facture « 2026-09/24 » tient sur une ligne */
+  grid-template-columns: 84px 1fr 110px 90px 130px 80px;
   gap: 8px;
   padding: 10px 20px;
   align-items: center;
@@ -201,6 +202,7 @@
   font-weight: 700;
   color: var(--rose-dark); /* contraste AA, comme la liste des commandes */
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .orderCustomer { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
@@ -293,7 +295,7 @@
   height: 32px;
   border-radius: 8px;
   background: var(--rose-pale);
-  color: var(--rose);
+  color: var(--rose-dark);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -594,7 +596,7 @@
   transition: border-color .15s, color .15s;
   flex-shrink: 0;
 }
-.refreshBtn:hover { border-color: var(--rose); color: var(--rose); }
+.refreshBtn:hover { border-color: var(--rose); color: var(--rose-dark); }
 .refreshBtn:disabled { opacity: .5; cursor: not-allowed; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -683,8 +685,8 @@
   transition: background .12s;
 }
 .quickLink:last-child { border-bottom: none; }
-.quickLink:hover { background: var(--rose-pale); color: var(--rose); }
-.quickLink svg { color: var(--rose); flex-shrink: 0; }
+.quickLink:hover { background: var(--rose-pale); color: var(--rose-dark); }
+.quickLink svg { color: var(--rose-dark); flex-shrink: 0; }
 .quickLink span:nth-child(2) { flex: 1; }
 .quickBadge {
   display: inline-flex;
@@ -697,7 +699,7 @@
   font-size: 11px;
   font-weight: 700;
   background: var(--rose-pale);
-  color: var(--rose);
+  color: var(--rose-dark);
   flex-shrink: 0;
 }
 

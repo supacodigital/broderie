@@ -111,6 +111,7 @@
   font-weight: 600;
 }
 
+/* Fond sombre du menu : le rose clair y est lisible, le rose foncé ne le serait pas */
 .navLink.active svg:first-child { color: var(--rose); }
 
 .navLabel { flex: 1; }
@@ -383,7 +384,7 @@
   transition: color .15s;
 }
 
-.notifPanelClose:hover { color: var(--rose); }
+.notifPanelClose:hover { color: var(--rose-dark); }
 
 .notifEmpty {
   padding: 20px 16px;
@@ -414,7 +415,7 @@
   height: 28px;
   border-radius: 8px;
   background: var(--rose-pale);
-  color: var(--rose);
+  color: var(--rose-dark);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -450,7 +451,7 @@
   align-self: center;
 }
 
-.notifLink:hover { color: var(--rose); }
+.notifLink:hover { color: var(--rose-dark); }
 
 /* ── Contenu ── */
 .content {

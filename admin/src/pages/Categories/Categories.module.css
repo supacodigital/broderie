@@ -28,7 +28,7 @@
 
 /* ── Error banner ── */
 .errorBanner { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #d97706; background: #fffbeb; border: 1px solid #fde68a; border-radius: 9px; padding: 10px 16px; margin-bottom: 16px; }
-.retryBtn { background: none; border: none; font-size: 13px; font-weight: 600; color: var(--rose); text-decoration: underline; cursor: pointer; padding: 0; }
+.retryBtn { background: none; border: none; font-size: 13px; font-weight: 600; color: var(--rose-dark); text-decoration: underline; cursor: pointer; padding: 0; }
 
 /* ── Table ── */
 .card { background: #fff; border: 1px solid var(--rose-border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
@@ -55,8 +55,8 @@
 .catCell { display: flex; align-items: center; gap: 8px; min-width: 0; }
 /* Indentation réelle : décale le contenu des sous-catégories vers la droite */
 .catCellChild { padding-left: 22px; }
-.catIcon { width: 28px; height: 28px; background: var(--rose-pale); color: var(--rose); border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.childArrow { color: var(--rose); flex-shrink: 0; }
+.catIcon { width: 28px; height: 28px; background: var(--rose-pale); color: var(--rose-dark); border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.childArrow { color: var(--rose-dark); flex-shrink: 0; }
 
 /* Chevron accordéon — parents avec sous-catégories */
 .expandBtn {
@@ -66,7 +66,7 @@
   color: var(--text-muted); cursor: pointer;
   transition: background .15s, color .15s;
 }
-.expandBtn:hover:not(:disabled) { background: var(--rose-pale); color: var(--rose); }
+.expandBtn:hover:not(:disabled) { background: var(--rose-pale); color: var(--rose-dark); }
 .expandBtn:disabled { cursor: default; opacity: .5; }
 .expandSpacer { width: 22px; flex-shrink: 0; }
 .catName { font-weight: 600; color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -79,7 +79,7 @@
 
 .actions { display: flex; gap: 4px; justify-content: flex-end; }
 .iconBtn, .iconBtnDanger { background: none; border: none; padding: 6px; border-radius: 7px; display: flex; align-items: center; color: var(--text-muted); transition: all .15s; }
-.iconBtn:hover { background: var(--rose-pale); color: var(--rose); }
+.iconBtn:hover { background: var(--rose-pale); color: var(--rose-dark); }
 .iconBtnDanger:hover { background: #fef2f2; color: #dc2626; }
 .iconBtn:disabled, .iconBtnDanger:disabled { opacity: .35; cursor: not-allowed; }
 .iconBtn:disabled:hover, .iconBtnDanger:disabled:hover { background: none; color: var(--text-muted); }
@@ -108,7 +108,7 @@
 .modalHead { position: sticky; top: 0; background: #fff; display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--rose-border); z-index: 1; }
 .modalTitle { font-size: 17px; font-weight: 700; color: var(--text-dark); }
 .closeBtn { background: none; border: none; font-size: 18px; color: var(--text-muted); padding: 4px 8px; border-radius: 6px; transition: background .15s; }
-.closeBtn:hover { background: var(--rose-pale); color: var(--rose); }
+.closeBtn:hover { background: var(--rose-pale); color: var(--rose-dark); }
 .modalBody { padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 14px; }
 
 .sectionLabel { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: -4px; }
@@ -130,7 +130,7 @@
 
 .modalActions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
 .btnCancel { padding: 9px 18px; background: none; border: 1.5px solid var(--rose-border); border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); transition: border-color .15s; }
-.btnCancel:hover { border-color: var(--rose); color: var(--rose); }
+.btnCancel:hover { border-color: var(--rose); color: var(--rose-dark); }
 .btnSave { display: flex; align-items: center; gap: 6px; padding: 9px 20px; background: var(--rose); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; transition: background .15s; }
 .btnSave:hover:not(:disabled) { background: var(--rose-dark); }
 .btnSave:disabled { opacity: .6; cursor: not-allowed; }
@@ -336,7 +336,7 @@
   transition: border-color .2s, color .2s;
 }
 @media (hover: hover) and (pointer: fine) {
-  .resetBtn:hover:not(:disabled) { border-color: var(--rose); color: var(--rose); }
+  .resetBtn:hover:not(:disabled) { border-color: var(--rose); color: var(--rose-dark); }
 }
 .resetBtn:disabled { opacity: .45; cursor: default; }
 
@@ -384,7 +384,7 @@
   transition: color 150ms ease-out;
 }
 @media (hover: hover) and (pointer: fine) {
-  .chipReset:hover { color: var(--rose); }
+  .chipReset:hover { color: var(--rose-dark); }
 }
 
 /* ── Bouton de densité ── */
@@ -441,7 +441,7 @@
   transition: color 0.15s;
   white-space: nowrap;
 }
-.sortHeader:hover { color: var(--rose); }
+.sortHeader:hover { color: var(--rose-dark); }
 
 /* ── Bandeau « liste triée, arborescence masquée » ── */
 .flatNotice {

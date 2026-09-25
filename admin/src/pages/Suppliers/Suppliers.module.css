@@ -38,7 +38,7 @@
   cursor: pointer;
   transition: background .15s, color .15s;
 }
-.iconBtn:hover { background: var(--rose-pale); color: var(--rose); }
+.iconBtn:hover { background: var(--rose-pale); color: var(--rose-dark); }
 .iconBtnDanger:hover { background: #fef2f2; color: #dc2626; }
 
 
@@ -59,7 +59,7 @@
 
 /* ── Erreur ── */
 .errorBanner { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #d97706; background: #fffbeb; border: 1px solid #fde68a; border-radius: 9px; padding: 10px 16px; margin-bottom: 16px; }
-.retryBtn { background: none; border: none; font-size: 13px; font-weight: 600; color: var(--rose); text-decoration: underline; cursor: pointer; padding: 0; }
+.retryBtn { background: none; border: none; font-size: 13px; font-weight: 600; color: var(--rose-dark); text-decoration: underline; cursor: pointer; padding: 0; }
 
 /* ── Détails de la carte ── */
 
@@ -165,7 +165,7 @@
   border-radius: 14px;
 }
 
-.emptyIcon { color: var(--rose); opacity: .7; }
+.emptyIcon { color: var(--rose-dark); opacity: .7; }
 
 .emptyTitle {
   font-size: 15px;
@@ -270,7 +270,7 @@
   transition: color .15s;
   white-space: nowrap;
 }
-.sortHeader:hover { color: var(--rose); }
+.sortHeader:hover { color: var(--rose-dark); }
 
 .supCell { display: flex; align-items: center; gap: 9px; min-width: 0; }
 
@@ -278,7 +278,7 @@
   width: 28px; height: 28px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   background: var(--rose-pale);
-  color: var(--rose);
+  color: var(--rose-dark);
   border-radius: 7px;
   font-size: 12px;
   font-weight: 700;

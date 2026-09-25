@@ -23,7 +23,7 @@
   transition: border-color .15s, color .15s, background .15s;
 }
 
-.backBtn:hover { border-color: var(--rose); color: var(--rose); background: var(--rose-pale); }
+.backBtn:hover { border-color: var(--rose); color: var(--rose-dark); background: var(--rose-pale); }
 
 .headerTitle {
   font-size: 19px;
@@ -117,7 +117,7 @@
   transition: border-color .15s;
 }
 
-.btnCancel:hover { border-color: var(--rose); color: var(--rose); }
+.btnCancel:hover { border-color: var(--rose); color: var(--rose-dark); }
 
 .apiError {
   display: flex;
@@ -212,7 +212,7 @@
 .kpiDanger .kpiIcon { color: #dc2626; }
 .kpiDanger .kpiVal  { color: #dc2626; }
 
-.kpiIcon { color: var(--rose); margin-bottom: 2px; }
+.kpiIcon { color: var(--rose-dark); margin-bottom: 2px; }
 .kpiVal  { font-size: 15px; font-weight: 700; color: var(--text-dark); line-height: 1.2; }
 .kpiLbl  { font-size: 11px; color: var(--text-muted); }
 

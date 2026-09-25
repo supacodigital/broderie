@@ -84,7 +84,7 @@
   cursor: pointer;
 }
 
-.refreshBtn:hover { border-color: var(--rose); color: var(--rose); }
+.refreshBtn:hover { border-color: var(--rose); color: var(--rose-dark); }
 
 /* ── Table ── */
 .card {
@@ -222,7 +222,7 @@
   cursor: pointer;
 }
 
-.iconBtn:hover { background: var(--rose-pale); color: var(--rose); }
+.iconBtn:hover { background: var(--rose-pale); color: var(--rose-dark); }
 
 /* ── Skeleton ── */
 .loadingRows { padding: 8px 0; }
@@ -300,7 +300,7 @@
   border: none;
   font-size: 13px;
   font-weight: 600;
-  color: var(--rose);
+  color: var(--rose-dark);
   text-decoration: underline;
   cursor: pointer;
   padding: 0;
@@ -336,7 +336,7 @@
   transition: color 0.15s;
   white-space: nowrap;
 }
-.sortHeader:hover { color: var(--rose); }
+.sortHeader:hover { color: var(--rose-dark); }
 
 
 /* ── Barre d'outils ── */

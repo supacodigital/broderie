@@ -69,7 +69,7 @@
   white-space: nowrap;
 }
 .filterToggleBtn:hover  { border-color: var(--rose); }
-.filterToggleActive     { border-color: var(--rose); background: #fff5f5; color: var(--rose); }
+.filterToggleActive     { border-color: var(--rose); background: #fff5f5; color: var(--rose-dark); }
 
 .filterBadge {
   display: inline-flex;
@@ -98,7 +98,7 @@
   cursor: pointer;
   transition: border-color .2s, color .2s;
 }
-.resetBtn:hover { border-color: var(--rose); color: var(--rose); }
+.resetBtn:hover { border-color: var(--rose); color: var(--rose-dark); }
 
 /* ── Popover filtres avancés ── */
 .filterAnchor { position: relative; }
@@ -567,7 +567,7 @@
 .metaSep { opacity: .4; }
 
 .supplierTag {
-  color: var(--rose);
+  color: var(--rose-dark);
   font-weight: 500;
   opacity: .85;
 }
@@ -610,7 +610,7 @@
   color: var(--text-muted);
 }
 
-.iconBtn:hover      { background: var(--rose-pale); color: var(--rose); }
+.iconBtn:hover      { background: var(--rose-pale); color: var(--rose-dark); }
 .iconBtnDanger:hover { background: #fef2f2; color: #dc2626; }
 
 .loading, .empty {
@@ -688,7 +688,7 @@
   transition: background .15s;
 }
 
-.closeBtn:hover { background: var(--rose-pale); color: var(--rose); }
+.closeBtn:hover { background: var(--rose-pale); color: var(--rose-dark); }
 
 .modalBody { padding: 20px 24px 24px; overflow-y: auto; }
 
@@ -749,7 +749,7 @@
   transition: border-color .15s;
 }
 
-.btnCancel:hover { border-color: var(--rose); color: var(--rose); }
+.btnCancel:hover { border-color: var(--rose); color: var(--rose-dark); }
 
 .btnSave {
   padding: 9px 20px;
@@ -853,7 +853,7 @@
   gap: 8px;
 }
 
-.dropZoneIcon { color: var(--rose); }
+.dropZoneIcon { color: var(--rose-dark); }
 
 .dropZoneText {
   font-size: 13px;
@@ -973,7 +973,7 @@
   transition: background .15s;
 }
 
-.imageActionBtn:hover   { background: #fff; color: var(--rose); }
+.imageActionBtn:hover   { background: #fff; color: var(--rose-dark); }
 .imageActionDanger:hover { background: #fff; color: #dc2626; }
 
 .imgLoadingText {
@@ -1049,7 +1049,7 @@
   border: none;
   font-size: 13px;
   font-weight: 600;
-  color: var(--rose);
+  color: var(--rose-dark);
   text-decoration: underline;
   cursor: pointer;
   padding: 0;
@@ -1081,7 +1081,7 @@
   transition: color 0.15s;
   white-space: nowrap;
 }
-.sortHeader:hover { color: var(--rose); }
+.sortHeader:hover { color: var(--rose-dark); }
 
 /* ── Colonne marque ── */
 .brandCell {
@@ -1132,7 +1132,7 @@
   border-bottom: 1px solid var(--rose-border);
 }
 
-.viewsIcon { color: var(--rose); flex-shrink: 0; }
+.viewsIcon { color: var(--rose-dark); flex-shrink: 0; }
 
 .view {
   display: inline-flex;

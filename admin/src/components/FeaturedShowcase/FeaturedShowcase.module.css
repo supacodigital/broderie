@@ -43,7 +43,7 @@
   margin: 12px 0 10px;
 }
 
-.featuredBarIcon { color: var(--rose); flex-shrink: 0; }
+.featuredBarIcon { color: var(--rose-dark); flex-shrink: 0; }
 
 .featuredBarTitle {
   font-size: 13px;
@@ -57,7 +57,7 @@
   padding: 2px 8px;
   border-radius: 20px;
   background: var(--rose-pale);
-  color: var(--rose);
+  color: var(--rose-dark);
 }
 
 .featuredBarCountFull {
@@ -93,7 +93,7 @@
   background: #fff;
   font-size: 12px;
   font-weight: 600;
-  color: var(--rose);
+  color: var(--rose-dark);
   cursor: pointer;
   transition: background .15s, border-color .15s;
 }
@@ -231,7 +231,7 @@
   color: var(--text-muted);
 }
 
-.featuredSlotEdit:hover  { background: var(--rose-pale); border-color: var(--rose); color: var(--rose); }
+.featuredSlotEdit:hover  { background: var(--rose-pale); border-color: var(--rose); color: var(--rose-dark); }
 .featuredSlotRemove:hover { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
 
 /* Slot vide — n'occupe plus la hauteur d'une carte pleine (380 px pour un seul
@@ -260,7 +260,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--rose);
+  color: var(--rose-dark);
   font-size: 11px;
   font-weight: 600;
   padding: 12px;
@@ -269,7 +269,7 @@
   transition: color .15s;
 }
 
-.featuredSlotAddBtn:hover { color: var(--rose-dark); }
+.featuredSlotAddBtn:hover { color: var(--rose-darker); } /* repos en rose foncé : un cran plus sombre au survol */
 
 /* ── Sélecteur de produit (modale) ── */
 .pickerOverlay {

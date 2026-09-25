@@ -28,7 +28,7 @@
   align-items: center;
   justify-content: center;
   margin: 0 auto 20px;
-  color: var(--rose);
+  color: var(--rose-dark);
 }
 
 .title {
@@ -76,7 +76,7 @@
 .manualEntry summary {
   cursor: pointer;
   text-align: center;
-  color: var(--rose);
+  color: var(--rose-dark);
   font-weight: 600;
 }
 
