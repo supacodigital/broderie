@@ -239,17 +239,34 @@
 .summaryRow {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
   font-family: 'Montserrat', sans-serif;
   font-size: 14px;
   color: var(--text-muted);
   margin-bottom: 12px;
 }
 
-.summaryRow span:last-child {
+/* Montant : enfant direct seulement (sinon le style gagnait aussi le
+   transporteur, imbriqué dans le libellé) et jamais coupé en deux lignes */
+.summaryRow > span:last-child {
   font-weight: 600;
   color: var(--text-dark);
+  white-space: nowrap;
 }
+
+/* Transporteur et délai, sous « Frais de livraison » */
+.shippingMeta {
+  display: block;
+  margin-top: 1px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Alternative à la livraison (retrait en boutique) : même alignement que la
+   ligne des frais, un cran plus discret */
+.summaryRowAlt { margin-top: -6px; font-size: 13px; }
+.summaryRowAlt > span:last-child { color: var(--text); }
 
 .summaryDivider {
   border: none;

@@ -180,10 +180,18 @@ export default function Cart() {
               <span>
                 {t("cart.shipping")}
                 {shipping && (
-                  <span className={s.shippingMeta}> · {shipping.carrier} · {shipping.estimated_days}j</span>
+                  <span className={s.shippingMeta}>{shipping.carrier} · {shipping.estimated_days} j</span>
                 )}
               </span>
               <span>{shipping ? `CHF ${shipping.price_chf.toFixed(2)}` : '…'}</span>
+            </div>
+
+            {/* Le mode de réception se choisit à l'étape suivante : au panier, la
+                livraison n'est pas encore certaine. Le retrait en boutique, lui,
+                ne coûte aucun frais de port (seule exception, cf. order.service). */}
+            <div className={`${s.summaryRow} ${s.summaryRowAlt}`}>
+              <span>{t("cart.pickupAlternative")}</span>
+              <span>{t("cart.pickupFree")}</span>
             </div>
 
             <hr className={s.summaryDivider} />
