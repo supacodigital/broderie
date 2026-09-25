@@ -508,3 +508,40 @@ describe('product.admin.repository — findAllAdmin()', () => {
     expect(pool.query.mock.calls[0][0]).not.toContain('category_needs_review');
   });
 });
+
+// ── Fiches à compléter (25.09) ─────────────────────────────────────────────────
+
+describe('product.admin.repository — fiches à compléter', () => {
+  test.each([
+    ['noPhoto',    'NOT EXISTS (SELECT 1 FROM product_images pq WHERE pq.product_id = p.id)'],
+    ['noWeight',   '(p.weight_kg IS NULL OR p.weight_kg = 0)'],
+    ['noSupplier', 'p.supplier_id IS NULL'],
+  ])('filtre %s', async (option, condition) => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 1 }]])
+      .mockResolvedValueOnce([[{ id: 1 }]]);
+
+    await repo.findAllAdmin({ [option]: true });
+
+    // Même condition sur le comptage et sur la page de résultats
+    expect(pool.query.mock.calls[0][0]).toContain(condition);
+    expect(pool.query.mock.calls[1][0]).toContain(condition);
+  });
+
+  test('sans option, aucune de ces conditions', async () => {
+    pool.query
+      .mockResolvedValueOnce([[{ total: 1 }]])
+      .mockResolvedValueOnce([[{ id: 1 }]]);
+
+    await repo.findAllAdmin({});
+
+    expect(pool.query.mock.calls[0][0]).not.toMatch(/product_images pq|weight_kg IS NULL|supplier_id IS NULL/);
+  });
+
+  test('countQualityIssues : nombres entiers, 0 quand MySQL renvoie NULL (table vide)', async () => {
+    pool.query.mockResolvedValueOnce([[{ no_photo: '6833', no_weight: null, no_supplier: '462' }]]);
+
+    await expect(repo.countQualityIssues()).resolves.toEqual({ noPhoto: 6833, noWeight: 0, noSupplier: 462 });
+    expect(pool.query.mock.calls[0][0]).toContain('WHERE p.deleted_at IS NULL');
+  });
+});

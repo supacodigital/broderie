@@ -32,6 +32,8 @@ router.get('/dashboard/stats', dashboardController.getStats);
 
 // Produits
 router.get('/products', productAdminController.getAll);
+// Avant /products/:id : sinon « quality » serait lu comme un identifiant
+router.get('/products/quality', productAdminController.getQuality);
 router.post('/products', productAdminController.create);
 router.put('/products/featured-order', productAdminController.updateFeaturedOrder);
 /* Avant /products/:id ? Non : les deux chemins ne se recouvrent pas, mais on

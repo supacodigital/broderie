@@ -66,6 +66,10 @@ const buildListFilters = (query) => ({
                      : query.needs_category_review === 'false' ? false : null,
   // Remonte les produits illustrés — utilisé par le sélecteur de la vitrine home
   imageFirst: query.image_first === 'true',
+  // Fiches à compléter (pastilles « À compléter » de la liste)
+  noPhoto:    query.no_photo === 'true',
+  noWeight:   query.no_weight === 'true',
+  noSupplier: query.no_supplier === 'true',
 });
 
 const list = async (query) => {
@@ -82,6 +86,9 @@ const list = async (query) => {
     },
   };
 };
+
+// Compteurs des pastilles « À compléter » (sans photo, sans poids, sans fournisseur)
+const qualityCounts = () => productAdminRepository.countQualityIssues();
 
 const getById = async (id, locale) => {
   const product = await productAdminRepository.findByIdAdmin(id, locale);
@@ -218,6 +225,6 @@ const getPriceHistory = async (id, { page = 1, limit = 50 } = {}) => {
 };
 
 module.exports = {
-  list, getById, create, update, remove,
+  list, qualityCounts, getById, create, update, remove,
   addImage, removeImage, setPrimaryImage, setFeatured, updateFeaturedOrder, getPriceHistory,
 };

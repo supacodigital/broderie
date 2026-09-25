@@ -277,6 +277,65 @@
   .quickFilter:hover { border-color: var(--rose); color: var(--text-dark); }
 }
 .quickFilter:active { transform: scale(0.97); }
+
+/* ── À compléter ──
+   Rangée sous la barre d'outils : les fiches incomplètes, avec leur nombre.
+   Plus discrète que les filtres du quotidien (pastilles arrondies, texte
+   plus petit) : un chantier de fond, pas une action de tous les jours. */
+.qualityBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -8px 0 20px;
+}
+
+.qualityLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-right: 2px;
+}
+
+.qualityChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition: border-color 150ms ease-out, background-color 150ms ease-out, color 150ms ease-out, transform 150ms ease-out;
+}
+
+.qualityChip svg { color: var(--text-muted); }
+
+.qualityCount {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.qualityChipOn { border-color: var(--rose-dark); background: var(--rose-pale); color: var(--rose-dark); }
+.qualityChipOn svg { color: var(--rose-dark); }
+.qualityChipOn .qualityCount { background: var(--rose-dark); color: #fff; }
+
+.qualityChip:active { transform: scale(0.97); }
+.qualityChip:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .qualityChip:hover { border-color: var(--rose); color: var(--rose-dark); }
+}
 .quickFilterOn {
   background: var(--rose-pale);
   border-color: var(--rose);

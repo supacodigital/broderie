@@ -310,6 +310,7 @@ const runFindAllAdmin = async ({
   inStock = false, lowStock = false,
   isActive = null, isFeatured = null,
   needsCategoryReview = null,
+  noPhoto = false, noWeight = false, noSupplier = false,
   sort = 'created_at', order = 'desc',
   imageFirst = false,
   fuzzyTerms = null,
@@ -431,6 +432,19 @@ const runFindAllAdmin = async ({
     where += ' AND p.is_featured = ?';
     params.push(isFeatured ? 1 : 0);
   }
+  /* Fiches à compléter — la cliente les reprend petit à petit depuis la liste.
+     Même définition que countQualityIssues(), pour que le compteur de la
+     pastille et le nombre de lignes filtrées coïncident. */
+  if (noPhoto) {
+    where += ' AND NOT EXISTS (SELECT 1 FROM product_images pq WHERE pq.product_id = p.id)';
+  }
+  if (noWeight) {
+    // Sans poids, l'étiquette La Poste retombe sur une estimation (0,2 kg par article)
+    where += ' AND (p.weight_kg IS NULL OR p.weight_kg = 0)';
+  }
+  if (noSupplier) {
+    where += ' AND p.supplier_id IS NULL';
+  }
 
   const [countRows] = await pool.query(
     `SELECT COUNT(*) AS total FROM products p
@@ -497,6 +511,28 @@ const toFuzzyTerms = (search) => {
   // Aucun mot assez long : le repli donnerait le même résultat, inutile de
   // relancer une seconde requête.
   return truncated ? out : null;
+};
+
+/* Nombre de fiches à compléter, pour les pastilles « À compléter » de la liste.
+   Une seule requête : un SUM par manque (même définitions que les filtres), sur
+   le même périmètre que la liste — produits non supprimés ET nommés en français
+   (la liste joint product_translations) : sans cette jointure, le compteur
+   annonçait des produits que le filtre ne pouvait pas afficher. */
+const countQualityIssues = async () => {
+  const [[row]] = await pool.query(
+    `SELECT
+       SUM(NOT EXISTS (SELECT 1 FROM product_images pq WHERE pq.product_id = p.id)) AS no_photo,
+       SUM(p.weight_kg IS NULL OR p.weight_kg = 0)                                 AS no_weight,
+       SUM(p.supplier_id IS NULL)                                                  AS no_supplier
+     FROM products p
+     INNER JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = 'fr'
+     WHERE p.deleted_at IS NULL`
+  );
+  return {
+    noPhoto:    Number(row.no_photo)    || 0,
+    noWeight:   Number(row.no_weight)   || 0,
+    noSupplier: Number(row.no_supplier) || 0,
+  };
 };
 
 const findAllAdmin = async (options = {}) => {
@@ -605,4 +641,4 @@ const findPriceHistory = async (productId, { limit = 50, offset = 0 } = {}) => {
   return { rows, total };
 };
 
-module.exports = { create, update, softDelete, addImage, removeImage, setPrimaryImage, findAllAdmin, findByIdAdmin, slugExists, skuExists, setFeatured, updateFeaturedOrder, findPriceHistory };
+module.exports = { create, update, softDelete, addImage, removeImage, setPrimaryImage, findAllAdmin, countQualityIssues, findByIdAdmin, slugExists, skuExists, setFeatured, updateFeaturedOrder, findPriceHistory };

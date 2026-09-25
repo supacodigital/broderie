@@ -111,6 +111,42 @@ describe('Admin — Produits', () => {
     expect(res.body.pagination).toBeDefined();
   });
 
+  /* « À compléter » (25.09) : chaque compteur égale le nombre de produits
+     renvoyés par le filtre correspondant — la pastille ne ment pas. */
+  test('GET /admin/products/quality : compteurs égaux aux listes filtrées', async () => {
+    const adminToken = await getAdminToken();
+    const res = await request(app)
+      .get('/api/v1/admin/products/quality')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    const { noPhoto, noWeight, noSupplier } = res.body.data;
+    for (const [param, count] of [['no_photo', noPhoto], ['no_weight', noWeight], ['no_supplier', noSupplier]]) {
+      expect(Number.isInteger(count)).toBe(true);
+      const list = await request(app)
+        .get('/api/v1/admin/products')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .query({ [param]: 'true', limit: 100 });
+      expect(list.body.pagination.total).toBe(count);
+    }
+  });
+
+  test('filtre « sans fournisseur » : uniquement des produits sans fournisseur', async () => {
+    const adminToken = await getAdminToken();
+    const res = await request(app)
+      .get('/api/v1/admin/products')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .query({ no_supplier: 'true', limit: 100 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.every((p) => p.supplier_id === null)).toBe(true);
+  });
+
+  test('GET /admin/products/quality sans authentification : 401', async () => {
+    const res = await request(app).get('/api/v1/admin/products/quality');
+    expect(res.status).toBe(401);
+  });
+
   test('POST /admin/products crée un produit', async () => {
     const adminToken = await getAdminToken();
 

@@ -8,6 +8,7 @@ vi.mock('../../services/products.service.js', () => ({
   getProducts:   vi.fn(),
   deleteProduct: vi.fn(),
   getBrands:     vi.fn(),
+  getProductQuality: vi.fn(),
 }))
 vi.mock('../../services/categories.service.js', () => ({ getCategories: vi.fn() }))
 vi.mock('../../services/suppliers.service.js', () => ({ getSuppliers: vi.fn() }))
@@ -18,7 +19,7 @@ vi.mock('../../hooks/useSavedViews.js', () => ({
   useSavedViews: () => ({ views: [], saveView: vi.fn(), removeView: vi.fn(), maxViews: 5 }),
 }))
 
-import { getProducts, getBrands } from '../../services/products.service.js'
+import { getProducts, getBrands, getProductQuality } from '../../services/products.service.js'
 import { getCategories } from '../../services/categories.service.js'
 import { getSuppliers } from '../../services/suppliers.service.js'
 
@@ -47,6 +48,7 @@ beforeEach(() => {
   getSuppliers.mockResolvedValue({ data: [] })
   getBrands.mockResolvedValue([])
   getProducts.mockResolvedValue({ data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } })
+  getProductQuality.mockResolvedValue({ noPhoto: 0, noWeight: 0, noSupplier: 0 })
   try { localStorage.clear() } catch { /* stockage indisponible */ }
 })
 
@@ -170,5 +172,36 @@ describe('Products — lignes de la liste', () => {
     renderPage()
     await row('Kit A')
     expect(screen.queryByRole('button', { name: 'Supprimer' })).not.toBeInTheDocument()
+  })
+})
+
+/* « À compléter » (25.09) : les fiches incomplètes, avec leur nombre, en un clic. */
+describe('Products — fiches à compléter', () => {
+  it('affiche les manques avec leur nombre, et masque ceux à zéro', async () => {
+    getProductQuality.mockResolvedValue({ noPhoto: 6833, noWeight: 11145, noSupplier: 0 })
+    renderPage()
+    const bar = await screen.findByRole('group', { name: 'Fiches à compléter' })
+    expect(within(bar).getByRole('button', { name: /Sans photo/ })).toHaveTextContent(/6\s?833/)
+    expect(within(bar).getByRole('button', { name: /Sans poids/ })).toHaveTextContent(/11\s?145/)
+    expect(within(bar).queryByRole('button', { name: /Sans fournisseur/ })).not.toBeInTheDocument()
+  })
+
+  it('un clic filtre la liste, un second clic retire le filtre', async () => {
+    const user = userEvent.setup()
+    getProductQuality.mockResolvedValue({ noPhoto: 12, noWeight: 0, noSupplier: 3 })
+    renderPage()
+    const chip = await screen.findByRole('button', { name: /Sans photo/ })
+    await user.click(chip)
+    await waitFor(() => expect(getProducts.mock.calls.at(-1)[0]).toMatchObject({ no_photo: 'true' }))
+    expect(chip).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(chip)
+    await waitFor(() => expect(getProducts.mock.calls.at(-1)[0]).not.toHaveProperty('no_photo'))
+  })
+
+  it('rien à compléter : pas de rangée', async () => {
+    renderPage()
+    await waitFor(() => expect(getProductQuality).toHaveBeenCalled())
+    expect(screen.queryByRole('group', { name: 'Fiches à compléter' })).not.toBeInTheDocument()
   })
 })

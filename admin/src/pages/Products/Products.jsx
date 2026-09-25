@@ -1,11 +1,11 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import {
-  Plus, Search, Edit2, ImageOff, AlertTriangle,
+  Plus, Search, Edit2, ImageOff, AlertTriangle, Weight, Factory,
   SlidersHorizontal, RotateCcw, EyeOff, X, Rows2, Rows3, Star, ChevronDown,
 } from 'lucide-react'
 import {
-  getProducts, getBrands,
+  getProducts, getBrands, getProductQuality,
 } from '../../services/products.service.js'
 import { getCategories } from '../../services/categories.service.js'
 import { getSuppliers } from '../../services/suppliers.service.js'
@@ -27,6 +27,14 @@ const PER_PAGE_OPTIONS = [20, 50, 100]
 
 
 // ── Page principale ────────────────────────────────────────────────────────
+/* Pastilles « À compléter » : paramètre d'URL, clé du compteur renvoyé par
+   GET /admin/products/quality, et ce que le manque empêche. */
+const QUALITY_FILTERS = [
+  { param: 'no_photo',    key: 'noPhoto',    label: 'Sans photo',       icon: ImageOff, hint: 'Produits sans aucune photo' },
+  { param: 'no_weight',   key: 'noWeight',   label: 'Sans poids',       icon: Weight,   hint: 'Sans poids, l’étiquette La Poste utilise une estimation' },
+  { param: 'no_supplier', key: 'noSupplier', label: 'Sans fournisseur', icon: Factory,  hint: 'Sans fournisseur : ni réassort, ni délai « sur commande »' },
+]
+
 /* Prix affiché = prix réellement payé en boutique à cet instant, selon la même
    règle que le serveur (backend/utils/promo.utils.js) : price_chf pendant la
    promotion, le prix normal (compare_price_chf) avant ou après. La liste
@@ -137,6 +145,10 @@ export default function Products() {
   const filterLowStock = getParam('low_stock') === 'true'
   const filterIsActive = getParam('is_active')
   const filterFeatured = getParam('is_featured')
+  // Fiches à compléter (pastilles « À compléter »)
+  const filterNoPhoto    = getParam('no_photo')    === 'true'
+  const filterNoWeight   = getParam('no_weight')   === 'true'
+  const filterNoSupplier = getParam('no_supplier') === 'true'
 
   /* Le champ de recherche garde son propre état le temps de la frappe : l'URL
      n'est mise à jour qu'après le debounce, sinon chaque lettre relancerait une
@@ -157,8 +169,9 @@ export default function Products() {
 
   const activeFilterCount = useMemo(
     () => [filterCat, filterSupplier, filterBrand, filterMinPrice, filterMaxPrice, filterIsActive, filterFeatured].filter(v => v !== '').length
-      + (filterInStock ? 1 : 0) + (filterLowStock ? 1 : 0),
-    [filterCat, filterSupplier, filterBrand, filterMinPrice, filterMaxPrice, filterInStock, filterLowStock, filterIsActive, filterFeatured]
+      + (filterInStock ? 1 : 0) + (filterLowStock ? 1 : 0)
+      + (filterNoPhoto ? 1 : 0) + (filterNoWeight ? 1 : 0) + (filterNoSupplier ? 1 : 0),
+    [filterCat, filterSupplier, filterBrand, filterMinPrice, filterMaxPrice, filterInStock, filterLowStock, filterIsActive, filterFeatured, filterNoPhoto, filterNoWeight, filterNoSupplier]
   )
 
   /* Réinitialise les filtres mais conserve la recherche en cours : effacer les
@@ -166,6 +179,7 @@ export default function Products() {
   const resetFilters = () => setParams({
     category_id: '', supplier_id: '', brand: '', min_price: '', max_price: '',
     in_stock: '', low_stock: '', is_active: '', is_featured: '',
+    no_photo: '', no_weight: '', no_supplier: '',
   })
 
   /* Popover des filtres avancés. Fermé à l'arrivée, même quand des filtres sont
@@ -306,9 +320,12 @@ export default function Products() {
     if (filterInStock)  chips.push({ key: 'in_stock',    label: 'Stock',   value: 'En stock' })
     if (filterLowStock) chips.push({ key: 'low_stock',   label: 'Stock',   value: 'Bas (≤ 5)' })
     if (filterIsActive) chips.push({ key: 'is_active',   label: 'Statut',  value: filterIsActive === 'true' ? 'Actif' : 'Inactif' })
+    if (filterNoPhoto)    chips.push({ key: 'no_photo',    label: 'À compléter', value: 'Sans photo' })
+    if (filterNoWeight)   chips.push({ key: 'no_weight',   label: 'À compléter', value: 'Sans poids' })
+    if (filterNoSupplier) chips.push({ key: 'no_supplier', label: 'À compléter', value: 'Sans fournisseur' })
     if (filterFeatured) chips.push({ key: 'is_featured', label: 'Vitrine', value: filterFeatured === 'true' ? 'Mis en avant' : 'Non mis en avant' })
     return chips
-  }, [filterCat, filterSupplier, filterBrand, filterMinPrice, filterMaxPrice, filterInStock, filterLowStock, filterIsActive, filterFeatured, categories, suppliers])
+  }, [filterCat, filterSupplier, filterBrand, filterMinPrice, filterMaxPrice, filterInStock, filterLowStock, filterIsActive, filterFeatured, filterNoPhoto, filterNoWeight, filterNoSupplier, categories, suppliers])
 
   /* Catégories parentes pour le groupe optgroup */
   const parentCats = useMemo(() => categories.filter(c => !c.parentId), [categories])
@@ -396,6 +413,9 @@ export default function Products() {
         if (filterLowStock)    params.low_stock   = 'true'
         if (filterIsActive)    params.is_active   = filterIsActive
         if (filterFeatured)    params.is_featured = filterFeatured
+        if (filterNoPhoto)     params.no_photo    = 'true'
+        if (filterNoWeight)    params.no_weight   = 'true'
+        if (filterNoSupplier)  params.no_supplier = 'true'
         const res = await getProducts(params)
         if (!cancelled) {
           setProducts(res.data ?? [])
@@ -410,7 +430,16 @@ export default function Products() {
     }
     run()
     return () => { cancelled = true }
-  }, [page, perPage, search, filterCat, filterSupplier, filterBrand, filterMinPrice, filterMaxPrice, filterInStock, filterLowStock, filterIsActive, filterFeatured, sortCol, sortDir, refreshTick])
+  }, [page, perPage, search, filterCat, filterSupplier, filterBrand, filterMinPrice, filterMaxPrice, filterInStock, filterLowStock, filterIsActive, filterFeatured, filterNoPhoto, filterNoWeight, filterNoSupplier, sortCol, sortDir, refreshTick])
+
+  /* Compteurs « À compléter » — rechargés avec la liste (après un filtrage ou
+     une actualisation), jamais bloquants : sans eux, la rangée ne s'affiche pas. */
+  const [quality, setQuality] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    getProductQuality().then(q => { if (!cancelled) setQuality(q) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [refreshTick])
 
   /* Rediriger vers la page d'édition si ?edit=ID dans l'URL (ex: depuis dashboard) */
   useEffect(() => {
@@ -663,6 +692,33 @@ export default function Products() {
           </label>
         </div>
       </div>
+
+      {/* ── À compléter ──
+          Fiches incomplètes, pour que la boutique les reprenne petit à petit :
+          sans photo, sans poids (l'étiquette La Poste retombe alors sur une
+          estimation), sans fournisseur (ni réassort ni délai « sur commande »). */}
+      {quality && QUALITY_FILTERS.some(q => quality[q.key] > 0) && (
+        <div className={s.qualityBar} role="group" aria-label="Fiches à compléter">
+          <span className={s.qualityLabel}>À compléter</span>
+          {QUALITY_FILTERS.filter(q => quality[q.key] > 0).map(q => {
+            const on = getParam(q.param) === 'true'
+            const Icon = q.icon
+            return (
+              <button
+                key={q.param}
+                className={`${s.qualityChip} ${on ? s.qualityChipOn : ''}`}
+                onClick={() => setParams({ [q.param]: on ? '' : 'true' })}
+                aria-pressed={on}
+                title={q.hint}
+              >
+                <Icon size={13} aria-hidden="true" />
+                {q.label}
+                <span className={s.qualityCount}>{quality[q.key].toLocaleString('fr-CH')}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* ── Vues enregistrées ──
           Recherches récurrentes rappelées en un clic (« Réassort DMC »,

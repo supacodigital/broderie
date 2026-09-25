@@ -12,6 +12,15 @@ const getAll = async (req, res, next) => {
   }
 };
 
+// Compteurs des fiches à compléter — pastilles « À compléter » de la liste
+const getQuality = async (req, res, next) => {
+  try {
+    res.json({ success: true, data: await productAdminService.qualityCounts() });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getById = async (req, res, next) => {
   try {
     const product = await productAdminService.getById(parseInt(req.params.id), normalizeLocale(req.query.locale));
@@ -120,7 +129,7 @@ const getPriceHistory = async (req, res, next) => {
 };
 
 module.exports = {
-  getAll, getById, create, update, remove,
+  getAll, getQuality, getById, create, update, remove,
   uploadImage, removeImage, setPrimaryImage, setFeatured, updateFeaturedOrder,
   getPriceHistory,
 };
