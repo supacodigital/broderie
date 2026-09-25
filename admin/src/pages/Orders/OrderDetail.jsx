@@ -297,8 +297,10 @@ export default function OrderDetail() {
   const needsPickupPrep    = order.status === 'pending_pickup'
   // Twint QR utile tant que la commande n'est pas encore payée (avant même la
   // facture) — plage plus large que needsPaymentAction, qui cible surtout la
-  // préparation/le retrait.
-  const canSendTwintQr = ['pending', 'awaiting_payment', 'payment_failed', 'pending_invoice', 'pending_pickup'].includes(order.status)
+  // préparation/le retrait. Mêmes statuts que le serveur : le bouton s'affichait
+  // aussi pour « retrait + paiement en boutique », où l'envoi est refusé (400) —
+  // et l'e-mail « prête au retrait » demanderait de régler une commande payée.
+  const canSendTwintQr = ['pending', 'awaiting_payment', 'payment_failed', 'pending_invoice'].includes(order.status)
 
   return (
     <div className={s.page}>
