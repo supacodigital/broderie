@@ -355,6 +355,11 @@ const handleWebhook = async (rawBody, signature) => {
     await applyFailedIntent(event.data.object);
   }
 
+  // Remboursement fait depuis le tableau de bord Stripe (intégral ou partiel)
+  if (event.type === 'charge.refunded') {
+    await applyRefundedCharge(event.data.object);
+  }
+
   // Traitement terminé sans exception : l'event peut être marqué comme acquitté.
   // Si une erreur est survenue plus haut, on n'arrive jamais ici — Stripe retentera
   // et le traitement sera rejoué (opérations idempotentes en aval).
@@ -495,6 +500,60 @@ const applyFailedIntent = async (intent) => {
     orderId,
     `Paiement ${method === 'card' ? 'par carte' : 'Twint'} refusé : ${declineReason(intent.last_payment_error, method)}`
   );
+};
+
+/* Remboursement effectué depuis le tableau de bord Stripe (event charge.refunded).
+
+   Intégral : la commande passe à « Remboursée », avec les mêmes effets qu'un
+   changement de statut à la main dans l'admin — historique, stock restitué
+   (updateStatusWithHistory), points de fidélité retirés si la commande avait été
+   payée (les achats remboursés ne comptent plus, CLAUDE.md §5).
+   Partiel : le statut ne change pas, une ligne d'historique en garde la trace.
+   Montants Stripe cumulés : amount_refunded totalise les remboursements successifs.
+   Sans ce traitement, une commande remboursée restait « Payée » dans l'admin. */
+const REFUND_PAID_STATUSES = ['paid', 'processing', 'shipped', 'delivered'];
+const chfLabel = (cents) => `CHF ${(fromCents(cents) ?? 0).toFixed(2)}`;
+
+const applyRefundedCharge = async (charge) => {
+  const intentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+  const payment = intentId ? await paymentRepository.findByIntentId(intentId) : null;
+  const orderId = payment?.order_id ?? (parseInt(charge.metadata?.order_id) || null);
+  if (!orderId) {
+    console.warn(`[Stripe] Remboursement ${charge.id} sans commande rattachée — ignoré.`);
+    return;
+  }
+  const order = await orderRepository.findById(orderId);
+  if (!order) {
+    console.warn(`[Stripe] Remboursement ${charge.id} pour une commande inconnue :`, orderId);
+    return;
+  }
+
+  const capturedCents = charge.amount_captured ?? charge.amount ?? 0;
+  const refundedCents = charge.amount_refunded ?? 0;
+  const fullRefund = charge.refunded === true || refundedCents >= capturedCents;
+
+  if (!fullRefund) {
+    await orderRepository.updateStatusWithHistory(
+      orderId, order.status,
+      `Remboursement partiel sur Stripe : ${chfLabel(refundedCents)} remboursés sur ${chfLabel(capturedCents)}`,
+      null
+    );
+    return;
+  }
+
+  // Déjà « Remboursée » (à la main dans l'admin, ou event rejoué) : rien à refaire
+  if (order.status === 'refunded') return;
+
+  const { ok, previousStatus } = await orderRepository.updateStatusWithHistory(
+    orderId, 'refunded', `Remboursement intégral sur Stripe (${chfLabel(refundedCents)})`, null
+  );
+  if (!ok) return;
+  if (intentId) await paymentRepository.updateStatusByIntentId(intentId, 'refunded');
+
+  if (REFUND_PAID_STATUSES.includes(previousStatus)) {
+    await loyaltyService.processRefund(order.user_id, orderId, order.total)
+      .catch((err) => console.error('[Fidélité] Débit remboursement échoué :', err.message));
+  }
 };
 
 // ─────────────────────────────────────────────────────────────

@@ -889,3 +889,78 @@ describe('paymentService.getOrderTransaction', () => {
     await expect(paymentService.getOrderTransaction(999)).rejects.toMatchObject({ statusCode: 404 });
   });
 });
+
+/* Remboursement fait depuis le tableau de bord Stripe : la commande restait
+   « Payée » dans l'admin (event charge.refunded non traité). */
+describe('payment.service — remboursement Stripe (charge.refunded)', () => {
+  const refundEvent = (charge) => mockEvent({
+    type: 'charge.refunded',
+    data: { id: 'ch_1', payment_intent: 'pi_paid', amount: 4050, amount_captured: 4050, ...charge },
+  });
+
+  beforeEach(() => {
+    paymentRepository.hasProcessedWebhookEvent.mockResolvedValue(false);
+    paymentRepository.registerWebhookEvent.mockResolvedValue(true);
+    paymentRepository.findByIntentId.mockResolvedValue({ order_id: 105, provider_payment_id: 'pi_paid' });
+    paymentRepository.updateStatusByIntentId.mockResolvedValue();
+    orderRepository.findById.mockResolvedValue(makeOrder({ id: 105, status: 'paid', total: '40.50' }));
+    orderRepository.updateStatusWithHistory.mockResolvedValue({ ok: true, previousStatus: 'paid' });
+    loyaltyService.processRefund.mockResolvedValue();
+  });
+
+  test('intégral : commande « Remboursée », paiement remboursé, fidélité retirée', async () => {
+    refundEvent({ amount_refunded: 4050, refunded: true });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(orderRepository.updateStatusWithHistory).toHaveBeenCalledWith(
+      105, 'refunded', 'Remboursement intégral sur Stripe (CHF 40.50)', null
+    );
+    expect(paymentRepository.updateStatusByIntentId).toHaveBeenCalledWith('pi_paid', 'refunded');
+    expect(loyaltyService.processRefund).toHaveBeenCalledWith(10, 105, '40.50');
+    expect(paymentRepository.registerWebhookEvent).toHaveBeenCalled();
+  });
+
+  test('partiel : statut inchangé, trace dans l\'historique, fidélité intacte', async () => {
+    refundEvent({ amount_refunded: 1000, refunded: false });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(orderRepository.updateStatusWithHistory).toHaveBeenCalledWith(
+      105, 'paid', 'Remboursement partiel sur Stripe : CHF 10.00 remboursés sur CHF 40.50', null
+    );
+    expect(paymentRepository.updateStatusByIntentId).not.toHaveBeenCalled();
+    expect(loyaltyService.processRefund).not.toHaveBeenCalled();
+  });
+
+  test('commande déjà « Remboursée » (à la main dans l\'admin) : rien n\'est refait', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder({ id: 105, status: 'refunded', total: '40.50' }));
+    refundEvent({ amount_refunded: 4050, refunded: true });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(orderRepository.updateStatusWithHistory).not.toHaveBeenCalled();
+    expect(loyaltyService.processRefund).not.toHaveBeenCalled();
+  });
+
+  test('commande annulée puis remboursée : « Remboursée », sans retirer la fidélité une 2e fois', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder({ id: 105, status: 'cancelled', total: '40.50' }));
+    orderRepository.updateStatusWithHistory.mockResolvedValue({ ok: true, previousStatus: 'cancelled' });
+    refundEvent({ amount_refunded: 4050, refunded: true });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(orderRepository.updateStatusWithHistory).toHaveBeenCalledWith(105, 'refunded', expect.any(String), null);
+    expect(loyaltyService.processRefund).not.toHaveBeenCalled();
+  });
+
+  test('paiement inconnu de la boutique : ignoré sans erreur, event acquitté', async () => {
+    paymentRepository.findByIntentId.mockResolvedValue(null);
+    refundEvent({ payment_intent: 'pi_autre', amount_refunded: 4050, refunded: true });
+
+    await paymentService.handleWebhook('raw', 'sig');
+
+    expect(orderRepository.updateStatusWithHistory).not.toHaveBeenCalled();
+    expect(paymentRepository.registerWebhookEvent).toHaveBeenCalled();
+  });
+});
