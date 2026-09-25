@@ -342,12 +342,12 @@ describe('auth.service — resetPassword()', () => {
     ).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  test('lève 400 si nouveau mot de passe trop court', async () => {
+  /* Compte client : la règle (5 caractères, majuscule, chiffre, symbole) est
+     appliquée par le contrôleur, comme à l'inscription — voir auth.test.js. */
+  test('compte client : le service n\'ajoute pas de seuil propre', async () => {
     userRepository.findByResetToken.mockResolvedValue(makeUser());
-
-    await expect(
-      authService.resetPassword('valid', 'court')
-    ).rejects.toMatchObject({ statusCode: 400 });
+    bcrypt.hash.mockResolvedValue('$2b$12$newHash');
+    await expect(authService.resetPassword('valid', 'Ab1!xy')).resolves.toBeUndefined();
   });
 
   /* ADM-08 — c'est par ce lien que le compte super-administrateur choisit son

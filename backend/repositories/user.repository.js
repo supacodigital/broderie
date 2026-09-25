@@ -1,10 +1,13 @@
 const { pool } = require('../config/db');
 
 // Recherche un utilisateur par email — inclut les comptes soft-deleted
-// (le champ deleted_at est renvoyé pour que l'appelant décide quoi en faire)
+// (le champ deleted_at est renvoyé pour que l'appelant décide quoi en faire).
+// token_version : la connexion l'inscrit dans le refresh token — absente, le
+// jeton portait la version 0 et était rejeté dès que le mot de passe avait
+// changé une fois (déconnexion à chaque rechargement de page).
 const findByEmail = async (email) => {
   const [rows] = await pool.execute(
-    `SELECT id, email, password_hash, first_name, last_name, role, locale, is_active, email_verified_at, deleted_at
+    `SELECT id, email, password_hash, first_name, last_name, role, locale, is_active, token_version, email_verified_at, deleted_at
      FROM users
      WHERE email = ?
      LIMIT 1`,

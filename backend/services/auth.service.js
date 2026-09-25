@@ -259,12 +259,12 @@ const resetPassword = async (rawToken, newPassword) => {
   /* Compte du back-office : même exigence qu'au changement de mot de passe depuis
      le profil (12 caractères, une majuscule) — c'est par ce lien que le compte
      super-administrateur choisit son premier mot de passe. */
-  if (isAdminRole(user.role)) {
-    if (newPassword.length < 12 || !/[A-Z]/.test(newPassword)) {
-      throw new AppError('Le mot de passe doit contenir au moins 12 caractères, dont une majuscule.', 400);
-    }
-  } else if (newPassword.length < 8) {
-    throw new AppError('Le mot de passe doit contenir au moins 8 caractères.', 400);
+  /* Compte client : la règle de l'inscription (5 caractères, une majuscule, un
+     chiffre et un symbole) est déjà appliquée par le contrôleur. Un seuil de 8
+     ici contredisait la page, qui annonce 5 : un mot de passe accepté à
+     l'inscription était refusé à la réinitialisation. */
+  if (isAdminRole(user.role) && (newPassword.length < 12 || !/[A-Z]/.test(newPassword))) {
+    throw new AppError('Le mot de passe doit contenir au moins 12 caractères, dont une majuscule.', 400);
   }
 
   const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
