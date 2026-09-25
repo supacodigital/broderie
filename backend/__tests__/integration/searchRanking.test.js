@@ -43,8 +43,11 @@ beforeAll(async () => {
     [categoryId]
   );
   await createProduct({ name: 'Qwertz, ruban rose', description: 'Ruban.', category: categoryId });
-  // Mot vide de MySQL dans le nom (« The ») et référence sans chiffre
-  await createProduct({ name: 'Zorbalin, kit The Exotic Zebre', description: 'Kit zorbalin.', sku: `ZORB-BN-${STAMP}`.replace(/[0-9]/g, 'X') });
+  // Mot vide de MySQL dans le nom (« The ») et référence sans chiffre. Chaque
+  // chiffre de l'horodatage devient une lettre (et non « X ») : la référence
+  // reste unique d'une exécution à l'autre — un passage interrompu ne bloque
+  // plus les suivants sur la contrainte uq_products_sku.
+  await createProduct({ name: 'Zorbalin, kit The Exotic Zebre', description: 'Kit zorbalin.', sku: `ZORB-BN-${STAMP}`.replace(/[0-9]/g, (d) => 'ABCDEFGHIJ'[d]) });
   // Échevette SANS EAN, numéro dans le nom — comme les moulinés DMC
   await createProduct({ name: 'Zorbalin mouliné N° 97310', description: 'Échevette de coton zorbalin.' });
   // Kit AVEC EAN, numéro répété dans la notice — comme les kits Permin
