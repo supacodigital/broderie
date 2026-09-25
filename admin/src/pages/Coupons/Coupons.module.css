@@ -235,3 +235,9 @@
   .tableRow  span:nth-child(5) { display: none; }
   .formGrid { grid-template-columns: 1fr; }
 }
+
+/* Natel : le tableau défile dans sa carte plutôt que de couper le statut */
+@media (max-width: 900px) {
+  .card { overflow-x: auto; }
+  .tableHead, .tableRow { min-width: 560px; }
+}

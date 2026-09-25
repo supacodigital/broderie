@@ -1243,3 +1243,11 @@
   font-size: 12.5px;
   color: var(--text-dark);
 }
+
+/* Natel : le tableau garde ses colonnes et défile dans sa carte. Sans cela, il
+   s'écrasait (colonnes superposées) depuis que la zone principale de l'admin
+   ne s'élargit plus au-delà de l'écran. */
+@media (max-width: 768px) {
+  .card { overflow-x: auto; }
+  .tableHead, .tableRow { min-width: 640px; }
+}

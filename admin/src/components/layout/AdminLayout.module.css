@@ -187,8 +187,11 @@
 }
 
 /* ── Zone principale ── */
+/* min-width: 0 : sans lui, un élément flex s'élargit à son contenu (tableaux,
+   filtres) et toute la page débordait de l'écran sur mobile. */
 .main {
   flex: 1;
+  min-width: 0;
   margin-left: var(--sidebar-w);
   display: flex;
   flex-direction: column;
