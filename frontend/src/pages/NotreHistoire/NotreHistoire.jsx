@@ -34,7 +34,9 @@ export default function NotreHistoire() {
   const mission = paragraphes('about_mission', [t('about.mission1'), t('about.mission2')])
 
   return (
-    <main className={s.page}>
+    /* <div> et non <main> : la mise en page fournit déjà le <main> de la page —
+       deux zones principales imbriquées désorientent les lecteurs d'écran */
+    <div className={s.page}>
       <Seo title={t('seo.aboutTitle')} description={t('seo.aboutDesc')} />
 
       {/* En-tête */}
@@ -89,6 +91,6 @@ export default function NotreHistoire() {
         </div>
 
       </div>
-    </main>
+    </div>
   )
 }
