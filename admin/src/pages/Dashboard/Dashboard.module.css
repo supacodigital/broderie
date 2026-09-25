@@ -199,7 +199,7 @@
 
 .orderId {
   font-weight: 700;
-  color: var(--rose);
+  color: var(--rose-dark); /* contraste AA, comme la liste des commandes */
   font-size: 13px;
 }
 

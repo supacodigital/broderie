@@ -125,7 +125,8 @@
 .tableRow:hover { background: var(--rose-pale); }
 .tableRow:last-child { border-bottom: none; }
 
-.orderId { font-weight: 700; color: var(--rose); font-size: 13px; white-space: nowrap; }
+/* Rose foncé : 6:1 sur blanc (WCAG AA), le rose clair n'atteignait que 2,65:1 */
+.orderId { font-weight: 700; color: var(--rose-dark); font-size: 13px; white-space: nowrap; }
 
 /* Pas encore ouverte par l'admin connectée : pastille dans la marge gauche de
    la ligne (.idCell est positionnée), pour que les numéros restent alignés. */
