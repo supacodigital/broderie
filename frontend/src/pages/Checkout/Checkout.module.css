@@ -131,6 +131,53 @@
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 
+/* ── Localités d'un NPA qui en dessert plusieurs (1510 Moudon / Syens) ──
+   Ligne entière de la grille, juste sous le NPA et la localité ; le canton
+   reste en 3e colonne de la 1re ligne (il passe dessous sur mobile). */
+.cantonCell { grid-row: 1; grid-column: 3; }
+
+.localityChoices {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: -6px;
+}
+
+.localityChoicesLabel {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.localityChip {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 999px;
+  background: var(--white);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, transform .12s var(--ease-out);
+}
+
+.localityChip[aria-pressed="true"] {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+  color: var(--rose-dark);
+  font-weight: 600;
+}
+
+.localityChip:active { transform: scale(.97); }
+.localityChip:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .localityChip:hover { border-color: var(--rose); }
+}
+
 .label {
   font-family: 'Montserrat', sans-serif;
   font-size: 13px;
@@ -712,6 +759,9 @@
   .heading    { font-size: 24px; }
   .row        { grid-template-columns: 1fr; }
   .rowThree   { grid-template-columns: 1fr 1fr; }
+  .cantonCell { grid-row: auto; grid-column: auto; }
+  /* Libellé sur sa ligne : les localités tiennent ensemble en dessous */
+  .localityChoicesLabel { flex-basis: 100%; }
   .stepper    { gap: 4px; }
   .step span  { display: none; }
   .stepDivider { max-width: 24px; }

@@ -94,6 +94,7 @@ const toAddressFields = (body) => ({
   addressType:  body.address_type,
   firstName:    body.first_name || null,
   lastName:     body.last_name || null,
+  complement:   body.complement || null,
   street:       body.street,
   streetNumber: body.street_number,
   city:         body.city,

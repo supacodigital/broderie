@@ -229,6 +229,14 @@ describe('email.service — CLI-08 : SKU et adresses', () => {
     expect(html).not.toContain('Moudon (VD)');
   });
 
+  test('complément d\'adresse entre le nom et la rue (ordre La Poste)', async () => {
+    await service.sendOrderConfirmation({
+      user: fakeUser, order: { ...shippedOrder, shipping_complement: 'c/o Famille Rochat' },
+    });
+    const { html } = transporter.sendMail.mock.calls[0][0];
+    expect(html).toContain('Marie Dupont<br>c/o Famille Rochat<br>Rue du Bourg 12<br>1510 Moudon');
+  });
+
   test('l\'adresse de facturation n\'apparaît que si elle diffère', async () => {
     await service.sendOrderConfirmation({ user: fakeUser, order: shippedOrder });
     expect(transporter.sendMail.mock.calls[0][0].html).not.toContain('Adresse de facturation');

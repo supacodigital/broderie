@@ -1,11 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CustomerAddressForm from './CustomerAddressForm.jsx'
 
 vi.mock('../../services/customers.service.js', () => ({
   createCustomerAddress: vi.fn(),
   updateCustomerAddress: vi.fn(),
+}))
+
+/* Répertoire officiel des NPA (API) simulé : quelques NPA suisses, le reste inconnu */
+const LOCALITIES = {
+  1003: [{ city: 'Lausanne', canton: 'VD' }],
+  1509: [{ city: 'Vucherens', canton: 'VD' }],
+  1510: [{ city: 'Moudon', canton: 'VD' }, { city: 'Syens', canton: 'VD' }],
+}
+vi.mock('../../services/localities.service.js', () => ({
+  getLocalities: vi.fn(async (zip) => LOCALITIES[zip] ?? null),
+  isSwissZip:    vi.fn(async (zip) => Boolean(LOCALITIES[zip])),
 }))
 
 import { createCustomerAddress, updateCustomerAddress } from '../../services/customers.service.js'
@@ -28,7 +39,8 @@ const fillNewAddress = async (user) => {
   await user.type(screen.getByLabelText('Rue'), 'Place de la Gare')
   await user.type(screen.getByLabelText('Numéro'), '1')
   await user.type(screen.getByLabelText('NPA'), '1003')
-  await user.type(screen.getByLabelText('Localité'), 'Lausanne')
+  // Localité préremplie depuis le NPA (liste officielle) : rien à taper
+  await waitFor(() => expect(screen.getByLabelText('Localité')).toHaveValue('Lausanne'))
   await user.selectOptions(screen.getByLabelText('Canton'), 'VD')
 }
 
@@ -49,7 +61,7 @@ describe('CustomerAddressForm', () => {
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(updated))
     expect(createCustomerAddress).toHaveBeenCalledWith(667, {
-      label: 'Travail', address_type: 'both', first_name: '', last_name: '',
+      label: 'Travail', address_type: 'both', first_name: '', last_name: '', complement: '',
       street: 'Place de la Gare', street_number: '1', zip: '1003', city: 'Lausanne',
       canton: 'VD', phone: '079 123 45 67', is_default: true,
     })
@@ -92,6 +104,55 @@ describe('CustomerAddressForm', () => {
 
     expect(await screen.findByText('35 caractères au maximum.')).toBeInTheDocument()
     expect(createCustomerAddress).not.toHaveBeenCalled()
+  })
+
+  it('refuse un NPA hors de Suisse (Liechtenstein) : livraison en Suisse uniquement', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await fillNewAddress(user)
+    await user.clear(screen.getByLabelText('NPA'))
+    await user.type(screen.getByLabelText('NPA'), '9490')
+    await user.click(screen.getByRole('button', { name: 'Ajouter l\'adresse' }))
+
+    expect(await screen.findByText('Ce NPA ne correspond à aucune adresse de livraison en Suisse.')).toBeInTheDocument()
+    expect(createCustomerAddress).not.toHaveBeenCalled()
+  })
+
+  it('NPA à une seule localité : localité et canton remplis d\'office', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.type(screen.getByLabelText('NPA'), '1509')
+
+    await waitFor(() => expect(screen.getByLabelText('Localité')).toHaveValue('Vucherens'))
+    expect(screen.getByLabelText('Canton')).toHaveValue('VD')
+  })
+
+  it('NPA à plusieurs localités : choix en un clic, sans remplir à l\'aveugle', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await user.type(screen.getByLabelText('NPA'), '1510')
+    const choices = await screen.findByRole('group', { name: 'Localités de ce NPA' })
+    expect(screen.getByLabelText('Localité')).toHaveValue('')
+
+    await user.click(within(choices).getByRole('button', { name: 'Syens' }))
+    expect(screen.getByLabelText('Localité')).toHaveValue('Syens')
+    expect(within(choices).getByRole('button', { name: 'Syens' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('transmet le complément d\'adresse (c/o, bâtiment)', async () => {
+    const user = userEvent.setup()
+    createCustomerAddress.mockResolvedValue({ id: 667, addresses: [] })
+    renderForm()
+
+    await fillNewAddress(user)
+    await user.type(screen.getByLabelText(/Complément/), 'c/o Famille Rochat')
+    await user.click(screen.getByRole('button', { name: 'Ajouter l\'adresse' }))
+
+    await waitFor(() => expect(createCustomerAddress).toHaveBeenCalledWith(667,
+      expect.objectContaining({ complement: 'c/o Famille Rochat' })))
   })
 
   it('la première adresse est d\'office l\'adresse par défaut', () => {

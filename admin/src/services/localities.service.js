@@ -1,15 +1,5 @@
 import api from './api.js'
 
-/**
- * Retourne le tarif de livraison CHF pour un montant d'articles donné (ADM-10) —
- * sous-total TTC avant code promo, le même que celui de la commande.
- * Utilisé au panier et au checkout pour afficher les frais avant confirmation.
- */
-export async function getShippingRate(amountChf = 0) {
-  const res = await api.get('/shipping/rates', { params: { amount: amountChf } })
-  return res.data.data
-}
-
 /* Localités d'un NPA suisse (répertoire officiel, Suisse uniquement), mises en
    cache par NPA : la validation du formulaire et le préremplissage posent la
    même question sans refaire l'appel.

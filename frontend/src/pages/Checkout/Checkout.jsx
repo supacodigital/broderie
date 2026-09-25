@@ -13,10 +13,11 @@ import { abandonOrderPayment, createOrder } from '../../services/orders.service.
 import { createTwintIntent, createCardIntent, syncPayment } from '../../services/payments.service.js'
 import { validateCoupon } from '../../services/coupons.service.js'
 import { getAddresses } from '../../services/addresses.service.js'
-import { getShippingRate } from '../../services/shipping.service.js'
+import { getShippingRate, isSwissZip } from '../../services/shipping.service.js'
 import { roundCHF, salePercent } from '../../utils/chf.js'
 import { lineQuantityLabel } from '../../utils/stock.js'
 import { POSTAL_LIMITS, SWISS_ZIP_REGEX } from '../../utils/postalAddress.js'
+import { useZipAutofill } from '../../hooks/useZipAutofill.js'
 import s from './Checkout.module.css'
 
 /* Chargement différé de Stripe — singleton garanti.
@@ -81,7 +82,11 @@ function buildAddressSchema(t) {
     last_name:     z.string().min(1, t('checkout.errors.lastNameRequired')).max(POSTAL_LIMITS.name, tooLong(POSTAL_LIMITS.name)),
     street:        z.string().min(1, t('checkout.errors.streetRequired')).max(POSTAL_LIMITS.street, tooLong(POSTAL_LIMITS.street)),
     street_number: z.string().min(1, t('checkout.errors.streetNumberRequired')).max(POSTAL_LIMITS.streetNumber, tooLong(POSTAL_LIMITS.streetNumber)),
-    zip:        z.string().regex(SWISS_ZIP_REGEX, t('checkout.errors.zipInvalid')),
+    // Complément facultatif (c/o, bâtiment, appartement) — ligne à part sur l'étiquette
+    complement:    z.string().max(POSTAL_LIMITS.complement, tooLong(POSTAL_LIMITS.complement)).optional(),
+    zip:        z.string()
+                  .regex(SWISS_ZIP_REGEX, { message: t('checkout.errors.zipInvalid'), abort: true })
+                  .refine(isSwissZip, t('checkout.errors.zipUnknown')),
     city:       z.string().min(1, t('checkout.errors.cityRequired')).max(POSTAL_LIMITS.city, tooLong(POSTAL_LIMITS.city)),
     canton:     z.string().refine(v => CANTON_CODES.includes(v), t('checkout.errors.cantonRequired')),
   }
@@ -92,12 +97,13 @@ function buildAddressSchema(t) {
     billing_same:       z.boolean().default(true),
     billing_first_name: z.string().optional(),
     billing_last_name:  z.string().optional(),
+    billing_complement: z.string().optional(),
     billing_street:     z.string().optional(),
     billing_street_number: z.string().optional(),
     billing_zip:        z.string().optional(),
     billing_city:       z.string().optional(),
     billing_canton:     z.string().optional(),
-  }).superRefine((data, ctx) => {
+  }).superRefine(async (data, ctx) => {
     if (data.billing_same) return
     /* Facturation distincte → mêmes règles que la livraison sur les champs billing_* */
     const addErr = (field, message) => ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message })
@@ -111,7 +117,9 @@ function buildAddressSchema(t) {
     checkText('billing_last_name',     t('checkout.errors.lastNameRequired'),     POSTAL_LIMITS.name)
     checkText('billing_street',        t('checkout.errors.streetRequired'),       POSTAL_LIMITS.street)
     checkText('billing_street_number', t('checkout.errors.streetNumberRequired'), POSTAL_LIMITS.streetNumber)
+    if ((data.billing_complement ?? '').length > POSTAL_LIMITS.complement) addErr('billing_complement', tooLong(POSTAL_LIMITS.complement))
     if (!SWISS_ZIP_REGEX.test(data.billing_zip ?? '')) addErr('billing_zip', t('checkout.errors.zipInvalid'))
+    else if (!(await isSwissZip(data.billing_zip))) addErr('billing_zip', t('checkout.errors.zipUnknown'))
     checkText('billing_city',          t('checkout.errors.cityRequired'),         POSTAL_LIMITS.city)
     if (!CANTON_CODES.includes(data.billing_canton ?? '')) addErr('billing_canton', t('checkout.errors.cantonRequired'))
   })
@@ -283,9 +291,16 @@ function Field({
 /* ── Bloc de champs d'adresse réutilisable (livraison ou facturation) ──
    `prefix` distingue les deux jeux de champs : '' pour la livraison, 'billing_' pour la facturation.
    `idPrefix` génère des id uniques ('co-' / 'bill-'). */
-function AddressFields({ prefix = '', idPrefix, register, errors, t }) {
+function AddressFields({ prefix = '', idPrefix, form, t }) {
+  const { register, formState: { errors } } = form
   const f = (name) => `${prefix}${name}`
   const cantonId = `${idPrefix}canton`
+  /* NPA → localité et canton préremplis (liste officielle, Suisse uniquement) */
+  const zipLookup = useZipAutofill({
+    watch: form.watch, getValues: form.getValues, setValue: form.setValue,
+    fields: { zip: f('zip'), city: f('city'), canton: f('canton') },
+  })
+  const currentCity = form.watch(f('city'))
   return (
     <>
       <div className={s.row}>
@@ -308,6 +323,11 @@ function AddressFields({ prefix = '', idPrefix, register, errors, t }) {
           placeholder={t('checkout.streetNumberPlaceholder')} />
       </div>
 
+      <Field id={`${idPrefix}complement`} name={f('complement')} register={register} t={t}
+        label={t('checkout.complement')} error={errors[f('complement')]}
+        type="text" autoComplete="address-line2"
+        placeholder={t('checkout.complementPlaceholder')} />
+
       <div className={s.rowThree}>
         <Field id={`${idPrefix}zip`} name={f('zip')} required register={register} t={t}
           label={t('checkout.zip')} error={errors[f('zip')]}
@@ -317,8 +337,26 @@ function AddressFields({ prefix = '', idPrefix, register, errors, t }) {
           label={t('checkout.city')} error={errors[f('city')]}
           type="text" autoComplete="address-level2"
           placeholder={t('checkout.cityPlaceholder')} />
+        {/* Plusieurs localités pour ce NPA (ex. 1510 Moudon / Syens) : choix en un geste,
+            juste sous le NPA et la localité (grille : ligne entière) */}
+        {zipLookup.localities.length > 1 && (
+          <div className={s.localityChoices} role="group" aria-label={t('checkout.localityChoice')}>
+            <span className={s.localityChoicesLabel}>{t('checkout.localityChoice')}</span>
+            {zipLookup.localities.map(locality => (
+              <button
+                key={`${locality.city}-${locality.canton}`}
+                type="button"
+                className={s.localityChip}
+                aria-pressed={currentCity === locality.city}
+                onClick={() => zipLookup.choose(locality)}
+              >
+                {locality.city}
+              </button>
+            ))}
+          </div>
+        )}
         <Field id={cantonId} name={f('canton')} required error={errors[f('canton')]} t={t}
-          label={t('checkout.canton')}>
+          label={t('checkout.canton')} className={s.cantonCell}>
           <select
             id={cantonId}
             className={`${s.input} ${s.select} ${errors[f('canton')] ? s.error : ''}`}
@@ -339,15 +377,16 @@ function AddressFields({ prefix = '', idPrefix, register, errors, t }) {
 
 /* ── Étape 1 : Adresse de livraison + facturation ── */
 function StepAddress({ onNext, prefill, savedAddresses, t }) {
-  const { register, handleSubmit, reset, setFocus, watch, getValues, formState: { errors } } = useForm({
+  const form = useForm({
     resolver: zodResolver(buildAddressSchema(t)),
     defaultValues: {
-      first_name: '', last_name: '', street: '', street_number: '', zip: '', city: '', canton: '', phone: '',
+      first_name: '', last_name: '', complement: '', street: '', street_number: '', zip: '', city: '', canton: '', phone: '',
       billing_same: true,
-      billing_first_name: '', billing_last_name: '', billing_street: '', billing_street_number: '',
+      billing_first_name: '', billing_last_name: '', billing_complement: '', billing_street: '', billing_street_number: '',
       billing_zip: '', billing_city: '', billing_canton: '',
     },
   })
+  const { register, handleSubmit, reset, setFocus, watch, getValues } = form
 
   /* Adresse de facturation identique à la livraison ? (case cochée par défaut) */
   const billingSame = watch('billing_same')
@@ -365,6 +404,7 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
       ...getValues(),
       first_name: prefill.firstName ?? '',
       last_name:  prefill.lastName  ?? '',
+      complement: prefill.complement ?? '',
       street:     prefill.street    ?? '',
       street_number: prefill.streetNumber ?? '',
       zip:        prefill.zip       ?? '',
@@ -380,6 +420,7 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
       ...getValues(),
       first_name: addr.first_name ?? prefill?.firstName ?? '',
       last_name:  addr.last_name  ?? prefill?.lastName  ?? '',
+      complement: addr.complement ?? '',
       street:     addr.street ?? '',
       street_number: addr.street_number ?? '',
       zip:        addr.zip    ?? '',
@@ -420,7 +461,7 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
       <form onSubmit={handleSubmit(onNext, onInvalid)} noValidate className={s.form}>
 
         {/* ── Adresse de livraison ── */}
-        <AddressFields prefix="" idPrefix="co-" register={register} errors={errors} t={t} />
+        <AddressFields prefix="" idPrefix="co-" form={form} t={t} />
 
         {/* Pays non demandé — livraison Suisse uniquement (défaut 'CH' côté serveur) */}
         <Field id="co-phone" name="phone" register={register} t={t}
@@ -444,7 +485,7 @@ function StepAddress({ onNext, prefill, savedAddresses, t }) {
         {!billingSame && (
           <fieldset className={s.billingFieldset}>
             <legend className={s.billingLegend}>{t('checkout.billingTitle')}</legend>
-            <AddressFields prefix="billing_" idPrefix="bill-" register={register} errors={errors} t={t} />
+            <AddressFields prefix="billing_" idPrefix="bill-" form={form} t={t} />
           </fieldset>
         )}
 
@@ -466,6 +507,7 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
   /* La facturation diffère-t-elle de la livraison ? (comparaison des champs clés) */
   const billingDiffers = billingAddress && (
     billingAddress.street !== address.street ||
+    (billingAddress.complement ?? '') !== (address.complement ?? '') ||
     billingAddress.street_number !== address.street_number ||
     billingAddress.zip    !== address.zip ||
     billingAddress.city   !== address.city ||
@@ -550,7 +592,7 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
         <p className={s.addressRecapLabel}>{t('checkout.deliveryTo')}</p>
         <p className={s.addressRecapValue}>
           {/* Format La Poste : « NPA Localité », sans canton ni pays */}
-          {address.first_name} {address.last_name} — {address.street} {address.street_number}, {address.zip} {address.city}
+          {address.first_name} {address.last_name} — {address.complement ? `${address.complement}, ` : ''}{address.street} {address.street_number}, {address.zip} {address.city}
         </p>
       </div>
 
@@ -559,7 +601,7 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
         <div className={s.addressRecap}>
           <p className={s.addressRecapLabel}>{t('checkout.billingTo')}</p>
           <p className={s.addressRecapValue}>
-            {billingAddress.first_name} {billingAddress.last_name} — {billingAddress.street} {billingAddress.street_number}, {billingAddress.zip} {billingAddress.city}
+            {billingAddress.first_name} {billingAddress.last_name} — {billingAddress.complement ? `${billingAddress.complement}, ` : ''}{billingAddress.street} {billingAddress.street_number}, {billingAddress.zip} {billingAddress.city}
           </p>
         </div>
       )}
@@ -1209,6 +1251,7 @@ export default function Checkout() {
         setPrefill({
           firstName: user.firstName ?? user.first_name ?? '',
           lastName:  user.lastName  ?? user.last_name  ?? '',
+          complement: def?.complement ?? '',
           street:    def?.street ?? '',
           streetNumber: def?.street_number ?? '',
           zip:       def?.zip    ?? '',
@@ -1356,6 +1399,7 @@ export default function Checkout() {
     const shipping = {
       first_name: data.first_name,
       last_name:  data.last_name,
+      complement: data.complement?.trim() || null,
       street:     data.street,
       street_number: data.street_number,
       zip:        data.zip,
@@ -1368,6 +1412,7 @@ export default function Checkout() {
     setBillingAddress(data.billing_same ? shipping : {
       first_name: data.billing_first_name,
       last_name:  data.billing_last_name,
+      complement: data.billing_complement?.trim() || null,
       street:     data.billing_street,
       street_number: data.billing_street_number,
       zip:        data.billing_zip,

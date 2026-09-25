@@ -77,6 +77,26 @@ describe('shipping.service — createLabel() mode réel', () => {
     expect(payload.labelDefinition).toMatchObject({ labelLayout: 'A6', imageFileType: 'PDF', printPreview: true });
   });
 
+  test('complément d\'adresse (c/o, bâtiment) transmis dans addressSuffix, entre le nom et la rue', async () => {
+    swissPostClient.generateAddressLabel.mockResolvedValue(apiResponse);
+
+    await service.createLabel({ order: fakeOrder, address: { ...address, complement: 'c/o Famille Rochat' } });
+
+    const { recipient } = swissPostClient.generateAddressLabel.mock.calls[0][0].item;
+    expect(recipient.addressSuffix).toBe('c/o Famille Rochat');
+  });
+
+  test('expéditeur : 25 caractères au maximum par champ (manuel La Poste)', async () => {
+    swissPostClient.generateAddressLabel.mockResolvedValue(apiResponse);
+
+    await service.createLabel({ order: fakeOrder, address });
+
+    const { customer } = swissPostClient.generateAddressLabel.mock.calls[0][0];
+    for (const field of ['name1', 'street', 'city']) {
+      if (customer[field]) expect(customer[field].length).toBeLessThanOrEqual(25);
+    }
+  });
+
   test('respecte les longueurs maximales de La Poste (35 caractères, numéro 10)', async () => {
     swissPostClient.generateAddressLabel.mockResolvedValue(apiResponse);
     const long = 'Chemin de la Très Longue Allée des Marronniers Centenaires';

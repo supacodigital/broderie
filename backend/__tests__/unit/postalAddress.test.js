@@ -1,6 +1,9 @@
-/* Adresses aux normes La Poste : NPA suisse de 1000 à 9999, longueurs maximales
-   de l'étiquette colis (nom, rue et localité 35 caractères, numéro 10). */
-const { POSTAL_LIMITS, SWISS_ZIP_REGEX, POSTAL_MESSAGES } = require('../../utils/postalAddress.utils');
+/* Adresses aux normes La Poste : NPA de domicile en Suisse (liste officielle,
+   livraison en Suisse uniquement), complément d'adresse, longueurs maximales de
+   l'étiquette colis (nom, complément, rue et localité 35 caractères, numéro 10). */
+const {
+  POSTAL_LIMITS, SWISS_ZIP_REGEX, POSTAL_MESSAGES, findLocalities, isDeliverableZip,
+} = require('../../utils/postalAddress.utils');
 const { adminAddressSchema } = require('../../validators/customer.validator');
 const { splitStreetAndNumber } = require('../../services/invoice.service');
 
@@ -20,10 +23,52 @@ describe('NPA suisse', () => {
     expect(SWISS_ZIP_REGEX.test(zip)).toBe(false);
   });
 
+  test.each([
+    ['9490', 'Vaduz — Liechtenstein, non livré'],
+    ['9485', 'Nendeln — Liechtenstein'],
+    ['1200', 'Genève — NPA sans domicile (cases postales)'],
+    ['8238', 'Büsingen — enclave allemande'],
+    ['9998', 'inexistant'],
+  ])('%s refusé : hors Suisse ou sans domicile (%s)', (zip) => {
+    expect(isDeliverableZip(zip)).toBe(false);
+    const result = adminAddressSchema.safeParse({ ...validAddress, zip });
+    expect(result.success).toBe(false);
+    expect(issueFor(result, 'zip').message).toBe(POSTAL_MESSAGES.zipUnknown);
+  });
+
+  test('un NPA mal formé n\'affiche que le message de format', () => {
+    const result = adminAddressSchema.safeParse({ ...validAddress, zip: '0999' });
+    expect(result.error.issues.filter((i) => i.path[0] === 'zip').map((i) => i.message)).toEqual([POSTAL_MESSAGES.zip]);
+  });
+
+  test('localités d\'un NPA d\'après la liste officielle', () => {
+    expect(findLocalities('1509')).toEqual([{ city: 'Vucherens', canton: 'VD' }]);
+    expect(findLocalities('1510')).toEqual([{ city: 'Moudon', canton: 'VD' }, { city: 'Syens', canton: 'VD' }]);
+    expect(findLocalities('9490')).toEqual([]);
+    expect(findLocalities(undefined)).toEqual([]);
+  });
+
   test('la fiche client admin refuse un NPA commençant par 0, avec le message La Poste', () => {
     const result = adminAddressSchema.safeParse({ ...validAddress, zip: '0123' });
     expect(result.success).toBe(false);
     expect(issueFor(result, 'zip').message).toBe(POSTAL_MESSAGES.zip);
+  });
+});
+
+describe('Complément d\'adresse (c/o, bâtiment, appartement)', () => {
+  test('facultatif : absent ou vide → null', () => {
+    expect(adminAddressSchema.parse(validAddress).complement).toBeNull();
+    expect(adminAddressSchema.parse({ ...validAddress, complement: '  ' }).complement).toBeNull();
+  });
+
+  test('conservé, espaces retirés', () => {
+    expect(adminAddressSchema.parse({ ...validAddress, complement: ' c/o Famille Rochat ' }).complement)
+      .toBe('c/o Famille Rochat');
+  });
+
+  test(`au-delà de ${POSTAL_LIMITS.complement} caractères : refusé`, () => {
+    const result = adminAddressSchema.safeParse({ ...validAddress, complement: 'x'.repeat(POSTAL_LIMITS.complement + 1) });
+    expect(issueFor(result, 'complement').message).toBe(POSTAL_MESSAGES.complement);
   });
 });
 

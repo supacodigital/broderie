@@ -6,6 +6,8 @@ import { z } from 'zod'
 import { createCustomerAddress, updateCustomerAddress } from '../../services/customers.service.js'
 import { SWISS_CANTONS, CANTON_CODES } from '../../utils/cantons.js'
 import { POSTAL_LIMITS, SWISS_ZIP_REGEX } from '../../utils/postalAddress.js'
+import { isSwissZip } from '../../services/localities.service.js'
+import { useZipAutofill } from '../../hooks/useZipAutofill.js'
 import s from './CustomerAddressForm.module.css'
 
 /* Mêmes règles que adminAddressSchema côté serveur — et que le formulaire
@@ -19,9 +21,13 @@ const schema = z.object({
   // Longueurs et NPA aux normes La Poste (utils/postalAddress.js)
   first_name:    optional(POSTAL_LIMITS.name),
   last_name:     optional(POSTAL_LIMITS.name),
+  complement:    optional(POSTAL_LIMITS.complement),
   street:        required('La rue est obligatoire.', POSTAL_LIMITS.street),
   street_number: required('Le numéro est obligatoire.', POSTAL_LIMITS.streetNumber),
-  zip:           z.string().trim().regex(SWISS_ZIP_REGEX, 'NPA suisse invalide (4 chiffres, de 1000 à 9999).'),
+  // Livraison en Suisse uniquement : le NPA doit exister en Suisse (liste officielle)
+  zip:           z.string().trim()
+                   .regex(SWISS_ZIP_REGEX, { message: 'NPA suisse invalide (4 chiffres, de 1000 à 9999).', abort: true })
+                   .refine(isSwissZip, 'Ce NPA ne correspond à aucune adresse de livraison en Suisse.'),
   city:          required('La localité est obligatoire.', POSTAL_LIMITS.city),
   canton:        z.string().refine(v => CANTON_CODES.includes(v), 'Canton obligatoire.'),
   phone:         z.string().trim()
@@ -40,13 +46,14 @@ export default function CustomerAddressForm({ customerId, address = null, isFirs
   // Le statut « par défaut » se donne, il ne se retire pas : on en désigne une autre
   const defaultLocked = isFirst || !!address?.is_default
 
-  const { register, handleSubmit, setError, setFocus, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, setError, setFocus, watch, getValues, setValue, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
       label:         address?.label ?? '',
       address_type:  address?.address_type ?? 'both',
       first_name:    address?.first_name ?? '',
       last_name:     address?.last_name ?? '',
+      complement:    address?.complement ?? '',
       street:        address?.street ?? '',
       street_number: address?.street_number ?? '',
       zip:           address?.zip ?? '',
@@ -58,6 +65,10 @@ export default function CustomerAddressForm({ customerId, address = null, isFirs
   })
 
   useEffect(() => { setFocus('label') }, [setFocus])
+
+  /* NPA → localité et canton préremplis (liste officielle, Suisse uniquement) */
+  const zipLookup = useZipAutofill({ watch, getValues, setValue, fields: { zip: 'zip', city: 'city', canton: 'canton' } })
+  const currentCity = watch('city')
 
   const onSubmit = async ({ is_default, ...fields }) => {
     setApiError('')
@@ -153,6 +164,15 @@ export default function CustomerAddressForm({ customerId, address = null, isFirs
           {error('last_name')}
         </div>
 
+        {/* Ordre La Poste : nom, complément, rue */}
+        <div className={`${s.field} ${s.full}`}>
+          <label className={s.label} htmlFor={labelFor('complement')}>
+            Complément <span className={s.optional}>facultatif</span>
+          </label>
+          <input {...field('complement')} placeholder="c/o, bâtiment, appartement…" autoComplete="off" />
+          {error('complement')}
+        </div>
+
         <div className={`${s.field} ${s.full}`}>
           <label className={s.label} htmlFor={labelFor('street')}>Rue</label>
           <input {...field('street')} autoComplete="off" />
@@ -185,6 +205,24 @@ export default function CustomerAddressForm({ customerId, address = null, isFirs
           </select>
           {error('canton')}
         </div>
+
+        {/* Plusieurs localités pour ce NPA (ex. 1510 Moudon / Syens) : choix en un clic */}
+        {zipLookup.localities.length > 1 && (
+          <div className={`${s.localityChoices} ${s.full}`} role="group" aria-label="Localités de ce NPA">
+            <span className={s.localityChoicesLabel}>Localités de ce NPA :</span>
+            {zipLookup.localities.map(locality => (
+              <button
+                key={`${locality.city}-${locality.canton}`}
+                type="button"
+                className={s.localityChip}
+                aria-pressed={currentCity === locality.city}
+                onClick={() => zipLookup.choose(locality)}
+              >
+                {locality.city}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className={`${s.field} ${s.full}`}>
           <label className={s.label} htmlFor={labelFor('phone')}>

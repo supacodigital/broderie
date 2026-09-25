@@ -73,7 +73,7 @@ const update = async (id, { firstName, lastName, locale }) => {
 // Adresses d'un utilisateur
 const findAddresses = async (userId) => {
   const [rows] = await pool.execute(
-    `SELECT id, label, address_type, first_name, last_name, street, street_number, city, zip, country, canton, phone, is_default
+    `SELECT id, label, address_type, first_name, last_name, complement, street, street_number, city, zip, country, canton, phone, is_default
      FROM addresses
      WHERE user_id = ?
      ORDER BY is_default DESC, id ASC`,
@@ -83,7 +83,7 @@ const findAddresses = async (userId) => {
 };
 
 // Création d'une adresse
-const createAddress = async (userId, { label, addressType, firstName, lastName, street, streetNumber, city, zip, country, canton, phone, isDefault }) => {
+const createAddress = async (userId, { label, addressType, firstName, lastName, complement, street, streetNumber, city, zip, country, canton, phone, isDefault }) => {
   // Si nouvelle adresse par défaut, retirer le défaut des autres
   if (isDefault) {
     await pool.execute(
@@ -92,16 +92,16 @@ const createAddress = async (userId, { label, addressType, firstName, lastName, 
     );
   }
   const [result] = await pool.execute(
-    `INSERT INTO addresses (user_id, label, address_type, first_name, last_name, street, street_number, city, zip, country, canton, phone, is_default)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [userId, label, addressType || 'both', firstName || null, lastName || null, street, streetNumber || null, city, zip, country || 'CH', canton || null, phone || null, isDefault ? 1 : 0]
+    `INSERT INTO addresses (user_id, label, address_type, first_name, last_name, complement, street, street_number, city, zip, country, canton, phone, is_default)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [userId, label, addressType || 'both', firstName || null, lastName || null, complement || null, street, streetNumber || null, city, zip, country || 'CH', canton || null, phone || null, isDefault ? 1 : 0]
   );
   return result.insertId;
 };
 
 // Mise à jour d'une adresse
 // `isDefault` null = statut « par défaut » inchangé
-const updateAddress = async (addressId, userId, { label, addressType, firstName, lastName, street, streetNumber, city, zip, country, canton, phone, isDefault }) => {
+const updateAddress = async (addressId, userId, { label, addressType, firstName, lastName, complement, street, streetNumber, city, zip, country, canton, phone, isDefault }) => {
   if (isDefault) {
     await pool.execute(
       `UPDATE addresses SET is_default = 0 WHERE user_id = ?`,
@@ -109,9 +109,9 @@ const updateAddress = async (addressId, userId, { label, addressType, firstName,
     );
   }
   await pool.execute(
-    `UPDATE addresses SET label = ?, address_type = ?, first_name = ?, last_name = ?, street = ?, street_number = ?, city = ?, zip = ?, country = ?, canton = ?, phone = ?, is_default = COALESCE(?, is_default)
+    `UPDATE addresses SET label = ?, address_type = ?, first_name = ?, last_name = ?, complement = ?, street = ?, street_number = ?, city = ?, zip = ?, country = ?, canton = ?, phone = ?, is_default = COALESCE(?, is_default)
      WHERE id = ? AND user_id = ?`,
-    [label, addressType || 'both', firstName || null, lastName || null, street, streetNumber || null, city, zip, country || 'CH', canton || null, phone || null, isDefault === null || isDefault === undefined ? null : (isDefault ? 1 : 0), addressId, userId]
+    [label, addressType || 'both', firstName || null, lastName || null, complement || null, street, streetNumber || null, city, zip, country || 'CH', canton || null, phone || null, isDefault === null || isDefault === undefined ? null : (isDefault ? 1 : 0), addressId, userId]
   );
 };
 
@@ -197,11 +197,11 @@ const anonymizeUser = async (userId) => {
     await connection.execute(
       `UPDATE orders SET
          shipping_first_name = 'Supprimé', shipping_last_name = 'Supprimé',
-         shipping_street = NULL, shipping_street_number = NULL,
+         shipping_complement = NULL, shipping_street = NULL, shipping_street_number = NULL,
          shipping_city = NULL, shipping_zip = NULL, shipping_canton = NULL,
          shipping_phone = NULL,
          billing_first_name = 'Supprimé', billing_last_name = 'Supprimé',
-         billing_street = NULL, billing_street_number = NULL,
+         billing_complement = NULL, billing_street = NULL, billing_street_number = NULL,
          billing_city = NULL, billing_zip = NULL, billing_canton = NULL
        WHERE user_id = ?`,
       [userId]

@@ -64,8 +64,9 @@ const isLabelProduct = (code) => Object.prototype.hasOwnProperty.call(LABEL_PROD
 
 /* ── RÉEL ──────────────────────────────────────────────────────────────────── */
 
-/* Longueurs maximales de la Barcode API (manuel La Poste) : noms, rue et
-   localité 35 caractères, numéro de rue 10. `undefined` retire le champ du JSON. */
+/* Longueurs maximales de la Barcode API (manuel La Poste) : destinataire — noms,
+   complément, rue et localité 35 caractères, numéro 10 ; expéditeur — 25
+   caractères par champ. `undefined` retire le champ du JSON. */
 const clip = (value, max) => {
   const text = value == null ? '' : String(value).trim()
   return text ? text.slice(0, max) : undefined
@@ -82,12 +83,12 @@ const trackingUrl = (identCode) => `https://www.post.ch/fr/outils/suivi-de-colis
 const buildLabelPayload = ({ order, address, product = DEFAULT_LABEL_PRODUCT }) => ({
   language: 'FR',
   frankingLicense: swissPost.frankiernummer,
-  /* Expéditeur = boutique (config/env.js) */
+  /* Expéditeur = boutique (config/env.js) — champs limités à 25 caractères */
   customer: {
-    name1:   clip(env.shopName, 35),
-    street:  clip(env.shopAddress, 35),
-    zip:     clip(env.shopZip, 10),
-    city:    clip(env.shopCity, 35),
+    name1:   clip(env.shopName, 25),
+    street:  clip(env.shopAddress, 25),
+    zip:     clip(env.shopZip, 6),
+    city:    clip(env.shopCity, 25),
     country: 'CH',
   },
   /* Étiquette A6, PDF. printPreview : « SPECIMEN », hors production */
@@ -102,6 +103,8 @@ const buildLabelPayload = ({ order, address, product = DEFAULT_LABEL_PRODUCT }) 
     itemID:    String(order.id),
     recipient: {
       name1:   clip(recipientName(order, address), 35),
+      // Complément (c/o, bâtiment, appartement) : ligne imprimée entre le nom et la rue
+      addressSuffix: clip(address.complement, 35),
       street:  clip(address.street, 35),
       houseNo: clip(address.street_number, 10),
       zip:     clip(address.zip, 10),
@@ -213,6 +216,7 @@ const generateLabel = async (orderId, order, { product = DEFAULT_LABEL_PRODUCT }
     // titulaire du compte (livraison à un tiers). Fallback compte pour les commandes antérieures.
     first_name: order.shipping_first_name ?? order.first_name,
     last_name:  order.shipping_last_name  ?? order.last_name,
+    complement: order.shipping_complement,
     street:     order.shipping_street,
     street_number: order.shipping_street_number,
     city:       order.shipping_city,

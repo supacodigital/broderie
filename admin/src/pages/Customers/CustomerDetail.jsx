@@ -41,6 +41,7 @@ function postalLines(addr) {
   const name = [addr.first_name, addr.last_name].filter(Boolean).join(' ')
   return [
     name,
+    addr.complement,
     [addr.street, addr.street_number].filter(Boolean).join(' '),
     [addr.zip, addr.city].filter(Boolean).join(' '),
     addr.country && addr.country !== 'CH' ? addr.country : '',

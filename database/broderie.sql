@@ -100,6 +100,8 @@ CREATE TABLE addresses (
   -- Nom propre optionnel (facturation à un tiers/entreprise) — sinon celui du compte
   first_name VARCHAR(100) NULL DEFAULT NULL,
   last_name  VARCHAR(100) NULL DEFAULT NULL,
+  -- Complément La Poste (c/o, bâtiment, appartement) — entre le nom et la rue
+  complement VARCHAR(35)  NULL DEFAULT NULL,
   street        VARCHAR(255) NOT NULL,
   street_number VARCHAR(20)  NULL DEFAULT NULL,
   city       VARCHAR(100) NOT NULL,
@@ -466,6 +468,7 @@ CREATE TABLE orders (
   -- Adresse de livraison figée au moment de la commande (noms inclus — destinataire réel)
   shipping_first_name VARCHAR(100) NULL DEFAULT NULL,
   shipping_last_name  VARCHAR(100) NULL DEFAULT NULL,
+  shipping_complement VARCHAR(35) NULL DEFAULT NULL,
   shipping_street  VARCHAR(255)   NULL DEFAULT NULL,
   shipping_street_number VARCHAR(20) NULL DEFAULT NULL,
   shipping_city    VARCHAR(100)   NULL DEFAULT NULL,
@@ -476,6 +479,7 @@ CREATE TABLE orders (
   -- Adresse de facturation figée (peut différer de la livraison — tiers, entreprise…)
   billing_first_name VARCHAR(100) NULL DEFAULT NULL,
   billing_last_name  VARCHAR(100) NULL DEFAULT NULL,
+  billing_complement VARCHAR(35)  NULL DEFAULT NULL,
   billing_street   VARCHAR(255)   NULL DEFAULT NULL,
   billing_street_number VARCHAR(20) NULL DEFAULT NULL,
   billing_city     VARCHAR(100)   NULL DEFAULT NULL,

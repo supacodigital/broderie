@@ -337,6 +337,8 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
       const billFirst  = order.billing_first_name ?? order.shipping_first_name ?? user.first_name;
       const billLast   = order.billing_last_name  ?? order.shipping_last_name  ?? user.last_name;
       const billStreet = order.billing_street ?? order.shipping_street;
+      // Complément de l'adresse effectivement retenue (facturation, sinon livraison)
+      const billComplement = order.billing_street ? order.billing_complement : order.shipping_complement;
       const billNumber = order.billing_street_number ?? order.shipping_street_number;
       const billZip    = order.billing_zip ?? order.shipping_zip;
       const billCity   = order.billing_city ?? order.shipping_city;
@@ -349,6 +351,10 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
 
       let addrY = 197;
       doc.fontSize(9.5).fillColor(dark).font('Helvetica');
+      if (billComplement) {
+        doc.text(billComplement, PAGE_MARGIN, addrY);
+        addrY += 13;
+      }
       if (billStreet) {
         doc.text(`${billStreet}${billNumber ? ' ' + billNumber : ''}`, PAGE_MARGIN, addrY);
         addrY += 13;

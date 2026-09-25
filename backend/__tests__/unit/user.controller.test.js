@@ -156,7 +156,7 @@ describe('user.controller — createAddress()', () => {
 
     const req = {
       user: { id: 1 },
-      body: { label: 'Maison', street: 'Rue test 1', city: 'Genève', zip: '1200', country: 'CH', canton: 'GE', isDefault: true },
+      body: { label: 'Maison', street: 'Rue test 1', city: 'Genève', zip: '1201', country: 'CH', canton: 'GE', isDefault: true },
     };
     const res = makeRes();
     await createAddress(req, res, jest.fn());
@@ -170,7 +170,7 @@ describe('user.controller — createAddress()', () => {
 
     const req = {
       user: { id: 1 },
-      body: { label: 'Maison', street: 'Rue test 1', city: 'Genève', zip: '1200', canton: 'GE' },
+      body: { label: 'Maison', street: 'Rue test 1', city: 'Genève', zip: '1201', canton: 'GE' },
     };
     const res = makeRes();
     await createAddress(req, res, jest.fn());
@@ -197,7 +197,7 @@ describe('user.controller — updateAddress()', () => {
     const req = {
       params: { id: '3' },
       user: { id: 1 },
-      body: { label: 'Bureau', street: 'Rue 2', city: 'Zurich', zip: '8000', country: 'CH', canton: 'ZH', isDefault: false },
+      body: { label: 'Bureau', street: 'Rue 2', city: 'Zürich', zip: '8001', country: 'CH', canton: 'ZH', isDefault: false },
     };
     const res = makeRes();
     await updateAddress(req, res, jest.fn());
@@ -210,7 +210,7 @@ describe('user.controller — updateAddress()', () => {
 
     const req = {
       params: { id: '99' }, user: { id: 1 },
-      body: { label: 'Bureau', street: 'Rue 2', city: 'Zurich', zip: '8000', canton: 'ZH' },
+      body: { label: 'Bureau', street: 'Rue 2', city: 'Zürich', zip: '8001', canton: 'ZH' },
     };
     const res = makeRes();
     const next = jest.fn();

@@ -42,6 +42,13 @@ vi.mock('../../services/addresses.service.js', () => ({
   getAddresses: vi.fn().mockResolvedValue({ data: [] }),
   createAddress: vi.fn(), updateAddress: vi.fn(), deleteAddress: vi.fn(),
 }))
+/* Répertoire officiel des NPA (API) simulé : 1510 dessert Moudon et Syens */
+vi.mock('../../services/shipping.service.js', () => ({
+  getLocalities: vi.fn(async (zip) => (zip === '1510'
+    ? [{ city: 'Moudon', canton: 'VD' }, { city: 'Syens', canton: 'VD' }]
+    : null)),
+  isSwissZip: vi.fn(async (zip) => zip === '1510'),
+}))
 vi.mock('../../services/loyalty.service.js', () => ({
   getLoyaltyAccount: vi.fn().mockResolvedValue({ data: null }),
   getLoyaltyRewards: vi.fn().mockResolvedValue({ data: [] }),
@@ -140,8 +147,9 @@ describe('Adresses du compte (CLI-06)', () => {
     await user.type(screen.getByLabelText(/Libellé/), 'Maison')
     await user.type(screen.getByLabelText(/Rue/), 'Rue du Bourg')
     await user.type(screen.getByLabelText(/Numéro/), '12')
-    await user.type(screen.getByLabelText(/NPA/), '1510')
-    await user.type(screen.getByLabelText(/Localité/), 'Moudon')
+    await user.type(screen.getByLabelText(/^NPA \*$/), '1510')
+    // Libellé exact : « Localités de ce NPA » (choix proposés pour le 1510) ne doit pas répondre
+    await user.type(screen.getByLabelText(/^Localité \*$/), 'Moudon')
     await user.selectOptions(screen.getByLabelText(/Canton/), 'VD')
     await user.type(screen.getByLabelText(/Téléphone/), '079 123 45 67')
   }
@@ -176,5 +184,34 @@ describe('Adresses du compte (CLI-06)', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(createAddress.mock.calls[0][0]).toMatchObject({ phone: '079 123 45 67' })
     expect(screen.getByText(/Tél\. 079 123 45 67/)).toBeInTheDocument()
+  })
+
+  test('enregistre le complément d\'adresse et l\'affiche avant la rue', async () => {
+    const user = userEvent.setup()
+    createAddress.mockImplementation(async (data) => ({ data: { id: 1, is_default: 0, ...data } }))
+    render(<TabProfile user={JULIE} />)
+
+    await user.click(await screen.findByRole('button', { name: /Ajouter une adresse/ }))
+    await fillAddress(user)
+    await user.type(screen.getByLabelText(/Complément/), 'c/o Famille Rochat')
+    await user.click(screen.getByRole('button', { name: 'account.save' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(createAddress.mock.calls[0][0]).toMatchObject({ complement: 'c/o Famille Rochat' })
+    expect(screen.getByText(/c\/o Famille Rochat, Rue du Bourg 12, 1510 Moudon/)).toBeInTheDocument()
+  })
+
+  test('refuse un NPA hors de Suisse : livraison en Suisse uniquement', async () => {
+    const user = userEvent.setup()
+    render(<TabProfile user={JULIE} />)
+
+    await user.click(await screen.findByRole('button', { name: /Ajouter une adresse/ }))
+    await fillAddress(user)
+    await user.clear(screen.getByLabelText(/^NPA \*$/))
+    await user.type(screen.getByLabelText(/^NPA \*$/), '9490')
+    await user.click(screen.getByRole('button', { name: 'account.save' }))
+
+    expect(await screen.findByText('account.val.zipUnknown')).toBeInTheDocument()
+    expect(createAddress).not.toHaveBeenCalled()
   })
 })

@@ -7,19 +7,21 @@ const unpaidOrderService = require('../services/unpaidOrder.service');
 const { AppError }    = require('../middlewares/errorHandler');
 const { localeFromRequest } = require('../utils/locale.utils');
 const { orderFileSlug } = require('../utils/orderNumber.utils');
-const { POSTAL_LIMITS, SWISS_ZIP_REGEX, POSTAL_MESSAGES } = require('../utils/postalAddress.utils');
+const { POSTAL_LIMITS, POSTAL_MESSAGES } = require('../utils/postalAddress.utils');
+const { swissZipField, complementField } = require('../validators/postalAddress.validator');
 
 // Cantons suisses officiels (2 lettres) — validation stricte de l'adresse
 const SWISS_CANTONS = ['AG','AI','AR','BE','BL','BS','FR','GE','GL','GR','JU','LU','NE','NW','OW','SG','SH','SO','SZ','TG','TI','UR','VD','VS','ZG','ZH'];
 
 // Schéma d'adresse figée à la commande — validé côté serveur (jamais faire confiance au client).
-// Longueurs et NPA aux normes La Poste (utils/postalAddress.utils.js).
+// Longueurs et NPA aux normes La Poste (utils/postalAddress.utils.js) : livraison en Suisse uniquement.
 const addressSchema = z.object({
   first_name:    z.string().trim().min(1).max(POSTAL_LIMITS.name, POSTAL_MESSAGES.name),
   last_name:     z.string().trim().min(1).max(POSTAL_LIMITS.name, POSTAL_MESSAGES.name),
+  complement:    complementField(),
   street:        z.string().trim().min(1).max(POSTAL_LIMITS.street, POSTAL_MESSAGES.street),
   street_number: z.string().trim().max(POSTAL_LIMITS.streetNumber, POSTAL_MESSAGES.streetNumber).optional().nullable(),
-  zip:        z.string().trim().regex(SWISS_ZIP_REGEX, POSTAL_MESSAGES.zip),
+  zip:        swissZipField(),
   city:       z.string().trim().min(1).max(POSTAL_LIMITS.city, POSTAL_MESSAGES.city),
   canton:     z.enum(SWISS_CANTONS),
   phone:      z.string().trim().max(30).optional(),
@@ -40,7 +42,9 @@ const createOrder = async (req, res, next) => {
   try {
     const parsed = createOrderSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Données de commande invalides.' });
+      // Champ en cause (ex. « address.zip ») et message La Poste, au format d'erreur standard
+      const errors = parsed.error.issues.map((e) => ({ field: e.path.join('.'), message: e.message }));
+      return res.status(400).json({ success: false, message: 'Données de commande invalides.', errors });
     }
 
     const userId         = req.user.id;

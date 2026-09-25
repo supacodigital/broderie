@@ -14,6 +14,8 @@ import { getAddresses, createAddress, updateAddress, deleteAddress } from '../..
 import { getLoyaltyAccount, getLoyaltyRewards } from '../../services/loyalty.service.js'
 import { formatDate } from '../../utils/date.js'
 import { POSTAL_LIMITS, SWISS_ZIP_REGEX } from '../../utils/postalAddress.js'
+import { isSwissZip } from '../../services/shipping.service.js'
+import { useZipAutofill } from '../../hooks/useZipAutofill.js'
 import NewsletterPreference from './NewsletterPreference.jsx'
 import s from './Account.module.css'
 
@@ -75,7 +77,12 @@ const makeAddressSchema = (t) => z.object({
                    .max(POSTAL_LIMITS.street, t('account.val.tooLong', { max: POSTAL_LIMITS.street })),
   street_number: z.string().min(1, t('account.val.streetNumberRequired'))
                    .max(POSTAL_LIMITS.streetNumber, t('account.val.tooLong', { max: POSTAL_LIMITS.streetNumber })),
-  zip:          z.string().regex(SWISS_ZIP_REGEX, t('account.val.zipInvalid')),
+  // Complément facultatif (c/o, bâtiment, appartement)
+  complement:   z.string().max(POSTAL_LIMITS.complement, t('account.val.tooLong', { max: POSTAL_LIMITS.complement })).optional(),
+  // Livraison en Suisse uniquement : le NPA doit exister en Suisse (liste officielle)
+  zip:          z.string()
+                  .regex(SWISS_ZIP_REGEX, { message: t('account.val.zipInvalid'), abort: true })
+                  .refine(isSwissZip, t('account.val.zipUnknown')),
   city:         z.string().min(1, t('account.val.cityRequired'))
                   .max(POSTAL_LIMITS.city, t('account.val.tooLong', { max: POSTAL_LIMITS.city })),
   canton:       z.string().refine(v => CANTON_CODES.includes(v), t('account.val.cantonRequired')),
@@ -463,12 +470,15 @@ export function TabProfile({ user, onSaved }) {
 function AddressModal({ initial, onSave, onClose }) {
   const { t } = useTranslation()
   const addressSchema = useMemo(() => makeAddressSchema(t), [t])
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, watch, getValues, setValue, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(addressSchema),
     defaultValues: initial
-      ? { ...initial, phone: initial.phone ?? '' }
-      : { label: '', address_type: 'both', street: '', street_number: '', zip: '', city: '', canton: '', phone: '' },
+      ? { ...initial, complement: initial.complement ?? '', phone: initial.phone ?? '' }
+      : { label: '', address_type: 'both', complement: '', street: '', street_number: '', zip: '', city: '', canton: '', phone: '' },
   })
+  /* NPA → localité et canton préremplis (liste officielle, Suisse uniquement) */
+  const zipLookup = useZipAutofill({ watch, getValues, setValue, fields: { zip: 'zip', city: 'city', canton: 'canton' } })
+  const currentCity = watch('city')
   const [apiErr, setApiErr] = useState('')
 
   /* La fenêtre ne se ferme qu'une fois l'adresse réellement enregistrée. Elle se
@@ -527,10 +537,19 @@ function AddressModal({ initial, onSave, onClose }) {
               {errors.street_number && <span className={s.fieldError}><AlertCircle size={11} />{errors.street_number.message}</span>}
             </div>
           </div>
+          <div className={s.field}>
+            <label htmlFor="addr-complement" className={s.label}>Complément d'adresse</label>
+            <input id="addr-complement" type="text" autoComplete="address-line2" placeholder="c/o, bâtiment, appartement…"
+              aria-describedby="addr-complement-hint"
+              className={`${s.input} ${errors.complement ? s.inputError : ''}`}
+              {...register('complement')} />
+            <span id="addr-complement-hint" className={s.fieldHint}>Facultatif — imprimé entre le nom et la rue sur l'étiquette du colis.</span>
+            {errors.complement && <span className={s.fieldError}><AlertCircle size={11} />{errors.complement.message}</span>}
+          </div>
           <div className={s.formRow}>
             <div className={s.field}>
               <label htmlFor="addr-zip" className={s.label}>NPA <span className={s.requiredMark} aria-hidden="true">*</span></label>
-              <input id="addr-zip" type="text" maxLength={4} placeholder="1509" aria-required="true"
+              <input id="addr-zip" type="text" maxLength={4} inputMode="numeric" autoComplete="postal-code" placeholder="1509" aria-required="true"
                 className={`${s.input} ${errors.zip ? s.inputError : ''}`}
                 {...register('zip')} />
               {errors.zip && <span className={s.fieldError}><AlertCircle size={11} />{errors.zip.message}</span>}
@@ -542,6 +561,23 @@ function AddressModal({ initial, onSave, onClose }) {
                 {...register('city')} />
               {errors.city && <span className={s.fieldError}><AlertCircle size={11} />{errors.city.message}</span>}
             </div>
+            {/* Plusieurs localités pour ce NPA (ex. 1510 Moudon / Syens) : choix en un geste */}
+            {zipLookup.localities.length > 1 && (
+              <div className={s.localityChoices} role="group" aria-label="Localités de ce NPA">
+                <span className={s.localityChoicesLabel}>Localités de ce NPA :</span>
+                {zipLookup.localities.map(locality => (
+                  <button
+                    key={`${locality.city}-${locality.canton}`}
+                    type="button"
+                    className={s.localityChip}
+                    aria-pressed={currentCity === locality.city}
+                    onClick={() => zipLookup.choose(locality)}
+                  >
+                    {locality.city}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className={s.field}>
               <label htmlFor="addr-canton" className={s.label}>Canton <span className={s.requiredMark} aria-hidden="true">*</span></label>
               <select id="addr-canton" aria-required="true"
@@ -673,7 +709,7 @@ function TabAddresses() {
                   {!!addr.is_default && <span className={s.defaultBadgeInline}>Par défaut</span>}
                 </td>
                 <td className={s.dataRowMuted}>
-                  {addr.street} {addr.street_number}, {addr.zip} {addr.city}
+                  {addr.complement && <>{addr.complement}, </>}{addr.street} {addr.street_number}, {addr.zip} {addr.city}
                   {addr.phone && <><br />Tél. {addr.phone}</>}
                 </td>
                 <td className={s.dataRowMuted}>

@@ -56,7 +56,7 @@ const findById = async (id) => {
   const [[addresses], [orders], [loyaltyRows], [rewards]] = await Promise.all([
     pool.execute(
       // Destinataire et téléphone : la fiche sert aussi à rappeler la cliente
-      `SELECT id, label, address_type, first_name, last_name, street, street_number,
+      `SELECT id, label, address_type, first_name, last_name, complement, street, street_number,
               city, zip, country, canton, phone, is_default
        FROM addresses WHERE user_id = ?
        ORDER BY is_default DESC, id ASC`,

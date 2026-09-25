@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Checkout from './Checkout.jsx'
 
@@ -51,8 +51,15 @@ vi.mock('../../services/orders.service.js', () => ({
 vi.mock('../../services/coupons.service.js', () => ({ validateCoupon: vi.fn() }))
 let savedAddresses = []
 vi.mock('../../services/addresses.service.js', () => ({ getAddresses: vi.fn(() => Promise.resolve({ data: savedAddresses })) }))
+/* Répertoire officiel des NPA (API) simulé : quelques NPA suisses, le reste inconnu */
+const LOCALITIES = {
+  1509: [{ city: 'Vucherens', canton: 'VD' }],
+  1510: [{ city: 'Moudon', canton: 'VD' }, { city: 'Syens', canton: 'VD' }],
+}
 vi.mock('../../services/shipping.service.js', () => ({
   getShippingRate: vi.fn(() => Promise.resolve({ price_chf: 8.5, carrier: 'Swiss Post', estimated_days: '3-5' })),
+  getLocalities:   vi.fn(async (zip) => LOCALITIES[zip] ?? null),
+  isSwissZip:      vi.fn(async (zip) => Boolean(LOCALITIES[zip])),
 }))
 
 // Étape de paiement Twint en cours, telle que le checkout la mémorise
@@ -321,6 +328,30 @@ describe('Checkout — adresse aux normes La Poste', () => {
     await continueToSummary()
     expect(await screen.findByText('checkout.errors.tooLong')).toBeInTheDocument()
     expect(screen.queryByText('checkout.deliveryTo')).not.toBeInTheDocument()
+  })
+
+  test('un NPA hors de Suisse (Liechtenstein) est refusé : livraison en Suisse uniquement', async () => {
+    withSavedAddress({ zip: '9490', city: 'Vaduz' })
+    renderCheckout()
+    await waitFor(() => expect(screen.getByDisplayValue('Vaduz')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /checkout.continueToSummary/ }))
+    expect(await screen.findByText('checkout.errors.zipUnknown')).toBeInTheDocument()
+    expect(screen.queryByText('checkout.deliveryTo')).not.toBeInTheDocument()
+  })
+
+  test('NPA à plusieurs localités : choix proposés, la localité choisie est retenue', async () => {
+    withSavedAddress({ zip: '1510', city: '' })
+    renderCheckout()
+    const choices = await screen.findByRole('group', { name: 'checkout.localityChoice' })
+    fireEvent.click(within(choices).getByRole('button', { name: 'Syens' }))
+    await waitFor(() => expect(screen.getByDisplayValue('Syens')).toBeInTheDocument())
+  })
+
+  test('complément d\'adresse repris du compte et affiché au récapitulatif', async () => {
+    withSavedAddress({ complement: 'c/o Famille Rochat' })
+    await continueToSummary()
+    const recap = (await screen.findByText('checkout.deliveryTo')).nextElementSibling
+    expect(recap).toHaveTextContent('c/o Famille Rochat, Chemin du Collège 6, 1509 Vucherens')
   })
 
   test('récapitulatif « NPA Localité », sans canton ni « Suisse »', async () => {

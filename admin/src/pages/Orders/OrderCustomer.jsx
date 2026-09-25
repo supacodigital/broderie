@@ -11,7 +11,8 @@ function addressLines(order, prefix) {
   const street = [order[`${prefix}_street`], order[`${prefix}_street_number`]].filter(Boolean).join(' ')
   const city = [order[`${prefix}_zip`], order[`${prefix}_city`]].filter(Boolean).join(' ')
   const country = order[`${prefix}_country`]
-  return [name, street, city.trim(), country && country !== 'CH' ? country : ''].filter(Boolean)
+  // Ordre La Poste : nom, complément (c/o…), rue, NPA Localité
+  return [name, order[`${prefix}_complement`], street, city.trim(), country && country !== 'CH' ? country : ''].filter(Boolean)
 }
 
 function initials(first, last) {

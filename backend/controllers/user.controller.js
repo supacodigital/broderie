@@ -8,7 +8,8 @@ const authService = require('../services/auth.service');
 const dataExportService = require('../services/dataExport.service');
 const env = require('../config/env');
 const { AppError } = require('../middlewares/errorHandler');
-const { POSTAL_LIMITS, SWISS_ZIP_REGEX, POSTAL_MESSAGES } = require('../utils/postalAddress.utils');
+const { POSTAL_LIMITS, POSTAL_MESSAGES } = require('../utils/postalAddress.utils');
+const { swissZipField, complementField } = require('../validators/postalAddress.validator');
 const { isAdminRole } = require('../middlewares/roles');
 
 // Schéma d'adresse du compte — validé côté serveur
@@ -19,10 +20,11 @@ const accountAddressSchema = z.object({
   address_type: z.enum(['shipping', 'billing', 'both']).optional(),
   first_name:   z.string().trim().max(POSTAL_LIMITS.name, POSTAL_MESSAGES.name).optional().nullable(),
   last_name:    z.string().trim().max(POSTAL_LIMITS.name, POSTAL_MESSAGES.name).optional().nullable(),
+  complement:   complementField(),
   street:        z.string().trim().min(1).max(POSTAL_LIMITS.street, POSTAL_MESSAGES.street),
   street_number: z.string().trim().max(POSTAL_LIMITS.streetNumber, POSTAL_MESSAGES.streetNumber).optional().nullable(),
   city:         z.string().trim().min(1).max(POSTAL_LIMITS.city, POSTAL_MESSAGES.city),
-  zip:          z.string().trim().regex(SWISS_ZIP_REGEX, POSTAL_MESSAGES.zip),
+  zip:          swissZipField(),
   canton:       z.enum(SWISS_CANTONS).optional().nullable(),
 });
 
@@ -107,12 +109,13 @@ const createAddress = async (req, res, next) => {
   try {
     const parsed = accountAddressSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Adresse invalide.' });
+      const errors = parsed.error.issues.map((e) => ({ field: e.path.join('.'), message: e.message }));
+      return res.status(400).json({ success: false, message: 'Adresse invalide.', errors });
     }
     const isDefault = req.body.isDefault ?? req.body.is_default ?? false;
-    const { label, address_type, first_name, last_name, street, street_number, city, zip, canton, phone } = parsed.data;
+    const { label, address_type, first_name, last_name, complement, street, street_number, city, zip, canton, phone } = parsed.data;
     const addressId = await userRepository.createAddress(req.user.id, {
-      label, addressType: address_type, firstName: first_name, lastName: last_name,
+      label, addressType: address_type, firstName: first_name, lastName: last_name, complement,
       street, streetNumber: street_number, city, zip, country: 'CH', canton, isDefault,
       phone: phone || null,
     });
@@ -128,15 +131,16 @@ const updateAddress = async (req, res, next) => {
   try {
     const parsed = accountAddressSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ success: false, message: 'Adresse invalide.' });
+      const errors = parsed.error.issues.map((e) => ({ field: e.path.join('.'), message: e.message }));
+      return res.status(400).json({ success: false, message: 'Adresse invalide.', errors });
     }
     const addressId = parseInt(req.params.id);
     /* Absent du corps = inchangé. Le formulaire du compte ne l'envoie pas : le
        ramener à `false` retirait le statut « par défaut » à chaque modification. */
     const isDefault = req.body.isDefault ?? req.body.is_default ?? null;
-    const { label, address_type, first_name, last_name, street, street_number, city, zip, canton, phone } = parsed.data;
+    const { label, address_type, first_name, last_name, complement, street, street_number, city, zip, canton, phone } = parsed.data;
     await userRepository.updateAddress(addressId, req.user.id, {
-      label, addressType: address_type, firstName: first_name, lastName: last_name,
+      label, addressType: address_type, firstName: first_name, lastName: last_name, complement,
       street, streetNumber: street_number, city, zip, country: 'CH', canton, isDefault,
       phone: phone || null,
     });

@@ -381,6 +381,48 @@
   gap: 16px;
 }
 
+/* Localités d'un NPA qui en dessert plusieurs (1510 Moudon / Syens) :
+   ligne entière, juste sous le NPA et la localité */
+.localityChoices {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: -6px;
+}
+
+.localityChoicesLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.localityChip {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 999px;
+  background: var(--white);
+  font-size: 13px;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, transform .12s var(--ease-out);
+}
+
+.localityChip[aria-pressed="true"] {
+  border-color: var(--rose);
+  background: var(--rose-pale);
+  color: var(--rose-dark);
+  font-weight: 600;
+}
+
+.localityChip:active { transform: scale(.97); }
+.localityChip:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .localityChip:hover { border-color: var(--rose); }
+}
+
 .field {
   display: flex;
   flex-direction: column;

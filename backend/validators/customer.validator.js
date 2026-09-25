@@ -1,6 +1,7 @@
 const { z } = require('zod');
 const { nameField, phoneField, SWISS_CANTONS } = require('./user.validator');
-const { POSTAL_LIMITS, SWISS_ZIP_REGEX, POSTAL_MESSAGES } = require('../utils/postalAddress.utils');
+const { POSTAL_LIMITS } = require('../utils/postalAddress.utils');
+const { swissZipField, complementField } = require('./postalAddress.validator');
 
 /* Fiche client modifiée depuis l'admin (CLI-06) : prénom, nom ET adresse
    e-mail — la cliente ne peut pas changer son adresse elle-même, la boutique
@@ -37,9 +38,10 @@ const adminAddressSchema = z.object({
   // Longueurs et NPA aux normes La Poste (utils/postalAddress.utils.js)
   first_name:    optionalText(POSTAL_LIMITS.name),
   last_name:     optionalText(POSTAL_LIMITS.name),
+  complement:    complementField(),
   street:        requiredText('La rue est obligatoire.', POSTAL_LIMITS.street),
   street_number: requiredText('Le numéro est obligatoire.', POSTAL_LIMITS.streetNumber),
-  zip:           z.string({ error: POSTAL_MESSAGES.zip }).trim().regex(SWISS_ZIP_REGEX, POSTAL_MESSAGES.zip),
+  zip:           swissZipField(),
   city:          requiredText('La localité est obligatoire.', POSTAL_LIMITS.city),
   canton:        z.enum(SWISS_CANTONS, { error: 'Canton obligatoire.' }),
   phone:         phoneField,
