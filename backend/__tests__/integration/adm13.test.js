@@ -10,6 +10,7 @@ const { pool } = require('../../config/db');
 const emailService = require('../../services/email.service');
 const settingsRepository = require('../../repositories/settings.repository');
 const shopSettingsService = require('../../services/shopSettings.service');
+const env = require('../../config/env');
 const { computeTotp } = require('../helpers/totp.helper');
 const { registerVerifiedUser } = require('../helpers/auth.helper');
 const { extractPdfText } = require('../helpers/pdf.helper');
@@ -103,6 +104,29 @@ describe('Titulaire et N° TVA sur la facture (ADM-13)', () => {
     emailedPdf = await emailed;
     spy.mockRestore();
   }, 30000);
+
+  /* Constaté en prod le 25/09 : l'onglet Facturation envoie TOUS ses champs,
+     vides compris. Un délai de paiement vide était refusé (400) — impossible
+     d'enregistrer le titulaire ou le N° TVA sans remplir aussi le délai. */
+  test('l\'onglet Facturation s\'enregistre tel que l\'écran l\'envoie, délai vide compris', async () => {
+    const res = await request(app).put('/api/v1/admin/settings/invoice').set(adminAuth()).send({
+      invoice_name: '', invoice_owner: 'Julie Guerle', invoice_address: '', invoice_zip: '',
+      invoice_city: '', invoice_vat_number: 'CHE-201.783.009 TVA', invoice_due_days: '',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data.invoice_owner).toBe('Julie Guerle');
+    expect(res.body.data.invoice_due_days).toBe('');
+    // Délai vide = délai par défaut de la configuration serveur, sur la facture
+    const settings = await shopSettingsService.getInvoiceSettings();
+    expect(settings.dueDays).toBe(Number(env.invoiceDueDays) > 0 ? Number(env.invoiceDueDays) : 30);
+    // Remet l'émetteur complet pour les tests suivants
+    await request(app).put('/api/v1/admin/settings/invoice').set(adminAuth()).send(ISSUER);
+  });
+
+  test('un délai de paiement invalide reste refusé', async () => {
+    const res = await request(app).put('/api/v1/admin/settings/invoice').set(adminAuth()).send({ invoice_due_days: 'abc' });
+    expect(res.status).toBe(400);
+  });
 
   test('le titulaire est enregistré et relu par l\'admin', async () => {
     const res = await request(app).get('/api/v1/admin/settings/invoice').set(adminAuth());

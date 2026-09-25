@@ -390,8 +390,12 @@ const updateInvoiceSettings = async (req, res, next) => {
       if (req.body[key] !== undefined) allowed[key] = req.body[key];
     }
     /* Le délai de paiement figure sur la facture : une valeur non numérique ou
-       négative produirait une échéance absurde côté client. */
-    if (allowed.invoice_due_days !== undefined) {
+       négative produirait une échéance absurde côté client. Vide = délai par
+       défaut, comme tout champ laissé vide : l'onglet envoie tous ses champs, et
+       un délai vide empêchait d'enregistrer le titulaire ou le N° TVA (ADM-13). */
+    if (allowed.invoice_due_days != null && String(allowed.invoice_due_days).trim() === '') {
+      allowed.invoice_due_days = '';
+    } else if (allowed.invoice_due_days !== undefined) {
       const days = parseInt(allowed.invoice_due_days, 10);
       if (!Number.isInteger(days) || days < 1 || days > 365) {
         return next(new AppError('Le délai de paiement doit être compris entre 1 et 365 jours.', 400));
