@@ -13,6 +13,10 @@ describe('stock — quantité maximale du panier', () => {
     expect(maxQuantityOf({ sold_by_length: 0, stock: 4 })).toBe(4)
   })
 
+  it('article sur commande : le stock nul ne bloque pas le « + » (plafond 999 du serveur)', () => {
+    expect(maxQuantityOf({ sold_by_length: 0, is_made_to_order: 1, stock: 0 })).toBe(999)
+  })
+
   it('stock inconnu : aucune borne', () => {
     expect(maxQuantityOf({ sold_by_length: 0 })).toBe(Infinity)
   })

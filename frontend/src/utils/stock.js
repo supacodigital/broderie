@@ -4,11 +4,16 @@
    tronçons de 10 cm. */
 
 const CM_PER_METER = 100
+// Plafond d'une ligne de panier, identique à celui du serveur (cart.controller)
+const MAX_LINE_QUANTITY = 999
 
 const stepCmOf = (item) => Number(item?.length_step_cm) || 10
 
-// Quantité maximale commandable, dans l'unité de `quantity` (pièces ou tronçons)
+/* Quantité maximale commandable, dans l'unité de `quantity` (pièces ou tronçons).
+   Article sur commande : fabriqué à la demande, son stock (souvent 0) ne borne
+   rien — sans ce cas, le « + » du panier restait grisé dès la première unité. */
 export function maxQuantityOf(item) {
+  if (item?.is_made_to_order) return MAX_LINE_QUANTITY
   if (item?.stock == null) return Infinity
   const stock = Number(item.stock) || 0
   return item.sold_by_length ? Math.floor(stock / stepCmOf(item)) : stock
