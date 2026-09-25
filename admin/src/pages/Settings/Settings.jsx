@@ -250,12 +250,13 @@ function ShippingTab({ onDirtyChange }) {
   const [errorMsg, setErrorMsg] = useState('')
   const { resetBaseline } = useDirtyTracker(rates, loading, onDirtyChange)
 
-  /* Une ligne = une tranche « jusqu'à X kg » (ADM-10). Seul le plafond se saisit :
-     chaque tranche commence là où finit la précédente, aucun poids ne peut
-     tomber entre deux lignes. `key` identifie la ligne à l'écran. */
+  /* Une ligne = une tranche de montant (ADM-10 — « le modèle par tranches de
+     poids est inadapté »). Seul le plafond se saisit : chaque tranche commence
+     là où finit la précédente. La dernière n'a pas de plafond (« au-delà ») ;
+     seule, elle fait un forfait. `key` identifie la ligne à l'écran. */
   const toRows = (list) => (list ?? []).map((r, i) => ({
     key:           `r${r.id ?? i}`,
-    maxWeight:     String(parseFloat(r.max_weight)),
+    maxAmount:     r.max_amount_chf === null || r.max_amount_chf === undefined ? null : String(parseFloat(r.max_amount_chf)),
     priceChf:      String(r.price_chf),
     estimatedDays: r.estimated_days ?? '',
   }))
@@ -278,20 +279,24 @@ function ShippingTab({ onDirtyChange }) {
     setRates(prev => prev.map(r => r.key === key ? { ...r, [field]: value } : r))
   }
 
+  const ceilingOf = (r) => (r.maxAmount === null ? Infinity : (parseFloat(r.maxAmount) || 0))
+
+  // Nouvelle tranche insérée avant « au-delà », 50 francs au-dessus du plus haut plafond
   const addTier = () => {
-    const last = rates[rates.length - 1]
-    const nextMax = last ? Math.max(parseFloat(last.maxWeight) || 0, 0) + 5 : 1
-    setRates(prev => [...prev, { key: `n${Date.now()}`, maxWeight: String(nextMax), priceChf: '', estimatedDays: last?.estimatedDays ?? '' }])
+    const highest = Math.max(0, ...rates.filter(r => r.maxAmount !== null).map(ceilingOf))
+    const open = rates.find(r => r.maxAmount === null)
+    setRates(prev => [...prev, { key: `n${Date.now()}`, maxAmount: String(highest + 50), priceChf: open?.priceChf ?? '', estimatedDays: open?.estimatedDays ?? '' }])
   }
 
   const removeTier = (key) => setRates(prev => prev.filter(r => r.key !== key))
 
-  // Bornes affichées dans l'ordre des poids, comme elles s'appliqueront
-  const sorted = [...rates].sort((a, b) => (parseFloat(a.maxWeight) || 0) - (parseFloat(b.maxWeight) || 0))
+  // Bornes affichées dans l'ordre des montants, comme elles s'appliqueront
+  const sorted = [...rates].sort((a, b) => ceilingOf(a) - ceilingOf(b))
   const lowerBound = (key) => {
     const i = sorted.findIndex(r => r.key === key)
-    return i <= 0 ? 0 : parseFloat(sorted[i - 1].maxWeight) || 0
+    return i <= 0 ? 0 : ceilingOf(sorted[i - 1])
   }
+  const chf = (n) => `CHF ${Number(n).toFixed(2)}`
 
   const handleSave = async () => {
     setSaving(true)
@@ -299,7 +304,7 @@ function ShippingTab({ onDirtyChange }) {
     setErrorMsg('')
     try {
       const payload = sorted.map(r => ({
-        maxWeight:     parseFloat(r.maxWeight),
+        maxAmountChf:  r.maxAmount === null ? null : parseFloat(r.maxAmount),
         priceChf:      parseFloat(r.priceChf),
         estimatedDays: r.estimatedDays,
       }))
@@ -321,7 +326,7 @@ function ShippingTab({ onDirtyChange }) {
     <>
     <SettingsSection
       title="Frais de port"
-      desc="Livraison Suisse uniquement via La Poste CH. Les frais sont toujours facturés au client, selon le poids total de la commande."
+      desc="Livraison Suisse uniquement via La Poste CH. Les frais sont toujours facturés au client, selon le montant des articles (TTC, avant code promo). Une seule tranche = un forfait pour toutes les commandes."
     >
       {error && <ErrorBanner onRetry={load} />}
       {loading ? (
@@ -332,7 +337,7 @@ function ShippingTab({ onDirtyChange }) {
         <>
           <div className={s.shippingTable}>
             <div className={`${s.shippingHead} ${s.shippingGrid}`}>
-              <span>Poids de la commande</span>
+              <span>Montant des articles</span>
               <span>Tarif (CHF)</span>
               <span>Délai estimé</span>
               <span aria-hidden="true" />
@@ -340,17 +345,24 @@ function ShippingTab({ onDirtyChange }) {
             {sorted.map(r => (
               <div key={r.key} className={`${s.shippingRow} ${s.shippingGrid}`}>
                 <div className={s.weightCell}>
-                  <span className={s.weightFrom}>de {lowerBound(r.key)} à</span>
-                  <input
-                    type="number"
-                    step="0.001"
-                    min="0.001"
-                    className={`${s.input} ${s.inputWeight}`}
-                    aria-label="Poids maximum de la tranche (kg)"
-                    value={r.maxWeight}
-                    onChange={e => handleChange(r.key, 'maxWeight', e.target.value)}
-                  />
-                  <span className={s.weightFrom}>kg</span>
+                  {r.maxAmount === null ? (
+                    <span className={s.weightFrom}>
+                      {sorted.length === 1 ? 'Toutes les commandes (forfait)' : `au-delà de ${chf(lowerBound(r.key))}`}
+                    </span>
+                  ) : (
+                    <>
+                      <span className={s.weightFrom}>de {chf(lowerBound(r.key))} à CHF</span>
+                      <input
+                        type="number"
+                        step="0.05"
+                        min="0.05"
+                        className={`${s.input} ${s.inputWeight}`}
+                        aria-label="Montant maximum de la tranche (CHF)"
+                        value={r.maxAmount}
+                        onChange={e => handleChange(r.key, 'maxAmount', e.target.value)}
+                      />
+                    </>
+                  )}
                 </div>
                 <div className={s.inputWrap}>
                   <span className={s.inputPrefix}>CHF</span>
@@ -377,7 +389,7 @@ function ShippingTab({ onDirtyChange }) {
                   type="button"
                   className={s.btnIconDanger}
                   onClick={() => removeTier(r.key)}
-                  disabled={rates.length <= 1}
+                  disabled={rates.length <= 1 || r.maxAmount === null}
                   aria-label="Supprimer cette tranche"
                   title="Supprimer cette tranche"
                 >
@@ -387,7 +399,7 @@ function ShippingTab({ onDirtyChange }) {
             ))}
           </div>
           <p className={s.hint}>
-            Une commande plus lourde que la dernière tranche est facturée au tarif de cette dernière tranche.
+            La dernière ligne s’applique à tous les montants au-delà du dernier plafond. Aucun poids à saisir sur les articles.
           </p>
           <div className={s.formActions}>
             <button type="button" className={s.btnSecondary} onClick={addTier} disabled={rates.length >= 12}>
@@ -432,7 +444,7 @@ function ShippingTab({ onDirtyChange }) {
 
         <h3 className={s.guideTitle}>Poids des articles</h3>
         <p className={s.guideNote}>
-          Les frais de port sont calculés sur le poids total des articles de la commande (champ <strong>Poids</strong> de chaque fiche produit). Un article sans poids compte pour 0 kg : sans poids renseigné, une commande lourde est facturée au tarif de la première tranche.
+          Les frais de port facturés à la cliente dépendent du montant des articles (grille ci-dessus), plus de leur poids. Le champ <strong>Poids</strong> des fiches produit ne sert qu’au poids déclaré sur l’étiquette La Poste générée depuis l’administration : un article sans poids y compte pour 0.2 kg.
         </p>
       </div>
     </SettingsSection>

@@ -5,8 +5,6 @@ jest.mock('../../repositories/settings.repository', () => ({
   updateTaxRate:        jest.fn(),
   updateTaxRatesBulk:   jest.fn(),
   findAllShippingRates: jest.fn(),
-  updateShippingRate:   jest.fn(),
-  updateShippingRatesBulk: jest.fn(),
   replaceShippingRates: jest.fn(),
   findSettings:         jest.fn(),
   upsertSettings:       jest.fn(),
@@ -123,34 +121,12 @@ describe('admin/settings.controller — getShippingRates()', () => {
 // ── updateShippingRates() ─────────────────────────────────────────────────────
 
 describe('admin/settings.controller — updateShippingRates()', () => {
-  test('met à jour les frais et invalide le cache', async () => {
-    settingsRepository.updateShippingRatesBulk.mockResolvedValue();
-    settingsRepository.findAllShippingRates.mockResolvedValue([]);
-    cache.keys.mockReturnValue(['shipping:all']);
-
-    const req = { body: { rates: [{ id: 2, priceChf: 7.5, estimatedDays: 2 }] } };
-    const res = makeRes();
-    await updateShippingRates(req, res, jest.fn());
-    expect(settingsRepository.updateShippingRatesBulk).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.objectContaining({ id: 2, priceChf: 7.5, estimatedDays: 2 })])
-    );
-    expect(cache.del).toHaveBeenCalled();
-  });
-
   test('retourne 400 si rates manquant', async () => {
     const req = { body: {} };
     const res = makeRes();
     const next = jest.fn();
     await updateShippingRates(req, res, next);
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }));
-  });
-
-  test('ignore les entrées sans id', async () => {
-    settingsRepository.findAllShippingRates.mockResolvedValue([]);
-    const req = { body: { rates: [{ priceChf: 5 }] } };
-    const res = makeRes();
-    await updateShippingRates(req, res, jest.fn());
-    expect(settingsRepository.updateShippingRate).not.toHaveBeenCalled();
   });
 });
 
@@ -328,8 +304,8 @@ describe('admin/settings.controller — updateAboutSettings()', () => {
   });
 });
 
-/* ADM-10 — grille complète, tranches de poids comprises, réglée par la cliente */
-describe('admin/settings.controller — updateShippingRates() grille complète', () => {
+/* ADM-10 — grille par montant des articles, réglée par la cliente */
+describe('admin/settings.controller — updateShippingRates() grille par montant', () => {
   const run = async (rates) => {
     const res = makeRes();
     const next = jest.fn();
@@ -338,27 +314,36 @@ describe('admin/settings.controller — updateShippingRates() grille complète',
     return { res, next };
   };
 
-  test('remplace la grille, tranches triées par poids', async () => {
+  test('remplace la grille, tranches triées par montant, « au-delà » en dernier', async () => {
+    cache.keys.mockReturnValue(['shipping:all']);
     await run([
-      { maxWeight: 10, priceChf: 10, estimatedDays: '1-2' },
-      { maxWeight: 0.1, priceChf: 3, estimatedDays: '1-2' },
-      { maxWeight: 2, priceChf: 5, estimatedDays: '1-2' },
+      { maxAmountChf: null, priceChf: 15, estimatedDays: '1-2' },
+      { maxAmountChf: 100, priceChf: 12, estimatedDays: '1-2' },
+      { maxAmountChf: 50, priceChf: 9, estimatedDays: '1-2' },
     ]);
     expect(settingsRepository.replaceShippingRates).toHaveBeenCalledWith([
-      { maxWeight: 0.1, priceChf: 3, estimatedDays: '1-2' },
-      { maxWeight: 2, priceChf: 5, estimatedDays: '1-2' },
-      { maxWeight: 10, priceChf: 10, estimatedDays: '1-2' },
+      { maxAmountChf: 50, priceChf: 9, estimatedDays: '1-2' },
+      { maxAmountChf: 100, priceChf: 12, estimatedDays: '1-2' },
+      { maxAmountChf: null, priceChf: 15, estimatedDays: '1-2' },
     ]);
-    expect(settingsRepository.updateShippingRatesBulk).not.toHaveBeenCalled();
+    expect(cache.del).toHaveBeenCalled();
+  });
+
+  test('une seule tranche sans plafond : forfait accepté', async () => {
+    const { res } = await run([{ maxAmountChf: null, priceChf: 9, estimatedDays: '' }]);
+    expect(res.status).not.toHaveBeenCalledWith(400);
+    expect(settingsRepository.replaceShippingRates).toHaveBeenCalledWith([{ maxAmountChf: null, priceChf: 9, estimatedDays: null }]);
   });
 
   test.each([
-    ['deux tranches au même poids', [{ maxWeight: 2, priceChf: 5 }, { maxWeight: 2, priceChf: 6 }]],
-    ['poids nul', [{ maxWeight: 0, priceChf: 5 }]],
-    ['tarif négatif', [{ maxWeight: 2, priceChf: -1 }]],
-    ['tarif absent', [{ maxWeight: 2, priceChf: '' }]],
-    ['tarif à CHF 0 (livraison gratuite interdite)', [{ maxWeight: 2, priceChf: 0 }]],
-    ['plus de 12 tranches', Array.from({ length: 13 }, (_, i) => ({ maxWeight: i + 1, priceChf: 5 }))],
+    ['deux tranches au même plafond', [{ maxAmountChf: 50, priceChf: 5 }, { maxAmountChf: 50, priceChf: 6 }, { maxAmountChf: null, priceChf: 7 }]],
+    ['aucune tranche « au-delà »', [{ maxAmountChf: 50, priceChf: 5 }]],
+    ['deux tranches « au-delà »', [{ maxAmountChf: null, priceChf: 5 }, { maxAmountChf: null, priceChf: 6 }]],
+    ['plafond nul', [{ maxAmountChf: 0, priceChf: 5 }, { maxAmountChf: null, priceChf: 6 }]],
+    ['tarif négatif', [{ maxAmountChf: null, priceChf: -1 }]],
+    ['tarif absent', [{ maxAmountChf: null, priceChf: '' }]],
+    ['tarif à CHF 0 (livraison gratuite interdite)', [{ maxAmountChf: 50, priceChf: 5 }, { maxAmountChf: null, priceChf: 0 }]],
+    ['plus de 12 tranches', [...Array.from({ length: 12 }, (_, i) => ({ maxAmountChf: (i + 1) * 10, priceChf: 5 })), { maxAmountChf: null, priceChf: 9 }]],
   ])('refuse (400) : %s', async (_, rates) => {
     const { res } = await run(rates);
     expect(res.status).toHaveBeenCalledWith(400);

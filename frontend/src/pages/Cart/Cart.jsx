@@ -20,18 +20,18 @@ import s from "./Cart.module.css";
 
 export default function Cart() {
   const { t, i18n } = useTranslation();
-  const { items, itemCount, subtotal, totalWeightKg, updateQty, removeItem } = useCart();
+  const { items, itemCount, subtotal, updateQty, removeItem } = useCart();
   const [shipping, setShipping] = useState(null);
 
-  /* Recalcul des frais dès que le poids du panier change */
+  /* Recalcul des frais dès que le montant du panier change (ADM-10) */
   useEffect(() => {
     if (items.length === 0) { setShipping(null); return; }
     let cancelled = false;
-    getShippingRate(totalWeightKg)
+    getShippingRate(subtotal)
       .then(data => { if (!cancelled) setShipping(data) })
       .catch(() => {});
     return () => { cancelled = true };
-  }, [totalWeightKg, items.length]);
+  }, [subtotal, items.length]);
 
   const total = shipping ? roundCHF(subtotal + shipping.price_chf) : null;
 

@@ -1,38 +1,44 @@
-/* Tranche de frais de port applicable à un poids — ticket ADM-10 */
+/* Tranche de frais de port applicable à un montant d'articles — ticket ADM-10
+   (« le modèle par tranches de poids est inadapté »). */
 const { pickShippingRate } = require('../../utils/shipping.utils');
 
 const GRID = [
-  { min_weight: '10.000', max_weight: '30.000', price_chf: '22.00' },
-  { min_weight: '0.000', max_weight: '0.100', price_chf: '3.00' },
-  { min_weight: '0.101', max_weight: '2.000', price_chf: '5.00' },
-  { min_weight: '2.001', max_weight: '10.000', price_chf: '10.00' },
+  { max_amount_chf: null,    price_chf: '15.00' }, // au-delà
+  { max_amount_chf: '50.00', price_chf: '9.00' },
+  { max_amount_chf: '100.00', price_chf: '12.00' },
 ];
-const priceFor = (w) => pickShippingRate(GRID, w).price_chf;
+const priceFor = (amount) => pickShippingRate(GRID, amount).price_chf;
 
-describe('pickShippingRate — tranche de poids', () => {
-  test('choisit la première tranche dont le plafond couvre le poids', () => {
-    expect(priceFor(0)).toBe('3.00');
-    expect(priceFor(0.1)).toBe('3.00');
-    expect(priceFor(2)).toBe('5.00');
-    expect(priceFor(10)).toBe('10.00');
-    expect(priceFor(30)).toBe('22.00');
+describe('pickShippingRate — tranche de montant', () => {
+  test('choisit la première tranche dont le plafond couvre le montant', () => {
+    expect(priceFor(0)).toBe('9.00');
+    expect(priceFor(50)).toBe('9.00');
+    expect(priceFor(100)).toBe('12.00');
   });
 
-  // 100.4 g tombait entre 0.100 et 0.101 kg et repartait au tarif le moins cher
-  test('un poids entre deux tranches prend la tranche supérieure', () => {
-    expect(priceFor(0.1004)).toBe('5.00');
-    expect(priceFor(2.0005)).toBe('10.00');
+  test('un montant entre deux plafonds prend la tranche supérieure', () => {
+    expect(priceFor(50.05)).toBe('12.00');
   });
 
-  // Un colis de 31 kg était facturé au tarif d'une lettre
-  test('au-delà de la dernière tranche, la plus lourde s\'applique', () => {
-    expect(priceFor(31)).toBe('22.00');
-    expect(priceFor(250)).toBe('22.00');
+  test('au-delà du dernier plafond, la tranche « au-delà » s\'applique', () => {
+    expect(priceFor(100.05)).toBe('15.00');
+    expect(priceFor(5000)).toBe('15.00');
   });
 
-  test('poids absent ou négatif : première tranche', () => {
-    expect(priceFor(undefined)).toBe('3.00');
-    expect(priceFor(-1)).toBe('3.00');
+  test('une seule tranche sans plafond : forfait pour toutes les commandes', () => {
+    const forfait = [{ max_amount_chf: null, price_chf: '9.00' }];
+    expect(pickShippingRate(forfait, 0).price_chf).toBe('9.00');
+    expect(pickShippingRate(forfait, 999).price_chf).toBe('9.00');
+  });
+
+  test('sans tranche « au-delà », la plus haute s\'applique', () => {
+    const capped = [{ max_amount_chf: '50.00', price_chf: '9.00' }, { max_amount_chf: '100.00', price_chf: '12.00' }];
+    expect(pickShippingRate(capped, 250).price_chf).toBe('12.00');
+  });
+
+  test('montant absent ou négatif : première tranche', () => {
+    expect(priceFor(undefined)).toBe('9.00');
+    expect(priceFor(-1)).toBe('9.00');
   });
 
   test('grille vide : aucune tranche', () => {

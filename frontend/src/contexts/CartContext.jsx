@@ -146,14 +146,6 @@ export function CartProvider({ children }) {
      à la coupe, dont la `quantity` compte des tronçons de 10 cm. */
   const itemCount     = state.items.length
   const subtotal      = roundCHF(state.items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0))
-  /* Poids : `weight_kg` d'un article à la coupe est le poids AU MÈTRE, et
-     `quantity` un nombre de tronçons — on ramène donc à la longueur réelle,
-     sinon 60 cm pèserait 6 mètres et les frais de port seraient faux. */
-  const totalWeightKg = state.items.reduce((sum, i) => {
-    const w = parseFloat(i.weight_kg ?? 0)
-    if (!i.sold_by_length) return sum + w * i.quantity
-    return sum + w * (i.quantity * (Number(i.length_step_cm) || 10)) / 100
-  }, 0)
 
   const value = {
     items: state.items,
@@ -161,7 +153,6 @@ export function CartProvider({ children }) {
     error: state.error,
     itemCount,
     subtotal,
-    totalWeightKg,
     addItem,
     updateQty,
     removeItem,

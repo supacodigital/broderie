@@ -1,157 +1,170 @@
+/* Frais de port selon le montant des articles — ticket ADM-10.
+   Julie : « le modèle par tranches de poids est inadapté, impossible de
+   renseigner le poids de plus de 15 000 références ». Parcours réel : grille
+   réglée dans l'admin, tarif affiché par l'API publique (panier, caisse), et
+   frais facturés sur une vraie commande. */
 require('dotenv').config();
 const request = require('supertest');
 const app = require('../../app');
+const { pool } = require('../../config/db');
+const { computeTotp } = require('../helpers/totp.helper');
+const { registerVerifiedUser } = require('../helpers/auth.helper');
 
-// Tranches tarifaires La Poste CH — miroir de shipping_rates en BDD de test
-const TIERS = [
-  { min: 0,    max: 0.499, price: 8.50 },
-  { min: 0.5,  max: 1.999, price: 9.90 },
-  { min: 2.0,  max: 4.999, price: 12.90 },
+const stamp = Date.now();
+const address = {
+  first_name: 'Test', last_name: 'Adm10', street: 'Rue du Test', street_number: '12',
+  zip: '1000', city: 'Lausanne', canton: 'VD',
+};
+// Grille de test : jusqu'à 50 → 9.00, jusqu'à 100 → 12.00, au-delà → 15.00
+const GRID = [
+  { maxAmountChf: 50, priceChf: 9, estimatedDays: '3-5' },
+  { maxAmountChf: 100, priceChf: 12, estimatedDays: '3-5' },
+  { maxAmountChf: null, priceChf: 15, estimatedDays: '3-5' },
 ];
 
-// Aligne shipping_rates de la base de test sur les tranches attendues ci-dessus —
-// le seed broderie.sql peut porter d'autres montants selon l'environnement.
+let adminToken;
+let previousGrid;
+let productId;
+const couponCode = `ADM10-${stamp}`;
+
+const adminAuth = () => ({ Authorization: `Bearer ${adminToken}` });
+const priceFor = async (query) => {
+  const res = await request(app).get('/api/v1/shipping/rates').query(query);
+  expect(res.status).toBe(200);
+  return res.body.data.price_chf;
+};
+
+const createAdminToken = async () => {
+  const email = `adm10.admin.${stamp}@broderie-test.ch`;
+  const password = 'AdminJest1234!';
+  await request(app).post('/api/v1/auth/register').send({ email, password, firstName: 'Admin', lastName: 'Adm10' });
+  await pool.execute("UPDATE users SET role = 'admin' WHERE email = ?", [email]);
+  const login = await request(app).post('/api/v1/auth/login').send({ email, password });
+  const pending = login.body.data.mfaPendingToken;
+  const init = await request(app).post('/api/v1/mfa/setup/init').set('Authorization', `Bearer ${pending}`);
+  const confirm = await request(app).post('/api/v1/mfa/setup/confirm')
+    .set('Authorization', `Bearer ${pending}`).send({ code: computeTotp(init.body.data.manualEntryKey) });
+  return confirm.body.data.accessToken;
+};
+
+const placeOrder = async ({ quantity, coupon = null }) => {
+  const { token } = await registerVerifiedUser('adm10');
+  await request(app).post('/api/v1/cart/items').set('Authorization', `Bearer ${token}`).send({ productId, quantity });
+  const res = await request(app).post('/api/v1/orders').set('Authorization', `Bearer ${token}`)
+    .send({ address, payment_method: 'invoice_qr', items: [], ...(coupon ? { coupon_code: coupon } : {}) });
+  expect(res.status).toBe(201);
+  const [[order]] = await pool.query('SELECT subtotal, discount, shipping_cost FROM orders WHERE id = ?', [res.body.data.id]);
+  return order;
+};
+
 beforeAll(async () => {
-  const { pool } = require('../../config/db');
-  const [[zone]] = await pool.execute('SELECT id FROM shipping_zones LIMIT 1');
-  const zoneId = zone?.id;
-  if (!zoneId) return;
-  await pool.execute('DELETE FROM shipping_rates WHERE zone_id = ?', [zoneId]);
-  for (const t of [
-    { name: 'Tranche 1', min: 0,     max: 0.499,  price: 8.50 },
-    { name: 'Tranche 2', min: 0.5,   max: 1.999,  price: 9.90 },
-    { name: 'Tranche 3', min: 2.0,   max: 4.999,  price: 12.90 },
-    { name: 'Tranche 4', min: 5.0,   max: 30.0,   price: 18.00 },
-  ]) {
-    await pool.execute(
-      'INSERT INTO shipping_rates (zone_id, name, min_weight, max_weight, price_chf, estimated_days) VALUES (?, ?, ?, ?, ?, ?)',
-      [zoneId, t.name, t.min, t.max, t.price, '3-5']
+  adminToken = await createAdminToken();
+  // La grille de la base de test est remise telle quelle à la fin
+  [previousGrid] = await pool.query('SELECT max_amount_chf, price_chf, estimated_days FROM shipping_amount_rates');
+  const put = await request(app).put('/api/v1/admin/settings/shipping').set(adminAuth()).send({ rates: GRID });
+  expect(put.status).toBe(200);
+
+  // Article à CHF 30.00 : 1 → 30, 2 → 60, 4 → 120
+  const sku = `ADM10-${stamp}`;
+  const [r] = await pool.query(
+    `INSERT INTO products (category_id, slug, price_chf, tax_rate_id, sku, stock, weight_kg, is_active)
+     VALUES (101, ?, 30.00, 1, ?, 100, NULL, 1)`,
+    [sku.toLowerCase(), sku]
+  );
+  productId = r.insertId;
+  await pool.query(
+    `INSERT INTO product_translations (product_id, locale, name, description, slug) VALUES (?, 'fr', ?, '', ?)`,
+    [productId, `Kit test ADM-10 ${stamp}`, sku.toLowerCase()]
+  );
+  // Code promo de 20 % : fait passer 60 → 48, sous le plafond de 50
+  await pool.query(
+    `INSERT INTO coupons (code, type, value, min_order_chf, usage_limit, used_count, expires_at, is_active)
+     VALUES (?, 'percent', 20, 0, NULL, 0, NULL, 1)`,
+    [couponCode]
+  );
+}, 30000);
+
+afterAll(async () => {
+  await pool.query('DELETE FROM shipping_amount_rates');
+  if (previousGrid.length) {
+    await pool.query(
+      `INSERT INTO shipping_amount_rates (max_amount_chf, price_chf, estimated_days) VALUES ${previousGrid.map(() => '(?, ?, ?)').join(', ')}`,
+      previousGrid.flatMap((g) => [g.max_amount_chf, g.price_chf, g.estimated_days])
     );
   }
+  require('../../config/cache').cache.flushAll();
+  await pool.query('DELETE FROM cart_items WHERE product_id = ?', [productId]);
+  await pool.query('UPDATE products SET is_active = 0, deleted_at = NOW() WHERE id = ?', [productId]);
+  await pool.query('UPDATE coupons SET is_active = 0 WHERE code = ?', [couponCode]);
 });
 
-describe('Frais de port — GET /api/v1/shipping/rates', () => {
-  test('retourne la structure complète avec carrier et estimated_days', async () => {
-    const res = await request(app)
-      .get('/api/v1/shipping/rates')
-      .query({ weight: 0.35 });
-
+describe('Frais de port selon le montant — GET /api/v1/shipping/rates', () => {
+  test('structure complète, route publique (aucun token)', async () => {
+    const res = await request(app).get('/api/v1/shipping/rates').query({ amount: 20 });
     expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data).toHaveProperty('price_chf');
-    expect(res.body.data).toHaveProperty('currency', 'CHF');
-    expect(res.body.data).toHaveProperty('carrier');
-    expect(res.body.data).toHaveProperty('estimated_days');
+    expect(res.body).toMatchObject({ success: true, data: { currency: 'CHF', estimated_days: '3-5' } });
+    expect(res.body.data.carrier).toMatch(/swiss post/i);
     expect(typeof res.body.data.price_chf).toBe('number');
   });
 
-  test('carrier retourné est Swiss Post', async () => {
-    const res = await request(app)
-      .get('/api/v1/shipping/rates')
-      .query({ weight: 0 });
-
-    expect(res.status).toBe(200);
-    expect(res.body.data.carrier).toMatch(/swiss post/i);
+  test('chaque montant prend le tarif de sa tranche', async () => {
+    expect(await priceFor({ amount: 0 })).toBe(9);
+    expect(await priceFor({ amount: 50 })).toBe(9);
+    expect(await priceFor({ amount: 50.05 })).toBe(12);
+    expect(await priceFor({ amount: 100 })).toBe(12);
+    expect(await priceFor({ amount: 100.05 })).toBe(15);
+    expect(await priceFor({ amount: 5000 })).toBe(15);
   });
 
-  // Tranche 1 : 0 – 0.499 kg → CHF 8.50
-  test('poids 0 kg → CHF 8.50 (tranche 1)', async () => {
-    const res = await request(app).get('/api/v1/shipping/rates').query({ weight: 0 });
-    expect(res.status).toBe(200);
-    expect(res.body.data.price_chf).toBe(8.50);
+  test('montant absent, invalide ou négatif : première tranche', async () => {
+    expect(await priceFor({})).toBe(9);
+    expect(await priceFor({ amount: 'abc' })).toBe(9);
+    expect(await priceFor({ amount: -1 })).toBe(9);
+  });
+});
+
+describe('Frais de port selon le montant — commande réelle', () => {
+  test('la commande est facturée au tarif de sa tranche', async () => {
+    expect(await placeOrder({ quantity: 1 })).toMatchObject({ subtotal: '30.00', shipping_cost: '9.00' });
+    expect(await placeOrder({ quantity: 2 })).toMatchObject({ subtotal: '60.00', shipping_cost: '12.00' });
+    expect(await placeOrder({ quantity: 4 })).toMatchObject({ subtotal: '120.00', shipping_cost: '15.00' });
   });
 
-  test('poids 0.35 kg → CHF 8.50 (milieu tranche 1)', async () => {
-    const res = await request(app).get('/api/v1/shipping/rates').query({ weight: 0.35 });
-    expect(res.status).toBe(200);
-    expect(res.body.data.price_chf).toBe(8.50);
+  test('un code promo ne fait pas changer de tranche (montant avant code)', async () => {
+    const order = await placeOrder({ quantity: 2, coupon: couponCode });
+    expect(parseFloat(order.discount)).toBeCloseTo(12);
+    expect(order.shipping_cost).toBe('12.00'); // 60 avant code, et non 48
   });
 
-  test('poids 0.499 kg → CHF 8.50 (limite haute tranche 1)', async () => {
-    const res = await request(app).get('/api/v1/shipping/rates').query({ weight: 0.499 });
+  test('forfait : une seule tranche s\'applique à toutes les commandes', async () => {
+    const put = await request(app).put('/api/v1/admin/settings/shipping').set(adminAuth())
+      .send({ rates: [{ maxAmountChf: null, priceChf: 7.5, estimatedDays: '3-5' }] });
+    expect(put.status).toBe(200);
+    expect(await priceFor({ amount: 10 })).toBe(7.5);
+    expect(await priceFor({ amount: 900 })).toBe(7.5);
+    expect(await placeOrder({ quantity: 4 })).toMatchObject({ shipping_cost: '7.50' });
+    await request(app).put('/api/v1/admin/settings/shipping').set(adminAuth()).send({ rates: GRID });
+  });
+});
+
+describe('Frais de port selon le montant — grille dans l\'admin', () => {
+  test('la grille relue est triée, « au-delà » en dernier', async () => {
+    const res = await request(app).get('/api/v1/admin/settings/shipping').set(adminAuth());
     expect(res.status).toBe(200);
-    expect(res.body.data.price_chf).toBe(8.50);
+    expect(res.body.data.map((r) => [r.max_amount_chf, r.price_chf])).toEqual([
+      ['50.00', '9.00'], ['100.00', '12.00'], [null, '15.00'],
+    ]);
   });
 
-  // Tranche 2 : 0.5 – 1.999 kg → CHF 9.90
-  test('poids 0.5 kg → CHF 9.90 (tranche 2)', async () => {
-    const res = await request(app).get('/api/v1/shipping/rates').query({ weight: 0.5 });
-    expect(res.status).toBe(200);
-    expect(res.body.data.price_chf).toBe(9.90);
+  test('une tranche à CHF 0 est refusée (frais toujours payants)', async () => {
+    const res = await request(app).put('/api/v1/admin/settings/shipping').set(adminAuth())
+      .send({ rates: [{ maxAmountChf: 50, priceChf: 9 }, { maxAmountChf: null, priceChf: 0 }] });
+    expect(res.status).toBe(400);
+    expect(await priceFor({ amount: 500 })).toBe(15);
   });
 
-  test('poids 0.53 kg → CHF 9.90 (deux produits cumulés)', async () => {
-    const res = await request(app).get('/api/v1/shipping/rates').query({ weight: 0.53 });
-    expect(res.status).toBe(200);
-    expect(res.body.data.price_chf).toBe(9.90);
-  });
-
-  test('poids 1.999 kg → CHF 9.90 (limite haute tranche 2)', async () => {
-    const res = await request(app).get('/api/v1/shipping/rates').query({ weight: 1.999 });
-    expect(res.status).toBe(200);
-    expect(res.body.data.price_chf).toBe(9.90);
-  });
-
-  // Tranche 3 : 2.0 – 4.999 kg → CHF 12.90
-  test('poids 2.0 kg → CHF 12.90 (tranche 3)', async () => {
-    const res = await request(app).get('/api/v1/shipping/rates').query({ weight: 2.0 });
-    expect(res.status).toBe(200);
-    expect(res.body.data.price_chf).toBe(12.90);
-  });
-
-  test('poids 4.999 kg → CHF 12.90 (limite haute tranche 3)', async () => {
-    const res = await request(app).get('/api/v1/shipping/rates').query({ weight: 4.999 });
-    expect(res.status).toBe(200);
-    expect(res.body.data.price_chf).toBe(12.90);
-  });
-
-  // Cas particuliers
-  test('poids manquant dans la requête → tarif minimal CHF 8.50', async () => {
-    const res = await request(app).get('/api/v1/shipping/rates');
-    expect(res.status).toBe(200);
-    expect(res.body.data.price_chf).toBe(8.50);
-  });
-
-  test('poids invalide (texte) → tarif minimal CHF 8.50', async () => {
-    const res = await request(app).get('/api/v1/shipping/rates').query({ weight: 'abc' });
-    expect(res.status).toBe(200);
-    expect(res.body.data.price_chf).toBe(8.50);
-  });
-
-  test('poids négatif → tarif minimal CHF 8.50', async () => {
-    const res = await request(app).get('/api/v1/shipping/rates').query({ weight: -1 });
-    expect(res.status).toBe(200);
-    // Le poids négatif est traité comme 0 — tranche 1
-    expect(res.body.data.price_chf).toBeGreaterThanOrEqual(8.50);
-  });
-
-  test('route publique — aucun token requis', async () => {
-    // Vérifier que l\'endpoint est accessible sans authentification
-    const res = await request(app).get('/api/v1/shipping/rates').query({ weight: 0.5 });
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-  });
-
-  test('price_chf est arrondi au 0.05 CHF le plus proche', async () => {
-    const res = await request(app).get('/api/v1/shipping/rates').query({ weight: 0.5 });
-    expect(res.status).toBe(200);
-    // Arrondi CHF : montant * 20 doit être un entier
-    const rounded = Math.round(res.body.data.price_chf * 20) / 20;
-    expect(rounded).toBe(res.body.data.price_chf);
-  });
-
-  test('toutes les tranches retournent des prix croissants', async () => {
-    const weights = [0.25, 1.0, 3.0];
-    const prices = await Promise.all(
-      weights.map(w =>
-        request(app)
-          .get('/api/v1/shipping/rates')
-          .query({ weight: w })
-          .then(r => r.body.data.price_chf)
-      )
-    );
-    // CHF 8.50 < CHF 9.90 < CHF 12.90
-    expect(prices[0]).toBeLessThan(prices[1]);
-    expect(prices[1]).toBeLessThan(prices[2]);
+  test('réservé à l\'administration', async () => {
+    const res = await request(app).put('/api/v1/admin/settings/shipping').send({ rates: GRID });
+    expect(res.status).toBe(401);
   });
 });

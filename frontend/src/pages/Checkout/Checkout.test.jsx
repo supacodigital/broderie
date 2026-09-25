@@ -17,7 +17,7 @@ const reloadCartMock = vi.fn()
 let cartItems = []
 vi.mock('../../contexts/CartContext.jsx', () => ({
   useCart: () => ({
-    items: cartItems, subtotal: cartItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0), totalWeightKg: 0.2,
+    items: cartItems, subtotal: cartItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0),
     clearCart: clearCartMock, reloadCart: reloadCartMock,
   }),
 }))

@@ -129,17 +129,10 @@ const createOrder = async ({ userId, sessionId, paymentMethod = 'twint', couponC
 
   // Click & Collect : aucun envoi postal → frais de port à 0 (seule exception à la règle « frais toujours payants »)
   const isPickup = paymentMethod === 'pickup';
-  /* Poids réel de la commande.
-     Article vendu à la coupe : `weight_kg` est le poids AU MÈTRE et `quantity`
-     un nombre de tronçons — 60 cm doivent peser 0.6 m, pas 6 m. Sans cette
-     conversion, les frais de port Swiss Post étaient surévalués d'un facteur 10. */
-  const totalWeightKg = activeItems.reduce((sum, item) => {
-    const w = parseFloat(item.weight_kg ?? 0);
-    if (!item.sold_by_length) return sum + w * item.quantity;
-    const stepCm = Number(item.length_step_cm) || 10;
-    return sum + (w * item.quantity * stepCm) / 100;
-  }, 0);
-  const shippingCost = isPickup ? 0 : await getShippingCost(totalWeightKg);
+  /* Frais de port selon le montant des articles (ADM-10) : sous-total TTC avant
+     code promo, le même que celui affiché au panier — appliquer un code ne fait
+     pas changer de tranche. */
+  const shippingCost = isPickup ? 0 : await getShippingCost(subtotal);
   const total = roundCHF(discountedSubtotal + shippingCost);
 
   /* TVA incluse, frais de port compris (ADM-14) — le port suit le taux des

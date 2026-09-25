@@ -44,50 +44,17 @@ describe('settings.repository — updateTaxRate()', () => {
 // ── findAllShippingRates() ────────────────────────────────────────────────────
 
 describe('settings.repository — findAllShippingRates()', () => {
-  test('retourne les tarifs de livraison avec la zone', async () => {
+  test('lit la grille par montant, « au-delà » en dernier (ADM-10)', async () => {
     const fakeRates = [
-      { id: 1, name: 'Standard CH', price_chf: '8.50', zone_name: 'Suisse', carrier: 'Swiss Post' },
+      { id: 1, max_amount_chf: '50.00', price_chf: '9.00', estimated_days: '3-5' },
+      { id: 2, max_amount_chf: null, price_chf: '12.00', estimated_days: '3-5' },
     ];
     pool.query.mockResolvedValue([fakeRates]);
     const result = await settingsRepository.findAllShippingRates();
     expect(result).toEqual(fakeRates);
-    expect(pool.query).toHaveBeenCalledWith(
-      expect.stringContaining('FROM shipping_rates sr')
-    );
-  });
-});
-
-// ── updateShippingRate() ──────────────────────────────────────────────────────
-
-describe('settings.repository — updateShippingRate()', () => {
-  test('met à jour price_chf uniquement', async () => {
-    pool.execute.mockResolvedValue([{}]);
-    await settingsRepository.updateShippingRate(1, { priceChf: 9.50 });
-    expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining('price_chf = ?'), [9.50, 1]
-    );
-  });
-
-  test('met à jour estimatedDays uniquement', async () => {
-    pool.execute.mockResolvedValue([{}]);
-    await settingsRepository.updateShippingRate(2, { estimatedDays: 3 });
-    expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining('estimated_days = ?'), [3, 2]
-    );
-  });
-
-  test('met à jour les deux champs simultanément', async () => {
-    pool.execute.mockResolvedValue([{}]);
-    await settingsRepository.updateShippingRate(1, { priceChf: 10.00, estimatedDays: 2 });
-    expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringContaining('price_chf = ?'),
-      [10.00, 2, 1]
-    );
-  });
-
-  test('ne fait rien si aucun champ fourni', async () => {
-    await settingsRepository.updateShippingRate(1, {});
-    expect(pool.execute).not.toHaveBeenCalled();
+    const sql = pool.query.mock.calls[0][0];
+    expect(sql).toContain('FROM shipping_amount_rates');
+    expect(sql).toContain('ORDER BY max_amount_chf IS NULL, max_amount_chf ASC');
   });
 });
 

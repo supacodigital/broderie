@@ -20,30 +20,19 @@ const updateTaxRate = async (id, { rate }) => {
   cache.del(keys.taxRates());
 };
 
-/* ── Frais de port (cache 24 h) ── */
+/* ── Frais de port (cache 24 h) ──
+   Grille par montant des articles (ADM-10) : une tranche = un plafond en CHF,
+   la dernière sans plafond (NULL = au-delà). Triée comme elle s'applique. */
 const findAllShippingRates = async () => {
   const cached = cache.get(keys.shippingRates());
   if (cached) return cached;
   const [rows] = await pool.query(
-    `SELECT sr.id, sr.zone_id, sr.name, sr.min_weight, sr.max_weight,
-            sr.price_chf, sr.estimated_days, sz.name AS zone_name, sz.carrier
-     FROM shipping_rates sr
-     INNER JOIN shipping_zones sz ON sz.id = sr.zone_id
-     ORDER BY sr.min_weight ASC`
+    `SELECT id, max_amount_chf, price_chf, estimated_days
+     FROM shipping_amount_rates
+     ORDER BY max_amount_chf IS NULL, max_amount_chf ASC`
   );
   cacheSet(keys.shippingRates(), rows, TTL.SHIPPING);
   return rows;
-};
-
-const updateShippingRate = async (id, { priceChf, estimatedDays }) => {
-  const fields = [];
-  const params = [];
-  if (priceChf      !== undefined) { fields.push('price_chf = ?');      params.push(priceChf); }
-  if (estimatedDays !== undefined) { fields.push('estimated_days = ?'); params.push(estimatedDays); }
-  if (fields.length === 0) return;
-  params.push(id);
-  await pool.execute(`UPDATE shipping_rates SET ${fields.join(', ')} WHERE id = ?`, params);
-  cache.del(keys.shippingRates());
 };
 
 /* ── Paramètres boutique (clé/valeur) ── */
@@ -152,53 +141,17 @@ const updateTaxRatesBulk = async (rates) => {
   }
 };
 
-const updateShippingRatesBulk = async (rates) => {
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-    for (const r of rates) {
-      if (!r.id) continue;
-      const fields = [];
-      const params = [];
-      if (r.priceChf      !== undefined) { fields.push('price_chf = ?');      params.push(r.priceChf); }
-      if (r.estimatedDays !== undefined) { fields.push('estimated_days = ?'); params.push(r.estimatedDays); }
-      if (fields.length === 0) continue;
-      params.push(r.id);
-      await connection.execute(`UPDATE shipping_rates SET ${fields.join(', ')} WHERE id = ?`, params);
-    }
-    await connection.commit();
-    cache.del(keys.shippingRates());
-  } catch (err) {
-    await connection.rollback();
-    throw err;
-  } finally {
-    connection.release();
-  }
-};
-
-/* Remplace toute la grille de frais de port (ADM-10) — tranches de poids
-   comprises, que la cliente règle elle-même. Transaction : la grille est
-   appliquée en bloc ou pas du tout, jamais à moitié. Chaque tranche commence au
-   plafond de la précédente (la première à 0) ; `tiers` arrive trié et validé
-   par le contrôleur. Une seule zone (Suisse) : les tranches y sont rattachées. */
+/* Remplace toute la grille (ADM-10) — transaction : appliquée en bloc ou pas
+   du tout. `tiers` arrive validé et trié par le contrôleur. */
 const replaceShippingRates = async (tiers) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    const [[zone]] = await connection.query('SELECT id FROM shipping_zones ORDER BY id LIMIT 1');
-    if (!zone) throw new Error('Aucune zone de livraison configurée.');
-
-    await connection.execute('DELETE FROM shipping_rates WHERE zone_id = ?', [zone.id]);
-    let min = 0;
-    const rows = tiers.map((t) => {
-      const row = [zone.id, `Jusqu'à ${t.maxWeight} kg`, min, t.maxWeight, t.priceChf, t.estimatedDays ?? null];
-      min = t.maxWeight;
-      return row;
-    });
+    await connection.query('DELETE FROM shipping_amount_rates');
     await connection.query(
-      `INSERT INTO shipping_rates (zone_id, name, min_weight, max_weight, price_chf, estimated_days)
-       VALUES ${rows.map(() => '(?, ?, ?, ?, ?, ?)').join(', ')}`,
-      rows.flat()
+      `INSERT INTO shipping_amount_rates (max_amount_chf, price_chf, estimated_days)
+       VALUES ${tiers.map(() => '(?, ?, ?)').join(', ')}`,
+      tiers.flatMap((t) => [t.maxAmountChf, t.priceChf, t.estimatedDays ?? null])
     );
     await connection.commit();
     cache.del(keys.shippingRates());
@@ -211,8 +164,8 @@ const replaceShippingRates = async (tiers) => {
 };
 
 module.exports = {
-  findAllTaxRates, updateTaxRate, findAllShippingRates, updateShippingRate,
-  updateTaxRatesBulk, updateShippingRatesBulk, replaceShippingRates,
+  findAllTaxRates, updateTaxRate, findAllShippingRates,
+  updateTaxRatesBulk, replaceShippingRates,
   findSettings, upsertSettings, STORE_KEYS, LEGAL_KEYS, ABOUT_KEYS, HOME_KEYS, BANNER_KEYS, PICKUP_KEYS, INVOICE_KEYS,
   EMAIL_KEYS,
 };

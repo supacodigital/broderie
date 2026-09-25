@@ -50,8 +50,9 @@ const getShippingRates = async (req, res, next) => {
 };
 
 /* ── PUT /admin/settings/shipping ── */
-/* Grille complète (ADM-10) : tranches { maxWeight, priceChf, estimatedDays }.
-   Renvoie les tranches triées et validées, ou une erreur de champ. */
+/* Grille par montant (ADM-10) : tranches { maxAmountChf, priceChf, estimatedDays },
+   la dernière sans plafond (maxAmountChf null = au-delà). Une seule tranche =
+   forfait. Renvoie les tranches triées et validées, ou une erreur de champ. */
 const MAX_SHIPPING_TIERS = 12;
 const parseShippingTiers = (rates) => {
   if (rates.length > MAX_SHIPPING_TIERS) {
@@ -59,22 +60,26 @@ const parseShippingTiers = (rates) => {
   }
   const tiers = [];
   for (const [i, r] of rates.entries()) {
-    const maxWeight = Number(r.maxWeight);
+    const open = r.maxAmountChf === null || r.maxAmountChf === undefined || r.maxAmountChf === '';
+    const maxAmountChf = open ? null : Number(r.maxAmountChf);
     // Champ vide ≠ 0 : Number('') vaudrait 0, soit une livraison gratuite
     const priceChf = r.priceChf === '' || r.priceChf == null ? NaN : Number(r.priceChf);
-    const estimatedDays = r.estimatedDays == null ? null : String(r.estimatedDays).trim().slice(0, 20);
-    if (!Number.isFinite(maxWeight) || maxWeight <= 0 || maxWeight > 1000) {
-      return { error: { field: `rates.${i}.maxWeight`, message: 'Poids maximum invalide (entre 0 et 1000 kg).' } };
+    const estimatedDays = r.estimatedDays == null ? null : String(r.estimatedDays).trim().slice(0, 20) || null;
+    if (!open && (!Number.isFinite(maxAmountChf) || maxAmountChf <= 0 || maxAmountChf > 99999)) {
+      return { error: { field: `rates.${i}.maxAmountChf`, message: 'Montant maximum invalide (entre CHF 0.05 et 99 999).' } };
     }
     // Frais de port toujours payants (règle projet) : pas de tranche à CHF 0
     if (!Number.isFinite(priceChf) || priceChf <= 0 || priceChf > 999) {
       return { error: { field: `rates.${i}.priceChf`, message: 'Tarif invalide : les frais de port sont toujours payants (entre CHF 0.05 et 999).' } };
     }
-    tiers.push({ maxWeight: Math.round(maxWeight * 1000) / 1000, priceChf, estimatedDays });
+    tiers.push({ maxAmountChf: open ? null : Math.round(maxAmountChf * 100) / 100, priceChf, estimatedDays });
   }
-  tiers.sort((a, b) => a.maxWeight - b.maxWeight);
-  if (tiers.some((t, i) => i > 0 && t.maxWeight === tiers[i - 1].maxWeight)) {
-    return { error: { field: 'rates', message: 'Deux tranches ont le même poids maximum.' } };
+  if (tiers.filter((t) => t.maxAmountChf === null).length !== 1) {
+    return { error: { field: 'rates', message: 'La dernière tranche doit couvrir tous les montants au-delà.' } };
+  }
+  tiers.sort((a, b) => (a.maxAmountChf ?? Infinity) - (b.maxAmountChf ?? Infinity));
+  if (tiers.some((t, i) => i > 0 && t.maxAmountChf !== null && t.maxAmountChf === tiers[i - 1].maxAmountChf)) {
+    return { error: { field: 'rates', message: 'Deux tranches ont le même montant maximum.' } };
   }
   return { tiers };
 };
@@ -85,18 +90,11 @@ const updateShippingRates = async (req, res, next) => {
     if (!Array.isArray(rates) || rates.length === 0) {
       return next(new AppError('Tableau de tarifs requis.', 400));
     }
-    if (rates.every((r) => r && r.maxWeight !== undefined)) {
-      // Grille complète, tranches de poids comprises (ADM-10)
-      const { tiers, error } = parseShippingTiers(rates);
-      if (error) {
-        return res.status(400).json({ success: false, message: 'Données invalides.', errors: [error] });
-      }
-      await settingsRepository.replaceShippingRates(tiers);
-    } else {
-      // Ancien format : prix et délai seuls, par identifiant de tranche.
-      // Transaction : la grille tarifaire est appliquée en bloc ou pas du tout.
-      await settingsRepository.updateShippingRatesBulk(rates);
+    const { tiers, error } = parseShippingTiers(rates);
+    if (error) {
+      return res.status(400).json({ success: false, message: 'Données invalides.', errors: [error] });
     }
+    await settingsRepository.replaceShippingRates(tiers);
     invalidateCache();
     const updated = await settingsRepository.findAllShippingRates();
     res.json({ success: true, data: updated });

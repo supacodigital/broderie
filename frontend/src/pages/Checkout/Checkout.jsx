@@ -1045,7 +1045,7 @@ function StepConfirm({ orderId, paymentMethod, paymentPending = false, t }) {
 export default function Checkout() {
   const { t }                                        = useTranslation()
   const navigate                                     = useNavigate()
-  const { items, subtotal, totalWeightKg, clearCart, reloadCart } = useCart()
+  const { items, subtotal, clearCart, reloadCart } = useCart()
   const { user, isAuthenticated }                    = useAuth()
 
   /* Retour d'une redirection Stripe (app Twint, 3-D Secure) : l'URL porte le
@@ -1280,14 +1280,15 @@ export default function Checkout() {
     let cancelled = false
     setShippingLoading(true)
     setShippingError(false)
-    getShippingRate(totalWeightKg)
+    // Montant des articles avant code promo (ADM-10) : un code ne change pas de tranche
+    getShippingRate(subtotal)
       .then(data => { if (!cancelled) setShipping(data) })
       /* Sans cet état, le total restait bloqué sur « … » indéfiniment et le client
          pouvait valider une commande dont il n'avait jamais vu le montant. */
       .catch(() => { if (!cancelled) setShippingError(true) })
       .finally(() => { if (!cancelled) setShippingLoading(false) })
     return () => { cancelled = true }
-  }, [step, totalWeightKg, shippingRetry])
+  }, [step, subtotal, shippingRetry])
 
   const handleAddressNext = (data) => {
     /* Sépare l'adresse de livraison et l'adresse de facturation issues du même formulaire */
