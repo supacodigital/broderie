@@ -23,6 +23,7 @@ jest.mock('pdfkit', () => {
 
 jest.mock('../../repositories/order.repository', () => ({
   findById: jest.fn(),
+  findShippingLabelPdf: jest.fn().mockResolvedValue(null),
   updateTrackingNumber: jest.fn(),
 }));
 
@@ -172,6 +173,23 @@ describe('shipping.admin.controller — downloadLabel()', () => {
       'Content-Disposition',
       expect.stringContaining('etiquette-')
     );
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  test('mode réel : renvoie le PDF de La Poste stocké en base', async () => {
+    const pdf = Buffer.from('%PDF-1.4 étiquette');
+    orderRepository.findById.mockResolvedValue({
+      ...fakeOrder, label_id: '42', label_url: 'https://www.post.ch/fr/outils/suivi-de-colis?track=993456789012345678',
+    });
+    orderRepository.findShippingLabelPdf.mockResolvedValueOnce(pdf);
+
+    const res = makeRes();
+    const next = jest.fn();
+    await controller.downloadLabel({ params: { id: '1' } }, res, next);
+
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');
+    expect(res.send).toHaveBeenCalledWith(pdf);
+    expect(res.redirect).not.toHaveBeenCalled();
     expect(next).not.toHaveBeenCalled();
   });
 

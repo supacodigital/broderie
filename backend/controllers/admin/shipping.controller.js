@@ -89,10 +89,9 @@ const downloadLabel = async (req, res, next) => {
       return;
     }
 
-    /* Mode réel — l'étiquette PDF est stockée en data URI base64 dans label_url */
-    if (order.label_url?.startsWith('data:application/pdf;base64,')) {
-      const base64 = order.label_url.split(',')[1] ?? '';
-      const pdfBuffer = Buffer.from(base64, 'base64');
+    /* Mode réel — le PDF renvoyé par La Poste est stocké dans orders.label_pdf */
+    const pdfBuffer = await orderRepository.findShippingLabelPdf(orderId);
+    if (pdfBuffer) {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="etiquette-${String(orderId).padStart(6, '0')}.pdf"`);
       return res.send(pdfBuffer);

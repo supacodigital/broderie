@@ -93,6 +93,9 @@ const baseSchema = z.object({
   SWISS_POST_TOKEN_URL:  z.string().url().default('https://api.post.ch/OAuth/token'),
   SWISS_POST_LABEL_URL:  z.string().url().default('https://dcapi.apis.post.ch/barcode/v1/generateAddressLabel'),
   SWISS_POST_SCOPE:      z.string().default('DCAPI_BARCODE_READ'),
+  /* Étiquettes « SPECIMEN » (printPreview) : gratuites et inutilisables pour
+     un vrai envoi. Défaut : actif partout sauf en production. */
+  SWISS_POST_PRINT_PREVIEW: z.enum(['true', 'false']).optional(),
 });
 
 const schema = baseSchema
@@ -208,4 +211,7 @@ module.exports = {
   swissPostTokenUrl:  e.SWISS_POST_TOKEN_URL,
   swissPostLabelUrl:  e.SWISS_POST_LABEL_URL,
   swissPostScope:     e.SWISS_POST_SCOPE,
+  swissPostPrintPreview: e.SWISS_POST_PRINT_PREVIEW
+    ? e.SWISS_POST_PRINT_PREVIEW === 'true'
+    : e.NODE_ENV !== 'production',
 };

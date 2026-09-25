@@ -161,7 +161,7 @@ describe('shipping.service — generateLabel()', () => {
     expect(result.trackingNumber).toMatch(/^99\.00\./);
     expect(pool.execute).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE orders SET tracking_number'),
-      [result.trackingNumber, result.labelUrl, result.labelId, 1]
+      [result.trackingNumber, result.labelUrl, result.labelId, null, 1] // étiquette simulée : pas de PDF La Poste
     );
   });
 

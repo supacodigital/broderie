@@ -12,8 +12,8 @@ const lengthUtils      = require('../utils/length.utils');
      • MOCK : tracking + étiquette simulés tant que les accès client manquent.
 
    Format numéro de suivi Swiss Post réel : identCode (18-23 chiffres).
-   Le contrat de retour { trackingNumber, labelUrl, labelId } est identique dans les deux modes
-   pour ne pas impacter le controller ni la persistance en base.
+   Le contrat de retour { trackingNumber, labelUrl, labelId } est identique dans les deux modes ;
+   le mode réel y ajoute labelPdf (PDF binaire de l'étiquette, stocké dans orders.label_pdf).
 ───────────────────────────────────────────────────────────────────────────── */
 
 /* ── MOCK ──────────────────────────────────────────────────────────────────── */
@@ -64,70 +64,100 @@ const isLabelProduct = (code) => Object.prototype.hasOwnProperty.call(LABEL_PROD
 
 /* ── RÉEL ──────────────────────────────────────────────────────────────────── */
 
+/* Longueurs maximales de la Barcode API (manuel La Poste) : noms, rue et
+   localité 35 caractères, numéro de rue 10. `undefined` retire le champ du JSON. */
+const clip = (value, max) => {
+  const text = value == null ? '' : String(value).trim()
+  return text ? text.slice(0, max) : undefined
+}
+
+/* Lien public de suivi d'un envoi La Poste */
+const trackingUrl = (identCode) => `https://www.post.ch/fr/outils/suivi-de-colis?track=${identCode}`
+
 /**
- * Construit le corps de la requête generateAddressLabel.
- * ⚠️ Les sous-champs (item/recipient/attributes) sont à valider contre le Swagger officiel
- *    le jour de l'activation — voir config/swissPostClient.js.
+ * Construit le corps de la requête generateAddressLabel, calqué sur l'exemple
+ * officiel (developer.post.ch/en/digital-commerce-api) : `item` est UN objet —
+ * envoyé en tableau, La Poste répondait HTTP 400 sans explication.
  */
 const buildLabelPayload = ({ order, address, product = DEFAULT_LABEL_PRODUCT }) => ({
   language: 'FR',
   frankingLicense: swissPost.frankiernummer,
   /* Expéditeur = boutique (config/env.js) */
   customer: {
-    name1:   env.shopName,
-    street:  env.shopAddress,
-    zip:     env.shopZip,
-    city:    env.shopCity,
+    name1:   clip(env.shopName, 35),
+    street:  clip(env.shopAddress, 35),
+    zip:     clip(env.shopZip, 10),
+    city:    clip(env.shopCity, 35),
     country: 'CH',
   },
-  /* Étiquette A6, PDF — paramètres usuels Barcode API */
+  /* Étiquette A6, PDF. printPreview : « SPECIMEN », hors production */
   labelDefinition: {
     labelLayout:     'A6',
     printAddresses:  'RECIPIENT_AND_CUSTOMER',
     imageFileType:   'PDF',
     imageResolution: 300,
+    printPreview:    Boolean(swissPost.printPreview),
   },
-  item: [
-    {
-      itemID:    String(order.id),
-      recipient: {
-        name1:   recipientName(order, address),
-        street:  [address.street, address.street_number].filter(Boolean).join(' '),
-        zip:     address.zip,
-        city:    address.city,
-        country: address.country ?? 'CH',
-      },
-      attributes: {
-        przl:     [product],               // ECO « PostPac Economy » ou PRI « PostPac Priority »
-        weight:   Math.round(totalWeightKg(order) * 1000), // grammes
-      },
+  item: {
+    itemID:    String(order.id),
+    recipient: {
+      name1:   clip(recipientName(order, address), 35),
+      street:  clip(address.street, 35),
+      houseNo: clip(address.street_number, 10),
+      zip:     clip(address.zip, 10),
+      city:    clip(address.city, 35),
+      country: address.country ?? 'CH',
     },
-  ],
+    attributes: {
+      przl:   [product],                               // ECO « PostPac Economy » ou PRI « PostPac Priority »
+      weight: Math.round(totalWeightKg(order) * 1000), // grammes
+    },
+  },
 })
 
+/* Motifs de refus renvoyés par La Poste : [{ code: 'E1234', message }] */
+const describePostErrors = (errors) => (Array.isArray(errors) ? errors : [])
+  .map((e) => [e?.code ?? e?.errorCode, e?.message ?? e?.errorText ?? e?.description].filter(Boolean).join(' '))
+  .filter(Boolean)
+  .join(' · ')
+
+/* Message affiché dans l'admin quand l'appel à La Poste échoue */
+const postFailureMessage = (err) => {
+  if (!err.status) return 'Impossible de joindre La Poste pour générer l\'étiquette. Réessayez dans quelques minutes.'
+  let body = null
+  try { body = JSON.parse(err.detail) } catch { /* corps vide ou texte brut */ }
+  const reasons = describePostErrors(body?.errors ?? body?.item?.errors)
+  return `La Poste a refusé la demande d'étiquette (HTTP ${err.status})${reasons ? ` : ${reasons}` : ', sans préciser la raison.'}`
+}
+
 /**
- * Extrait { trackingNumber, labelUrl, labelId } de la réponse API.
- * labelUrl = data URI PDF (base64) pour pouvoir le re-servir depuis downloadLabel.
+ * Extrait { trackingNumber, labelPdf, labelUrl, labelId } de la réponse API.
+ * L'étiquette (base64) est décodée en PDF binaire, stocké à part (orders.label_pdf) :
+ * elle ne tenait pas dans label_url (500 caractères).
  */
-const parseLabelResponse = (apiResponse) => {
-  const item  = Array.isArray(apiResponse.item) ? apiResponse.item[0] : apiResponse.item
+const parseLabelResponse = (apiResponse, product = DEFAULT_LABEL_PRODUCT) => {
+  const item = Array.isArray(apiResponse?.item) ? apiResponse.item[0] : apiResponse?.item
   if (!item) {
-    throw new AppError('Réponse La Poste CH invalide — aucun item retourné.', 502)
+    throw new AppError('Réponse La Poste CH invalide — aucun envoi retourné.', 502)
+  }
+  if (Array.isArray(item.warnings) && item.warnings.length) {
+    console.warn('[La Poste CH] Avertissements étiquette :', describePostErrors(item.warnings))
   }
 
-  const trackingNumber = item.identCode ?? item.sendingID ?? null
-  /* item.label : tableau de pages encodées base64 (PDF) — on prend la première */
+  /* item.label : pages encodées en base64 — une seule pour une étiquette A6 */
   const base64Label = Array.isArray(item.label) ? item.label[0] : item.label
-  const labelUrl = base64Label
-    ? `data:application/pdf;base64,${base64Label}`
-    : `https://www.post.ch/fr/outils/suivi-de-colis?track=${trackingNumber}`
+  if (!item.identCode || !base64Label) {
+    const reasons = describePostErrors(item.errors)
+    throw new AppError(`La Poste n'a pas généré l'étiquette${reasons ? ` : ${reasons}` : '.'}`, 502)
+  }
 
   return {
-    trackingNumber,
-    labelUrl,
-    labelId:     item.itemID ?? trackingNumber,
-    carrierId:   'swiss-post',
-    serviceCode: 'priority',
+    trackingNumber: item.identCode,
+    labelPdf:       Buffer.from(base64Label, 'base64'),
+    labelUrl:       trackingUrl(item.identCode),
+    labelId:        item.itemID ?? item.identCode,
+    carrierId:      'swiss-post',
+    serviceCode:    product === 'ECO' ? 'economy' : 'priority',
   }
 }
 
@@ -152,7 +182,7 @@ const createLabel = async ({ order, address, product = DEFAULT_LABEL_PRODUCT }) 
     const trackingNumber = mockTrackingNumber()
     return {
       trackingNumber,
-      labelUrl:    `https://www.post.ch/fr/outils/suivi-de-colis?track=${trackingNumber}`,
+      labelUrl:    trackingUrl(trackingNumber),
       labelId:     mockLabelId(),
       carrierId:   'swiss-post-mock',
       serviceCode: product === 'ECO' ? 'economy' : 'priority',
@@ -162,9 +192,15 @@ const createLabel = async ({ order, address, product = DEFAULT_LABEL_PRODUCT }) 
   }
 
   /* ── Mode réel ── */
-  const payload     = buildLabelPayload({ order, address, product })
-  const apiResponse = await swissPostClient.generateAddressLabel(payload)
-  return parseLabelResponse(apiResponse)
+  const payload = buildLabelPayload({ order, address, product })
+  let apiResponse
+  try {
+    apiResponse = await swissPostClient.generateAddressLabel(payload)
+  } catch (err) {
+    console.error('[La Poste CH] Étiquette refusée — commande', order.id, ':', err.message)
+    throw new AppError(postFailureMessage(err), 502)
+  }
+  return parseLabelResponse(apiResponse, product)
 }
 
 /**
@@ -183,9 +219,8 @@ const generateLabel = async (orderId, order, { product = DEFAULT_LABEL_PRODUCT }
     zip:        order.shipping_zip,
     canton:     order.shipping_canton ?? '',
     country:    order.shipping_country ?? 'CH',
-    /* Numéro donné au checkout (`order.phone` n'a jamais existé). Pas encore transmis
-       à Swiss Post : buildLabelPayload n'envoie pas de téléphone, le nom du champ
-       destinataire est à valider contre le Swagger avant de l'ajouter. */
+    /* Numéro donné au checkout (`order.phone` n'a jamais existé). Pas transmis à
+       La Poste : l'exemple officiel ne comporte pas de téléphone destinataire. */
     phone:      order.shipping_phone ?? '',
   }
 
@@ -199,6 +234,7 @@ const generateLabel = async (orderId, order, { product = DEFAULT_LABEL_PRODUCT }
     trackingNumber: label.trackingNumber,
     labelUrl:       label.labelUrl,
     labelId:        label.labelId,
+    labelPdf:       label.labelPdf ?? null,
   })
 
   return label

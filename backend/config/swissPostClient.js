@@ -3,16 +3,24 @@
    - Appel generateAddressLabel.
    Utilise le fetch natif de Node ≥ 18 — aucune dépendance ajoutée.
 
-   ⚠️ À CONFIRMER contre le Swagger officiel (developer.post.ch → Barcode API → OpenAPI)
-   le jour de l'activation : le détail fin des sous-champs du body (item/recipient/attributes)
-   peut varier. Les noms de premier niveau (frankingLicense, customer, labelDefinition, item,
-   identCode, label) sont ceux documentés publiquement. */
+   Structure du corps : voir buildLabelPayload (shipping.service.js), calquée sur
+   l'exemple officiel de developer.post.ch/en/digital-commerce-api. */
 
 const swissPost = require('./swissPost');
 
 /* Cache du token en mémoire process — partagé entre requêtes, renouvelé avant expiration */
 let cachedToken = null;       // { value, expiresAt }
 const TOKEN_SAFETY_MARGIN_MS = 60_000; // renouveler 60 s avant l'expiration réelle
+
+/* Erreur HTTP de La Poste : le statut et le corps de la réponse restent
+   accessibles (codes « E1234 » à afficher dans l'admin). Un corps vide est
+   signalé tel quel — c'est le cas d'un JSON dont la structure est refusée. */
+const postError = (label, status, detail) => {
+  const error = new Error(`${label} : ${detail.slice(0, 300) || '(réponse vide)'}`);
+  error.status = status;
+  error.detail = detail;
+  return error;
+};
 
 /**
  * Récupère un access token OAuth2 (client_credentials), depuis le cache si encore valide.
@@ -40,7 +48,7 @@ const getAccessToken = async () => {
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`OAuth2 La Poste CH a échoué (HTTP ${res.status}) : ${detail.slice(0, 300)}`);
+    throw postError(`OAuth2 La Poste CH a échoué (HTTP ${res.status})`, res.status, detail);
   }
 
   const json = await res.json();
@@ -71,7 +79,7 @@ const generateAddressLabel = async (payload) => {
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`generateAddressLabel La Poste CH a échoué (HTTP ${res.status}) : ${detail.slice(0, 300)}`);
+    throw postError(`generateAddressLabel La Poste CH a échoué (HTTP ${res.status})`, res.status, detail);
   }
 
   return res.json();

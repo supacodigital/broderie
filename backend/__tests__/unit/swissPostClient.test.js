@@ -72,4 +72,21 @@ describe('swissPostClient — generateAddressLabel()', () => {
 
     await expect(client.generateAddressLabel({})).rejects.toThrow(/generateAddressLabel La Poste CH/);
   });
+
+  test('garde le statut et le corps de la réponse (codes E… affichés dans l\'admin)', async () => {
+    const body = JSON.stringify({ errors: [{ code: 'E2012', message: 'Licence invalide' }] });
+    global.fetch
+      .mockResolvedValueOnce(okJson({ access_token: 'tok', expires_in: 3600 }))
+      .mockResolvedValueOnce(fail(400, body));
+
+    await expect(client.generateAddressLabel({})).rejects.toMatchObject({ status: 400, detail: body });
+  });
+
+  test('corps vide : le signale dans le message plutôt qu\'un « : » orphelin', async () => {
+    global.fetch
+      .mockResolvedValueOnce(okJson({ access_token: 'tok', expires_in: 3600 }))
+      .mockResolvedValueOnce(fail(400, ''));
+
+    await expect(client.generateAddressLabel({})).rejects.toThrow('(HTTP 400) : (réponse vide)');
+  });
 });

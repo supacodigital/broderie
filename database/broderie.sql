@@ -485,6 +485,8 @@ CREATE TABLE orders (
   tracking_number  VARCHAR(100)   NULL DEFAULT NULL,
   label_url        VARCHAR(500)   NULL DEFAULT NULL,
   label_id         VARCHAR(100)   NULL DEFAULT NULL,
+  -- PDF de l'étiquette La Poste (quelques dizaines de Ko, trop gros pour label_url)
+  label_pdf        MEDIUMBLOB     NULL DEFAULT NULL,
   -- La cliente demande une facture imprimée jointe au colis. La facture PDF
   -- reste envoyée par email dans tous les cas : c'est un exemplaire papier EN PLUS.
   wants_printed_invoice TINYINT(1) NOT NULL DEFAULT 0,

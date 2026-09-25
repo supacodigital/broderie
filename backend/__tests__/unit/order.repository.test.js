@@ -218,14 +218,35 @@ describe('order.repository — createOrder() coupon FOR UPDATE', () => {
 // ── saveShippingLabel() / updateTrackingNumber() ─────────────────────────────
 
 describe('order.repository — saveShippingLabel()', () => {
-  test('écrit tracking_number, label_url, label_id', async () => {
+  test('écrit tracking_number, label_url, label_id et le PDF de l\'étiquette', async () => {
     pool.execute.mockResolvedValue([{ affectedRows: 1 }]);
-    const ok = await repo.saveShippingLabel(5, { trackingNumber: 'T1', labelUrl: 'u', labelId: 'i' });
+    const pdf = Buffer.from('%PDF');
+    const ok = await repo.saveShippingLabel(5, { trackingNumber: 'T1', labelUrl: 'u', labelId: 'i', labelPdf: pdf });
     expect(ok).toBe(true);
     expect(pool.execute).toHaveBeenCalledWith(
-      expect.stringMatching(/UPDATE orders SET tracking_number = \?, label_url = \?, label_id = \?/),
-      ['T1', 'u', 'i', 5]
+      expect.stringMatching(/UPDATE orders SET tracking_number = \?, label_url = \?, label_id = \?, label_pdf = \?/),
+      ['T1', 'u', 'i', pdf, 5]
     );
+  });
+
+  test('sans PDF (étiquette simulée) : label_pdf à NULL', async () => {
+    pool.execute.mockResolvedValue([{ affectedRows: 1 }]);
+    await repo.saveShippingLabel(5, { trackingNumber: 'T1', labelUrl: 'u', labelId: 'mock-i' });
+    expect(pool.execute.mock.calls.at(-1)[1]).toEqual(['T1', 'u', 'mock-i', null, 5]);
+  });
+});
+
+describe('order.repository — findShippingLabelPdf()', () => {
+  test('lit uniquement la colonne du PDF', async () => {
+    const pdf = Buffer.from('%PDF');
+    pool.execute.mockResolvedValue([[{ label_pdf: pdf }]]);
+    await expect(repo.findShippingLabelPdf(7)).resolves.toBe(pdf);
+    expect(pool.execute).toHaveBeenCalledWith('SELECT label_pdf FROM orders WHERE id = ?', [7]);
+  });
+
+  test('commande sans étiquette : null', async () => {
+    pool.execute.mockResolvedValue([[]]);
+    await expect(repo.findShippingLabelPdf(7)).resolves.toBeNull();
   });
 });
 

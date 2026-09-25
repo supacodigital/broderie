@@ -530,12 +530,19 @@ const updateStatusWithHistory = async (orderId, status, note, createdBy) => {
 };
 
 // Enregistre le numéro de suivi + les infos d'étiquette d'une commande
-const saveShippingLabel = async (orderId, { trackingNumber, labelUrl = null, labelId = null }) => {
+const saveShippingLabel = async (orderId, { trackingNumber, labelUrl = null, labelId = null, labelPdf = null }) => {
   const [result] = await pool.execute(
-    `UPDATE orders SET tracking_number = ?, label_url = ?, label_id = ? WHERE id = ?`,
-    [trackingNumber, labelUrl, labelId, orderId]
+    `UPDATE orders SET tracking_number = ?, label_url = ?, label_id = ?, label_pdf = ? WHERE id = ?`,
+    [trackingNumber, labelUrl, labelId, labelPdf, orderId]
   );
   return result.affectedRows > 0;
+};
+
+/* PDF de l'étiquette La Poste — lu uniquement au téléchargement, jamais avec la
+   commande (plusieurs dizaines de Ko qui n'ont rien à faire dans l'API client). */
+const findShippingLabelPdf = async (orderId) => {
+  const [rows] = await pool.execute(`SELECT label_pdf FROM orders WHERE id = ?`, [orderId]);
+  return rows[0]?.label_pdf ?? null;
 };
 
 // Met à jour uniquement le numéro de suivi (saisie manuelle admin)
@@ -968,7 +975,7 @@ const markPaymentFailed = async (orderId, note) => {
 
 module.exports = {
   createOrder, findByUserId, findAllByUserIdWithItems, findById, findAllAdmin,
-  updateStatusWithHistory, saveShippingLabel, updateTrackingNumber, markPaidFromWebhook,
+  updateStatusWithHistory, saveShippingLabel, findShippingLabelPdf, updateTrackingNumber, markPaidFromWebhook,
   lockOrderForPaymentIntent, assignInvoiceNumber, saveQrReference,
   UNPAID_ONLINE_STATUSES, findExpiredUnpaidOnlineOrderIds, findUnpaidOnlineOrderIdsByUser,
   cancelUnpaidOnlineOrder, markPaymentFailed,
