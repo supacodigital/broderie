@@ -153,3 +153,64 @@ describe('Textes des e-mails d\'inscription — réservés au super-administrate
     expect(res.status).toBe(400);
   });
 });
+
+/* Création réelle du compte (scripts/create-super-admin.js) puis premier mot
+   de passe — répétition du 25.09 avant la création en production.
+   Deux défauts relevés : l'e-mail envoyé était celui de la réinitialisation
+   (« ignorez cet email » si vous n'avez rien demandé), et un mot de passe trop
+   court s'affichait « Ce lien est invalide ou a expiré ». */
+describe('Création du compte super-administrateur et premier mot de passe', () => {
+  const crypto = require('crypto');
+  const { execFileSync } = require('child_process');
+  const path = require('path');
+  const userRepository = require('../../repositories/user.repository');
+  const email = `super.creation.${Date.now()}@broderie-test.ch`;
+
+  const setLink = async (userId) => {
+    const raw = crypto.randomBytes(32).toString('hex');
+    const hash = crypto.createHash('sha256').update(raw).digest('hex');
+    await userRepository.saveResetToken(userId, hash, new Date(Date.now() + 3600000));
+    return raw;
+  };
+
+  test('le script crée le compte sans mot de passe et envoie l\'e-mail d\'invitation', () => {
+    const stdout = execFileSync(process.execPath, [
+      path.join(__dirname, '../../scripts/create-super-admin.js'),
+      '--email', email, '--first', 'Super', '--last', 'Admin', '--create',
+    ], { env: { ...process.env, MAIL_ENABLED: 'false' }, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+
+    // Service e-mail en suspens : le destinataire et le sujet sont journalisés
+    expect(stdout).toContain(email);
+    expect(stdout).toContain('Votre accès à l\'administration — Au Point-Compté');
+    expect(stdout).not.toContain('Réinitialisation');
+    expect(stdout).toMatch(/Compte n° \d+ créé/);
+  });
+
+  test('en base : super-administrateur, sans mot de passe, lien en attente', async () => {
+    const [[user]] = await pool.query(
+      'SELECT role, first_name, last_name, password_hash, reset_token_hash IS NOT NULL AS has_link FROM users WHERE email = ?',
+      [email]
+    );
+    expect(user).toMatchObject({ role: 'super_admin', first_name: 'Super', last_name: 'Admin', password_hash: null, has_link: 1 });
+  });
+
+  test('mot de passe trop court : erreur sur le champ, le lien reste valable', async () => {
+    const [[user]] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
+    const token = await setLink(user.id);
+    const message = 'Le mot de passe doit contenir au moins 12 caractères, dont une majuscule.';
+
+    const short = await request(app).post('/api/v1/auth/reset-password').send({ token, password: 'Broderie26!' });
+    expect(short.status).toBe(400);
+    expect(short.body).toEqual({ success: false, message, errors: [{ field: 'password', message }] });
+
+    const ok = await request(app).post('/api/v1/auth/reset-password').send({ token, password: 'PointCompte2026!' });
+    expect(ok.status).toBe(200);
+  });
+
+  test('première connexion : configuration de la double authentification demandée', async () => {
+    const res = await request(app).post('/api/v1/auth/login').send({ email, password: 'PointCompte2026!' });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ mfaRequired: 'setup' });
+    expect(res.body.data.accessToken).toBeUndefined();
+  });
+});

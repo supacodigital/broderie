@@ -356,6 +356,42 @@ describe('email.service — sendPasswordReset()', () => {
   });
 });
 
+/* ADM-08 — création du compte super-administrateur. Répétition du 25.09 :
+   l'e-mail de réinitialisation (« Si vous n'avez pas demandé cette
+   réinitialisation, ignorez simplement cet email ») invitait à ignorer le lien,
+   et ne disait ni où se connecter ni qu'il faudrait configurer la double
+   authentification. */
+describe('email.service — sendBackOfficeInvitation()', () => {
+  const send = () => service.sendBackOfficeInvitation({
+    user: { email: 'administrator@broderie.ch', first_name: 'Super', last_name: 'Admin' },
+    resetToken: 'tok-admin-42',
+  });
+
+  test('lien « Choisir mon mot de passe » valable 1 heure, avec la règle des 12 caractères', async () => {
+    await send();
+    const mail = transporter.sendMail.mock.calls[0][0];
+    expect(mail.to).toBe('administrator@broderie.ch');
+    expect(mail.subject).toBe('Votre accès à l\'administration — Au Point-Compté');
+    expect(mail.html).toMatch(/<a href="https:\/\/broderie\.ch\/reinitialiser-mot-de-passe\?token=tok-admin-42"[^>]*>\s*Choisir mon mot de passe/);
+    expect(mail.html).toContain('au moins 12 caractères, dont une');
+    expect(mail.html).toContain('1 heure');
+  });
+
+  test('indique l\'adresse de l\'administration et la double authentification', async () => {
+    await send();
+    const html = transporter.sendMail.mock.calls[0][0].html;
+    expect(html).toContain('<a href="https://broderie.ch/admin/" style="color:#DB2777;">broderie.ch/admin</a>');
+    expect(html).toContain('configurer la double authentification');
+  });
+
+  test('ne suggère pas d\'ignorer l\'e-mail', async () => {
+    await send();
+    const html = transporter.sendMail.mock.calls[0][0].html;
+    expect(html).not.toMatch(/ignorez/i);
+    expect(html).not.toContain('Vous avez demandé');
+  });
+});
+
 // ── sendInvoice() ─────────────────────────────────────────────────────────────
 
 describe('email.service — sendInvoice()', () => {

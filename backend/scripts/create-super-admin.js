@@ -39,12 +39,14 @@ const RESET_LINK_TTL_MS = 60 * 60 * 1000; // même durée que « mot de passe ou
 
 /* Lien « choisir mon mot de passe » — même mécanisme que la réinitialisation
    (auth.service forgotPassword), mais l'envoi est ATTENDU : un script qui se
-   termine avant l'envoi ferait croire à un e-mail parti. */
+   termine avant l'envoi ferait croire à un e-mail parti.
+   E-mail d'invitation et non de réinitialisation : ce dernier (« si vous
+   n'avez pas fait cette demande, ignorez cet email ») invitait à l'ignorer. */
 async function sendPasswordLink(user) {
   const rawToken = crypto.randomBytes(32).toString('hex');
   const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
   await userRepository.saveResetToken(user.id, tokenHash, new Date(Date.now() + RESET_LINK_TTL_MS));
-  await emailService.sendPasswordReset({ user, resetToken: rawToken });
+  await emailService.sendBackOfficeInvitation({ user, resetToken: rawToken });
 }
 
 async function main() {

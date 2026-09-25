@@ -28,7 +28,7 @@ export default function ResetPassword() {
   const [success,    setSuccess]    = useState(false)
   const [apiError,   setApiError]   = useState('')
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
   })
 
@@ -39,7 +39,13 @@ export default function ResetPassword() {
       setSuccess(true)
     } catch (err) {
       const status = err.response?.status
-      if (status === 400) {
+      /* Mot de passe refusé par le serveur (compte administrateur : 12 caractères,
+         dont une majuscule) : message sous le champ. Tout refus était présenté
+         comme un lien expiré — le lien restait pourtant valable. */
+      const passwordError = err.response?.data?.errors?.find((e) => e.field === 'password')
+      if (status === 400 && passwordError) {
+        setError('password', { type: 'server', message: passwordError.message })
+      } else if (status === 400) {
         setApiError('Ce lien est invalide ou a expiré. Veuillez faire une nouvelle demande.')
       } else {
         setApiError('Une erreur est survenue. Veuillez réessayer.')
@@ -136,7 +142,10 @@ export default function ResetPassword() {
             </div>
 
             {/* Indication de format — toujours visible pour guider la saisie */}
-            <p id="rp-password-hint" className={s.fieldHint}>Au moins 5 caractères, avec une majuscule, un chiffre et un symbole.</p>
+            <p id="rp-password-hint" className={s.fieldHint}>
+              Au moins 5 caractères, avec une majuscule, un chiffre et un symbole.
+              Compte administrateur : au moins 12 caractères.
+            </p>
 
             {errors.password && (
               <span id="rp-password-error" className={s.fieldError} role="alert">

@@ -508,6 +508,51 @@ async function sendPasswordReset({ user, resetToken }) {
 }
 
 // ─────────────────────────────────────────────
+// 4 bis. Nouvel accès au back-office (compte super-administrateur, ADM-08)
+// Même lien que la réinitialisation, mais un texte fait pour un compte que la
+// personne n'a pas demandé elle-même : l'e-mail de réinitialisation (« Vous avez
+// demandé… si ce n'est pas vous, ignorez cet email ») invitait à l'ignorer, et
+// ne disait ni où se connecter ni qu'il faudrait configurer la double
+// authentification.
+// ─────────────────────────────────────────────
+async function sendBackOfficeInvitation({ user, resetToken }) {
+  const passwordUrl = `${BASE_URL}/reinitialiser-mot-de-passe?token=${resetToken}`;
+  const adminUrl    = `${BASE_URL}/admin/`;
+  const adminLabel  = adminUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+
+  const body = `
+    <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
+      Votre accès à l'administration
+    </h1>
+    <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+      Un accès administrateur à la boutique Au Point-Compté a été créé pour cette adresse.
+    </p>
+    <p style="margin:0;font-size:14px;color:#374151;line-height:1.7;">
+      <strong>1. Choisissez votre mot de passe</strong> : au moins 12 caractères, dont une
+      majuscule. Ce lien est valable <strong>1 heure</strong>.
+    </p>
+    ${btn(passwordUrl, 'Choisir mon mot de passe')}
+    <p style="margin:28px 0 0;font-size:14px;color:#374151;line-height:1.7;">
+      <strong>2. Connectez-vous</strong> ensuite sur
+      <a href="${adminUrl}" style="color:#DB2777;">${adminLabel}</a>. À la première connexion,
+      l'administration vous demande de configurer la double authentification : gardez votre
+      téléphone à portée de main, avec une application d'authentification (Google
+      Authenticator, Authy, 1Password…).
+    </p>
+    <p style="margin:24px 0 0;font-size:12px;color:#9D6480;line-height:1.7;">
+      Lien expiré ? Un nouveau lien peut vous être envoyé sur simple demande.
+    </p>
+  `;
+
+  await transporter.sendMail({
+    from:    FROM,
+    to:      user.email,
+    subject: 'Votre accès à l\'administration — Au Point-Compté',
+    html:    layout(body),
+  });
+}
+
+// ─────────────────────────────────────────────
 // 8. Facture QR suisse — email avec QR-facture PDF en pièce jointe
 // ─────────────────────────────────────────────
 async function sendInvoice({ user, order, pdfBuffer, dueDate }) {
@@ -807,6 +852,7 @@ module.exports = {
   sendAdminOrderNotification,
   sendOrderShipped,
   sendPasswordReset,
+  sendBackOfficeInvitation,
   sendInvoice,
   sendPickupReady,
   sendEmailVerification,

@@ -263,8 +263,12 @@ const resetPassword = async (rawToken, newPassword) => {
      chiffre et un symbole) est déjà appliquée par le contrôleur. Un seuil de 8
      ici contredisait la page, qui annonce 5 : un mot de passe accepté à
      l'inscription était refusé à la réinitialisation. */
+  /* Erreur rattachée au champ : la page l'affiche sous le mot de passe. Sans ce
+     détail, elle traitait tout refus comme un lien expiré — « Ce lien est
+     invalide » alors que seul le mot de passe était trop court. */
   if (isAdminRole(user.role) && (newPassword.length < 12 || !/[A-Z]/.test(newPassword))) {
-    throw new AppError('Le mot de passe doit contenir au moins 12 caractères, dont une majuscule.', 400);
+    const message = 'Le mot de passe doit contenir au moins 12 caractères, dont une majuscule.';
+    throw new AppError(message, 400, [{ field: 'password', message }]);
   }
 
   const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);

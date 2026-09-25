@@ -361,6 +361,27 @@ describe('auth.service — resetPassword()', () => {
     await authService.resetPassword('valid', 'MotDePasseSolide1');
     expect(userRepository.updatePassword).toHaveBeenCalled();
   });
+
+  /* Répétition de la création du super-administrateur (25.09) : un mot de passe
+     trop court s'affichait « Ce lien est invalide ou a expiré ». L'erreur porte
+     désormais le champ concerné, que la page affiche sous le mot de passe. */
+  test('compte du back-office : l\'erreur désigne le champ mot de passe, pas le lien', async () => {
+    userRepository.findByResetToken.mockResolvedValue(makeUser({ role: 'super_admin' }));
+    const message = 'Le mot de passe doit contenir au moins 12 caractères, dont une majuscule.';
+
+    await expect(authService.resetPassword('valid', 'Broderie26!')).rejects.toMatchObject({
+      statusCode: 400, message, errors: [{ field: 'password', message }],
+    });
+    expect(userRepository.updatePassword).not.toHaveBeenCalled();
+  });
+
+  test('lien invalide : aucune erreur de champ (la page propose une nouvelle demande)', async () => {
+    userRepository.findByResetToken.mockResolvedValue(null);
+
+    const err = await authService.resetPassword('bad', 'MotDePasseSolide1').catch((e) => e);
+    expect(err.statusCode).toBe(400);
+    expect(err.errors).toBeUndefined();
+  });
 });
 
 // ── refreshCookieOptions() ────────────────────────────────────────────────────
