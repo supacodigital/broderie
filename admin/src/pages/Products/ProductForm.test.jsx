@@ -429,6 +429,23 @@ describe('ProductForm — vente à la coupe (ADM-12)', () => {
     expect(screen.getByText(/CHF 1\.65/)).toBeInTheDocument()
   })
 
+  /* Pendant une promotion en cours, la boutique vend au prix en action :
+     l'encart annonçait le prix normal (50 cm pour CHF 10.75 au lieu de 9.00). */
+  it('annonce le prix en action pendant une promotion en cours', async () => {
+    getProductById.mockResolvedValue({
+      id: 2742, name: 'Zweigart, bande à broder Lin ficelle 20cm', sku: '72022-53-19',
+      price_chf: '18.00', compare_price_chf: '21.50', is_promo_active: 1,
+      promo_starts_at: null, promo_ends_at: null,
+      sold_by_length: 1, length_step_cm: 10, length_min_cm: 50, stock: 700,
+      category_id: 1, tax_rate_id: 1, images: [],
+    })
+    renderForm({ id: 2742 })
+
+    const preview = await screen.findByText(/Commande minimale/)
+    expect(preview).toHaveTextContent('Commande minimale : 50 cm pour CHF 9.00 (en action — CHF 10.75 au prix normal).')
+    expect(preview).toHaveTextContent('Chaque tranche de 10 cm coûte CHF 1.80.')
+  })
+
   /* Un minimum qui n'est pas un multiple du pas est refusé par le serveur :
      avec un pas de 10 et un minimum de 55, la boutique vendrait 60 cm alors que
      la fiche annonce 55. Autant le signaler avant l'enregistrement. */

@@ -331,6 +331,21 @@ export default function ProductForm() {
     return rounded > 0 && rounded < catalogPrice ? rounded : null
   })()
 
+  /* État de la promotion d'après les dates saisies — retour immédiat à l'admin :
+     sans ça, une promo programmée dans le futur ressemble à une promo inactive. */
+  const watchedPromoStart = watch('promoStartsAt')
+  const watchedPromoEnd   = watch('promoEndsAt')
+  const promoStatus = (() => {
+    if (discountMode === 'none' || promoPrice == null) return null
+    const now   = new Date()
+    const start = watchedPromoStart ? new Date(watchedPromoStart) : null
+    const end   = watchedPromoEnd   ? new Date(watchedPromoEnd)   : null
+    if (end && end <= now)     return { tone: 'promoStatusOff',  label: 'Promotion terminée — le produit est vendu à son prix normal.' }
+    if (start && start > now)  return { tone: 'promoStatusSoon', label: `Promotion programmée — démarre le ${start.toLocaleString('fr-CH', { dateStyle: 'short', timeStyle: 'short' })}.` }
+    if (end)                   return { tone: 'promoStatusOn',   label: `Promotion active jusqu'au ${end.toLocaleString('fr-CH', { dateStyle: 'short', timeStyle: 'short' })}.` }
+    return { tone: 'promoStatusOn', label: 'Promotion active, sans date de fin.' }
+  })()
+
   /* Aperçu de la vente à la coupe (ADM-12) — montre à l'administration ce que
      la cliente paiera réellement. Sans lui, un prix au mètre saisi par erreur
      comme prix à l'unité ne se remarque qu'une fois la commande passée.
@@ -352,29 +367,21 @@ export default function ProductForm() {
       )
     }
 
-    const perStep = roundCHF((perMeter * step) / 100)
-    const minTotal = roundCHF((perMeter * min) / 100)
+    /* Prix réellement payé aujourd'hui : le prix remisé pendant une promotion
+       en cours (la boutique vend alors 50 cm au prix en action), le prix normal
+       sinon — y compris pour une promotion programmée ou terminée. */
+    const onPromo = promoPrice != null && promoStatus?.tone === 'promoStatusOn'
+    const paidPerMeter = onPromo ? promoPrice : perMeter
+    const perStep = roundCHF((paidPerMeter * step) / 100)
+    const minTotal = roundCHF((paidPerMeter * min) / 100)
+    const normalMinTotal = roundCHF((perMeter * min) / 100)
     return (
       <p className={s.cutPreview}>
-        Commande minimale : <strong>{min} cm</strong> pour <strong>CHF {minTotal.toFixed(2)}</strong>.
+        Commande minimale : <strong>{min} cm</strong> pour <strong>CHF {minTotal.toFixed(2)}</strong>
+        {onPromo && <> (en action — CHF {normalMinTotal.toFixed(2)} au prix normal)</>}.
         Chaque tranche de {step} cm coûte CHF {perStep.toFixed(2)}.
       </p>
     )
-  })()
-
-  /* État de la promotion d'après les dates saisies — retour immédiat à l'admin :
-     sans ça, une promo programmée dans le futur ressemble à une promo inactive. */
-  const watchedPromoStart = watch('promoStartsAt')
-  const watchedPromoEnd   = watch('promoEndsAt')
-  const promoStatus = (() => {
-    if (discountMode === 'none' || promoPrice == null) return null
-    const now   = new Date()
-    const start = watchedPromoStart ? new Date(watchedPromoStart) : null
-    const end   = watchedPromoEnd   ? new Date(watchedPromoEnd)   : null
-    if (end && end <= now)     return { tone: 'promoStatusOff',  label: 'Promotion terminée — le produit est vendu à son prix normal.' }
-    if (start && start > now)  return { tone: 'promoStatusSoon', label: `Promotion programmée — démarre le ${start.toLocaleString('fr-CH', { dateStyle: 'short', timeStyle: 'short' })}.` }
-    if (end)                   return { tone: 'promoStatusOn',   label: `Promotion active jusqu'au ${end.toLocaleString('fr-CH', { dateStyle: 'short', timeStyle: 'short' })}.` }
-    return { tone: 'promoStatusOn', label: 'Promotion active, sans date de fin.' }
   })()
 
   const selectedSupplier = suppliers.find(sup => String(sup.id) === String(selectedSupplierId))
