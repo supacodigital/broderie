@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, Edit2, ImageOff, AlertTriangle, Layout, Eye, ChevronDown, X, GripVertical } from 'lucide-react'
 import {
-  getProducts, getProductById, updateProduct, updateFeaturedOrder, getBrands,
+  getProducts, setProductFeatured, updateFeaturedOrder, getBrands,
 } from '../../services/products.service.js'
 import { useToast } from '../../contexts/ToastContext.jsx'
 import s from './FeaturedShowcase.module.css'
@@ -348,55 +348,30 @@ export default function FeaturedShowcase({ onChanged }) {
 
   useEffect(() => { loadFeatured() }, [loadFeatured])
 
-  /* L'API attend le produit complet en PUT : on relit la fiche avant de ne
-     changer que le drapeau `isFeatured`, sinon les champs absents du payload
-     seraient écrasés. */
-  const buildFeaturedPayload = useCallback(async (product, isFeatured) => {
-    const full = await getProductById(product.id)
-    return {
-      categoryId:      full.category_id,
-      supplierId:      full.supplier_id ?? null,
-      taxRateId:       full.tax_rate_id,
-      priceChf:        Number(full.price_chf),
-      comparePriceChf: full.compare_price_chf ? Number(full.compare_price_chf) : null,
-      sku:             full.sku ?? null,
-      stock:           full.stock ?? 0,
-      weightKg:        full.weight_kg ? Number(full.weight_kg) : null,
-      /* Vente à la coupe (ADM-12) : absente du payload, elle était remise à zéro
-         et le stock, tenu en centimètres, devenait un nombre de pièces. */
-      soldByLength:    !!full.sold_by_length,
-      lengthStepCm:    full.length_step_cm ?? null,
-      lengthMinCm:     full.length_min_cm ?? null,
-      isFeatured,
-      isActive:        !!full.is_active,
-      badge:           full.badge ?? null,
-      translations: {
-        fr: { name: full.name, description: full.description_fr ?? '' },
-      },
-    }
-  }, [])
-
+  /* Seul le drapeau « mis en avant » change : renvoyer toute la fiche remettait
+     à zéro chaque champ oublié (sur commande, vente à la coupe, promotion,
+     marque, dimensions). */
   const handleRemoveFeatured = useCallback(async (product) => {
     try {
-      await updateProduct(product.id, await buildFeaturedPayload(product, false))
+      await setProductFeatured(product.id, false)
       loadFeatured()
       onChanged?.()
       toast.success(`"${product.name}" retiré de la vitrine.`)
     } catch {
       toast.error('Erreur lors de la mise à jour.')
     }
-  }, [buildFeaturedPayload, loadFeatured, onChanged, toast])
+  }, [loadFeatured, onChanged, toast])
 
   const handleAddFeatured = useCallback(async (product) => {
     try {
-      await updateProduct(product.id, await buildFeaturedPayload(product, true))
+      await setProductFeatured(product.id, true)
       loadFeatured()
       onChanged?.()
       toast.success(`"${product.name}" ajouté à la vitrine.`)
     } catch {
       toast.error('Erreur lors de la mise à jour.')
     }
-  }, [buildFeaturedPayload, loadFeatured, onChanged, toast])
+  }, [loadFeatured, onChanged, toast])
 
   /* Persiste le nouvel ordre après un drag & drop */
   const handleReorderFeatured = useCallback(async (productIds) => {

@@ -79,6 +79,15 @@ const setPrimaryImage = async (req, res, next) => {
   }
 };
 
+const setFeatured = async (req, res, next) => {
+  try {
+    const data = await productAdminService.setFeatured(parseInt(req.params.id, 10), req.body);
+    res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const updateFeaturedOrder = async (req, res, next) => {
   try {
     await productAdminService.updateFeaturedOrder(req.body);
@@ -112,6 +121,6 @@ const getPriceHistory = async (req, res, next) => {
 
 module.exports = {
   getAll, getById, create, update, remove,
-  uploadImage, removeImage, setPrimaryImage, updateFeaturedOrder,
+  uploadImage, removeImage, setPrimaryImage, setFeatured, updateFeaturedOrder,
   getPriceHistory,
 };

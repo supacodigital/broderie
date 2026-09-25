@@ -99,4 +99,11 @@ const featuredOrderSchema = z.object({
   productIds: z.array(z.number().int().positive()).min(1).max(20),
 });
 
-module.exports = { productCreateSchema, productUpdateSchema, featuredOrderSchema };
+/* Vitrine d'accueil : seul le drapeau « mis en avant » change. La vitrine
+   renvoyait auparavant toute la fiche, et chaque champ oublié (sur commande,
+   vente à la coupe, promotion, marque, dimensions) était remis à zéro. */
+const featuredToggleSchema = z.object({
+  isFeatured: z.boolean({ required_error: 'isFeatured requis.', invalid_type_error: 'isFeatured doit être vrai ou faux.' }),
+}).strict();
+
+module.exports = { productCreateSchema, productUpdateSchema, featuredOrderSchema, featuredToggleSchema };

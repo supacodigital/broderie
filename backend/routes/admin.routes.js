@@ -38,6 +38,8 @@ router.put('/products/featured-order', productAdminController.updateFeaturedOrde
 router.get('/products/:id', productAdminController.getById);
 router.get('/products/:id/price-history', productAdminController.getPriceHistory);
 router.put('/products/:id', productAdminController.update);
+// Vitrine d'accueil : bascule du seul drapeau « mis en avant »
+router.put('/products/:id/featured', productAdminController.setFeatured);
 router.delete('/products/:id', productAdminController.remove);
 router.post('/products/:id/images', upload.single('image'), productAdminController.uploadImage);
 router.put('/products/:id/images/:imageId/primary', productAdminController.setPrimaryImage);

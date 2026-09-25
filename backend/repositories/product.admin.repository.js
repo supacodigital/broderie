@@ -541,6 +541,15 @@ const skuExists = async (sku, excludeId = null) => {
 // Persiste l'ordre des produits vedettes (bento home), fixé par drag & drop admin.
 // productIds[i] reçoit featured_order = i (0 = grande carte). Tout produit featured non listé
 // (retiré entre-temps) repasse à NULL — il retombe en fin de liste via le fallback created_at.
+// Vitrine d'accueil : ne touche qu'au drapeau « mis en avant ». Retourne false si le produit n'existe pas.
+const setFeatured = async (id, isFeatured) => {
+  const [result] = await pool.execute(
+    'UPDATE products SET is_featured = ? WHERE id = ? AND deleted_at IS NULL',
+    [isFeatured ? 1 : 0, id]
+  );
+  return result.affectedRows > 0;
+};
+
 const updateFeaturedOrder = async (productIds) => {
   const connection = await pool.getConnection();
   try {
@@ -596,4 +605,4 @@ const findPriceHistory = async (productId, { limit = 50, offset = 0 } = {}) => {
   return { rows, total };
 };
 
-module.exports = { create, update, softDelete, addImage, removeImage, setPrimaryImage, findAllAdmin, findByIdAdmin, slugExists, skuExists, updateFeaturedOrder, findPriceHistory };
+module.exports = { create, update, softDelete, addImage, removeImage, setPrimaryImage, findAllAdmin, findByIdAdmin, slugExists, skuExists, setFeatured, updateFeaturedOrder, findPriceHistory };

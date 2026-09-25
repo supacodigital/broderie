@@ -42,6 +42,12 @@ export async function deleteProduct(id) {
 }
 
 // Persiste l'ordre des slots de la vitrine home bento (drag & drop) — productIds[0] = grande carte
+// Vitrine d'accueil : ajoute ou retire un produit sans toucher au reste de sa fiche
+export async function setProductFeatured(id, isFeatured) {
+  const res = await api.put(`/admin/products/${id}/featured`, { isFeatured })
+  return res.data.data ?? null
+}
+
 export async function updateFeaturedOrder(productIds) {
   await api.put('/admin/products/featured-order', { productIds })
 }

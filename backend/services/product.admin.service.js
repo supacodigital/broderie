@@ -4,7 +4,7 @@ const { invalidateProducts } = require('../config/cache');
 const { AppError }           = require('../middlewares/errorHandler');
 const { mapDbError }         = require('../utils/db.utils');
 const {
-  productCreateSchema, productUpdateSchema, featuredOrderSchema,
+  productCreateSchema, productUpdateSchema, featuredOrderSchema, featuredToggleSchema,
 } = require('../validators/product.validator');
 
 const ALLOWED_SORT_FIELDS = ['created_at', 'price_chf', 'name', 'stock'];
@@ -185,6 +185,16 @@ const setPrimaryImage = async (imageId, productId) => {
   invalidateProducts();
 };
 
+// Ajout / retrait de la vitrine d'accueil — seul `is_featured` change
+const setFeatured = async (id, body) => {
+  if (!id || id < 1) throw new AppError('ID produit invalide.', 400);
+  const { isFeatured } = parseOrThrow(featuredToggleSchema, body);
+  const found = await productAdminRepository.setFeatured(id, isFeatured);
+  if (!found) throw new AppError('Produit introuvable.', 404);
+  invalidateProducts();
+  return { id, isFeatured };
+};
+
 const updateFeaturedOrder = async (body) => {
   const { productIds } = parseOrThrow(featuredOrderSchema, body);
   try {
@@ -209,5 +219,5 @@ const getPriceHistory = async (id, { page = 1, limit = 50 } = {}) => {
 
 module.exports = {
   list, getById, create, update, remove,
-  addImage, removeImage, setPrimaryImage, updateFeaturedOrder, getPriceHistory,
+  addImage, removeImage, setPrimaryImage, setFeatured, updateFeaturedOrder, getPriceHistory,
 };
