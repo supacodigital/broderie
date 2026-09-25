@@ -285,10 +285,17 @@ async function sendOrderConfirmation({ user, order }) {
   const itemsHtml = (order.items ?? []).map((item) => orderItemRow(item, { showSale: true })).join('');
 
   /* TVA au centime, comme sur la facture (ADM-14) : arrondie au 0.05 comme un
-     montant à payer, elle affichait 1.60 quand la facture en imprime 1.61. */
-  const summaryRows = `Sous-total|CHF ${roundCHF(order.subtotal).toFixed(2)}
-Frais de port|CHF ${roundCHF(order.shipping_cost).toFixed(2)}
-TVA incluse|CHF ${Number(order.tax_amount).toFixed(2)}`.split('\n');
+     montant à payer, elle affichait 1.60 quand la facture en imprime 1.61.
+     Code promo : `subtotal` est stocké APRÈS remise. Comme sur la facture, on
+     affiche le montant des articles puis la remise — sans elle, le sous-total
+     ne correspondait plus aux lignes et la remise n'apparaissait nulle part. */
+  const discount = roundCHF(parseFloat(order.discount) || 0);
+  const summaryRows = [
+    `Sous-total|CHF ${roundCHF(parseFloat(order.subtotal) + discount).toFixed(2)}`,
+    ...(discount > 0 ? [`Remise${order.coupon_code ? ` (${escapeHtml(order.coupon_code)})` : ''}|− CHF ${discount.toFixed(2)}`] : []),
+    `Frais de port|CHF ${roundCHF(order.shipping_cost).toFixed(2)}`,
+    `TVA incluse|CHF ${Number(order.tax_amount).toFixed(2)}`,
+  ];
 
   const summaryHtml = summaryRows.map(row => {
     const [label, val] = row.split('|');

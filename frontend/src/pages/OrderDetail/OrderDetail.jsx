@@ -291,10 +291,18 @@ export default function OrderDetail() {
 
                   {/* Récapitulatif financier */}
                   <div className={s.totals}>
+                    {/* Code promo : `subtotal` est stocké après remise — comme sur la
+                        facture, les articles puis la remise */}
                     <div className={s.totalRow}>
                       <span>Sous-total TTC</span>
-                      <span>CHF {roundCHF(order.subtotal).toFixed(2)}</span>
+                      <span>CHF {roundCHF(Number(order.subtotal) + (Number(order.discount) || 0)).toFixed(2)}</span>
                     </div>
+                    {Number(order.discount) > 0 && (
+                      <div className={s.totalRow}>
+                        <span>Remise{order.coupon_code ? ` (${order.coupon_code})` : ''}</span>
+                        <span>− CHF {roundCHF(order.discount).toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className={s.totalRow}>
                       <span>Frais de port</span>
                       <span>CHF {roundCHF(order.shipping_cost).toFixed(2)}</span>

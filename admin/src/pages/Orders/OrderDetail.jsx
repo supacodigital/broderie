@@ -398,10 +398,18 @@ export default function OrderDetail() {
                   </span>
                 </div>
               )}
+              {/* Code promo : `subtotal` est stocké après remise — comme sur la
+                  facture, les articles puis la remise */}
               <div className={s.infoBlock}>
                 <span className={s.infoLabel}>Sous-total</span>
-                <span className={s.infoValue}>{formatCHF(order.subtotal)}</span>
+                <span className={s.infoValue}>{formatCHF(Number(order.subtotal) + (Number(order.discount) || 0))}</span>
               </div>
+              {Number(order.discount) > 0 && (
+                <div className={s.infoBlock}>
+                  <span className={s.infoLabel}>Remise{order.coupon_code ? ` (${order.coupon_code})` : ''}</span>
+                  <span className={s.infoValue}>− {formatCHF(order.discount)}</span>
+                </div>
+              )}
               <div className={s.infoBlock}>
                 <span className={s.infoLabel}>Livraison</span>
                 <span className={s.infoValue}>{formatCHF(order.shipping_cost)}</span>

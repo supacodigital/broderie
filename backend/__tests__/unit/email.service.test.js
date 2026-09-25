@@ -129,6 +129,23 @@ describe('email.service — sendOrderConfirmation()', () => {
     expect(mail.html).toContain('Fil DMC 310 × 3');
   });
 
+  /* Audit du 25.09 — `subtotal` est stocké après remise : l'e-mail affichait
+     un sous-total qui ne correspondait pas aux lignes, sans la remise. */
+  test('code promo : sous-total des articles puis la remise, comme sur la facture', async () => {
+    const withCoupon = { ...fakeOrder, subtotal: 78.55, discount: 8.75, coupon_code: 'AUTOMNE10', shipping_cost: 8.50, total: 87.05 };
+    await service.sendOrderConfirmation({ user: fakeUser, order: withCoupon });
+    const html = transporter.sendMail.mock.calls[0][0].html;
+    expect(html).toContain('CHF 87.30');           // 78.55 + 8.75 = montant des articles
+    expect(html).toContain('Remise (AUTOMNE10)');
+    expect(html).toContain('− CHF 8.75');
+    expect(html).toContain('87.05');
+  });
+
+  test('sans code promo, aucune ligne de remise', async () => {
+    await service.sendOrderConfirmation({ user: fakeUser, order: fakeOrder });
+    expect(transporter.sendMail.mock.calls[0][0].html).not.toContain('Remise');
+  });
+
   test('gère un product_snapshot_json déjà parsé (objet)', async () => {
     const orderParsed = {
       ...fakeOrder,
