@@ -1018,7 +1018,7 @@ function StepCard({ orderId, total, onPaid, t }) {
 }
 
 /* ── Étape 3 : Confirmation ── */
-function StepConfirm({ orderId, paymentMethod, paymentPending = false, t }) {
+function StepConfirm({ orderId, paymentMethod, paymentPending = false, paid = false, t }) {
   /* Message de bas de page adapté à la méthode de paiement */
   const isInvoice = paymentMethod === 'invoice_qr'
   const isPickup  = paymentMethod === 'pickup'
@@ -1043,7 +1043,9 @@ function StepConfirm({ orderId, paymentMethod, paymentPending = false, t }) {
       {paymentPending ? (
         <p className={s.confirmDesc}>{t('checkout.confirmProcessing')}</p>
       ) : isInvoice ? (
-        <p className={s.confirmDesc}>{t('checkout.confirmInvoice')}</p>
+        /* Facture déjà réglée par un QR Twint reçu par e-mail : « Réglez-la
+           sous 30 jours » invitait à payer une seconde fois (audit du 25.09) */
+        <p className={s.confirmDesc}>{t(paid ? 'checkout.confirmInvoicePaid' : 'checkout.confirmInvoice')}</p>
       ) : isPickup ? (
         <p className={s.confirmDesc}>{t('checkout.confirmPickup')}</p>
       ) : (
@@ -1119,6 +1121,8 @@ export default function Checkout() {
   const [paymentNotice,  setPaymentNotice]  = useState('')
   // Paiement accepté mais encore en validation chez Stripe (Twint « processing »)
   const [paymentPending, setPaymentPending] = useState(false)
+  // Commande déjà payée au retour d'un paiement Stripe (facture réglée par QR Twint)
+  const [orderPaid,      setOrderPaid]      = useState(false)
   const [paymentMethod,  setPaymentMethod]  = useState('invoice_qr')
   /* Méthode en cours de sélection à l'étape 2 (défaut 'invoice_qr' = défaut du radio) — sert au récap (frais à 0 si Click & Collect) */
   const [selectedMethod, setSelectedMethod] = useState('invoice_qr')
@@ -1234,6 +1238,7 @@ export default function Checkout() {
           clearCheckoutSession()
           setPaymentMethod(result.paymentMethod)
           setPaymentPending(result.orderStatus !== 'paid')
+          setOrderPaid(result.orderStatus === 'paid')
           setStep(3)
           // Les articles payés viennent de sortir du panier côté serveur
           reloadCart()
@@ -1477,7 +1482,7 @@ export default function Checkout() {
       )}
 
       {step === 3 && (
-        <StepConfirm orderId={orderId} paymentMethod={paymentMethod} paymentPending={paymentPending} t={t} />
+        <StepConfirm orderId={orderId} paymentMethod={paymentMethod} paymentPending={paymentPending} paid={orderPaid} t={t} />
       )}
 
       {paymentCheck === 'done' && (step === 'twint' || step === 'card') && (

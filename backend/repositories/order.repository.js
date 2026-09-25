@@ -563,11 +563,29 @@ const markPaidFromWebhook = async (orderId, providerPaymentId, method) => {
       );
     }
 
-    await connection.execute(
-      `UPDATE payments SET status = 'succeeded', provider_payment_id = ?
-       WHERE order_id = ? AND method = ?`,
-      [providerPaymentId, orderId, method]
+    /* Seule la ligne du paiement encaissé passe à « réussi ». La mise à jour
+       visait toutes les lignes de la méthode : un QR Twint remplacé par un
+       second, donc annulé chez Stripe, apparaissait lui aussi comme payé, et
+       perdait son propre identifiant Stripe. */
+    const [[paidRow]] = await connection.execute(
+      'SELECT id FROM payments WHERE order_id = ? AND provider_payment_id = ? LIMIT 1',
+      [orderId, providerPaymentId]
     );
+    if (paidRow) {
+      await connection.execute(
+        `UPDATE payments SET status = 'succeeded' WHERE id = ?`,
+        [paidRow.id]
+      );
+    } else {
+      // Ligne réservée sans identifiant (appel Stripe interrompu avant sa mise à jour)
+      await connection.execute(
+        `UPDATE payments SET status = 'succeeded', provider_payment_id = ?
+         WHERE order_id = ? AND method = ? AND provider_payment_id IS NULL
+         ORDER BY created_at DESC, id DESC
+         LIMIT 1`,
+        [providerPaymentId, orderId, method]
+      );
+    }
 
     await connection.commit();
     return { statusChanged };

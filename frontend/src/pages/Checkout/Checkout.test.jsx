@@ -118,6 +118,19 @@ describe('Checkout — retour de l\'app Twint (CLI-15)', () => {
     expect(syncPaymentMock).toHaveBeenCalledWith('71')
   })
 
+  /* Audit du 25.09 : un QR Twint envoyé avant la mise à jour ramène encore la
+     cliente ici. Sa facture est réglée : « Réglez-la sous 30 jours » l'invitait
+     à payer une seconde fois. */
+  test('facture réglée par QR Twint : confirmation « plus rien à régler »', async () => {
+    returnFromStripe('order=93&payment_intent=pi_9&redirect_status=succeeded')
+    syncPaymentMock.mockResolvedValue({ orderStatus: 'paid', intentStatus: 'succeeded', paymentMethod: 'invoice_qr', total: '32.50' })
+
+    renderCheckout()
+
+    expect(await screen.findByText('checkout.confirmInvoicePaid')).toBeInTheDocument()
+    expect(screen.queryByText('checkout.confirmInvoice')).not.toBeInTheDocument()
+  })
+
   test('paiement encore en validation chez Twint : confirmation avec la mention adaptée', async () => {
     resumeTwintStep()
     returnFromStripe('order=68&payment_intent=pi_1&redirect_status=succeeded')

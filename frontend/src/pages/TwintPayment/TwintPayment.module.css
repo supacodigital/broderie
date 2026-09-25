@@ -1,0 +1,18 @@
+/* Même carte que les pages ouvertes depuis un e-mail (newsletter) : lisible
+   sans contexte, le plus souvent sur un téléphone. */
+.page      { composes: page from '../Unsubscribe/Unsubscribe.module.css'; }
+.card      { composes: card from '../Unsubscribe/Unsubscribe.module.css'; }
+.stateIcon { composes: stateIcon from '../Unsubscribe/Unsubscribe.module.css'; }
+.spin      { composes: spin from '../Unsubscribe/Unsubscribe.module.css'; }
+.title     { composes: title from '../Unsubscribe/Unsubscribe.module.css'; }
+.text      { composes: text from '../Unsubscribe/Unsubscribe.module.css'; }
+.note      { composes: note from '../Unsubscribe/Unsubscribe.module.css'; }
+.btn       { composes: btn from '../Unsubscribe/Unsubscribe.module.css'; }
+
+/* Même apparence que le lien-bouton, pour une action sur la page */
+.btnButton {
+  composes: btn from '../Unsubscribe/Unsubscribe.module.css';
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+}

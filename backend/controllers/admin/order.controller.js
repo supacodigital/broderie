@@ -170,8 +170,8 @@ const sendTwintQr = async (req, res, next) => {
     const user = await userRepository.findById(order.user_id);
     if (!user) return next(new AppError('Client introuvable.', 404));
 
-    const { qrBuffer, expiresAt } = await paymentService.createTwintQrForEmail(orderId);
-    await emailService.sendTwintQrEmail({ user, order, qrBuffer, expiresAt });
+    const { qrBuffer, payUrl, expiresAt } = await paymentService.createTwintQrForEmail(orderId);
+    await emailService.sendTwintQrEmail({ user, order, qrBuffer, payUrl, expiresAt });
 
     res.json({ success: true, message: 'QR Twint envoyé par email.' });
   } catch (error) {

@@ -40,6 +40,16 @@ const syncOrderPayment = async (req, res, next) => {
   }
 };
 
+// Retour d'un QR Twint payé depuis l'e-mail — public, prouvé par le secret du paiement
+const confirmQrReturn = async (req, res, next) => {
+  try {
+    const result = await paymentService.confirmQrPaymentReturn(req.body.payment_intent, req.body.client_secret);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Webhook Stripe — corps brut obligatoire pour la vérification de signature
 const stripeWebhook = async (req, res, next) => {
   try {
@@ -57,4 +67,4 @@ const stripeWebhook = async (req, res, next) => {
   }
 };
 
-module.exports = { createCardIntent, createTwintIntent, syncOrderPayment, stripeWebhook };
+module.exports = { createCardIntent, createTwintIntent, syncOrderPayment, confirmQrReturn, stripeWebhook };

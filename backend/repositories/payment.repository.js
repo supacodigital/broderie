@@ -66,6 +66,25 @@ const findLatestIntentId = async (orderId, method) => {
   return rows[0]?.provider_payment_id ?? null;
 };
 
+// Ligne d'un paiement Stripe précis (PaymentIntent) — ex. le QR Twint dont la
+// cliente revient après l'avoir payé
+const findByIntentId = async (providerPaymentId) => {
+  const [rows] = await pool.execute(
+    `SELECT id, order_id, provider, method, status FROM payments
+     WHERE provider_payment_id = ? ORDER BY id DESC LIMIT 1`,
+    [providerPaymentId]
+  );
+  return rows[0] || null;
+};
+
+// Statut d'un paiement Stripe précis — ex. un QR Twint remplacé par un nouveau
+const updateStatusByIntentId = async (providerPaymentId, status) => {
+  await pool.execute(
+    'UPDATE payments SET status = ? WHERE provider_payment_id = ?',
+    [status, providerPaymentId]
+  );
+};
+
 // Identifiants Stripe (PaymentIntent) ouverts pour une commande — à annuler chez
 // Stripe avant d'annuler la commande, pour qu'aucun ne puisse encore être payé.
 const findOpenStripeIntentIds = async (orderId) => {
@@ -101,5 +120,6 @@ const hasProcessedWebhookEvent = async (eventId) => {
 
 module.exports = {
   create, updateStatusByOrder, findByOrderId, findByOrderIdAndMethod, findLatestIntentId,
+  findByIntentId, updateStatusByIntentId,
   registerWebhookEvent, hasProcessedWebhookEvent, findOpenStripeIntentIds,
 };

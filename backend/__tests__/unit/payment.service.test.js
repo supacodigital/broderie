@@ -645,13 +645,170 @@ describe('payment.service — syncOrderPayment()', () => {
     spy.mockRestore();
   });
 
-  test('commande par facture : rien à demander à Stripe', async () => {
+  test('commande par facture sans QR Twint : rien à demander à Stripe', async () => {
     orderRepository.findById.mockResolvedValue(makeOrder({ status: 'pending_invoice', payment_method: 'invoice_qr' }));
+    paymentRepository.findLatestIntentId.mockResolvedValue(null);
     stripe.paymentIntents = { retrieve: jest.fn() };
 
     const result = await paymentService.syncOrderPayment(1, 10);
 
+    expect(paymentRepository.findLatestIntentId).toHaveBeenCalledWith(1, 'twint');
     expect(stripe.paymentIntents.retrieve).not.toHaveBeenCalled();
     expect(result).toMatchObject({ orderStatus: 'pending_invoice', intentStatus: null });
+  });
+
+  /* Audit du 25.09 : une facture réglée par le QR Twint envoyé depuis l'admin
+     n'était pas vérifiée au retour — la confirmation disait « Réglez votre
+     facture sous 30 jours » à une cliente qui venait de payer. */
+  test('commande par facture réglée par QR Twint : validée au retour de la cliente', async () => {
+    orderRepository.findById
+      .mockResolvedValueOnce(makeOrder({ status: 'pending_invoice', total: '32.50', payment_method: 'invoice_qr' }))
+      .mockResolvedValue(makeOrder({ status: 'paid', total: '32.50', payment_method: 'invoice_qr' }));
+    stripe.paymentIntents = {
+      retrieve: jest.fn().mockResolvedValue({
+        id: 'pi_1', status: 'succeeded', amount_received: 3250, currency: 'chf',
+        payment_method_types: ['twint'], metadata: { order_id: '1' },
+      }),
+    };
+
+    const result = await paymentService.syncOrderPayment(1, 10);
+
+    expect(orderRepository.markPaidFromWebhook).toHaveBeenCalledWith(1, 'pi_1', 'twint');
+    expect(result).toMatchObject({ orderStatus: 'paid', intentStatus: 'succeeded', paymentMethod: 'invoice_qr' });
+  });
+
+  test('commande par facture : un QR Twint refusé ne touche pas à la facture', async () => {
+    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'pending_invoice', payment_method: 'invoice_qr' }));
+    stripe.paymentIntents = {
+      retrieve: jest.fn().mockResolvedValue({
+        id: 'pi_1', status: 'requires_payment_method', payment_method_types: ['twint'],
+        metadata: { order_id: '1' }, last_payment_error: { code: 'payment_intent_payment_attempt_failed' },
+      }),
+    };
+
+    const result = await paymentService.syncOrderPayment(1, 10);
+
+    expect(orderRepository.markPaymentFailed).not.toHaveBeenCalled();
+    expect(result.orderStatus).toBe('pending_invoice');
+  });
+});
+
+// ── QR Twint envoyé par e-mail depuis l'admin ─────────────────────────────────
+
+describe('payment.service — createTwintQrForEmail()', () => {
+  beforeEach(() => {
+    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'pending_invoice', total: '32.50' }));
+    paymentRepository.findByOrderIdAndMethod.mockResolvedValue(null);
+    paymentRepository.create.mockResolvedValue(7);
+    stripe.paymentIntents = {
+      create: jest.fn().mockResolvedValue({
+        id: 'pi_qr', status: 'requires_action',
+        next_action: { redirect_to_url: { url: 'https://pm-redirects.stripe.com/authorize/acct_x/pa_nonce_y' } },
+      }),
+      cancel: jest.fn().mockResolvedValue({}),
+    };
+  });
+
+  test('retour sur la page publique /paiement-twint, et lien de paiement renvoyé pour l\'e-mail', async () => {
+    const result = await paymentService.createTwintQrForEmail(1);
+
+    expect(stripe.paymentIntents.create).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 3250, return_url: 'http://localhost:5173/paiement-twint',
+    }));
+    expect(result.payUrl).toBe('https://pm-redirects.stripe.com/authorize/acct_x/pa_nonce_y');
+    expect(Buffer.isBuffer(result.qrBuffer)).toBe(true);
+    expect(paymentRepository.create).toHaveBeenCalledWith(expect.objectContaining({
+      provider: 'stripe_qr_email', providerPaymentId: 'pi_qr', method: 'twint', status: 'pending',
+    }));
+  });
+
+  test('le QR précédent est annulé chez Stripe ET marqué annulé', async () => {
+    paymentRepository.findByOrderIdAndMethod.mockResolvedValue({ status: 'pending', provider_payment_id: 'pi_old' });
+
+    await paymentService.createTwintQrForEmail(1);
+
+    expect(stripe.paymentIntents.cancel).toHaveBeenCalledWith('pi_old');
+    expect(paymentRepository.updateStatusByIntentId).toHaveBeenCalledWith('pi_old', 'cancelled');
+  });
+
+  test('annulation refusée par Stripe (déjà expiré) : le statut local reste inchangé, le nouveau QR part', async () => {
+    paymentRepository.findByOrderIdAndMethod.mockResolvedValue({ status: 'pending', provider_payment_id: 'pi_old' });
+    stripe.paymentIntents.cancel.mockRejectedValue(new Error('already canceled'));
+    const spy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await paymentService.createTwintQrForEmail(1);
+
+    expect(paymentRepository.updateStatusByIntentId).not.toHaveBeenCalled();
+    expect(result.payUrl).toBeDefined();
+    spy.mockRestore();
+  });
+});
+
+describe('payment.service — confirmQrPaymentReturn()', () => {
+  const qrIntent = (overrides = {}) => ({
+    id: 'pi_qr', client_secret: 'pi_qr_secret_abc', status: 'succeeded',
+    amount_received: 3250, currency: 'chf', payment_method_types: ['twint'],
+    metadata: { order_id: '1' }, ...overrides,
+  });
+
+  beforeEach(() => {
+    paymentRepository.findByIntentId.mockResolvedValue({ id: 3, order_id: 1, provider: 'stripe_qr_email', method: 'twint', status: 'pending' });
+    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'pending_invoice', total: '32.50', payment_method: 'invoice_qr' }));
+    orderRepository.markPaidFromWebhook.mockResolvedValue({ statusChanged: true });
+    loyaltyService.processOrderEarning.mockResolvedValue();
+    stripe.paymentIntents = { retrieve: jest.fn().mockResolvedValue(qrIntent()) };
+  });
+
+  test('paiement abouti : commande validée sans attendre le webhook, seul le numéro renvoyé', async () => {
+    const result = await paymentService.confirmQrPaymentReturn('pi_qr', 'pi_qr_secret_abc');
+
+    expect(orderRepository.markPaidFromWebhook).toHaveBeenCalledWith(1, 'pi_qr', 'twint');
+    expect(result).toEqual({ orderId: 1, paymentStatus: 'paid' });
+  });
+
+  test('secret erroné : 404, rien n\'est validé', async () => {
+    await expect(paymentService.confirmQrPaymentReturn('pi_qr', 'pi_qr_secret_zzz'))
+      .rejects.toMatchObject({ statusCode: 404 });
+    expect(orderRepository.markPaidFromWebhook).not.toHaveBeenCalled();
+  });
+
+  test('paiement qui n\'est pas un QR envoyé par e-mail (caisse) : 404 sans appel à Stripe', async () => {
+    paymentRepository.findByIntentId.mockResolvedValue({ id: 3, order_id: 1, provider: 'stripe', method: 'twint' });
+
+    await expect(paymentService.confirmQrPaymentReturn('pi_qr', 'pi_qr_secret_abc'))
+      .rejects.toMatchObject({ statusCode: 404 });
+    expect(stripe.paymentIntents.retrieve).not.toHaveBeenCalled();
+  });
+
+  test('paiement inconnu : 404 sans appel à Stripe', async () => {
+    paymentRepository.findByIntentId.mockResolvedValue(null);
+
+    await expect(paymentService.confirmQrPaymentReturn('pi_nope', 'pi_nope_secret_x'))
+      .rejects.toMatchObject({ statusCode: 404 });
+    expect(stripe.paymentIntents.retrieve).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ['processing', 'processing'],
+    ['requires_action', 'processing'],
+    ['requires_payment_method', 'failed'],
+    ['canceled', 'failed'],
+  ])('Stripe « %s » → %s, commande inchangée', async (stripeStatus, expected) => {
+    stripe.paymentIntents.retrieve.mockResolvedValue(qrIntent({ status: stripeStatus }));
+
+    const result = await paymentService.confirmQrPaymentReturn('pi_qr', 'pi_qr_secret_abc');
+
+    expect(result).toEqual({ orderId: 1, paymentStatus: expected });
+    expect(orderRepository.markPaidFromWebhook).not.toHaveBeenCalled();
+    expect(orderRepository.markPaymentFailed).not.toHaveBeenCalled();
+  });
+
+  test('Stripe injoignable : 503', async () => {
+    stripe.paymentIntents.retrieve.mockRejectedValue(new Error('ETIMEDOUT'));
+    const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    await expect(paymentService.confirmQrPaymentReturn('pi_qr', 'pi_qr_secret_abc'))
+      .rejects.toMatchObject({ statusCode: 503 });
+    spy.mockRestore();
   });
 });

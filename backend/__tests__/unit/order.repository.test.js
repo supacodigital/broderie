@@ -106,34 +106,67 @@ describe('order.repository — updateStatusWithHistory()', () => {
 // ── markPaidFromWebhook() ────────────────────────────────────────────────────
 
 describe('order.repository — markPaidFromWebhook()', () => {
-  test('statusChanged=true : historique inséré + paiement mis à jour', async () => {
+  /* Base simulée : la commande change (ou non) de statut, et une ligne de
+     paiement porte (ou non) l'identifiant du paiement encaissé. */
+  const scriptedConn = ({ orderUpdated, paidRowId }) => {
     const conn = makeConn();
-    conn.execute
-      .mockResolvedValueOnce([{ affectedRows: 1 }]) // UPDATE orders
-      .mockResolvedValueOnce([{}])                  // INSERT history
-      .mockResolvedValueOnce([{}]);                 // UPDATE payments
+    conn.execute.mockImplementation((sql) => {
+      if (/^UPDATE orders/.test(sql)) return Promise.resolve([{ affectedRows: orderUpdated ? 1 : 0 }]);
+      if (/SELECT id FROM payments/.test(sql)) return Promise.resolve([paidRowId ? [{ id: paidRowId }] : []]);
+      return Promise.resolve([{ affectedRows: 1 }]);
+    });
+    return conn;
+  };
+  const sqlCalls = (conn) => conn.execute.mock.calls.map((c) => [c[0].replace(/\s+/g, ' '), c[1]]);
+
+  test('statusChanged=true : historique inséré + paiement mis à jour', async () => {
+    const conn = scriptedConn({ orderUpdated: true, paidRowId: 5 });
     pool.getConnection.mockResolvedValue(conn);
 
     const res = await repo.markPaidFromWebhook(1, 'pi_123', 'card');
 
     expect(res).toEqual({ statusChanged: true });
-    const calls = conn.execute.mock.calls.map((c) => c[0]);
-    expect(calls.some((s) => /INSERT INTO order_status_history/.test(s))).toBe(true);
-    expect(calls.some((s) => /UPDATE payments SET status = 'succeeded'/.test(s))).toBe(true);
+    const calls = sqlCalls(conn);
+    expect(calls.some(([s]) => /INSERT INTO order_status_history/.test(s))).toBe(true);
+    expect(calls).toContainEqual(["UPDATE payments SET status = 'succeeded' WHERE id = ?", [5]]);
+    expect(conn.commit).toHaveBeenCalled();
   });
 
   test('statusChanged=false (déjà payée) : pas d\'historique, paiement quand même mis à jour', async () => {
-    const conn = makeConn();
-    conn.execute
-      .mockResolvedValueOnce([{ affectedRows: 0 }]) // UPDATE orders ne touche rien
-      .mockResolvedValueOnce([{}]);                 // UPDATE payments
+    const conn = scriptedConn({ orderUpdated: false, paidRowId: 5 });
     pool.getConnection.mockResolvedValue(conn);
 
     const res = await repo.markPaidFromWebhook(1, 'pi_123', 'twint');
 
     expect(res).toEqual({ statusChanged: false });
-    const calls = conn.execute.mock.calls.map((c) => c[0]);
-    expect(calls.some((s) => /INSERT INTO order_status_history/.test(s))).toBe(false);
+    const calls = sqlCalls(conn);
+    expect(calls.some(([s]) => /INSERT INTO order_status_history/.test(s))).toBe(false);
+    expect(calls).toContainEqual(["UPDATE payments SET status = 'succeeded' WHERE id = ?", [5]]);
+  });
+
+  /* Audit du 25.09 : toutes les lignes de la méthode passaient à « réussi » — un
+     QR Twint remplacé, donc annulé chez Stripe, apparaissait lui aussi payé. */
+  test('seule la ligne du paiement encaissé est visée', async () => {
+    const conn = scriptedConn({ orderUpdated: true, paidRowId: 5 });
+    pool.getConnection.mockResolvedValue(conn);
+
+    await repo.markPaidFromWebhook(1, 'pi_123', 'twint');
+
+    const updates = sqlCalls(conn).filter(([s]) => /^UPDATE payments/.test(s));
+    expect(updates).toHaveLength(1);
+    expect(updates[0][0]).toMatch(/WHERE id = \?$/);
+  });
+
+  test('aucune ligne ne porte ce paiement : la dernière réservation sans identifiant le reçoit', async () => {
+    const conn = scriptedConn({ orderUpdated: true, paidRowId: null });
+    pool.getConnection.mockResolvedValue(conn);
+
+    await repo.markPaidFromWebhook(1, 'pi_123', 'card');
+
+    const [update] = sqlCalls(conn).filter(([s]) => /^UPDATE payments/.test(s));
+    expect(update[0]).toMatch(/provider_payment_id IS NULL/);
+    expect(update[0]).toMatch(/LIMIT 1$/);
+    expect(update[1]).toEqual(['pi_123', 1, 'card']);
   });
 });
 

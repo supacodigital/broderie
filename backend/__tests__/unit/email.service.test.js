@@ -392,6 +392,83 @@ describe('email.service — sendInvoice()', () => {
   });
 });
 
+// ── Heure suisse et QR Twint par e-mail (audit du 25.09) ──────────────────────
+
+/* Le serveur de production tourne en UTC : sans fuseau explicite, l'échéance du
+   QR Twint s'affichait 2 h plus tôt que l'heure suisse, et l'échéance de la
+   facture pouvait différer d'un jour de celle du PDF.
+   Le fuseau d'un processus ne se change pas pendant un test Jest : les e-mails
+   sont rendus dans un processus Node lancé en UTC, comme le serveur. */
+describe('email.service — dates à l\'heure suisse sur un serveur en UTC', () => {
+  const { execFileSync } = require('child_process');
+  let rendered;
+
+  beforeAll(() => {
+    const script = `
+      const transporter = require(${JSON.stringify(require.resolve('../../config/mailer'))});
+      const service = require(${JSON.stringify(require.resolve('../../services/email.service'))});
+      let html = '';
+      transporter.sendMail = async (mail) => { html = mail.html; };
+      const user = { email: 'marie@test.ch', first_name: 'Marie' };
+      (async () => {
+        const out = { tz: Intl.DateTimeFormat().resolvedOptions().timeZone };
+        await service.sendTwintQrEmail({ user, order: { id: 93, total: 32.5 }, qrBuffer: Buffer.from('png'),
+          payUrl: 'https://pm-redirects.stripe.com/x', expiresAt: '2026-09-26T09:48:00Z' });
+        out.twint = html;
+        await service.sendInvoice({ user, order: { id: 1, total: 29.95 }, pdfBuffer: Buffer.from('%PDF-'),
+          dueDate: '2026-10-05T22:30:00Z' });
+        out.invoice = html;
+        process.stdout.write('@@' + JSON.stringify(out));
+        process.exit(0);
+      })();`;
+    const stdout = execFileSync(process.execPath, ['-e', script], {
+      env: { ...process.env, TZ: 'UTC', MAIL_ENABLED: 'false' },
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).toString();
+    rendered = JSON.parse(stdout.slice(stdout.indexOf('@@') + 2));
+  });
+
+  test('le rendu tourne bien en UTC', () => {
+    expect(rendered.tz).toBe('UTC');
+  });
+
+  test('QR Twint : échéance affichée à l\'heure suisse', () => {
+    // 09h48 UTC = 11h48 en Suisse (heure d'été)
+    expect(rendered.twint).toContain('valables jusqu\'au <strong>26.09.2026 11:48</strong>');
+  });
+
+  test('facture : échéance du jour suisse, comme sur le PDF', () => {
+    // 22h30 UTC le 5 octobre = 0h30 le 6 octobre en Suisse
+    expect(rendered.invoice).toContain('06.10.2026');
+    expect(rendered.invoice).not.toContain('05.10.2026');
+  });
+});
+
+describe('email.service — QR Twint lisible sur téléphone', () => {
+  const send = () => service.sendTwintQrEmail({
+    user: fakeUser, order: { id: 93, total: 32.50 }, qrBuffer: Buffer.from('png'),
+    payUrl: 'https://pm-redirects.stripe.com/authorize/acct_x/pa_nonce_y',
+    expiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+  });
+
+  /* Un QR ne se scanne pas depuis l'écran du téléphone sur lequel on lit
+     l'e-mail : le même paiement est proposé en bouton. */
+  test('bouton « Payer avec Twint » vers le même paiement que le QR', async () => {
+    await send();
+    const mail = transporter.sendMail.mock.calls[0][0];
+    expect(mail.html).toMatch(/<a href="https:\/\/pm-redirects\.stripe\.com\/authorize\/acct_x\/pa_nonce_y"[^>]*>\s*Payer avec Twint/);
+    expect(mail.attachments[0]).toMatchObject({ cid: 'twint-qr', contentType: 'image/png' });
+  });
+
+  test('consigne : bouton sur téléphone, appareil photo sur ordinateur', async () => {
+    await send();
+    const html = transporter.sendMail.mock.calls[0][0].html;
+    expect(html).toContain('Sur votre téléphone :</strong> touchez le bouton');
+    expect(html).toContain('Sur un ordinateur :</strong> scannez ce QR code avec l\'appareil photo');
+    expect(html).toContain('CHF 32.50');
+  });
+});
+
 // ── CLI-05 : e-mails de consentement newsletter ──────────────────────────────
 
 /* Non-régression CLI-05 — « e-mail de confirmation d'opt-in newsletter non

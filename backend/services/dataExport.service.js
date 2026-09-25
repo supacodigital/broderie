@@ -14,14 +14,15 @@ const COLORS = {
   rowAlt: '#faf9fb',
 };
 
+// Heure suisse : le serveur tourne en UTC, l'export affichait les heures avec 1 à 2 h de retard
 const formatDate = (date) => {
   if (!date) return '—';
-  return new Date(date).toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return new Date(date).toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Zurich' });
 };
 
 const formatDateTime = (date) => {
   if (!date) return '—';
-  return new Date(date).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(date).toLocaleString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' });
 };
 
 // ─────────────────────────────────────────────────────────────

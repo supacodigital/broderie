@@ -1,3 +1,4 @@
+const crypto            = require('crypto');
 const stripe            = require('../config/stripe');
 const QRCode            = require('qrcode');
 const paymentRepository = require('../repositories/payment.repository');
@@ -210,6 +211,7 @@ const createTwintQrForEmail = async (orderId) => {
   if (previous && previous.status === 'pending' && previous.provider_payment_id) {
     try {
       await stripe.paymentIntents.cancel(previous.provider_payment_id);
+      await paymentRepository.updateStatusByIntentId(previous.provider_payment_id, 'cancelled');
     } catch (err) {
       // Déjà annulé/expiré/payé côté Stripe — pas bloquant, on continue avec un nouveau QR
       console.warn('[Twint] Annulation ancien PaymentIntent échouée (non bloquant) :', err.message);
@@ -222,13 +224,17 @@ const createTwintQrForEmail = async (orderId) => {
   // renvoie un PaymentIntent "requires_action" dont next_action est une redirection
   // (Stripe ne fournit pas de QR nativement pour Twint) — on génère le QR nous-mêmes
   // à partir de cette URL, que le client scanne avec l'app Twint.
+  /* Retour sur une page publique : la cliente paie le plus souvent depuis son
+     téléphone, où elle n'est pas connectée au site. Le retour vers la caisse
+     (réservée aux comptes connectés) lui présentait la page de connexion au
+     lieu de la confirmation de son paiement. */
   const intent = await stripe.paymentIntents.create({
     amount:               amountCents,
     currency:             'chf',
     payment_method_types: ['twint'],
     confirm:              true,
     payment_method_data:  { type: 'twint' },
-    return_url:            `${env.clientUrl}/commande?order=${orderId}`,
+    return_url:            `${env.clientUrl}/paiement-twint`,
     metadata: { order_id: String(orderId) },
   });
 
@@ -255,7 +261,55 @@ const createTwintQrForEmail = async (orderId) => {
 
   const expiresAt = new Date(Date.now() + TWINT_QR_VALIDITY_HOURS * 60 * 60 * 1000);
 
-  return { qrBuffer, amount: order.total, expiresAt };
+  // payUrl : même paiement que le QR, en lien à toucher depuis le téléphone
+  return { qrBuffer, payUrl: redirectUrl, amount: order.total, expiresAt };
+};
+
+/* Retour de la cliente après avoir payé un QR Twint reçu par e-mail.
+
+   Page publique : elle arrive du téléphone qui a scanné le QR, sans session sur
+   le site. Le secret du paiement, ajouté par Stripe à l'adresse de retour,
+   prouve qu'elle vient bien de ce paiement — c'est l'usage prévu par Stripe
+   pour lire l'état d'un paiement côté client. Seul le numéro de commande est
+   renvoyé : ni nom, ni adresse, ni articles.
+
+   Comme au retour de la caisse (syncOrderPayment), un paiement abouti valide
+   la commande sans attendre le webhook. */
+const QR_RETURN_STATUSES = {
+  succeeded:       'paid',
+  processing:      'processing',
+  requires_action: 'processing',
+};
+
+const secretsMatch = (expected, received) => {
+  const a = Buffer.from(String(expected ?? ''));
+  const b = Buffer.from(String(received ?? ''));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+};
+
+const confirmQrPaymentReturn = async (intentId, clientSecret) => {
+  if (!stripe) throw new AppError('Paiements Stripe non configurés.', 503);
+
+  const notFound = new AppError('Paiement introuvable.', 404);
+  const payment = await paymentRepository.findByIntentId(intentId);
+  if (!payment || payment.provider !== 'stripe_qr_email') throw notFound;
+
+  let intent;
+  try {
+    intent = await stripe.paymentIntents.retrieve(intentId);
+  } catch (err) {
+    console.error(`[Stripe] Vérification du QR Twint impossible (commande ${payment.order_id}) :`, err.message);
+    throw new AppError('Impossible de vérifier le paiement pour le moment. Réessayez dans un instant.', 503);
+  }
+  if (!secretsMatch(intent.client_secret, clientSecret)) throw notFound;
+
+  if (intent.status === 'succeeded') await applySucceededIntent(intent);
+
+  return {
+    orderId:       payment.order_id,
+    // paid | processing | failed (refusé, abandonné, ou QR remplacé par un plus récent)
+    paymentStatus: QR_RETURN_STATUSES[intent.status] ?? 'failed',
+  };
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -459,8 +513,14 @@ const syncOrderPayment = async (orderId, userId) => {
   let intentStatus = null;
   const method = order.payment_method;
 
-  if (stripe && ['card', 'twint'].includes(method)) {
-    const intentId = await paymentRepository.findLatestIntentId(orderId, method);
+  /* Une commande par facture peut être réglée par un QR Twint envoyé depuis
+     l'admin : c'est ce paiement Twint qu'il faut vérifier. Sans cela, la
+     cliente revenant d'un tel paiement lisait « Réglez votre facture sous
+     30 jours », au risque de payer deux fois. */
+  const intentMethod = method === 'invoice_qr' ? 'twint' : method;
+
+  if (stripe && ['card', 'twint', 'invoice_qr'].includes(method)) {
+    const intentId = await paymentRepository.findLatestIntentId(orderId, intentMethod);
     if (intentId) {
       let intent;
       try {
@@ -497,5 +557,6 @@ const syncOrderPayment = async (orderId, userId) => {
 };
 
 module.exports = {
-  createCardIntent, createTwintIntent, createTwintQrForEmail, handleWebhook, syncOrderPayment,
+  createCardIntent, createTwintIntent, createTwintQrForEmail, confirmQrPaymentReturn,
+  handleWebhook, syncOrderPayment,
 };

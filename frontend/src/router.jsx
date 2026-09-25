@@ -25,6 +25,7 @@ const OrderDetail    = lazy(() => import('./pages/OrderDetail/OrderDetail.jsx'))
 const NotreHistoire  = lazy(() => import('./pages/NotreHistoire/NotreHistoire.jsx'))
 const Unsubscribe    = lazy(() => import('./pages/Unsubscribe/Unsubscribe.jsx'))
 const NewsletterConfirm = lazy(() => import('./pages/NewsletterConfirm/NewsletterConfirm.jsx'))
+const TwintPayment   = lazy(() => import('./pages/TwintPayment/TwintPayment.jsx'))
 
 /* Fallback pendant le chargement des chunks */
 function PageLoader() {
@@ -79,6 +80,8 @@ export const router = createBrowserRouter([
       // Atterrissage du lien de désinscription newsletter (CLI-05)
       { path: '/desinscription',                element: <S><Unsubscribe /></S> },
       { path: '/newsletter/confirmation',       element: <S><NewsletterConfirm /></S> },
+      // Retour d'un QR Twint reçu par e-mail — public : payé depuis un téléphone sans session
+      { path: '/paiement-twint',                element: <S><TwintPayment /></S> },
 
       /* Routes protégées — nécessitent une authentification */
       {

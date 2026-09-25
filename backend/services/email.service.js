@@ -512,8 +512,10 @@ async function sendPasswordReset({ user, resetToken }) {
 // ─────────────────────────────────────────────
 async function sendInvoice({ user, order, pdfBuffer, dueDate }) {
   const firstName = escapeHtml(user.first_name);
+  // Heure suisse, comme sur la facture PDF : le serveur tourne en UTC, et une
+  // commande passée peu après minuit y portait une échéance différente
   const due = new Date(dueDate).toLocaleDateString('fr-CH', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
+    day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Zurich',
   });
 
   const body = `<h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
@@ -742,11 +744,15 @@ async function sendMfaRecoveryCodesRegenerated(user) {
 // ─────────────────────────────────────────────
 // Paiement Twint par QR code — envoyé par l'admin depuis le back-office
 // Image QR jointe en inline (cid:) — pas en pièce jointe téléchargeable.
+// `payUrl` : le même paiement en bouton — un QR ne se scanne pas depuis l'écran
+// du téléphone sur lequel on lit l'e-mail.
 // ─────────────────────────────────────────────
-async function sendTwintQrEmail({ user, order, qrBuffer, expiresAt }) {
+async function sendTwintQrEmail({ user, order, qrBuffer, payUrl, expiresAt }) {
   const firstName = escapeHtml(user.first_name);
+  // Heure suisse : le serveur tourne en UTC, l'échéance affichait 2 h de moins
   const expiresLabel = new Date(expiresAt).toLocaleString('fr-CH', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    timeZone: 'Europe/Zurich',
   });
 
   const body = `
@@ -757,17 +763,24 @@ async function sendTwintQrEmail({ user, order, qrBuffer, expiresAt }) {
       Voici le QR code de paiement pour votre commande <strong>#${order.id}</strong>
       d'un montant de <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
     </p>
-    <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
-      Ouvrez l'application Twint sur votre téléphone, scannez le code ci-dessous et
-      confirmez le paiement.
+    <p style="margin:0;font-size:14px;color:#374151;line-height:1.7;">
+      <strong>Sur votre téléphone :</strong> touchez le bouton ci-dessous, puis
+      confirmez le paiement dans l'application Twint.
+    </p>
+    <div style="text-align:center;margin:0 0 28px;">
+      ${btn(escapeHtml(payUrl), 'Payer avec Twint')}
+    </div>
+    <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
+      <strong>Sur un ordinateur :</strong> scannez ce QR code avec l'appareil photo
+      de votre téléphone, puis confirmez le paiement dans l'application Twint.
     </p>
     <div style="text-align:center;margin:0 0 24px;">
       <img src="cid:twint-qr" alt="QR code de paiement Twint" width="280" height="280"
            style="display:inline-block;border:1px solid #fbcfe8;border-radius:12px;padding:12px;" />
     </div>
     <p style="margin:0;font-size:13px;color:#9D6480;line-height:1.7;">
-      Ce QR code est valable jusqu'au <strong>${expiresLabel}</strong>. Passé ce délai,
-      contactez-nous pour recevoir un nouveau code.
+      Ce QR code et ce bouton sont valables jusqu'au <strong>${expiresLabel}</strong>.
+      Passé ce délai, contactez-nous pour recevoir un nouveau code.
     </p>
   `;
 
