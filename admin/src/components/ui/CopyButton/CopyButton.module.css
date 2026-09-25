@@ -1,0 +1,22 @@
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  transition: background-color .15s ease, color .15s ease, transform .12s var(--ease-out);
+}
+
+.iconBtn[data-copied="true"] { color: var(--success-text); }
+.iconBtn:active { transform: scale(.95); }
+.iconBtn:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .iconBtn:hover { background: var(--rose-pale); color: var(--rose-dark); }
+  .iconBtn[data-copied="true"]:hover { color: var(--success-text); }
+}

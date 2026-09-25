@@ -1,0 +1,88 @@
+/* ── Modification de la fiche client (CLI-06) — dans la carte « Coordonnées » ── */
+.form { padding: 16px 18px 18px; }
+
+/* Prénom et nom côte à côte quand la carte est assez large */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 14px 12px;
+}
+
+.field     { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.fieldFull { grid-column: 1 / -1; }
+
+.label { font-size: 12px; font-weight: 600; color: var(--text-dark); }
+
+.input {
+  padding: 9px 12px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-dark);
+  background: #fff;
+  outline: none;
+  transition: border-color .15s ease;
+}
+
+.input:focus-visible { border-color: var(--rose); }
+/* Un champ en erreur le reste, même sous le focus */
+.inputError,
+.inputError:focus-visible { border-color: var(--danger-text); }
+
+.err  { font-size: 11px; color: var(--danger-text); }
+.hint { font-size: 11px; color: var(--warning-text); }
+
+.apiError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--danger-text);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.btnCancel,
+.btnSave {
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .12s var(--ease-out);
+}
+
+.btnCancel {
+  background: none;
+  border: 1.5px solid var(--rose-border);
+  color: var(--text-muted);
+}
+
+.btnSave {
+  background: var(--rose-dark);
+  border: 1.5px solid var(--rose-dark);
+  color: #fff;
+}
+
+.btnCancel:focus-visible,
+.btnSave:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+.btnCancel:active:not(:disabled),
+.btnSave:active:not(:disabled) { transform: scale(.97); }
+
+.btnCancel:disabled,
+.btnSave:disabled { opacity: .6; cursor: not-allowed; }
+
+@media (hover: hover) and (pointer: fine) {
+  .btnCancel:hover:not(:disabled) { border-color: var(--rose); color: var(--rose-dark); }
+  .btnSave:hover:not(:disabled)   { background: var(--rose-darker); border-color: var(--rose-darker); }
+}

@@ -14,6 +14,7 @@ const ProductForm = lazy(() => import('./pages/Products/ProductForm.jsx'))
 const Orders      = lazy(() => import('./pages/Orders/Orders.jsx'))
 const OrderDetail = lazy(() => import('./pages/Orders/OrderDetail.jsx'))
 const Customers  = lazy(() => import('./pages/Customers/Customers.jsx'))
+const CustomerDetail = lazy(() => import('./pages/Customers/CustomerDetail.jsx'))
 const Reviews    = lazy(() => import('./pages/Reviews/Reviews.jsx'))
 const Suppliers   = lazy(() => import('./pages/Suppliers/Suppliers.jsx'))
 const SupplierForm = lazy(() => import('./pages/Suppliers/SupplierForm.jsx'))
@@ -92,6 +93,7 @@ export default function App() {
             <Route path="factures"   element={<Invoices />} />
             <Route path="reassort"   element={<Restock />} />
             <Route path="clients"    element={<Customers />} />
+            <Route path="clients/:id" element={<KeyedByRouteId><CustomerDetail /></KeyedByRouteId>} />
             <Route path="avis"       element={<Reviews />} />
             <Route path="fournisseurs" element={<Suppliers />} />
             <Route path="fournisseurs/nouveau" element={<KeyedByRouteId><SupplierForm /></KeyedByRouteId>} />

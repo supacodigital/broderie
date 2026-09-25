@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const { z } = require('zod');
-const { phoneField } = require('../validators/user.validator');
+const { phoneField, SWISS_CANTONS } = require('../validators/user.validator');
 const userRepository = require('../repositories/user.repository');
 const newsletterRepository = require('../repositories/newsletter.repository');
 const userService = require('../services/user.service');
@@ -9,9 +9,6 @@ const dataExportService = require('../services/dataExport.service');
 const env = require('../config/env');
 const { AppError } = require('../middlewares/errorHandler');
 const { isAdminRole } = require('../middlewares/roles');
-
-// Cantons suisses officiels (2 lettres)
-const SWISS_CANTONS = ['AG','AI','AR','BE','BL','BS','FR','GE','GL','GR','JU','LU','NE','NW','OW','SG','SH','SO','SZ','TG','TI','UR','VD','VS','ZG','ZH'];
 
 // Schéma d'adresse du compte — validé côté serveur
 const accountAddressSchema = z.object({

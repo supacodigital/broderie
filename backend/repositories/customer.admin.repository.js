@@ -45,44 +45,49 @@ const findAll = async ({ page = 1, limit = 20, search = '', sort = 'created_at',
 
 const findById = async (id) => {
   const [users] = await pool.execute(
-    `SELECT id, email, first_name, last_name, locale, is_active, created_at
+    `SELECT id, email, first_name, last_name, locale, is_active, email_verified_at, created_at
      FROM users WHERE id = ? AND deleted_at IS NULL AND role = 'client' LIMIT 1`,
     [id]
   );
   if (!users[0]) return null;
 
-  const [addresses] = await pool.execute(
-    `SELECT id, label, street, street_number, city, zip, country, canton, is_default
-     FROM addresses WHERE user_id = ?`,
-    [id]
-  );
-
-  const [orders] = await pool.execute(
-    // Sans les tentatives de paiement carte / Twint non abouties (CLI-07)
-    `SELECT id, status, total, created_at FROM orders
-     WHERE user_id = ? AND confirmed_at IS NOT NULL
-     ORDER BY created_at DESC LIMIT 100`,
-    [id]
-  );
-
-  const [loyaltyRows] = await pool.execute(
-    `SELECT la.total_spend_chf, la.updated_at AS loyalty_updated_at,
-            lt.name AS tier_name, lt.min_spend_chf AS tier_min_spend,
-            lt.reward_type, lt.reward_value
-     FROM loyalty_accounts la
-     LEFT JOIN loyalty_tiers lt ON lt.id = la.current_tier_id
-     WHERE la.user_id = ? LIMIT 1`,
-    [id]
-  );
-
-  const [rewards] = await pool.execute(
-    `SELECT lr.code, lr.type, lr.value, lr.status, lr.expires_at, lt.name AS tier_name
-     FROM loyalty_rewards lr
-     LEFT JOIN loyalty_tiers lt ON lt.id = lr.tier_id
-     WHERE lr.user_id = ?
-     ORDER BY lr.created_at DESC`,
-    [id]
-  );
+  /* Requêtes indépendantes lancées ensemble : la fiche s'affiche au rythme de
+     la plus lente, pas de leur somme. */
+  const [[addresses], [orders], [loyaltyRows], [rewards]] = await Promise.all([
+    pool.execute(
+      // Destinataire et téléphone : la fiche sert aussi à rappeler la cliente
+      `SELECT id, label, address_type, first_name, last_name, street, street_number,
+              city, zip, country, canton, phone, is_default
+       FROM addresses WHERE user_id = ?
+       ORDER BY is_default DESC, id ASC`,
+      [id]
+    ),
+    pool.execute(
+      // Sans les tentatives de paiement carte / Twint non abouties (CLI-07)
+      `SELECT id, invoice_number, status, total, created_at FROM orders
+       WHERE user_id = ? AND confirmed_at IS NOT NULL
+       ORDER BY created_at DESC LIMIT 100`,
+      [id]
+    ),
+    pool.execute(
+      `SELECT la.total_spend_chf, la.updated_at AS loyalty_updated_at,
+              lt.name AS tier_name, lt.min_spend_chf AS tier_min_spend,
+              lt.reward_type, lt.reward_value
+       FROM loyalty_accounts la
+       LEFT JOIN loyalty_tiers lt ON lt.id = la.current_tier_id
+       WHERE la.user_id = ? LIMIT 1`,
+      [id]
+    ),
+    pool.execute(
+      `SELECT lr.code, lr.type, lr.value, lr.status, lr.expires_at, lt.name AS tier_name
+       FROM loyalty_rewards lr
+       LEFT JOIN loyalty_tiers lt ON lt.id = lr.tier_id
+       WHERE lr.user_id = ?
+       ORDER BY lr.created_at DESC
+       LIMIT 50`,
+      [id]
+    ),
+  ]);
 
   const loyalty = loyaltyRows[0]
     ? { ...loyaltyRows[0], total_spend_chf: parseFloat(loyaltyRows[0].total_spend_chf ?? 0), rewards }
@@ -91,4 +96,82 @@ const findById = async (id) => {
   return { ...users[0], addresses, orders, loyalty };
 };
 
-module.exports = { findAll, findById };
+/* Modification de la fiche client depuis l'admin (CLI-06) — prénom, nom et
+   adresse e-mail. Comptes clients uniquement : un compte du back-office ne se
+   modifie pas par cette voie.
+   Le statut « adresse confirmée » est conservé : la boutique saisit l'adresse
+   que la cliente lui a communiquée.
+   Retour : { notFound } | { emailTaken } | { updated, emailChanged } */
+const updateIdentity = async (id, { firstName, lastName, email }) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [[current]] = await connection.execute(
+      `SELECT id, email FROM users
+       WHERE id = ? AND deleted_at IS NULL AND role = 'client'
+       FOR UPDATE`,
+      [id]
+    );
+    if (!current) { await connection.rollback(); return { notFound: true }; }
+
+    // Même règle que l'index unique uq_users_email (collation insensible à la casse)
+    const [taken] = await connection.execute(
+      `SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1`,
+      [email, id]
+    );
+    if (taken.length) { await connection.rollback(); return { emailTaken: true }; }
+
+    await connection.execute(
+      `UPDATE users SET first_name = ?, last_name = ?, email = ? WHERE id = ?`,
+      [firstName, lastName, email, id]
+    );
+
+    const emailChanged = current.email.toLowerCase() !== email.toLowerCase();
+    if (emailChanged) {
+      /* Les liens de confirmation et de réinitialisation déjà envoyés à
+         l'ancienne adresse ne doivent plus agir sur le compte. */
+      await connection.execute(
+        `UPDATE users SET verify_token_hash = NULL, verify_token_expires = NULL,
+                          reset_token_hash = NULL, reset_token_expires = NULL
+         WHERE id = ?`,
+        [id]
+      );
+
+      /* L'inscription newsletter suit l'adresse : sinon « Mon profil »
+         afficherait « Non » et l'ancienne adresse continuerait de la recevoir.
+         Si la nouvelle adresse a déjà sa propre inscription, celle-ci prévaut. */
+      const [[ownSubscription]] = await connection.execute(
+        `SELECT id FROM newsletter_subscribers WHERE email = ? LIMIT 1`,
+        [email]
+      );
+      if (!ownSubscription) {
+        await connection.execute(
+          `UPDATE newsletter_subscribers SET email = ? WHERE email = ?`,
+          [email, current.email]
+        );
+      }
+    }
+
+    await connection.commit();
+    return { updated: true, emailChanged };
+  } catch (err) {
+    await connection.rollback();
+    // Adresse prise entre la vérification et l'écriture (requête concurrente)
+    if (err.code === 'ER_DUP_ENTRY') return { emailTaken: true };
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
+// Compte client existant (ni supprimé, ni compte du back-office)
+const clientExists = async (id) => {
+  const [rows] = await pool.execute(
+    `SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND role = 'client' LIMIT 1`,
+    [id]
+  );
+  return rows.length > 0;
+};
+
+module.exports = { findAll, findById, updateIdentity, clientExists };

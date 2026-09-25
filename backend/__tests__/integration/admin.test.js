@@ -548,3 +548,189 @@ describe('Admin — Clients', () => {
     expect(res.body.data).toHaveProperty('email');
   });
 });
+
+/* CLI-06 — la boutique modifie la fiche d'une cliente depuis l'admin : prénom,
+   nom et adresse e-mail (que la cliente ne peut pas changer elle-même). */
+describe('CLI-06 — PUT /admin/customers/:id', () => {
+  const { pool } = require('../../config/db');
+  const { registerVerifiedUser } = require('../helpers/auth.helper');
+  const uniqueEmail = (prefix) => `${prefix}.${Date.now()}.${Math.random().toString(36).slice(2)}@broderie-test.ch`;
+
+  const putCustomer = async (id, body) => request(app)
+    .put(`/api/v1/admin/customers/${id}`)
+    .set('Authorization', `Bearer ${await getAdminToken()}`)
+    .send(body);
+
+  test('modifie prénom, nom et e-mail : la cliente se connecte avec la nouvelle adresse', async () => {
+    const client = await registerVerifiedUser('cli06.admin');
+    const newEmail = uniqueEmail('cli06.nouvelle');
+
+    const res = await putCustomer(client.userId, { first_name: ' Claire ', last_name: 'Dupont', email: ` ${newEmail} ` });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ id: client.userId, first_name: 'Claire', last_name: 'Dupont', email: newEmail });
+
+    const oldLogin = await request(app).post('/api/v1/auth/login').send({ email: client.email, password: client.password });
+    expect(oldLogin.status).toBe(401);
+    const newLogin = await request(app).post('/api/v1/auth/login').send({ email: newEmail, password: client.password });
+    expect(newLogin.status).toBe(200);
+    // L'adresse reste confirmée : la cliente peut commander sans nouvelle vérification
+    expect(newLogin.body.data.user.emailVerified).toBe(true);
+  });
+
+  test('refuse une adresse déjà utilisée par un autre compte (409), quelle que soit la casse', async () => {
+    const client = await registerVerifiedUser('cli06.admin');
+    const other  = await registerVerifiedUser('cli06.autre');
+
+    const res = await putCustomer(client.userId, { first_name: 'Jest', last_name: 'Verified', email: other.email.toUpperCase() });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ success: false, message: 'Cette adresse e-mail est déjà utilisée par un autre compte.' });
+  });
+
+  test('accepte l\'adresse actuelle inchangée (seul le nom est modifié)', async () => {
+    const client = await registerVerifiedUser('cli06.admin');
+    const res = await putCustomer(client.userId, { first_name: 'Jeanne', last_name: 'Verified', email: client.email });
+    expect(res.status).toBe(200);
+    expect(res.body.data.first_name).toBe('Jeanne');
+  });
+
+  test('refuse une adresse invalide, avec l\'erreur rattachée au champ', async () => {
+    const client = await registerVerifiedUser('cli06.admin');
+    const res = await putCustomer(client.userId, { first_name: 'Jest', last_name: 'Verified', email: 'pas-une-adresse' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toEqual([{ field: 'email', message: 'Adresse e-mail invalide.' }]);
+  });
+
+  test('un compte du back-office ne se modifie pas par cette route (404)', async () => {
+    await getAdminToken();
+    const [[admin]] = await pool.execute(`SELECT id FROM users WHERE role = 'admin' AND deleted_at IS NULL LIMIT 1`);
+    const res = await putCustomer(admin.id, { first_name: 'X', last_name: 'Y', email: uniqueEmail('cli06.admin-cible') });
+    expect(res.status).toBe(404);
+  });
+
+  test('l\'inscription newsletter suit l\'adresse, un lien de réinitialisation déjà envoyé ne vaut plus', async () => {
+    const client = await registerVerifiedUser('cli06.admin');
+    await pool.execute(
+      `INSERT INTO newsletter_subscribers (email, locale, source, is_active, confirmed_at) VALUES (?, 'fr', 'account', 1, NOW())`,
+      [client.email]
+    );
+    await pool.execute(
+      `UPDATE users SET reset_token_hash = 'ancien-lien', reset_token_expires = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id = ?`,
+      [client.userId]
+    );
+    const newEmail = uniqueEmail('cli06.newsletter');
+
+    const res = await putCustomer(client.userId, { first_name: 'Jest', last_name: 'Verified', email: newEmail });
+    expect(res.status).toBe(200);
+
+    const [subs] = await pool.execute(
+      `SELECT email, is_active FROM newsletter_subscribers WHERE email IN (?, ?)`,
+      [client.email, newEmail]
+    );
+    expect(subs).toEqual([{ email: newEmail, is_active: 1 }]);
+
+    const [[user]] = await pool.execute(`SELECT reset_token_hash FROM users WHERE id = ?`, [client.userId]);
+    expect(user.reset_token_hash).toBeNull();
+  });
+
+  test('la fiche indique l\'adresse vérifiée et l\'inscription newsletter', async () => {
+    const client = await registerVerifiedUser('cli06.fiche');
+    const res = await request(app)
+      .get(`/api/v1/admin/customers/${client.userId}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.email_verified_at).toBeTruthy();
+    expect(res.body.data.newsletter_status).toBe('none');
+    expect(res.body.data.addresses).toEqual([]);
+  });
+
+  test('un client ne peut pas appeler cette route (403)', async () => {
+    const client = await registerVerifiedUser('cli06.admin');
+    const res = await request(app)
+      .put(`/api/v1/admin/customers/${client.userId}`)
+      .set('Authorization', `Bearer ${client.token}`)
+      .send({ first_name: 'Jest', last_name: 'Verified', email: uniqueEmail('cli06.intrus') });
+    expect(res.status).toBe(403);
+  });
+});
+
+/* CLI-06 — la boutique gère aussi les adresses de la cliente depuis sa fiche */
+describe('CLI-06 — adresses de la cliente depuis l\'admin', () => {
+  const { registerVerifiedUser } = require('../helpers/auth.helper');
+
+  const address = {
+    label: 'Maison', address_type: 'both',
+    street: 'Rue du Bourg', street_number: '12',
+    zip: '1510', city: 'Moudon', canton: 'VD', phone: '079 123 45 67',
+  };
+
+  const call = async (method, path, body) => {
+    const req = request(app)[method](`/api/v1/admin/customers${path}`)
+      .set('Authorization', `Bearer ${await getAdminToken()}`);
+    return body ? req.send(body) : req;
+  };
+
+  test('ajout, modification, adresse par défaut et suppression', async () => {
+    const client = await registerVerifiedUser('cli06.adresses');
+
+    // Première adresse : par défaut d'office
+    let res = await call('post', `/${client.userId}/addresses`, address);
+    expect(res.status).toBe(201);
+    expect(res.body.data.addresses).toHaveLength(1);
+    const home = res.body.data.addresses[0];
+    expect(home).toMatchObject({ label: 'Maison', street: 'Rue du Bourg', phone: '079 123 45 67', is_default: 1 });
+
+    // Seconde adresse désignée par défaut : la première perd ce statut
+    res = await call('post', `/${client.userId}/addresses`, {
+      ...address, label: 'Travail', address_type: 'shipping', street: 'Place de la Gare', street_number: '1',
+      zip: '1003', city: 'Lausanne', is_default: true,
+    });
+    expect(res.status).toBe(201);
+    const work = res.body.data.addresses.find((a) => a.label === 'Travail');
+    expect(work.is_default).toBe(1);
+    expect(res.body.data.addresses.find((a) => a.id === home.id).is_default).toBe(0);
+
+    // Modification sans is_default : le statut ne bouge pas
+    res = await call('put', `/${client.userId}/addresses/${work.id}`, {
+      ...address, label: 'Bureau', street: 'Avenue de la Gare', street_number: '3', zip: '1003', city: 'Lausanne',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data.addresses.find((a) => a.id === work.id)).toMatchObject({
+      label: 'Bureau', street: 'Avenue de la Gare', is_default: 1,
+    });
+
+    // Suppression de l'adresse par défaut : l'autre prend le relais
+    res = await call('delete', `/${client.userId}/addresses/${work.id}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true, message: 'Adresse supprimée.' });
+    res = await call('get', `/${client.userId}`);
+    expect(res.body.data.addresses).toEqual([expect.objectContaining({ id: home.id, is_default: 1 })]);
+  });
+
+  test('refuse une adresse incomplète, avec l\'erreur rattachée au champ', async () => {
+    const client = await registerVerifiedUser('cli06.adresses');
+    const res = await call('post', `/${client.userId}/addresses`, { ...address, zip: '15', canton: '' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toEqual(expect.arrayContaining([
+      { field: 'zip', message: 'NPA suisse sur 4 chiffres.' },
+      { field: 'canton', message: 'Canton obligatoire.' },
+    ]));
+  });
+
+  test('l\'adresse d\'une autre cliente ne peut être ni modifiée ni supprimée (404)', async () => {
+    const owner = await registerVerifiedUser('cli06.proprio');
+    const other = await registerVerifiedUser('cli06.autre');
+    const created = await call('post', `/${owner.userId}/addresses`, address);
+    const addressId = created.body.data.addresses[0].id;
+
+    expect((await call('put', `/${other.userId}/addresses/${addressId}`, address)).status).toBe(404);
+    expect((await call('delete', `/${other.userId}/addresses/${addressId}`)).status).toBe(404);
+
+    const res = await call('get', `/${owner.userId}`);
+    expect(res.body.data.addresses).toHaveLength(1);
+  });
+});

@@ -3,13 +3,28 @@
 :root {
   --rose:        #f472b6;
   --rose-dark:   #be185d;
+  --rose-darker: #9d174d;
   --rose-pale:   #fdf2f8;
   --rose-border: #fbcfe8;
   --text-dark:   #1f2937;
   --text-muted:  #6b7280;
+  /* Texte secondaire lisible sur fond teinté (AA sur --rose-pale) */
+  --text-secondary: #4b5563;
   /* Avertissement (ambre) — texte AA sur fond clair */
   --warning-text: #92400e;
   --warning-bg:   #fffbeb;
+  /* Erreur (rouge) — texte AA sur fond clair */
+  --danger-text:   #dc2626;
+  --danger-bg:     #fef2f2;
+  --danger-border: #fecaca;
+  /* Succès (vert) — texte AA sur fond clair */
+  --success-text:  #047857;
+  --success-bg:    #ecfdf5;
+  /* Surfaces neutres (squelettes de chargement) */
+  --surface-muted:        #f3f4f6;
+  --surface-muted-strong: #e5e7eb;
+  /* Courbe des retours d'interaction (pression, survol) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --sidebar-w:   240px;
   --header-h:    60px;
   --radius:      10px;

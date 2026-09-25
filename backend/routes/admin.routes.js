@@ -21,6 +21,7 @@ const invoiceTrackingController = require('../controllers/admin/invoiceTracking.
 const { upload } = require('../middlewares/upload');
 const { validate } = require('../middlewares/validate');
 const { createCouponSchema, updateCouponSchema } = require('../validators/coupon.validator');
+const { adminUpdateCustomerSchema, adminAddressSchema } = require('../validators/customer.validator');
 
 // Toutes les routes admin nécessitent auth + rôle admin
 router.use(requireAuth);
@@ -92,6 +93,11 @@ router.delete('/reviews/:id', reviewController.remove);
 // Clients
 router.get('/customers', customerController.getAll);
 router.get('/customers/:id', customerController.getById);
+router.put('/customers/:id', validate(adminUpdateCustomerSchema), customerController.update);
+// Adresses de la cliente, modifiables par la boutique
+router.post('/customers/:id/addresses',               validate(adminAddressSchema), customerController.createAddress);
+router.put('/customers/:id/addresses/:addressId',     validate(adminAddressSchema), customerController.updateAddress);
+router.delete('/customers/:id/addresses/:addressId',  customerController.deleteAddress);
 
 // Paramètres
 router.get('/settings/tax-rates',  settingsController.getTaxRates);

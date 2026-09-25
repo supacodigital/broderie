@@ -1,0 +1,123 @@
+/* ── Adresse de la cliente, saisie dans la carte « Adresses » (CLI-06) ── */
+.form {
+  padding: 16px 18px 18px;
+  background: var(--rose-pale);
+  border-bottom: 1px solid var(--rose-border);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.full { grid-column: 1 / -1; }
+
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+
+.label { font-size: 12px; font-weight: 600; color: var(--text-dark); }
+
+.optional { font-weight: 400; color: var(--text-muted); }
+
+.groupHint {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 11px;
+  border: 1.5px solid var(--rose-border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-dark);
+  background: #fff;
+  outline: none;
+  transition: border-color .15s ease;
+}
+
+.input:focus-visible { border-color: var(--rose); }
+/* Un champ en erreur le reste, même sous le focus */
+.inputError,
+.inputError:focus-visible { border-color: var(--danger-text); }
+
+.err { font-size: 11px; color: var(--danger-text); }
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dark);
+  cursor: pointer;
+}
+
+.check input { margin-top: 3px; accent-color: var(--rose-dark); }
+.check input:disabled { cursor: not-allowed; }
+
+.checkHint {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.apiError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--danger-text);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.btnCancel,
+.btnSave {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .12s var(--ease-out);
+}
+
+.btnCancel {
+  background: #fff;
+  border: 1.5px solid var(--rose-border);
+  color: var(--text-muted);
+}
+
+.btnSave {
+  background: var(--rose-dark);
+  border: 1.5px solid var(--rose-dark);
+  color: #fff;
+}
+
+.btnCancel:focus-visible,
+.btnSave:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+.btnCancel:active:not(:disabled),
+.btnSave:active:not(:disabled) { transform: scale(.97); }
+
+.btnCancel:disabled,
+.btnSave:disabled { opacity: .6; cursor: not-allowed; }
+
+@media (hover: hover) and (pointer: fine) {
+  .btnCancel:hover:not(:disabled) { border-color: var(--rose); color: var(--rose-dark); }
+  .btnSave:hover:not(:disabled)   { background: var(--rose-darker); border-color: var(--rose-darker); }
+}
