@@ -13,6 +13,7 @@ import { updateProfile, updatePassword, downloadMyData, deleteMyAccount } from '
 import { getAddresses, createAddress, updateAddress, deleteAddress } from '../../services/addresses.service.js'
 import { getLoyaltyAccount, getLoyaltyRewards } from '../../services/loyalty.service.js'
 import { formatDate } from '../../utils/date.js'
+import { POSTAL_LIMITS, SWISS_ZIP_REGEX } from '../../utils/postalAddress.js'
 import NewsletterPreference from './NewsletterPreference.jsx'
 import s from './Account.module.css'
 
@@ -69,10 +70,14 @@ const CANTON_CODES = SWISS_CANTONS.map(c => c.code)
 const makeAddressSchema = (t) => z.object({
   label:        z.string().min(1, t('account.val.labelRequired')),
   address_type: z.enum(['shipping', 'billing', 'both']),
-  street:        z.string().min(1, t('account.val.streetRequired')),
-  street_number: z.string().min(1, t('account.val.streetNumberRequired')),
-  zip:          z.string().regex(/^\d{4}$/, t('account.val.zipInvalid')),
-  city:         z.string().min(1, t('account.val.cityRequired')),
+  // Longueurs maximales et NPA aux normes La Poste
+  street:        z.string().min(1, t('account.val.streetRequired'))
+                   .max(POSTAL_LIMITS.street, t('account.val.tooLong', { max: POSTAL_LIMITS.street })),
+  street_number: z.string().min(1, t('account.val.streetNumberRequired'))
+                   .max(POSTAL_LIMITS.streetNumber, t('account.val.tooLong', { max: POSTAL_LIMITS.streetNumber })),
+  zip:          z.string().regex(SWISS_ZIP_REGEX, t('account.val.zipInvalid')),
+  city:         z.string().min(1, t('account.val.cityRequired'))
+                  .max(POSTAL_LIMITS.city, t('account.val.tooLong', { max: POSTAL_LIMITS.city })),
   canton:       z.string().refine(v => CANTON_CODES.includes(v), t('account.val.cantonRequired')),
   // Facultatif — repris au checkout pour prévenir la destinataire (CLI-06)
   phone:        z.string().trim().max(30, 'Le numéro de téléphone ne peut pas dépasser 30 caractères.')
@@ -668,7 +673,7 @@ function TabAddresses() {
                   {!!addr.is_default && <span className={s.defaultBadgeInline}>Par défaut</span>}
                 </td>
                 <td className={s.dataRowMuted}>
-                  {addr.street} {addr.street_number}, {addr.zip} {addr.city}{addr.canton ? ` (${addr.canton})` : ''}
+                  {addr.street} {addr.street_number}, {addr.zip} {addr.city}
                   {addr.phone && <><br />Tél. {addr.phone}</>}
                 </td>
                 <td className={s.dataRowMuted}>

@@ -35,13 +35,14 @@ function initials(first, last) {
   return `${first?.[0] ?? ''}${last?.[0] ?? ''}`.toUpperCase() || '?'
 }
 
-/* Adresse au format postal suisse, prête à coller (étiquette, WebStamp, e-mail) */
+/* Adresse au format La Poste (« NPA Localité », sans canton), prête à coller
+   (étiquette, WebStamp, e-mail) */
 function postalLines(addr) {
   const name = [addr.first_name, addr.last_name].filter(Boolean).join(' ')
   return [
     name,
     [addr.street, addr.street_number].filter(Boolean).join(' '),
-    [addr.zip, addr.city].filter(Boolean).join(' ') + (addr.canton ? ` (${addr.canton})` : ''),
+    [addr.zip, addr.city].filter(Boolean).join(' '),
     addr.country && addr.country !== 'CH' ? addr.country : '',
   ].filter(Boolean)
 }

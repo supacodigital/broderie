@@ -150,7 +150,8 @@ function orderAddressLines(order, prefix, { withPhone = false } = {}) {
   const street = [f('street'), f('street_number')].filter(Boolean).join(' ');
   const city   = [f('zip'), f('city')].filter(Boolean).join(' ');
   const phone  = withPhone && f('phone') ? `Tél. ${f('phone')}` : '';
-  const lines  = [name, street, city ? `${city}${f('canton') ? ` (${f('canton')})` : ''}` : '', phone]
+  // Format La Poste : « NPA Localité », sans canton ni pays pour un envoi en Suisse
+  const lines  = [name, street, city, phone]
     .filter(Boolean)
     .map(escapeHtml);
   return lines.length ? lines.join('<br>') : null;

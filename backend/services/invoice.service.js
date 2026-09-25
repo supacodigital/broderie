@@ -139,6 +139,18 @@ const PAID_METHOD_LABELS = { twint: 'Twint', card: 'carte bancaire' };
 const formatLongDate = (date) => new Date(date)
   .toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Zurich' });
 
+/* Adresse de la boutique saisie d'un seul tenant (« Chemin du Collège 6 ») →
+   rue et numéro séparés, comme l'attend l'adresse structurée de la facture QR
+   (seule admise depuis novembre 2025). Le numéro est le dernier mot s'il
+   commence par un chiffre (« 6 », « 50A », « 4/8 ») ; sinon tout reste dans la rue. */
+const splitStreetAndNumber = (line) => {
+  const text = String(line ?? '').trim();
+  const match = text.match(/^(.*\S)\s+(\d[\w/-]*)$/);
+  return match
+    ? { address: match[1], buildingNumber: match[2] }
+    : { address: text };
+};
+
 // Construit l'objet de données attendu par SwissQRBill à partir d'une commande
 const buildQrBillData = (order, issuer = null) => {
   const structured = usesStructuredReference();
@@ -159,7 +171,8 @@ const buildQrBillData = (order, issuer = null) => {
       // Le QR-IBAN reste dans la configuration serveur : donnée bancaire
       account: env.qrInvoiceIban,
       name:    issuer?.name    ?? env.qrInvoiceName,
-      address: issuer?.address ?? env.qrInvoiceAddress,
+      // Adresse structurée : rue et numéro dans leurs champs respectifs
+      ...splitStreetAndNumber(issuer?.address ?? env.qrInvoiceAddress),
       city:    issuer?.city    ?? env.qrInvoiceCity,
       zip:     parseInt(issuer?.zip ?? env.qrInvoiceZip, 10) || (issuer?.zip ?? env.qrInvoiceZip),
       country: 'CH',
@@ -555,6 +568,7 @@ const getInvoicePdf = async ({ order, user }) => {
 };
 
 module.exports = {
+  splitStreetAndNumber,
   isInvoiceAvailableToCustomer,
   generateInvoicePDF,
   generateQrReference,

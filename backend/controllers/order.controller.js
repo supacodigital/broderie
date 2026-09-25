@@ -7,18 +7,20 @@ const unpaidOrderService = require('../services/unpaidOrder.service');
 const { AppError }    = require('../middlewares/errorHandler');
 const { localeFromRequest } = require('../utils/locale.utils');
 const { orderFileSlug } = require('../utils/orderNumber.utils');
+const { POSTAL_LIMITS, SWISS_ZIP_REGEX, POSTAL_MESSAGES } = require('../utils/postalAddress.utils');
 
 // Cantons suisses officiels (2 lettres) — validation stricte de l'adresse
 const SWISS_CANTONS = ['AG','AI','AR','BE','BL','BS','FR','GE','GL','GR','JU','LU','NE','NW','OW','SG','SH','SO','SZ','TG','TI','UR','VD','VS','ZG','ZH'];
 
-// Schéma d'adresse figée à la commande — validé côté serveur (jamais faire confiance au client)
+// Schéma d'adresse figée à la commande — validé côté serveur (jamais faire confiance au client).
+// Longueurs et NPA aux normes La Poste (utils/postalAddress.utils.js).
 const addressSchema = z.object({
-  first_name:    z.string().trim().min(1).max(100),
-  last_name:     z.string().trim().min(1).max(100),
-  street:        z.string().trim().min(1).max(255),
-  street_number: z.string().trim().max(20).optional().nullable(),
-  zip:        z.string().regex(/^\d{4}$/),
-  city:       z.string().trim().min(1).max(100),
+  first_name:    z.string().trim().min(1).max(POSTAL_LIMITS.name, POSTAL_MESSAGES.name),
+  last_name:     z.string().trim().min(1).max(POSTAL_LIMITS.name, POSTAL_MESSAGES.name),
+  street:        z.string().trim().min(1).max(POSTAL_LIMITS.street, POSTAL_MESSAGES.street),
+  street_number: z.string().trim().max(POSTAL_LIMITS.streetNumber, POSTAL_MESSAGES.streetNumber).optional().nullable(),
+  zip:        z.string().trim().regex(SWISS_ZIP_REGEX, POSTAL_MESSAGES.zip),
+  city:       z.string().trim().min(1).max(POSTAL_LIMITS.city, POSTAL_MESSAGES.city),
   canton:     z.enum(SWISS_CANTONS),
   phone:      z.string().trim().max(30).optional(),
 });

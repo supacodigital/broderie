@@ -8,6 +8,7 @@ const authService = require('../services/auth.service');
 const dataExportService = require('../services/dataExport.service');
 const env = require('../config/env');
 const { AppError } = require('../middlewares/errorHandler');
+const { POSTAL_LIMITS, SWISS_ZIP_REGEX, POSTAL_MESSAGES } = require('../utils/postalAddress.utils');
 const { isAdminRole } = require('../middlewares/roles');
 
 // Schéma d'adresse du compte — validé côté serveur
@@ -16,12 +17,12 @@ const accountAddressSchema = z.object({
   phone:        phoneField,
   label:        z.string().trim().min(1).max(100),
   address_type: z.enum(['shipping', 'billing', 'both']).optional(),
-  first_name:   z.string().trim().max(100).optional().nullable(),
-  last_name:    z.string().trim().max(100).optional().nullable(),
-  street:        z.string().trim().min(1).max(255),
-  street_number: z.string().trim().max(20).optional().nullable(),
-  city:         z.string().trim().min(1).max(100),
-  zip:          z.string().regex(/^\d{4}$/),
+  first_name:   z.string().trim().max(POSTAL_LIMITS.name, POSTAL_MESSAGES.name).optional().nullable(),
+  last_name:    z.string().trim().max(POSTAL_LIMITS.name, POSTAL_MESSAGES.name).optional().nullable(),
+  street:        z.string().trim().min(1).max(POSTAL_LIMITS.street, POSTAL_MESSAGES.street),
+  street_number: z.string().trim().max(POSTAL_LIMITS.streetNumber, POSTAL_MESSAGES.streetNumber).optional().nullable(),
+  city:         z.string().trim().min(1).max(POSTAL_LIMITS.city, POSTAL_MESSAGES.city),
+  zip:          z.string().trim().regex(SWISS_ZIP_REGEX, POSTAL_MESSAGES.zip),
   canton:       z.enum(SWISS_CANTONS).optional().nullable(),
 });
 

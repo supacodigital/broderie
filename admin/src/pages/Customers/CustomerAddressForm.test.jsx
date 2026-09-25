@@ -64,7 +64,33 @@ describe('CustomerAddressForm', () => {
     await user.type(screen.getByLabelText('NPA'), '100')
     await user.click(screen.getByRole('button', { name: 'Ajouter l\'adresse' }))
 
-    expect(await screen.findByText('NPA suisse sur 4 chiffres.')).toBeInTheDocument()
+    expect(await screen.findByText('NPA suisse invalide (4 chiffres, de 1000 à 9999).')).toBeInTheDocument()
+    expect(createCustomerAddress).not.toHaveBeenCalled()
+  })
+
+  it('refuse un NPA commençant par 0 — aucun NPA suisse n\'existe sous 1000', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await fillNewAddress(user)
+    await user.clear(screen.getByLabelText('NPA'))
+    await user.type(screen.getByLabelText('NPA'), '0999')
+    await user.click(screen.getByRole('button', { name: 'Ajouter l\'adresse' }))
+
+    expect(await screen.findByText('NPA suisse invalide (4 chiffres, de 1000 à 9999).')).toBeInTheDocument()
+    expect(createCustomerAddress).not.toHaveBeenCalled()
+  })
+
+  it('refuse une rue plus longue que l\'étiquette La Poste (35 caractères)', async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await fillNewAddress(user)
+    await user.clear(screen.getByLabelText('Rue'))
+    await user.type(screen.getByLabelText('Rue'), 'R'.repeat(36))
+    await user.click(screen.getByRole('button', { name: 'Ajouter l\'adresse' }))
+
+    expect(await screen.findByText('35 caractères au maximum.')).toBeInTheDocument()
     expect(createCustomerAddress).not.toHaveBeenCalled()
   })
 

@@ -289,3 +289,46 @@ describe('Checkout — articles en action dans le récapitulatif (CLI-14)', () =
   })
 })
 
+
+/* Adresses aux normes La Poste : NPA de 1000 à 9999, longueurs de l'étiquette
+   colis, et récapitulatif au format « NPA Localité » sans canton ni pays. */
+describe('Checkout — adresse aux normes La Poste', () => {
+  function withSavedAddress(overrides = {}) {
+    cartItems = [{ id: 1, product_id: 10, product_name: 'Coton mouliné', quantity: 1, unit_price: 3.9 }]
+    authValue = { user: { id: 7, first_name: 'Julie', last_name: 'Test' }, isAuthenticated: true }
+    savedAddresses = [{
+      id: 3, label: 'Maison', street: 'Chemin du Collège', street_number: '6',
+      zip: '1509', city: 'Vucherens', canton: 'VD', is_default: 1, ...overrides,
+    }]
+  }
+
+  async function continueToSummary() {
+    renderCheckout()
+    // Adresse préremplie depuis le compte (la localité est la même dans tous les cas)
+    await waitFor(() => expect(screen.getByDisplayValue('Vucherens')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /checkout.continueToSummary/ }))
+  }
+
+  test('un NPA commençant par 0 est refusé, la commande ne passe pas à l\'étape suivante', async () => {
+    withSavedAddress({ zip: '0999' })
+    await continueToSummary()
+    expect(await screen.findByText('checkout.errors.zipInvalid')).toBeInTheDocument()
+    expect(screen.queryByText('checkout.deliveryTo')).not.toBeInTheDocument()
+  })
+
+  test('une rue plus longue que l\'étiquette La Poste est refusée', async () => {
+    withSavedAddress({ street: 'Chemin '.padEnd(36, 'x') })
+    await continueToSummary()
+    expect(await screen.findByText('checkout.errors.tooLong')).toBeInTheDocument()
+    expect(screen.queryByText('checkout.deliveryTo')).not.toBeInTheDocument()
+  })
+
+  test('récapitulatif « NPA Localité », sans canton ni « Suisse »', async () => {
+    withSavedAddress()
+    await continueToSummary()
+    const recap = (await screen.findByText('checkout.deliveryTo')).nextElementSibling
+    expect(recap).toHaveTextContent('Chemin du Collège 6, 1509 Vucherens')
+    expect(recap).not.toHaveTextContent('(VD)')
+    expect(recap).not.toHaveTextContent('Suisse')
+  })
+})

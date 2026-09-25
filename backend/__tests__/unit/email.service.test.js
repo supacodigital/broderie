@@ -224,7 +224,9 @@ describe('email.service — CLI-08 : SKU et adresses', () => {
     expect(html).toContain('Adresse de livraison');
     expect(html).toContain('Marie Dupont');
     expect(html).toContain('Rue du Bourg 12');
-    expect(html).toContain('1510 Moudon (VD)');
+    // Format La Poste : « NPA Localité », sans canton ni pays
+    expect(html).toContain('1510 Moudon');
+    expect(html).not.toContain('Moudon (VD)');
   });
 
   test('l\'adresse de facturation n\'apparaît que si elle diffère', async () => {

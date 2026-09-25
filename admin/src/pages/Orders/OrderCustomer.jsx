@@ -5,12 +5,11 @@ import CopyButton from '../../components/ui/CopyButton/CopyButton.jsx'
 import { formatCustomerNumber } from '../../utils/customerNumber.js'
 import s from './OrderCustomer.module.css'
 
-// Adresse figée sur la commande, au format postal suisse
+// Adresse figée sur la commande, au format La Poste : « NPA Localité », sans canton
 function addressLines(order, prefix) {
   const name = [order[`${prefix}_first_name`], order[`${prefix}_last_name`]].filter(Boolean).join(' ')
   const street = [order[`${prefix}_street`], order[`${prefix}_street_number`]].filter(Boolean).join(' ')
-  const canton = order[`${prefix}_canton`]
-  const city = [order[`${prefix}_zip`], order[`${prefix}_city`]].filter(Boolean).join(' ') + (canton ? ` (${canton})` : '')
+  const city = [order[`${prefix}_zip`], order[`${prefix}_city`]].filter(Boolean).join(' ')
   const country = order[`${prefix}_country`]
   return [name, street, city.trim(), country && country !== 'CH' ? country : ''].filter(Boolean)
 }

@@ -752,7 +752,7 @@ describe('CLI-06 — adresses de la cliente depuis l\'admin', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.errors).toEqual(expect.arrayContaining([
-      { field: 'zip', message: 'NPA suisse sur 4 chiffres.' },
+      { field: 'zip', message: 'NPA suisse invalide (4 chiffres, de 1000 à 9999).' },
       { field: 'canton', message: 'Canton obligatoire.' },
     ]));
   });

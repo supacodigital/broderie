@@ -16,6 +16,7 @@ import { getAddresses } from '../../services/addresses.service.js'
 import { getShippingRate } from '../../services/shipping.service.js'
 import { roundCHF, salePercent } from '../../utils/chf.js'
 import { lineQuantityLabel } from '../../utils/stock.js'
+import { POSTAL_LIMITS, SWISS_ZIP_REGEX } from '../../utils/postalAddress.js'
 import s from './Checkout.module.css'
 
 /* Chargement différé de Stripe — singleton garanti.
@@ -73,13 +74,15 @@ const CANTON_CODES = SWISS_CANTONS.map(c => c.code)
    Livraison toujours requise. Facturation requise uniquement si « identique » décoché :
    les champs billing_* sont validés conditionnellement via superRefine. */
 function buildAddressSchema(t) {
+  /* Longueurs maximales La Poste — au-delà, l'étiquette colis tronque l'adresse */
+  const tooLong = (max) => t('checkout.errors.tooLong', { max })
   const required = {
-    first_name:    z.string().min(1, t('checkout.errors.firstNameRequired')),
-    last_name:     z.string().min(1, t('checkout.errors.lastNameRequired')),
-    street:        z.string().min(1, t('checkout.errors.streetRequired')),
-    street_number: z.string().min(1, t('checkout.errors.streetNumberRequired')),
-    zip:        z.string().regex(/^\d{4}$/, t('checkout.errors.zipInvalid')),
-    city:       z.string().min(1, t('checkout.errors.cityRequired')),
+    first_name:    z.string().min(1, t('checkout.errors.firstNameRequired')).max(POSTAL_LIMITS.name, tooLong(POSTAL_LIMITS.name)),
+    last_name:     z.string().min(1, t('checkout.errors.lastNameRequired')).max(POSTAL_LIMITS.name, tooLong(POSTAL_LIMITS.name)),
+    street:        z.string().min(1, t('checkout.errors.streetRequired')).max(POSTAL_LIMITS.street, tooLong(POSTAL_LIMITS.street)),
+    street_number: z.string().min(1, t('checkout.errors.streetNumberRequired')).max(POSTAL_LIMITS.streetNumber, tooLong(POSTAL_LIMITS.streetNumber)),
+    zip:        z.string().regex(SWISS_ZIP_REGEX, t('checkout.errors.zipInvalid')),
+    city:       z.string().min(1, t('checkout.errors.cityRequired')).max(POSTAL_LIMITS.city, tooLong(POSTAL_LIMITS.city)),
     canton:     z.string().refine(v => CANTON_CODES.includes(v), t('checkout.errors.cantonRequired')),
   }
   return z.object({
@@ -98,12 +101,18 @@ function buildAddressSchema(t) {
     if (data.billing_same) return
     /* Facturation distincte → mêmes règles que la livraison sur les champs billing_* */
     const addErr = (field, message) => ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message })
-    if (!data.billing_first_name?.trim()) addErr('billing_first_name', t('checkout.errors.firstNameRequired'))
-    if (!data.billing_last_name?.trim())  addErr('billing_last_name',  t('checkout.errors.lastNameRequired'))
-    if (!data.billing_street?.trim())     addErr('billing_street',     t('checkout.errors.streetRequired'))
-    if (!data.billing_street_number?.trim()) addErr('billing_street_number', t('checkout.errors.streetNumberRequired'))
-    if (!/^\d{4}$/.test(data.billing_zip ?? '')) addErr('billing_zip', t('checkout.errors.zipInvalid'))
-    if (!data.billing_city?.trim())       addErr('billing_city',       t('checkout.errors.cityRequired'))
+    // Champ obligatoire ET limité en longueur (normes La Poste)
+    const checkText = (field, requiredMessage, max) => {
+      const value = data[field] ?? ''
+      if (!value.trim()) addErr(field, requiredMessage)
+      else if (value.length > max) addErr(field, tooLong(max))
+    }
+    checkText('billing_first_name',    t('checkout.errors.firstNameRequired'),    POSTAL_LIMITS.name)
+    checkText('billing_last_name',     t('checkout.errors.lastNameRequired'),     POSTAL_LIMITS.name)
+    checkText('billing_street',        t('checkout.errors.streetRequired'),       POSTAL_LIMITS.street)
+    checkText('billing_street_number', t('checkout.errors.streetNumberRequired'), POSTAL_LIMITS.streetNumber)
+    if (!SWISS_ZIP_REGEX.test(data.billing_zip ?? '')) addErr('billing_zip', t('checkout.errors.zipInvalid'))
+    checkText('billing_city',          t('checkout.errors.cityRequired'),         POSTAL_LIMITS.city)
     if (!CANTON_CODES.includes(data.billing_canton ?? '')) addErr('billing_canton', t('checkout.errors.cantonRequired'))
   })
 }
@@ -295,7 +304,7 @@ function AddressFields({ prefix = '', idPrefix, register, errors, t }) {
           placeholder={t('checkout.streetPlaceholder')} />
         <Field id={`${idPrefix}streetNumber`} name={f('street_number')} required register={register} t={t}
           label={t('checkout.streetNumber')} error={errors[f('street_number')]}
-          type="text" autoComplete="address-line2"
+          type="text" autoComplete="off"
           placeholder={t('checkout.streetNumberPlaceholder')} />
       </div>
 
@@ -540,8 +549,8 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
       <div className={s.addressRecap}>
         <p className={s.addressRecapLabel}>{t('checkout.deliveryTo')}</p>
         <p className={s.addressRecapValue}>
+          {/* Format La Poste : « NPA Localité », sans canton ni pays */}
           {address.first_name} {address.last_name} — {address.street} {address.street_number}, {address.zip} {address.city}
-          {address.canton ? ` (${address.canton})` : ''}, Suisse
         </p>
       </div>
 
@@ -551,7 +560,6 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
           <p className={s.addressRecapLabel}>{t('checkout.billingTo')}</p>
           <p className={s.addressRecapValue}>
             {billingAddress.first_name} {billingAddress.last_name} — {billingAddress.street} {billingAddress.street_number}, {billingAddress.zip} {billingAddress.city}
-            {billingAddress.canton ? ` (${billingAddress.canton})` : ''}, Suisse
           </p>
         </div>
       )}

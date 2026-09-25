@@ -101,7 +101,8 @@ describe('CustomerDetail — fiche client', () => {
     expect(contact.getByText('Oui')).toBeInTheDocument()
 
     expect(screen.getByText('Rue du Bourg 12')).toBeInTheDocument()
-    expect(screen.getByText('1510 Moudon (VD)')).toBeInTheDocument()
+    // Format La Poste : « NPA Localité », sans canton
+    expect(screen.getByText('1510 Moudon')).toBeInTheDocument()
     expect(screen.getByText('Par défaut')).toBeInTheDocument()
     expect(screen.getByText('Livraison')).toBeInTheDocument()
   })

@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createCustomerAddress, updateCustomerAddress } from '../../services/customers.service.js'
 import { SWISS_CANTONS, CANTON_CODES } from '../../utils/cantons.js'
+import { POSTAL_LIMITS, SWISS_ZIP_REGEX } from '../../utils/postalAddress.js'
 import s from './CustomerAddressForm.module.css'
 
 /* Mêmes règles que adminAddressSchema côté serveur — et que le formulaire
@@ -15,12 +16,13 @@ const optional = (max) => z.string().trim().max(max, `${max} caractères au maxi
 const schema = z.object({
   label:         required('Le libellé est obligatoire.', 100),
   address_type:  z.enum(['both', 'shipping', 'billing']),
-  first_name:    optional(100),
-  last_name:     optional(100),
-  street:        required('La rue est obligatoire.', 255),
-  street_number: required('Le numéro est obligatoire.', 20),
-  zip:           z.string().trim().regex(/^\d{4}$/, 'NPA suisse sur 4 chiffres.'),
-  city:          required('La localité est obligatoire.', 100),
+  // Longueurs et NPA aux normes La Poste (utils/postalAddress.js)
+  first_name:    optional(POSTAL_LIMITS.name),
+  last_name:     optional(POSTAL_LIMITS.name),
+  street:        required('La rue est obligatoire.', POSTAL_LIMITS.street),
+  street_number: required('Le numéro est obligatoire.', POSTAL_LIMITS.streetNumber),
+  zip:           z.string().trim().regex(SWISS_ZIP_REGEX, 'NPA suisse invalide (4 chiffres, de 1000 à 9999).'),
+  city:          required('La localité est obligatoire.', POSTAL_LIMITS.city),
   canton:        z.string().refine(v => CANTON_CODES.includes(v), 'Canton obligatoire.'),
   phone:         z.string().trim()
                    .max(30, 'Le numéro de téléphone ne peut pas dépasser 30 caractères.')
