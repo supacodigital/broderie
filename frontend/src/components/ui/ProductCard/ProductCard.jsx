@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Heart, Star } from 'lucide-react'
 import { roundCHF } from '../../../utils/chf.js'
 import { useCart } from '../../../contexts/CartContext.jsx'
+import { formatStock, stockInSaleUnit } from '../../../utils/stock.js'
 import s from './ProductCard.module.css'
 
 const BG_FALLBACKS = [
@@ -60,6 +61,9 @@ export default function ProductCard({ product, index = 0, wishlisted = false, on
   /* Produit sur commande : commande possible sans stock — on ignore l'état « épuisé » */
   const isMadeToOrder = !!product.is_made_to_order
   const isOutOfStock = !isMadeToOrder && product.stock === 0
+  /* Stock bas : 5 pièces, ou 5 m pour un article à la coupe dont le stock
+     compte des centimètres (ADM-12) */
+  const lowStock = product.stock !== undefined && product.stock > 0 && stockInSaleUnit(product) <= 5
 
   if (mode === 'list') {
     return (
@@ -104,8 +108,8 @@ export default function ProductCard({ product, index = 0, wishlisted = false, on
                 <p className={s.listMadeToOrder}>{t('products.madeToOrder')}</p>
               ) : (
                 <>
-                  {product.stock !== undefined && product.stock <= 5 && product.stock > 0 && (
-                    <p className={s.listStock}>Plus que {product.stock} en stock</p>
+                  {lowStock && (
+                    <p className={s.listStock}>Plus que {formatStock(product)} en stock</p>
                   )}
                   {product.stock === 0 && (
                     <p className={s.listStockOut}>Épuisé</p>
@@ -176,8 +180,8 @@ export default function ProductCard({ product, index = 0, wishlisted = false, on
         {isMadeToOrder ? (
           <span className={s.madeToOrderTag}>{t('products.madeToOrder')}</span>
         ) : (
-          product.stock !== undefined && product.stock <= 5 && product.stock > 0 && (
-            <span className={s.stockWarning}>Plus que {product.stock} en stock</span>
+          lowStock && (
+            <span className={s.stockWarning}>Plus que {formatStock(product)} en stock</span>
           )
         )}
 

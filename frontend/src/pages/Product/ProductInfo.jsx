@@ -81,12 +81,11 @@ export default function ProductInfo({ product, onAddToCart, wishlisted, onWishli
   const isMadeToOrder = !!product.is_made_to_order
   const rawStockQty = selectedVariant ? selectedVariant.stock : (product.stock ?? 99)
   /* Pour un produit sur commande, on ne limite pas la quantité par le stock.
-     Vente à la coupe : `stock` compte des MÈTRES et `qty` des tronçons de 10 cm —
-     1 m en stock autorise donc 10 tronçons. Sans cette conversion, le sélecteur
-     restait bloqué sous le minimum de 50 cm pour tout article de moins de 5 m. */
+     Vente à la coupe : `stock` compte des CENTIMÈTRES (ADM-12) et `qty` des
+     tronçons de 10 cm — 1 m (100) en stock autorise donc 10 tronçons. */
   const stockQty = isMadeToOrder
     ? 999
-    : (soldByLength ? Math.floor((rawStockQty * 100) / stepCm) : rawStockQty)
+    : (soldByLength ? Math.floor(rawStockQty / stepCm) : rawStockQty)
   const outOfStock = !isMadeToOrder && rawStockQty === 0
 
   const tva = formatTVA(effectivePrice, product.tax_rate ?? 8.1)

@@ -1,4 +1,5 @@
 const { pool } = require('../config/db');
+const { stockScaleSql } = require('../utils/length.utils');
 
 /* Statuts comptant comme chiffre d'affaires : uniquement l'encaissé.
    Les statuts antérieurs au paiement (pending, awaiting_payment, pending_invoice,
@@ -108,17 +109,19 @@ const getTopProducts = async ({ month, year }) => {
 
 const getLowStock = async () => {
   const [rows] = await pool.execute(
-    `SELECT p.id, pt.name, p.stock,
+    `SELECT p.id, pt.name, p.stock, p.sold_by_length,
             (SELECT COALESCE(pi.url_thumbnail, REPLACE(pi.url, '-large.webp', '-thumbnail.webp'), pi.url) FROM product_images pi
              WHERE pi.product_id = p.id AND pi.is_primary = 1
              LIMIT 1) AS image_url
      FROM products p
      LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = 'fr'
-     WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.stock <= 5
+     /* Seuil en unité de vente : 5 pièces, ou 5 m pour un article à la coupe
+        dont le stock compte des centimètres (ADM-12). */
+     WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.stock <= 5 * ${stockScaleSql('p')}
        /* Exclut les articles « sur commande », à 0 par nature : sans ce filtre
           l'encart listait dix d'entre eux et ne montrait jamais un vrai réassort. */
        AND p.is_made_to_order = 0
-     ORDER BY p.stock ASC
+     ORDER BY p.stock / ${stockScaleSql('p')} ASC
      LIMIT 10`
   );
   return rows;

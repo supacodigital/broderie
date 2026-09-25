@@ -10,9 +10,10 @@
        quantité de 6 à 1.65 le tronçon.
 
    Compter en tronçons plutôt qu'en centimètres évite d'ajouter une colonne de
-   longueur aux lignes de panier et de commande : les totaux, la TVA, les
-   remises et le décompte de stock continuent de fonctionner sans cas
-   particulier, et une commande passée avant cette évolution garde son sens. */
+   longueur aux lignes de panier et de commande : les totaux, la TVA et les
+   remises continuent de fonctionner sans cas particulier, et une commande
+   passée avant cette évolution garde son sens. Seul le stock, tenu en
+   centimètres, se convertit (voir stockUnits plus bas). */
 
 const { roundCHF } = require('./chf.utils');
 
@@ -65,21 +66,54 @@ const validateLengthQuantity = (product, quantity) => {
    modifierait une commande déjà passée. */
 const lineTotal = (unitPrice, quantity) => roundCHF(parseFloat(unitPrice) * quantity);
 
-/* Stock disponible exprimé dans l'unité de `quantity`.
+/* Unité du stock (ADM-12).
 
-   `products.stock` compte des MÈTRES pour un article vendu à la coupe, alors
-   que `quantity` compte des tronçons de 10 cm. Comparer les deux directement
-   rendait incommandable tout article de moins de 5 m en stock : une bande avec
-   1 m disponible refusait 50 cm, puisque 5 tronçons > 1.
+   `products.stock` compte des PIÈCES, ou des CENTIMÈTRES pour un article vendu
+   à la coupe : 2.15 m en stock = 215. La boutique saisit et lit des mètres à
+   deux décimales ; seule la base compte en centimètres, ce qui garde une
+   colonne entière pour tout le catalogue. */
+const CM_PER_METER = 100;
 
-   Un stock de 1 m autorise donc 10 tronçons de 10 cm. */
+/* Unités de stock retirées par `quantity` : autant de pièces, ou pour un
+   article à la coupe la longueur des tronçons (6 tronçons de 10 cm = 60). */
+const stockUnits = (product, quantity) =>
+  (isSoldByLength(product) ? quantity * stepCm(product) : quantity);
+
+/* Stock disponible exprimé dans l'unité de `quantity` : pièces, ou nombre de
+   tronçons entiers que la longueur en stock permet de couper (2.15 m → 21 de
+   10 cm). */
 const availableQuantity = (product) => {
   const stock = Number(product?.stock) || 0;
   if (!isSoldByLength(product)) return stock;
-  return Math.floor((stock * 100) / stepCm(product));
+  return Math.floor(stock / stepCm(product));
 };
 
+/* Facteur SQL ramenant un stock à l'unité de vente affichée (pièce ou mètre) :
+   les seuils « stock bas » (≤ 5) valent 5 pièces ou 5 m, comme avant le
+   passage au centimètre. */
+const stockScaleSql = (alias = 'p') =>
+  `(CASE WHEN ${alias}.sold_by_length = 1 THEN ${CM_PER_METER} ELSE 1 END)`;
+
+/* Stock lisible dans l'unité de saisie de la boutique : « 2.15 m » pour un
+   article à la coupe, le nombre de pièces sinon (exports CSV et Excel). */
+const formatStock = (product, stock = product?.stock) =>
+  (isSoldByLength(product)
+    ? `${(Number(stock || 0) / CM_PER_METER).toFixed(2)} m`
+    : String(stock ?? 0));
+
+/* Quantité commandée lisible : tronçons convertis en mètres pour un article à
+   la coupe (6 tronçons de 10 cm → « 0.60 m »), pièces sinon. */
+const formatQuantity = (product, quantity) =>
+  (isSoldByLength(product)
+    ? `${((Number(quantity) || 0) * stepCm(product) / CM_PER_METER).toFixed(2)} m`
+    : String(quantity));
+
 module.exports = {
+  CM_PER_METER,
+  formatStock,
+  formatQuantity,
+  stockUnits,
+  stockScaleSql,
   availableQuantity,
   isSoldByLength,
   stepCm,

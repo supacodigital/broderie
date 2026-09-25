@@ -1,6 +1,7 @@
 const { pool } = require('../config/db');
 const storage = require('../config/storage');
 const { promoActiveSql } = require('../utils/promo.utils');
+const { stockScaleSql } = require('../utils/length.utils');
 const { toSearchTerms } = require('../utils/search.utils');
 const productCategoryRepository = require('./productCategory.repository');
 
@@ -296,7 +297,8 @@ const ALLOWED_SORT_ADMIN = {
   created_at: 'p.created_at',
   price_chf:  'p.price_chf',
   name:       'pt.name',
-  stock:      'p.stock',
+  // En unité de vente : 3 m (300 cm) se classe avant 5 pièces (ADM-12)
+  stock:      `p.stock / ${stockScaleSql('p')}`,
 };
 
 // Exécution d'une passe de recherche admin — rappelée par findAllAdmin() avec
@@ -418,7 +420,8 @@ const runFindAllAdmin = async ({
      fournisseur à réception) — les inclure noyait les ~1 750 vrais réassorts sous
      ~12 900 lignes normales, rendant le filtre inutilisable. */
   if (lowStock) {
-    where += ' AND p.stock <= 5 AND p.is_active = 1 AND p.is_made_to_order = 0';
+    // 5 pièces, ou 5 m pour un article à la coupe tenu en centimètres (ADM-12)
+    where += ` AND p.stock <= 5 * ${stockScaleSql('p')} AND p.is_active = 1 AND p.is_made_to_order = 0`;
   }
   if (isActive !== null) {
     where += ' AND p.is_active = ?';
@@ -441,7 +444,7 @@ const runFindAllAdmin = async ({
   const [rows] = await pool.query(
     `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf,
             p.promo_starts_at, p.promo_ends_at, ${promoActiveSql('p')} AS is_promo_active,
-            p.sku, p.stock, p.weight_kg, p.length_cm, p.width_cm,
+            p.sku, p.stock, p.sold_by_length, p.weight_kg, p.length_cm, p.width_cm,
             p.is_active, p.is_featured, p.is_made_to_order, p.badge, p.brand, p.category_id, p.category_needs_review, p.supplier_id, p.tax_rate_id, p.created_at,
             pt.name, pt.description AS description_fr,
             ct.name AS category_name,

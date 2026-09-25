@@ -146,7 +146,10 @@ const mapArticle = (a, categorySlug, taxRateIdByRate) => {
   if (poidsKg !== null && poidsKg > 0) weightKg = poidsKg;
   else if (poidsG !== null && poidsG > 0) weightKg = Math.round((poidsG / 1000) * 1000) / 1000;
 
-  const stock = Math.max(0, Math.trunc(toNumber(a.Stock) ?? 0));
+  /* Stock ERP brut, décimales comprises : un article vendu à la coupe le garde
+     au centimètre (2.15 m = 215, voir l'UPSERT). Les autres comptent des pièces. */
+  const stockRaw = Math.max(0, toNumber(a.Stock) ?? 0);
+  const stock = Math.trunc(stockRaw);
   const onInternet = isTrue(a.SurInternet);
   // Commandable sans stock : publié sur le net mais stock à 0
   const isMadeToOrder = onInternet && stock === 0 ? 1 : 0;
@@ -167,6 +170,8 @@ const mapArticle = (a, categorySlug, taxRateIdByRate) => {
     compare_price_chf: comparePrice,
     tax_rate_id: taxRateId,
     stock,
+    stock_raw: stockRaw,
+    on_internet: onInternet,
     weight_kg: weightKg,
     length_cm: toNumber(a.Longueur),
     width_cm: toNumber(a.Largeur),
@@ -441,17 +446,27 @@ async function main() {
     const allRefs = mapped.map((m) => m.external_ref);
     const existingRefs = new Set();
     const previousOfferByRef = new Map();
+    const soldByLengthRefs = new Set();
     for (let i = 0; i < allRefs.length; i += BATCH_SIZE) {
       const slice = allRefs.slice(i, i + BATCH_SIZE);
       const [rows] = await connection.query(
-        `SELECT external_ref, price_chf, compare_price_chf, promo_starts_at, promo_ends_at
+        `SELECT external_ref, price_chf, compare_price_chf, promo_starts_at, promo_ends_at, sold_by_length
          FROM products WHERE external_ref IN (?)`,
         [slice]
       );
       for (const r of rows) {
         existingRefs.add(r.external_ref);
         previousOfferByRef.set(r.external_ref, r);
+        if (r.sold_by_length) soldByLengthRefs.add(r.external_ref);
       }
+    }
+
+    /* Articles vendus à la coupe (ADM-12) : leur stock se tient en centimètres.
+       Tronquer 0.40 m à 0 le déclarait aussi « sur commande ». */
+    for (const m of mapped) {
+      if (!soldByLengthRefs.has(m.external_ref)) continue;
+      m.stock = Math.round(m.stock_raw * 100);
+      m.is_made_to_order = m.on_internet && m.stock === 0 ? 1 : 0;
     }
 
     // 1) Produits : UPSERT par batch sur external_ref

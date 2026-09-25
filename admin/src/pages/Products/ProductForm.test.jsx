@@ -503,6 +503,57 @@ describe('ProductForm — vente à la coupe (ADM-12)', () => {
     expect(screen.getByLabelText(/Vendu par tranches de/)).toHaveValue(5)
     expect(screen.getByLabelText(/Longueur minimale/)).toHaveValue(25)
   })
+
+  /* Stock au mètre avec décimales (retour de Julie) : « format 999 999.99 ».
+     La base compte des centimètres, le champ des mètres. */
+  it('affiche le stock en mètres et le renvoie en centimètres', async () => {
+    const user = userEvent.setup()
+    getProductById.mockResolvedValue({
+      id: 621, name: 'Bande Vaupel', sku: 'SKU-621', price_chf: 16.50, compare_price_chf: null,
+      sold_by_length: 1, length_step_cm: 10, length_min_cm: 50, stock: 215,
+      category_id: 1, tax_rate_id: 1, images: [],
+    })
+    updateProduct.mockResolvedValue({ id: 621 })
+    renderForm({ id: 621 })
+
+    const stock = await screen.findByLabelText(/Stock \(mètres\)/)
+    await waitFor(() => expect(stock).toHaveValue(2.15))
+    await user.clear(stock)
+    await user.type(stock, '999999.99')
+    await user.click(screen.getByRole('button', { name: /Enregistrer/i }))
+
+    await waitFor(() => expect(updateProduct).toHaveBeenCalledTimes(1))
+    expect(updateProduct.mock.calls.at(-1)[1].stock).toBe(99999999)
+  })
+
+  it('refuse plus de deux décimales pour un stock au mètre', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await fillRequiredFields(user)
+    await user.type(screen.getByLabelText(/Prix de vente/), '16.50')
+    await user.click(screen.getByLabelText(/Vendu à la coupe/))
+    const stock = screen.getByLabelText(/Stock \(mètres\)/)
+    await user.clear(stock)
+    await user.type(stock, '2.155')
+    await user.click(screen.getByRole('button', { name: 'Créer le produit' }))
+
+    expect(await screen.findByText('Deux décimales au maximum (ex. 2.15).')).toBeInTheDocument()
+    expect(createProduct).not.toHaveBeenCalled()
+  })
+
+  it('garde un stock entier pour un article vendu à la pièce', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await fillRequiredFields(user)
+    await user.type(screen.getByLabelText(/Prix de vente/), '24.90')
+    const stock = screen.getByLabelText(/^Stock \*/)
+    await user.clear(stock)
+    await user.type(stock, '2.5')
+    await user.click(screen.getByRole('button', { name: 'Créer le produit' }))
+
+    expect(await screen.findByText('Nombre entier de pièces.')).toBeInTheDocument()
+    expect(createProduct).not.toHaveBeenCalled()
+  })
 })
 
 /* ADM-04 — la fiche produit arrivait avant la liste des rayons et des

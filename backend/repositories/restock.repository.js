@@ -1,4 +1,5 @@
 const { pool } = require('../config/db');
+const { stockScaleSql } = require('../utils/length.utils');
 
 /* État des réassorts fournisseurs — ticket ADM-09.
 
@@ -47,7 +48,8 @@ const summaryBySupplier = async () => {
   const [low] = await pool.query(
     `SELECT p.supplier_id, COUNT(*) AS low_stock_items
      FROM products p
-     WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.is_made_to_order = 0 AND p.stock <= ?
+     WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.is_made_to_order = 0
+       AND p.stock <= ? * ${stockScaleSql('p')}
      GROUP BY p.supplier_id`,
     [LOW_STOCK_THRESHOLD]
   );
@@ -81,8 +83,8 @@ const itemsForSupplier = async (supplierId) => {
     `SELECT p.id AS product_id
      FROM products p
      WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.is_made_to_order = 0
-       AND p.stock <= ? AND ${filter.sql}
-     ORDER BY p.stock ASC, p.id ASC
+       AND p.stock <= ? * ${stockScaleSql('p')} AND ${filter.sql}
+     ORDER BY p.stock / ${stockScaleSql('p')} ASC, p.id ASC
      LIMIT ?`,
     [LOW_STOCK_THRESHOLD, ...filter.params, MAX_ITEMS]
   );
@@ -90,7 +92,8 @@ const itemsForSupplier = async (supplierId) => {
   const productIds = [...new Set([...demand, ...low].map((r) => r.product_id))];
   const [products] = productIds.length
     ? await pool.query(
-      `SELECT p.id, p.sku, p.stock, p.is_made_to_order, COALESCE(pt.name, p.slug) AS name
+      `SELECT p.id, p.sku, p.stock, p.is_made_to_order, p.sold_by_length, p.length_step_cm,
+              COALESCE(pt.name, p.slug) AS name
        FROM products p
        LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = 'fr'
        WHERE p.id IN (?)`,

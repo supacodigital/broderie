@@ -16,6 +16,7 @@ import { getTaxRates } from '../../services/settings.service.js'
 import { useToast } from '../../contexts/ToastContext.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import { roundCHF } from '../../utils/chf.js'
+import { CM_PER_METER, MAX_STOCK_METERS, stockToInput, stockFromInput } from '../../utils/stock.js'
 import PriceHistory from '../../components/PriceHistory/PriceHistory.jsx'
 import s from './ProductForm.module.css'
 
@@ -23,7 +24,8 @@ const schema = z.object({
   name:             z.string().min(1, 'Nom requis'),
   sku:              z.string().min(1, 'SKU requis'),
   priceChf:         z.coerce.number().positive('Prix invalide'),
-  stock:            z.coerce.number().int().min(0, 'Stock invalide'),
+  // Pièces entières, ou mètres à deux décimales pour la coupe (ADM-12) — voir le refine
+  stock:            z.coerce.number().min(0, 'Stock invalide').max(MAX_STOCK_METERS, 'Stock trop élevé'),
   weightKg:         z.coerce.number().min(0).optional(),
   lengthCm:         z.coerce.number().min(0).optional(),
   widthCm:          z.coerce.number().min(0).optional(),
@@ -46,6 +48,13 @@ const schema = z.object({
 }).refine(
   (d) => !(d.promoStartsAt && d.promoEndsAt) || new Date(d.promoEndsAt) > new Date(d.promoStartsAt),
   { path: ['promoEndsAt'], message: 'La fin doit être postérieure au début.' },
+).refine(
+  (d) => d.soldByLength || Number.isInteger(d.stock),
+  { path: ['stock'], message: 'Nombre entier de pièces.' },
+).refine(
+  // Au centimètre près : 2.15 m oui, 2.155 m non (tolérance d'arrondi binaire)
+  (d) => !d.soldByLength || Math.abs(d.stock * CM_PER_METER - Math.round(d.stock * CM_PER_METER)) < 1e-6,
+  { path: ['stock'], message: 'Deux décimales au maximum (ex. 2.15).' },
 )
 
 /* MySQL DATETIME → valeur d'un <input type="datetime-local"> ('YYYY-MM-DDTHH:MM').
@@ -475,7 +484,8 @@ export default function ProductForm() {
           name:            res.name ?? '',
           sku:             res.sku ?? '',
           priceChf:        catalogPriceToShow ?? '',
-          stock:           res.stock ?? 0,
+          // Article à la coupe : stock en centimètres en base, saisi en mètres (ADM-12)
+          stock:           stockToInput(res.stock, !!res.sold_by_length),
           weightKg:        res.weight_kg ?? '',
           lengthCm:        res.length_cm ?? '',
           widthCm:         res.width_cm ?? '',
@@ -579,7 +589,7 @@ export default function ProductForm() {
         promoStartsAt:   promoPrice != null ? fromDateTimeLocal(data.promoStartsAt) : null,
         promoEndsAt:     promoPrice != null ? fromDateTimeLocal(data.promoEndsAt)   : null,
         sku:             data.sku,
-        stock:           Number(data.stock),
+        stock:           stockFromInput(data.stock, !!data.soldByLength),
         weightKg:        data.weightKg ? Number(data.weightKg) : null,
         lengthCm:        data.lengthCm ? Number(data.lengthCm) : null,
         widthCm:         data.widthCm ? Number(data.widthCm) : null,
@@ -907,9 +917,23 @@ export default function ProductForm() {
             )}
 
             <div className={s.field}>
-              <label className={s.label} htmlFor="stock">Stock *</label>
-              <input id="stock" type="number" min="0" className={`${s.input} ${errors.stock ? s.inputError : ''}`} {...register('stock')} />
-              {errors.stock && <span className={s.err}>{errors.stock.message}</span>}
+              <label className={s.label} htmlFor="stock">{soldByLengthChecked ? 'Stock (mètres) *' : 'Stock *'}</label>
+              <input
+                id="stock"
+                type="number"
+                min="0"
+                max={MAX_STOCK_METERS}
+                /* « any » : la règle (entier ou deux décimales) est vérifiée par
+                   le schéma, avec un message en français sous le champ plutôt
+                   que la bulle du navigateur */
+                step="any"
+                inputMode={soldByLengthChecked ? 'decimal' : 'numeric'}
+                className={`${s.input} ${errors.stock ? s.inputError : ''}`}
+                {...register('stock')}
+              />
+              {errors.stock
+                ? <span className={s.err}>{errors.stock.message}</span>
+                : soldByLengthChecked && <span className={s.hint}>En mètres, deux décimales (ex. 2.15).</span>}
             </div>
 
           {/* ── Vente à la coupe (ADM-12) ──

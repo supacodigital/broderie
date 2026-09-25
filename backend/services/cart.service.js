@@ -56,7 +56,7 @@ const addItem = async ({ userId, sessionId, productId, variantId, quantity, loca
   // Produit sur commande : aucune limite de stock (fabriqué à la demande, délai 3 à 4 semaines)
   const isMadeToOrder = !!product.is_made_to_order;
   /* Stock comparé dans l'unité de `quantity` : pour un article vendu à la coupe,
-     `stock` compte des mètres et `quantity` des tronçons de 10 cm. Voir
+     `stock` compte des centimètres et `quantity` des tronçons de 10 cm. Voir
      utils/length.utils.js — sans cette conversion, une bande avec 1 m en stock
      refusait une commande de 50 cm. */
   const available = lengthUtils.availableQuantity(product);

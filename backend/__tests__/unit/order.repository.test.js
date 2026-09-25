@@ -54,10 +54,12 @@ describe('order.repository — updateStatusWithHistory()', () => {
     expect(res.stockRestored).toBe(true);
     expect(res.previousStatus).toBe('pending_invoice');
     const calls = conn.execute.mock.calls.map((c) => c[0]);
-    const restore = calls.find((s) => /SET p\.stock = p\.stock \+ oi\.quantity/.test(s));
+    /* Chaque ligne rend ce qu'elle a retiré (ADM-12 : centimètres pour la
+       coupe) ; les lignes antérieures retombent sur `quantity`. */
+    const restore = calls.find((s) => /SET p\.stock = p\.stock \+ COALESCE\(oi\.stock_units, oi\.quantity\)/.test(s));
     expect(restore).toBeDefined();
     // Les produits « sur commande » n'ont jamais été décrémentés : ne pas les regonfler
-    expect(restore).toMatch(/is_made_to_order = 0/);
+    expect(restore).toMatch(/oi\.stock_units IS NOT NULL OR p\.is_made_to_order = 0/);
     expect(conn.commit).toHaveBeenCalled();
   });
 

@@ -1,4 +1,5 @@
 const { pool } = require('../config/db');
+const { CM_PER_METER } = require('../utils/length.utils');
 
 /* Tris autorisés — protège de l'injection, la valeur venant de la query string */
 const ALLOWED_SORT = {
@@ -124,7 +125,7 @@ const findByIdWithProducts = async (id) => {
   if (!supRows[0]) return null;
 
   const [products] = await pool.execute(
-    `SELECT p.id, p.sku, p.price_chf, p.stock, p.is_active,
+    `SELECT p.id, p.sku, p.price_chf, p.stock, p.sold_by_length, p.is_active,
             COALESCE(pt.name, p.slug) AS name
      FROM products p
      LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = 'fr'
@@ -137,7 +138,9 @@ const findByIdWithProducts = async (id) => {
   const totalProducts  = products.length;
   const activeProducts = products.filter(p => p.is_active).length;
   const outOfStock     = products.filter(p => p.stock === 0).length;
-  const stockValue     = products.reduce((sum, p) => sum + parseFloat(p.price_chf ?? 0) * (p.stock ?? 0), 0);
+  // Article à la coupe : prix au mètre × stock en centimètres / 100 (ADM-12)
+  const stockValue     = products.reduce((sum, p) => sum + parseFloat(p.price_chf ?? 0)
+    * (p.stock ?? 0) / (p.sold_by_length ? CM_PER_METER : 1), 0);
 
   return {
     ...supRows[0],

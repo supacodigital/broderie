@@ -12,6 +12,7 @@ import {
 import { roundCHF } from '../../utils/chf.js'
 import { useToast } from '../../contexts/ToastContext.jsx'
 import s from './SupplierForm.module.css'
+import { formatStock } from '../../utils/stock.js'
 
 const schema = z.object({
   name:        z.string().min(1, 'Nom requis'),
@@ -351,7 +352,7 @@ export default function SupplierForm() {
                       CHF {roundCHF(parseFloat(p.price_chf)).toFixed(2)}
                     </span>
                     <span className={`${s.productStock} ${p.stock === 0 ? s.productStockOut : ''}`}>
-                      {p.stock === 0 ? 'Rupture' : p.stock}
+                      {p.stock === 0 ? 'Rupture' : formatStock(p)}
                     </span>
                     <span className={s.productActiveBadge} data-active={String(!!p.is_active)}>
                       {p.is_active ? 'Actif' : 'Inactif'}

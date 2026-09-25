@@ -74,11 +74,13 @@ describe('length.utils — conversions', () => {
 /* Régression : `products.stock` compte des MÈTRES, `quantity` des tronçons.
    Comparer les deux directement rendait incommandable tout article de moins de
    5 m en stock — 18 des 30 articles à la coupe du catalogue. */
+/* ADM-12 — le stock d'un article à la coupe compte des CENTIMÈTRES (2.15 m =
+   215) : la boutique doit pouvoir saisir des décimales. */
 describe('length.utils — stock disponible', () => {
-  test('convertit un stock en mètres vers un nombre de tronçons', () => {
-    // 1 m en stock = 10 tronçons de 10 cm
-    expect(L.availableQuantity({ ...bande, stock: 1 })).toBe(10);
-    expect(L.availableQuantity({ ...bande, stock: 2.5 })).toBe(25);
+  test('convertit un stock en centimètres vers un nombre de tronçons entiers', () => {
+    // 1 m en stock = 10 tronçons de 10 cm ; 2.15 m = 21 tronçons (le reste ne se coupe pas)
+    expect(L.availableQuantity({ ...bande, stock: 100 })).toBe(10);
+    expect(L.availableQuantity({ ...bande, stock: 215 })).toBe(21);
   });
 
   test('un article à la pièce garde son stock tel quel', () => {
@@ -86,8 +88,29 @@ describe('length.utils — stock disponible', () => {
   });
 
   test('1 m en stock permet bien de commander le minimum de 50 cm', () => {
-    const dispo = L.availableQuantity({ ...bande, stock: 1 });
+    const dispo = L.availableQuantity({ ...bande, stock: 100 });
     expect(dispo).toBeGreaterThanOrEqual(L.minQuantity(bande));
+  });
+
+  test('0.40 m en stock ne permet pas le minimum de 50 cm', () => {
+    expect(L.availableQuantity({ ...bande, stock: 40 })).toBeLessThan(L.minQuantity(bande));
+  });
+});
+
+describe('length.utils — unités de stock (ADM-12)', () => {
+  test('60 cm commandés retirent 60 cm, et non 6 m', () => {
+    expect(L.stockUnits(bande, 6)).toBe(60);
+  });
+
+  test('un article à la pièce retire ses pièces', () => {
+    expect(L.stockUnits(kit, 3)).toBe(3);
+  });
+
+  test('stock et quantités lisibles en mètres pour la coupe, en pièces sinon', () => {
+    expect(L.formatStock({ ...bande, stock: 215 })).toBe('2.15 m');
+    expect(L.formatStock({ ...kit, stock: 7 })).toBe('7');
+    expect(L.formatQuantity(bande, 6)).toBe('0.60 m');
+    expect(L.formatQuantity(kit, 2)).toBe('2');
   });
 
   test('un stock nul ne permet rien', () => {

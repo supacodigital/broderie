@@ -12,6 +12,7 @@ import { STATUS_CFG } from '../../utils/orderStatus.js'
 import FeaturedShowcase from '../../components/FeaturedShowcase/FeaturedShowcase.jsx'
 import NoResultSearches from '../../components/NoResultSearches/NoResultSearches.jsx'
 import s from './Dashboard.module.css'
+import { formatStock, stockInSaleUnit } from '../../utils/stock.js'
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000
 
@@ -351,7 +352,9 @@ export default function Dashboard() {
                           <div className={s.stockInfo}>
                             <span className={s.stockName}>{item.name}</span>
                             <span className={s.stockQtyLabel} style={{ color: item.urgent ? '#dc2626' : '#d97706' }}>
-                              <AlertTriangle size={10} /> {item.stock} unité{item.stock > 1 ? 's' : ''} restante{item.stock > 1 ? 's' : ''}
+                              <AlertTriangle size={10} /> {item.sold_by_length
+                                ? `${formatStock(item)} restant${stockInSaleUnit(item) > 1 ? 's' : ''}`
+                                : `${item.stock} unité${item.stock > 1 ? 's' : ''} restante${item.stock > 1 ? 's' : ''}`}
                             </span>
                           </div>
                           <Link to={`/produits?edit=${item.id}`} className={s.commanderBtn}>Modifier</Link>

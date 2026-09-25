@@ -1,4 +1,5 @@
 const dashboardRepository = require('../../repositories/dashboard.repository');
+const { CM_PER_METER } = require('../../utils/length.utils');
 
 const getStats = async (req, res, next) => {
   try {
@@ -58,12 +59,15 @@ const getStats = async (req, res, next) => {
       image_url: r.image_url ?? null,
     }));
 
+    /* Stock brut (pièces, ou centimètres pour un article à la coupe — ADM-12) ;
+       l'urgence se juge en unité de vente : 2 pièces ou 2 m. */
     const lowStock = lowStockRows.map(r => ({
-      id:        r.id,
-      name:      r.name ?? `Produit #${r.id}`,
-      stock:     r.stock,
-      urgent:    r.stock <= 2,
-      image_url: r.image_url ?? null,
+      id:             r.id,
+      name:           r.name ?? `Produit #${r.id}`,
+      stock:          r.stock,
+      sold_by_length: !!r.sold_by_length,
+      urgent:         r.stock <= 2 * (r.sold_by_length ? CM_PER_METER : 1),
+      image_url:      r.image_url ?? null,
     }));
 
     res.json({

@@ -5,6 +5,7 @@ import { X, Minus, Plus, Trash2, ShoppingBag, Lock } from 'lucide-react'
 import { useCart } from '../../../contexts/CartContext.jsx'
 import { useCartDrawer } from '../../../contexts/CartDrawerContext.jsx'
 import { roundCHF, salePercent } from '../../../utils/chf.js'
+import { maxQuantityOf } from '../../../utils/stock.js'
 import s from './CartDrawer.module.css'
 
 export default function CartDrawer() {
@@ -167,7 +168,7 @@ export default function CartDrawer() {
                         <button
                           className={s.qtyBtn}
                           onClick={() => updateQty(item.id, item.quantity + 1)}
-                          disabled={item.stock != null && item.quantity >= item.stock}
+                          disabled={item.quantity >= maxQuantityOf(item)}
                           aria-label="Augmenter la quantité"
                         >
                           <Plus size={12} />

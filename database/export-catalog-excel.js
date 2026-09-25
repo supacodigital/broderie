@@ -207,7 +207,7 @@ async function main() {
 
     const [products] = await connection.execute(
       `SELECT
-         p.external_ref, p.sku, p.ean, p.brand, p.price_chf, p.stock,
+         p.external_ref, p.sku, p.ean, p.brand, p.price_chf, p.stock, p.sold_by_length,
          p.weight_kg, p.length_cm, p.width_cm,
          pt.name AS name, pt.description AS description,
          ct.name AS category_name, pct.name AS parent_category_name,
@@ -293,7 +293,8 @@ async function main() {
         p.parent_category_name ? `${p.parent_category_name} > ${p.category_name}` : (p.category_name ?? ''),
         p.supplier_name ?? '',
         p.price_chf !== null ? Number(p.price_chf) : null,
-        p.stock ?? 0,
+        // Article à la coupe : stock tenu en centimètres, lu en mètres (ADM-12)
+        p.sold_by_length ? (p.stock ?? 0) / 100 : (p.stock ?? 0),
         '',
         '', '', '',
         p.description ?? '',

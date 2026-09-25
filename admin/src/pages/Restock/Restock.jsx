@@ -5,6 +5,7 @@ import { getRestockSummary, getRestockItems, exportRestockCsv } from '../../serv
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import { useToast } from '../../contexts/ToastContext.jsx'
 import s from './Restock.module.css'
+import { formatQuantity, formatStock } from '../../utils/stock.js'
 
 /* État des réassorts fournisseurs (ADM-09) — ce qu'il faut commander chez
    chaque fournisseur :
@@ -12,6 +13,10 @@ import s from './Restock.module.css'
      - les articles tenus en stock dont le stock est bas.
    Lecture seule : la commande fournisseur se passe comme aujourd'hui, la liste
    s'imprime ou s'exporte pour y être jointe. */
+
+/* Article à la coupe (ADM-12) : stock en centimètres et quantités en tronçons,
+   affichés en mètres comme dans la fiche produit. */
+const asStockItem = (i) => ({ stock: i.stock, sold_by_length: i.soldByLength, length_step_cm: i.lengthStepCm })
 
 export default function Restock() {
   const toast = useToast()
@@ -146,7 +151,7 @@ export default function Restock() {
                       <tr key={i.productId}>
                         <td className={s.sku}>{i.sku ?? '—'}</td>
                         <td>{i.name}</td>
-                        <td className={`${s.num} ${s.strong}`}>{i.orderedQty}</td>
+                        <td className={`${s.num} ${s.strong}`}>{formatQuantity(asStockItem(i), i.orderedQty)}</td>
                         <td className={s.orders}>
                           {i.orderIds.map(id => <Link key={id} to={`/commandes/${id}`}>#{id}</Link>)}
                         </td>
@@ -173,7 +178,7 @@ export default function Restock() {
                       <tr key={i.productId}>
                         <td className={s.sku}>{i.sku ?? '—'}</td>
                         <td><Link to={`/produits/${i.productId}`} className={s.productLink}>{i.name}</Link></td>
-                        <td className={`${s.num} ${i.stock === 0 ? s.out : ''}`}>{i.stock}</td>
+                        <td className={`${s.num} ${i.stock === 0 ? s.out : ''}`}>{formatStock(asStockItem(i))}</td>
                       </tr>
                     ))}
                   </tbody>

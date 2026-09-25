@@ -362,6 +362,11 @@ export default function FeaturedShowcase({ onChanged }) {
       sku:             full.sku ?? null,
       stock:           full.stock ?? 0,
       weightKg:        full.weight_kg ? Number(full.weight_kg) : null,
+      /* Vente à la coupe (ADM-12) : absente du payload, elle était remise à zéro
+         et le stock, tenu en centimètres, devenait un nombre de pièces. */
+      soldByLength:    !!full.sold_by_length,
+      lengthStepCm:    full.length_step_cm ?? null,
+      lengthMinCm:     full.length_min_cm ?? null,
       isFeatured,
       isActive:        !!full.is_active,
       badge:           full.badge ?? null,

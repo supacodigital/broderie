@@ -18,6 +18,7 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import { useToast } from '../../contexts/ToastContext.jsx'
 import { useSavedViews } from '../../hooks/useSavedViews.js'
 import s from './Products.module.css'
+import { formatStock, stockInSaleUnit } from '../../utils/stock.js'
 
 /* Nombre de produits par page — ajustable depuis la barre d'outils.
    20 reste le défaut (page légère) ; 50 et 100 servent à balayer une gamme
@@ -820,8 +821,9 @@ export default function Products() {
               <span className={s.bold}>{formatCHF(product.price_chf)}</span>
               {/* Stock bas signalé par la seule couleur : l'icône d'alerte répétée
                   sur chaque ligne saturait la colonne sans rien ajouter. */}
-              <span className={product.stock <= 5 ? s.stockLow : s.stockOk}>
-                {product.stock}
+              {/* 5 pièces, ou 5 m pour un article à la coupe (ADM-12) */}
+              <span className={stockInSaleUnit(product) <= 5 ? s.stockLow : s.stockOk}>
+                {formatStock(product)}
               </span>
               <span className={s.activeBadge} data-active={String(!!product.is_active)}>
                 {product.is_active ? 'Actif' : 'Inactif'}

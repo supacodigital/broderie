@@ -2,6 +2,7 @@ const { pool } = require('../config/db');
 const { AppError } = require('../middlewares/errorHandler');
 const { displayComparePriceSql } = require('../utils/promo.utils');
 const { compareUnitPrice } = require('../utils/sale.utils');
+const lengthUtils = require('../utils/length.utils');
 
 // Création d'une commande — transaction atomique (stock + commande + items + coupon + paiement)
 const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, billingAddress = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null, locale = 'fr', wantsPrintedInvoice = false, confirmed = true }) => {
@@ -11,24 +12,34 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
   try {
     await connection.beginTransaction();
 
-    // Vérification et décrémentation du stock pour chaque article (atomique)
+    /* Vérification et décrémentation du stock pour chaque article (atomique).
+       Article à la coupe : `quantity` compte des tronçons et le stock des
+       centimètres (ADM-12) — 60 cm vendus retirent 60, et non 6 m. */
+    const stockUnitsTaken = [];
     for (const item of items) {
       const [rows] = await connection.execute(
-        `SELECT stock, is_made_to_order FROM products WHERE id = ? AND is_active = 1 AND deleted_at IS NULL FOR UPDATE`,
+        `SELECT stock, is_made_to_order, sold_by_length, length_step_cm
+         FROM products WHERE id = ? AND is_active = 1 AND deleted_at IS NULL FOR UPDATE`,
         [item.product_id]
       );
       if (!rows[0]) {
         throw new Error(`Produit introuvable #${item.product_id}`);
       }
       // Produit sur commande : pas de contrôle ni de décrémentation de stock (fabriqué à la demande)
-      if (rows[0].is_made_to_order) continue;
-      if (rows[0].stock < item.quantity) {
-        throw new Error(`Stock insuffisant pour le produit #${item.product_id}`);
+      if (rows[0].is_made_to_order) {
+        stockUnitsTaken.push(0);
+        continue;
+      }
+      const units = lengthUtils.stockUnits(rows[0], item.quantity);
+      if (rows[0].stock < units) {
+        // Stock vendu entre l'ajout au panier et la commande : la cliente doit savoir lequel
+        throw new AppError(`Stock insuffisant pour « ${item.product_name ?? `l'article #${item.product_id}`} ». Merci d'ajuster votre panier.`, 409);
       }
       await connection.execute(
         `UPDATE products SET stock = stock - ? WHERE id = ?`,
-        [item.quantity, item.product_id]
+        [units, item.product_id]
       );
+      stockUnitsTaken.push(units);
     }
 
     // Création de la commande avec adresses de livraison ET de facturation figées (noms inclus)
@@ -71,7 +82,7 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
     const orderId = orderResult.insertId;
 
     // Insertion des articles avec snapshot produit figé
-    for (const item of items) {
+    for (const [index, item] of items.entries()) {
       const [productRows] = await connection.execute(
         `SELECT p.price_chf, ${displayComparePriceSql('p')} AS compare_price_chf,
                 p.sku, p.weight_kg, p.is_made_to_order,
@@ -87,13 +98,15 @@ const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, t
 
       await connection.execute(
         `INSERT INTO order_items
-           (order_id, product_id, variant_id, quantity, unit_price, tax_rate_snapshot, product_snapshot_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+           (order_id, product_id, variant_id, quantity, stock_units, unit_price, tax_rate_snapshot, product_snapshot_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           orderId,
           item.product_id,
           item.variant_id || null,
           item.quantity,
+          // Ce que l'annulation devra rendre au stock, figé à la commande
+          stockUnitsTaken[index],
           // Prix courant (promo appliquée si en cours), cohérent avec le sous-total
           item.unit_price,
           item.tax_rate_snapshot,
@@ -416,6 +429,12 @@ const STOCK_HELD_STATUSES = [
   'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered',
 ];
 const STOCK_RELEASING_STATUSES = ['cancelled', 'refunded'];
+
+/* Stock rendu par une ligne annulée : exactement ce qu'elle a retiré
+   (`stock_units`, ADM-12). Les lignes antérieures (NULL) gardent l'ancienne
+   règle : `quantity`, sauf pour un article « sur commande », jamais décrémenté. */
+const RESTORED_STOCK_SQL = 'COALESCE(oi.stock_units, oi.quantity)';
+const RESTORES_STOCK_SQL = '(oi.stock_units IS NOT NULL OR p.is_made_to_order = 0)';
 // Statuts qui ne confirment pas une tentative de paiement en ligne (voir confirmed_at)
 const UNCONFIRMING_STATUSES = ['pending', 'awaiting_payment', 'payment_failed', 'cancelled'];
 
@@ -446,13 +465,13 @@ const updateStatusWithHistory = async (orderId, status, note, createdBy) => {
       STOCK_HELD_STATUSES.includes(previousStatus);
 
     if (shouldRestoreStock) {
-      // Les produits « sur commande » n'ont jamais été décrémentés (voir createOrder) :
-      // les ré-incrémenter gonflerait artificiellement leur stock.
+      // Chaque ligne rend ce qu'elle a retiré (voir createOrder) ; les lignes
+      // antérieures à `stock_units` retombent sur l'ancienne règle.
       await connection.execute(
         `UPDATE products p
            INNER JOIN order_items oi ON oi.product_id = p.id
-           SET p.stock = p.stock + oi.quantity
-         WHERE oi.order_id = ? AND p.is_made_to_order = 0`,
+           SET p.stock = p.stock + ${RESTORED_STOCK_SQL}
+         WHERE oi.order_id = ? AND ${RESTORES_STOCK_SQL}`,
         [orderId]
       );
     }
@@ -791,12 +810,12 @@ const cancelUnpaidOnlineOrder = async (orderId, note) => {
       [orderId]
     );
 
-    // Stock — les produits « sur commande » n'ont jamais été décrémentés
+    // Stock — chaque ligne rend ce qu'elle a retiré (rien pour un article sur commande)
     await connection.execute(
       `UPDATE products p
          INNER JOIN order_items oi ON oi.product_id = p.id
-         SET p.stock = p.stock + oi.quantity
-       WHERE oi.order_id = ? AND p.is_made_to_order = 0`,
+         SET p.stock = p.stock + ${RESTORED_STOCK_SQL}
+       WHERE oi.order_id = ? AND ${RESTORES_STOCK_SQL}`,
       [orderId]
     );
 

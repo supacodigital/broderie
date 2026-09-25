@@ -1,6 +1,7 @@
 const restockRepository = require('../repositories/restock.repository');
 const { AppError } = require('../middlewares/errorHandler');
 const { buildCsv } = require('../utils/csv.utils');
+const lengthUtils = require('../utils/length.utils');
 
 /* État des réassorts fournisseurs (ADM-09) — mise en forme des données du
    dépôt : synthèse par fournisseur, liste à commander, export CSV. */
@@ -65,6 +66,10 @@ const getSupplierItems = async (rawSupplierId) => {
       name: p.name ?? `Article n° ${productId}`,
       sku: p.sku ?? null,
       stock: p.stock ?? 0,
+      /* Article à la coupe (ADM-12) : stock en centimètres, quantités en
+         tronçons de `lengthStepCm` — l'écran les affiche en mètres. */
+      soldByLength: !!p.sold_by_length,
+      lengthStepCm: p.sold_by_length ? lengthUtils.stepCm(p) : null,
       madeToOrder: !!p.is_made_to_order,
       orderedQty: 0,
       orderIds: [],
@@ -94,14 +99,18 @@ const getSupplierItems = async (rawSupplierId) => {
 const buildSupplierCsv = async (rawSupplierId) => {
   const { supplier, items } = await getSupplierItems(rawSupplierId);
   const headers = ['Référence', 'Article', 'Quantité commandée par des clientes', 'Commandes', 'Stock boutique', 'Motif'];
-  const rows = items.map((i) => [
-    i.sku ?? '',
-    i.name,
-    i.orderedQty || '',
-    i.orderIds.map((id) => `#${id}`).join(' '),
-    i.stock,
-    [i.orderedQty ? 'Commande cliente' : null, i.lowStock ? 'Stock bas' : null].filter(Boolean).join(' + '),
-  ]);
+  const rows = items.map((i) => {
+    // Unité de saisie de la boutique : mètres pour un article à la coupe (ADM-12)
+    const product = { sold_by_length: i.soldByLength, length_step_cm: i.lengthStepCm };
+    return [
+      i.sku ?? '',
+      i.name,
+      i.orderedQty ? lengthUtils.formatQuantity(product, i.orderedQty) : '',
+      i.orderIds.map((id) => `#${id}`).join(' '),
+      lengthUtils.formatStock(product, i.stock),
+      [i.orderedQty ? 'Commande cliente' : null, i.lowStock ? 'Stock bas' : null].filter(Boolean).join(' + '),
+    ];
+  });
   const safeName = String(supplier.name).normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'fournisseur';
   return { filename: `reassort-${safeName}.csv`, csv: buildCsv(headers, rows) };
