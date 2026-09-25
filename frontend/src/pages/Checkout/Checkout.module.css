@@ -85,7 +85,9 @@
 /* ── Layout 2 colonnes ── */
 .layout {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  /* minmax(0, 1fr) et non 1fr : une colonne 1fr ne descend pas sous la largeur
+     de son contenu, et le tunnel débordait de l'écran sur Natel (406 px pour 390) */
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 40px;
   align-items: start;
 }
@@ -160,7 +162,7 @@
 .fieldError {
   font-family: 'Montserrat', sans-serif;
   font-size: 12px;
-  color: #ef4444;
+  color: var(--danger);                   /* 4,8:1 — #ef4444 n'offrait que 3,8:1 */
   display: flex;
   align-items: center;
   gap: 4px;
@@ -331,11 +333,31 @@
 }
 
 /* ── CGV checkbox ── */
+/* CGV : la seule case obligatoire de l'étape — encadrée, texte foncé, plus
+   visible que l'option « facture imprimée » (retour de Christophe, 25.09) */
 .cgvRow {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   margin-top: 8px;
+  padding: 14px 16px;
+  background: var(--white);
+  border: 2px solid var(--rose);          /* 4,6:1 sur blanc */
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+
+.cgvRow[data-checked="true"] { background: var(--rose-pale); border-color: var(--rose-dark); }
+.cgvRow[data-invalid="true"] { background: var(--danger-pale); border-color: var(--danger); }
+/* Contour au clavier seulement : après un clic, il doublait la bordure */
+.cgvRow:has(:focus-visible) { outline: 2px solid var(--rose-dark); outline-offset: 2px; }
+
+.cgvCheckbox {
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  accent-color: var(--rose-dark);
 }
 
 .checkbox {
@@ -349,13 +371,19 @@
 
 .cgvLabel {
   font-family: 'Montserrat', sans-serif;
-  font-size: 13px;
-  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);                /* 16,7:1 (était #9D6480 en 13 px) */
   line-height: 1.5;
 }
 
-.cgvLabel a { color: var(--rose); text-decoration: none; }
-.cgvLabel a:hover { text-decoration: underline; }
+.cgvLabel a {
+  color: var(--rose-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cgvLabel a:hover { text-decoration-thickness: 2px; }
 
 /* ── Facture imprimée — option, encadrée pour la distinguer des CGV obligatoires ── */
 .printedInvoiceRow {
@@ -675,7 +703,7 @@
 }
 
 @media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
   .summary { position: static; order: -1; }
 }
 
@@ -965,6 +993,9 @@
 
 .couponInput {
   flex: 1;
+  /* Sans lui, le champ garde sa largeur par défaut (~20 caractères) et pousse
+     « Appliquer » hors du panneau sur Natel */
+  min-width: 0;
   padding: 10px 14px;
   border: 1.5px solid var(--rose-border);
   border-radius: 8px;
@@ -983,6 +1014,7 @@
 }
 
 .couponBtn {
+  flex-shrink: 0;
   padding: 10px 18px;
   background: var(--text-dark);
   color: #fff;

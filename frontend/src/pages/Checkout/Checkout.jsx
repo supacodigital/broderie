@@ -644,23 +644,30 @@ function StepSummary({ address, billingAddress, onBack, onSubmit, isSubmitting, 
         </label>
       </div>
 
-      {/* CGV */}
-      <div className={`${s.cgvRow} ${s.cgvRowSpaced}`}>
+      {/* CGV — encadré cliquable, plus visible que l'option « facture imprimée »
+          juste au-dessus : c'est la seule case obligatoire de l'étape, et elle
+          passait inaperçue en petit texte gris (retour de Christophe, 25.09). */}
+      <label
+        htmlFor="checkout-cgv"
+        className={`${s.cgvRow} ${s.cgvRowSpaced}`}
+        data-checked={cgv ? 'true' : undefined}
+        data-invalid={cgvError ? 'true' : undefined}
+      >
         <input
           id="checkout-cgv"
           type="checkbox"
-          className={s.checkbox}
+          className={`${s.checkbox} ${s.cgvCheckbox}`}
           checked={cgv}
           aria-invalid={cgvError ? 'true' : undefined}
           aria-describedby={cgvError ? 'checkout-cgv-error' : undefined}
           onChange={e => { setCgv(e.target.checked); if (e.target.checked) setCgvError('') }}
         />
-        <label htmlFor="checkout-cgv" className={s.cgvLabel}>
+        <span className={s.cgvLabel}>
           {t('checkout.cgvAccept')}{' '}
           <Link to="/cgv">{t('checkout.cgvLink')}</Link>
           <span className={s.requiredMark} aria-hidden="true"> *</span>
-        </label>
-      </div>
+        </span>
+      </label>
       {cgvError && (
         <span id="checkout-cgv-error" className={`${s.fieldError} ${s.fieldErrorSpaced}`} role="alert">
           <AlertCircle size={12} aria-hidden="true" />{cgvError}
