@@ -45,35 +45,37 @@ describe('toInvoice — statut de paiement d\'une facture QR', () => {
 });
 
 describe('restock.service — synthèse par fournisseur', () => {
-  test('les fournisseurs attendus par des clientes passent en tête, puis le stock bas', async () => {
+  test('les fournisseurs attendus par des clientes passent en tête, puis ceux sous le stock minimum', async () => {
     restockRepository.summaryBySupplier.mockResolvedValue({
       demand: [{ supplier_id: 2, demand_items: 1, demand_qty: 3 }],
-      low: [
-        { supplier_id: 1, low_stock_items: 50 },
-        { supplier_id: 2, low_stock_items: 4 },
-        { supplier_id: null, low_stock_items: 7 },
+      belowMin: [
+        { supplier_id: 1, below_min_items: 50 },
+        { supplier_id: 2, below_min_items: 4 },
+        { supplier_id: null, below_min_items: 7 },
       ],
       suppliers: [{ id: 1, name: 'DMC' }, { id: 2, name: 'Permin' }],
     });
     const summary = await restockService.getSummary();
     expect(summary.map((s) => s.name)).toEqual(['Permin', 'DMC', 'Sans fournisseur']);
-    expect(summary[0]).toMatchObject({ supplierId: 2, demandItems: 1, demandQty: 3, lowStockItems: 4 });
+    expect(summary[0]).toMatchObject({ supplierId: 2, demandItems: 1, demandQty: 3, belowMinItems: 4 });
     expect(summary[2].supplierId).toBe('sans-fournisseur');
   });
 
-  test('un article attendu ET en stock bas n\'apparaît qu\'une fois', async () => {
+  test('un article attendu ET sous son minimum n\'apparaît qu\'une fois, avec la quantité à commander', async () => {
     restockRepository.findSupplierContact.mockResolvedValue({ id: 2, name: 'Permin' });
     restockRepository.itemsForSupplier.mockResolvedValue({
       demand: [{ product_id: 10, ordered_qty: 2, order_ids: '5,7', first_order_at: '2026-09-20' }],
-      low: [{ product_id: 10 }, { product_id: 11 }],
+      belowMin: [{ product_id: 10 }, { product_id: 11 }],
       products: [
-        { id: 10, sku: 'A', stock: 1, is_made_to_order: 0, name: 'Kit A' },
-        { id: 11, sku: 'B', stock: 0, is_made_to_order: 0, name: 'Kit B' },
+        { id: 10, sku: 'A', stock: 1, stock_min: 4, is_made_to_order: 0, name: 'Kit A' },
+        { id: 11, sku: 'B', stock: 5, stock_min: 10, is_made_to_order: 0, name: 'Fil DMC rouge' },
       ],
       truncated: false,
     });
     const { items } = await restockService.getSupplierItems('2');
     expect(items.map((i) => i.productId)).toEqual([10, 11]);
-    expect(items[0]).toMatchObject({ orderedQty: 2, orderIds: [5, 7], lowStock: true });
+    expect(items[0]).toMatchObject({ orderedQty: 2, orderIds: [5, 7], belowMin: true, stockMin: 4, toOrder: 3 });
+    // Exemple de Julie : mini 10, stock 5 → 5 à commander
+    expect(items[1]).toMatchObject({ belowMin: true, stockMin: 10, toOrder: 5 });
   });
 });

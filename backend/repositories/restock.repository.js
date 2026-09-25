@@ -6,11 +6,13 @@ const { stockScaleSql } = require('../utils/length.utils');
    Deux sources d'articles à commander, regroupées par fournisseur :
      1. les articles « sur commande » demandés par des commandes clientes en
         cours : la boutique ne les a pas, il faut les commander pour livrer ;
-     2. les articles tenus en stock dont le stock est bas (≤ LOW_STOCK_THRESHOLD),
-        même seuil que le filtre « stock bas » et le tableau de bord.
+     2. les articles tenus en stock passés SOUS LEUR STOCK MINIMUM — seule règle
+        de réassort voulue par la cliente (« stock mini 10, reste 10, commande
+        client 5 => réassort 5 »). Un article sans minimum saisi n'est pas suivi.
    Lecture seule : la cliente passe ses commandes fournisseurs comme aujourd'hui. */
 
-const LOW_STOCK_THRESHOLD = 5;
+// Sous le minimum : même unité des deux côtés (pièces, ou centimètres pour la coupe)
+const BELOW_MIN_SQL = 'p.stock_min IS NOT NULL AND p.stock < p.stock_min';
 const MAX_ITEMS = 1000; // une liste de commande fournisseur ne dépasse pas ce volume
 
 /* Commandes dont les articles restent à fournir. Les paiements carte / Twint
@@ -45,19 +47,17 @@ const summaryBySupplier = async () => {
      GROUP BY p.supplier_id`,
     OPEN_ORDER_STATUSES
   );
-  const [low] = await pool.query(
-    `SELECT p.supplier_id, COUNT(*) AS low_stock_items
+  const [belowMin] = await pool.query(
+    `SELECT p.supplier_id, COUNT(*) AS below_min_items
      FROM products p
-     WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.is_made_to_order = 0
-       AND p.stock <= ? * ${stockScaleSql('p')}
-     GROUP BY p.supplier_id`,
-    [LOW_STOCK_THRESHOLD]
+     WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.is_made_to_order = 0 AND ${BELOW_MIN_SQL}
+     GROUP BY p.supplier_id`
   );
-  const ids = [...new Set([...demand, ...low].map((r) => r.supplier_id).filter((id) => id !== null))];
+  const ids = [...new Set([...demand, ...belowMin].map((r) => r.supplier_id).filter((id) => id !== null))];
   const [suppliers] = ids.length
     ? await pool.query('SELECT id, name, is_active FROM suppliers WHERE id IN (?)', [ids])
     : [[]];
-  return { demand, low, suppliers };
+  return { demand, belowMin, suppliers };
 };
 
 /* Lignes à commander chez un fournisseur. Retourne les deux listes brutes et
@@ -79,20 +79,21 @@ const itemsForSupplier = async (supplierId) => {
      LIMIT ?`,
     [...OPEN_ORDER_STATUSES, ...filter.params, MAX_ITEMS]
   );
-  const [low] = await pool.query(
+  const [belowMin] = await pool.query(
     `SELECT p.id AS product_id
      FROM products p
      WHERE p.is_active = 1 AND p.deleted_at IS NULL AND p.is_made_to_order = 0
-       AND p.stock <= ? * ${stockScaleSql('p')} AND ${filter.sql}
-     ORDER BY p.stock / ${stockScaleSql('p')} ASC, p.id ASC
+       AND ${BELOW_MIN_SQL} AND ${filter.sql}
+     -- Le plus gros manque d'abord, en unité de vente (pièces ou mètres)
+     ORDER BY (p.stock_min - p.stock) / ${stockScaleSql('p')} DESC, p.id ASC
      LIMIT ?`,
-    [LOW_STOCK_THRESHOLD, ...filter.params, MAX_ITEMS]
+    [...filter.params, MAX_ITEMS]
   );
 
-  const productIds = [...new Set([...demand, ...low].map((r) => r.product_id))];
+  const productIds = [...new Set([...demand, ...belowMin].map((r) => r.product_id))];
   const [products] = productIds.length
     ? await pool.query(
-      `SELECT p.id, p.sku, p.stock, p.is_made_to_order, p.sold_by_length, p.length_step_cm,
+      `SELECT p.id, p.sku, p.stock, p.stock_min, p.is_made_to_order, p.sold_by_length, p.length_step_cm,
               COALESCE(pt.name, p.slug) AS name
        FROM products p
        LEFT JOIN product_translations pt ON pt.product_id = p.id AND pt.locale = 'fr'
@@ -101,7 +102,7 @@ const itemsForSupplier = async (supplierId) => {
     )
     : [[]];
 
-  return { demand, low, products, truncated: demand.length >= MAX_ITEMS || low.length >= MAX_ITEMS };
+  return { demand, belowMin, products, truncated: demand.length >= MAX_ITEMS || belowMin.length >= MAX_ITEMS };
 };
 
 // Coordonnées utiles pour passer commande
@@ -114,4 +115,4 @@ const findSupplierContact = async (supplierId) => {
   return rows[0] ?? null;
 };
 
-module.exports = { summaryBySupplier, itemsForSupplier, findSupplierContact, LOW_STOCK_THRESHOLD, OPEN_ORDER_STATUSES };
+module.exports = { summaryBySupplier, itemsForSupplier, findSupplierContact, OPEN_ORDER_STATUSES };

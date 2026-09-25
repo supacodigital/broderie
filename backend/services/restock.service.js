@@ -17,9 +17,9 @@ const parseSupplierId = (raw) => {
 };
 
 /* Synthèse : un fournisseur par ligne, les plus urgents en tête (articles
-   attendus par des clientes, puis stock bas). */
+   attendus par des clientes, puis articles sous leur stock minimum). */
 const getSummary = async () => {
-  const { demand, low, suppliers } = await restockRepository.summaryBySupplier();
+  const { demand, belowMin, suppliers } = await restockRepository.summaryBySupplier();
   const byId = new Map();
   const entry = (supplierId) => {
     const key = supplierId ?? NO_SUPPLIER;
@@ -30,7 +30,7 @@ const getSummary = async () => {
         name: supplierId === null ? 'Sans fournisseur' : (s?.name ?? `Fournisseur n° ${supplierId}`),
         demandItems: 0,
         demandQty: 0,
-        lowStockItems: 0,
+        belowMinItems: 0,
       });
     }
     return byId.get(key);
@@ -40,14 +40,14 @@ const getSummary = async () => {
     e.demandItems = Number(d.demand_items);
     e.demandQty = Number(d.demand_qty);
   }
-  for (const l of low) entry(l.supplier_id).lowStockItems = Number(l.low_stock_items);
+  for (const l of belowMin) entry(l.supplier_id).belowMinItems = Number(l.below_min_items);
 
   return [...byId.values()].sort((a, b) =>
-    b.demandItems - a.demandItems || b.lowStockItems - a.lowStockItems || a.name.localeCompare(b.name, 'fr'));
+    b.demandItems - a.demandItems || b.belowMinItems - a.belowMinItems || a.name.localeCompare(b.name, 'fr'));
 };
 
 /* Liste à commander chez un fournisseur : une ligne par article, qu'il soit
-   demandé par des commandes, en stock bas, ou les deux. */
+   demandé par des commandes, sous son stock minimum, ou les deux. */
 const getSupplierItems = async (rawSupplierId) => {
   const supplierId = parseSupplierId(rawSupplierId);
   const supplier = supplierId === null
@@ -55,9 +55,9 @@ const getSupplierItems = async (rawSupplierId) => {
     : await restockRepository.findSupplierContact(supplierId);
   if (!supplier) throw new AppError('Fournisseur introuvable.', 404);
 
-  const { demand, low, products, truncated } = await restockRepository.itemsForSupplier(supplierId);
+  const { demand, belowMin, products, truncated } = await restockRepository.itemsForSupplier(supplierId);
   const productById = new Map(products.map((p) => [p.id, p]));
-  const lowIds = new Set(low.map((l) => l.product_id));
+  const belowMinIds = new Set(belowMin.map((l) => l.product_id));
 
   const line = (productId) => {
     const p = productById.get(productId) ?? {};
@@ -74,7 +74,11 @@ const getSupplierItems = async (rawSupplierId) => {
       orderedQty: 0,
       orderIds: [],
       firstOrderAt: null,
-      lowStock: lowIds.has(productId),
+      /* Règle du stock minimum (ADM-09) : mini 10, stock 5 → 5 à commander.
+         Même unité que le stock (centimètres pour la coupe). */
+      stockMin: p.stock_min ?? null,
+      belowMin: belowMinIds.has(productId),
+      toOrder: belowMinIds.has(productId) ? Math.max(0, p.stock_min - (p.stock ?? 0)) : 0,
     };
   };
 
@@ -85,20 +89,15 @@ const getSupplierItems = async (rawSupplierId) => {
     firstOrderAt: d.first_order_at,
   }));
   const inDemand = new Set(items.map((i) => i.productId));
-  for (const l of low) if (!inDemand.has(l.product_id)) items.push(line(l.product_id));
+  for (const l of belowMin) if (!inDemand.has(l.product_id)) items.push(line(l.product_id));
 
-  return {
-    supplier,
-    threshold: restockRepository.LOW_STOCK_THRESHOLD,
-    items,
-    truncated,
-  };
+  return { supplier, items, truncated };
 };
 
 // Export CSV de la liste d'un fournisseur — à joindre à la commande
 const buildSupplierCsv = async (rawSupplierId) => {
   const { supplier, items } = await getSupplierItems(rawSupplierId);
-  const headers = ['Référence', 'Article', 'Quantité commandée par des clientes', 'Commandes', 'Stock boutique', 'Motif'];
+  const headers = ['Référence', 'Article', 'Quantité commandée par des clientes', 'Commandes', 'Stock boutique', 'Stock minimum', 'À commander (stock minimum)', 'Motif'];
   const rows = items.map((i) => {
     // Unité de saisie de la boutique : mètres pour un article à la coupe (ADM-12)
     const product = { sold_by_length: i.soldByLength, length_step_cm: i.lengthStepCm };
@@ -108,7 +107,9 @@ const buildSupplierCsv = async (rawSupplierId) => {
       i.orderedQty ? lengthUtils.formatQuantity(product, i.orderedQty) : '',
       i.orderIds.map((id) => `#${id}`).join(' '),
       lengthUtils.formatStock(product, i.stock),
-      [i.orderedQty ? 'Commande cliente' : null, i.lowStock ? 'Stock bas' : null].filter(Boolean).join(' + '),
+      i.stockMin === null ? '' : lengthUtils.formatStock(product, i.stockMin),
+      i.toOrder ? lengthUtils.formatStock(product, i.toOrder) : '',
+      [i.orderedQty ? 'Commande cliente' : null, i.belowMin ? 'Sous le stock minimum' : null].filter(Boolean).join(' + '),
     ];
   });
   const safeName = String(supplier.name).normalize('NFD').replace(/[̀-ͯ]/g, '')

@@ -182,14 +182,17 @@ describe('Stock au centimètre des articles vendus au mètre (ADM-12)', () => {
 
   test('réassort : stock affiché en mètres à l\'écran et dans le CSV', async () => {
     await setStock(300);
+    // Suivi au réassort par le stock minimum (ADM-09) : 5 m
+    await pool.query('UPDATE products SET stock_min = 500 WHERE id = ?', [productId]);
     const res = await request(app).get(`/api/v1/admin/restock/${supplierId}`).set(adminAuth());
     expect(res.status).toBe(200);
     const item = res.body.data.items.find((i) => i.productId === productId);
-    expect(item).toMatchObject({ stock: 300, soldByLength: true, lengthStepCm: 10, lowStock: true });
+    expect(item).toMatchObject({ stock: 300, soldByLength: true, lengthStepCm: 10, belowMin: true, toOrder: 200 });
 
     const csv = await request(app).get(`/api/v1/admin/restock/${supplierId}/export`).set(adminAuth());
     expect(csv.status).toBe(200);
     expect(csv.text).toContain('3.00 m');
+    await pool.query('UPDATE products SET stock_min = NULL WHERE id = ?', [productId]);
   });
 
   test('valeur du stock fournisseur : prix au mètre × longueur', async () => {

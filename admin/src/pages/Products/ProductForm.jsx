@@ -26,6 +26,12 @@ const schema = z.object({
   priceChf:         z.coerce.number().positive('Prix invalide'),
   // Pièces entières, ou mètres à deux décimales pour la coupe (ADM-12) — voir le refine
   stock:            z.coerce.number().min(0, 'Stock invalide').max(MAX_STOCK_METERS, 'Stock trop élevé'),
+  /* Stock minimum (ADM-09) — vide = article non suivi au réassort. Même règle
+     d'unité que le stock (voir les refine) */
+  stockMin:         z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? null : Number(v)),
+    z.number({ invalid_type_error: 'Stock minimum invalide' }).min(0, 'Stock minimum invalide').max(MAX_STOCK_METERS, 'Stock minimum trop élevé').nullable(),
+  ),
   weightKg:         z.coerce.number().min(0).optional(),
   lengthCm:         z.coerce.number().min(0).optional(),
   widthCm:          z.coerce.number().min(0).optional(),
@@ -51,6 +57,13 @@ const schema = z.object({
 ).refine(
   (d) => d.soldByLength || Number.isInteger(d.stock),
   { path: ['stock'], message: 'Nombre entier de pièces.' },
+).refine(
+  (d) => d.soldByLength || d.stockMin === null || Number.isInteger(d.stockMin),
+  { path: ['stockMin'], message: 'Nombre entier de pièces.' },
+).refine(
+  (d) => !d.soldByLength || d.stockMin === null
+    || Math.abs(d.stockMin * CM_PER_METER - Math.round(d.stockMin * CM_PER_METER)) < 1e-6,
+  { path: ['stockMin'], message: 'Deux décimales au maximum (ex. 2.15).' },
 ).refine(
   // Au centimètre près : 2.15 m oui, 2.155 m non (tolérance d'arrondi binaire)
   (d) => !d.soldByLength || Math.abs(d.stock * CM_PER_METER - Math.round(d.stock * CM_PER_METER)) < 1e-6,
@@ -279,7 +292,7 @@ export default function ProductForm() {
 
   const { register, handleSubmit, reset, watch, setValue, getValues, setError, formState: { errors, isSubmitting, isDirty } } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { isActive: true, isFeatured: false, isMadeToOrder: false, soldByLength: false, lengthStepCm: 10, lengthMinCm: 50, badge: '', stock: 0 },
+    defaultValues: { isActive: true, isFeatured: false, isMadeToOrder: false, soldByLength: false, lengthStepCm: 10, lengthMinCm: 50, badge: '', stock: 0, stockMin: '' },
   })
 
   const categoryId = watch('categoryId')
@@ -486,6 +499,7 @@ export default function ProductForm() {
           priceChf:        catalogPriceToShow ?? '',
           // Article à la coupe : stock en centimètres en base, saisi en mètres (ADM-12)
           stock:           stockToInput(res.stock, !!res.sold_by_length),
+          stockMin:        res.stock_min == null ? '' : stockToInput(res.stock_min, !!res.sold_by_length),
           weightKg:        res.weight_kg ?? '',
           lengthCm:        res.length_cm ?? '',
           widthCm:         res.width_cm ?? '',
@@ -590,6 +604,7 @@ export default function ProductForm() {
         promoEndsAt:     promoPrice != null ? fromDateTimeLocal(data.promoEndsAt)   : null,
         sku:             data.sku,
         stock:           stockFromInput(data.stock, !!data.soldByLength),
+        stockMin:        data.stockMin === null ? null : stockFromInput(data.stockMin, !!data.soldByLength),
         weightKg:        data.weightKg ? Number(data.weightKg) : null,
         lengthCm:        data.lengthCm ? Number(data.lengthCm) : null,
         widthCm:         data.widthCm ? Number(data.widthCm) : null,
@@ -916,24 +931,45 @@ export default function ProductForm() {
               </div>
             )}
 
-            <div className={s.field}>
-              <label className={s.label} htmlFor="stock">{soldByLengthChecked ? 'Stock (mètres) *' : 'Stock *'}</label>
-              <input
-                id="stock"
-                type="number"
-                min="0"
-                max={MAX_STOCK_METERS}
-                /* « any » : la règle (entier ou deux décimales) est vérifiée par
-                   le schéma, avec un message en français sous le champ plutôt
-                   que la bulle du navigateur */
-                step="any"
-                inputMode={soldByLengthChecked ? 'decimal' : 'numeric'}
-                className={`${s.input} ${errors.stock ? s.inputError : ''}`}
-                {...register('stock')}
-              />
-              {errors.stock
-                ? <span className={s.err}>{errors.stock.message}</span>
-                : soldByLengthChecked && <span className={s.hint}>En mètres, deux décimales (ex. 2.15).</span>}
+            <div className={s.formGrid}>
+              <div className={s.field}>
+                <label className={s.label} htmlFor="stock">{soldByLengthChecked ? 'Stock (mètres) *' : 'Stock *'}</label>
+                <input
+                  id="stock"
+                  type="number"
+                  min="0"
+                  max={MAX_STOCK_METERS}
+                  /* « any » : la règle (entier ou deux décimales) est vérifiée par
+                     le schéma, avec un message en français sous le champ plutôt
+                     que la bulle du navigateur */
+                  step="any"
+                  inputMode={soldByLengthChecked ? 'decimal' : 'numeric'}
+                  className={`${s.input} ${errors.stock ? s.inputError : ''}`}
+                  {...register('stock')}
+                />
+                {errors.stock
+                  ? <span className={s.err}>{errors.stock.message}</span>
+                  : soldByLengthChecked && <span className={s.hint}>En mètres, deux décimales (ex. 2.15).</span>}
+              </div>
+
+              {/* Stock minimum (ADM-09) — règle unique du réassort : sous ce seuil,
+                  la page Réassort propose de commander la différence. */}
+              <div className={s.field}>
+                <label className={s.label} htmlFor="stockMin">{soldByLengthChecked ? 'Stock minimum (mètres)' : 'Stock minimum'}</label>
+                <input
+                  id="stockMin"
+                  type="number"
+                  min="0"
+                  max={MAX_STOCK_METERS}
+                  step="any"
+                  inputMode={soldByLengthChecked ? 'decimal' : 'numeric'}
+                  className={`${s.input} ${errors.stockMin ? s.inputError : ''}`}
+                  {...register('stockMin')}
+                />
+                {errors.stockMin
+                  ? <span className={s.err}>{errors.stockMin.message}</span>
+                  : <span className={s.hint}>Sous ce seuil, le Réassort propose de commander la différence. Vide = article non suivi.</span>}
+              </div>
             </div>
 
           {/* ── Vente à la coupe (ADM-12) ──

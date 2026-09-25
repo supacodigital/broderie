@@ -70,7 +70,8 @@ export default function Restock() {
 
   const supplier = detail?.supplier
   const expected = detail?.items.filter(i => i.orderedQty > 0) ?? []
-  const lowOnly  = detail?.items.filter(i => i.orderedQty === 0) ?? []
+  // Règle du stock minimum (ADM-09) : un article peut figurer dans les deux listes
+  const belowMin = detail?.items.filter(i => i.belowMin) ?? []
 
   return (
     <div className={s.page}>
@@ -78,7 +79,7 @@ export default function Restock() {
         <div>
           <h1 className={s.pageTitle}>Réassort</h1>
           <p className={s.pageSub}>
-            Ce qu’il faut commander chez chaque fournisseur : articles attendus par des clientes et articles en stock bas.
+            Ce qu’il faut commander chez chaque fournisseur : articles attendus par des clientes et articles passés sous leur stock minimum.
           </p>
         </div>
       </div>
@@ -102,7 +103,7 @@ export default function Restock() {
               <span className={s.supplierName}>{sup.name}</span>
               <span className={s.supplierCounts}>
                 {sup.demandItems > 0 && <span className={s.countExpected}>{sup.demandItems} attendu{sup.demandItems > 1 ? 's' : ''}</span>}
-                {sup.lowStockItems > 0 && <span className={s.countLow}>{sup.lowStockItems} stock bas</span>}
+                {sup.belowMinItems > 0 && <span className={s.countLow}>{sup.belowMinItems} sous le minimum</span>}
               </span>
             </button>
           ))}
@@ -161,9 +162,9 @@ export default function Restock() {
                 </table>
               )}
 
-              <h3 className={s.groupTitle}>Stock bas (≤ {detail.threshold}) <span className={s.groupCount}>{lowOnly.length}</span></h3>
-              {lowOnly.length === 0 ? (
-                <p className={s.groupEmpty}>Aucun article de ce fournisseur n’est en stock bas.</p>
+              <h3 className={s.groupTitle}>Sous le stock minimum <span className={s.groupCount}>{belowMin.length}</span></h3>
+              {belowMin.length === 0 ? (
+                <p className={s.groupEmpty}>Aucun article de ce fournisseur n’est sous son stock minimum.</p>
               ) : (
                 <table className={s.table}>
                   <thead>
@@ -171,14 +172,18 @@ export default function Restock() {
                       <th scope="col">Référence</th>
                       <th scope="col">Article</th>
                       <th scope="col" className={s.num}>Stock</th>
+                      <th scope="col" className={s.num}>Minimum</th>
+                      <th scope="col" className={s.num}>À commander</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {lowOnly.map(i => (
+                    {belowMin.map(i => (
                       <tr key={i.productId}>
                         <td className={s.sku}>{i.sku ?? '—'}</td>
                         <td><Link to={`/produits/${i.productId}`} className={s.productLink}>{i.name}</Link></td>
                         <td className={`${s.num} ${i.stock === 0 ? s.out : ''}`}>{formatStock(asStockItem(i))}</td>
+                        <td className={s.num}>{formatStock({ ...asStockItem(i), stock: i.stockMin })}</td>
+                        <td className={`${s.num} ${s.strong}`}>{formatStock({ ...asStockItem(i), stock: i.toOrder })}</td>
                       </tr>
                     ))}
                   </tbody>

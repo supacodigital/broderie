@@ -25,6 +25,9 @@ const productBaseSchema = z.object({
   taxRateId:       z.number().int().positive(),
   sku:             z.string().max(100).optional().nullable(),
   stock:           z.number().int().min(0).optional().default(0),
+  /* Stock minimum (ADM-09), même unité que le stock : pièces, ou centimètres
+     pour la coupe. null = article non suivi au réassort. */
+  stockMin:        z.number().int().min(0).max(99999999).optional().nullable(),
   weightKg:        z.number().positive().max(999).optional().nullable(),
   lengthCm:        z.number().positive().max(9999).optional().nullable(),
   widthCm:         z.number().positive().max(9999).optional().nullable(),

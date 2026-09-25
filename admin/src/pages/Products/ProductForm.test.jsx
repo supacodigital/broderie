@@ -556,6 +556,62 @@ describe('ProductForm — vente à la coupe (ADM-12)', () => {
   })
 })
 
+/* ADM-09 — « gestion basée uniquement sur la règle du stock minimum » : le
+   minimum se saisit dans la fiche, à côté du stock, dans la même unité. */
+describe('ProductForm — stock minimum (ADM-09)', () => {
+  it('recharge le minimum d\'une bande en mètres et le renvoie en centimètres', async () => {
+    const user = userEvent.setup()
+    getProductById.mockResolvedValue({
+      id: 622, name: 'Bande Zweigart', sku: 'SKU-622', price_chf: 18, compare_price_chf: null,
+      sold_by_length: 1, length_step_cm: 10, length_min_cm: 50, stock: 120, stock_min: 500,
+      category_id: 1, tax_rate_id: 1, images: [],
+    })
+    updateProduct.mockResolvedValue({ id: 622 })
+    renderForm({ id: 622 })
+
+    const min = await screen.findByLabelText('Stock minimum (mètres)')
+    await waitFor(() => expect(min).toHaveValue(5))
+    await user.clear(min)
+    await user.type(min, '2.5')
+    await user.click(screen.getByRole('button', { name: /Enregistrer/i }))
+
+    await waitFor(() => expect(updateProduct).toHaveBeenCalledTimes(1))
+    const payload = updateProduct.mock.calls.at(-1)[1]
+    expect(payload.stock).toBe(120)
+    expect(payload.stockMin).toBe(250)
+  })
+
+  it('un minimum laissé vide part comme « non suivi » (null)', async () => {
+    const user = userEvent.setup()
+    getProductById.mockResolvedValue({
+      id: 623, name: 'Fil DMC rouge', sku: 'SKU-623', price_chf: 1.5, compare_price_chf: null,
+      stock: 10, stock_min: 10, category_id: 1, tax_rate_id: 1, images: [],
+    })
+    updateProduct.mockResolvedValue({ id: 623 })
+    renderForm({ id: 623 })
+
+    const min = await screen.findByLabelText('Stock minimum')
+    await waitFor(() => expect(min).toHaveValue(10))
+    await user.clear(min)
+    await user.click(screen.getByRole('button', { name: /Enregistrer/i }))
+
+    await waitFor(() => expect(updateProduct).toHaveBeenCalledTimes(1))
+    expect(updateProduct.mock.calls.at(-1)[1].stockMin).toBeNull()
+  })
+
+  it('refuse un minimum décimal pour un article à la pièce', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await fillRequiredFields(user)
+    await user.type(screen.getByLabelText(/Prix de vente/), '1.50')
+    await user.type(screen.getByLabelText('Stock minimum'), '2.5')
+    await user.click(screen.getByRole('button', { name: 'Créer le produit' }))
+
+    expect(await screen.findAllByText('Nombre entier de pièces.')).toHaveLength(1)
+    expect(createProduct).not.toHaveBeenCalled()
+  })
+})
+
 /* ADM-04 — la fiche produit arrivait avant la liste des rayons et des
    fournisseurs : le <select> restait sur « — Choisir — » / « — Aucun — », et
    chaque catégorie enregistrée semblait perdue à la réouverture. */

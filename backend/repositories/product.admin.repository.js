@@ -72,7 +72,7 @@ const deleteImageFiles = (row) => {
 };
 
 // Création d'un produit avec ses traductions — transaction atomique
-const create = async ({ categoryId, secondaryCategoryIds, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, soldByLength, lengthStepCm, lengthMinCm, badge, brand, translations }, { changedBy = null } = {}) => {
+const create = async ({ categoryId, secondaryCategoryIds, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, stockMin, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, soldByLength, lengthStepCm, lengthMinCm, badge, brand, translations }, { changedBy = null } = {}) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -83,9 +83,9 @@ const create = async ({ categoryId, secondaryCategoryIds, supplierId, slug, pric
     const minLen = cut ? (Number(lengthMinCm) || 50) : 50;
 
     const [result] = await connection.execute(
-      `INSERT INTO products (category_id, supplier_id, slug, price_chf, compare_price_chf, promo_starts_at, promo_ends_at, tax_rate_id, sku, stock, weight_kg, length_cm, width_cm, is_featured, is_made_to_order, sold_by_length, length_step_cm, length_min_cm, badge, brand, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock || 0, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, cut, step, minLen, badge || null, brand || null]
+      `INSERT INTO products (category_id, supplier_id, slug, price_chf, compare_price_chf, promo_starts_at, promo_ends_at, tax_rate_id, sku, stock, stock_min, weight_kg, length_cm, width_cm, is_featured, is_made_to_order, sold_by_length, length_step_cm, length_min_cm, badge, brand, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock || 0, stockMin ?? null, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, cut, step, minLen, badge || null, brand || null]
     );
     const productId = result.insertId;
 
@@ -116,7 +116,7 @@ const create = async ({ categoryId, secondaryCategoryIds, supplierId, slug, pric
 };
 
 // Mise à jour d'un produit avec ses traductions
-const update = async (id, { categoryId, secondaryCategoryIds, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, soldByLength, lengthStepCm, lengthMinCm, isActive, badge, brand, translations }, { changedBy = null } = {}) => {
+const update = async (id, { categoryId, secondaryCategoryIds, supplierId, slug, priceChf, comparePriceChf, promoStartsAt, promoEndsAt, taxRateId, sku, stock, stockMin, weightKg, lengthCm, widthCm, isFeatured, isMadeToOrder, soldByLength, lengthStepCm, lengthMinCm, isActive, badge, brand, translations }, { changedBy = null } = {}) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -138,13 +138,13 @@ const update = async (id, { categoryId, secondaryCategoryIds, supplierId, slug, 
     const minLen = cut ? (Number(lengthMinCm) || 50) : 50;
 
     const baseParams = slug
-      ? [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, cut, step, minLen, badge || null, brand || null, isActive ? 1 : 0, id]
-      : [categoryId, supplierId || null,       priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, cut, step, minLen, badge || null, brand || null, isActive ? 1 : 0, id];
+      ? [categoryId, supplierId || null, slug, priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock, stockMin ?? null, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, cut, step, minLen, badge || null, brand || null, isActive ? 1 : 0, id]
+      : [categoryId, supplierId || null,       priceChf, comparePriceChf || null, promoStartsAt || null, promoEndsAt || null, taxRateId, sku || null, stock, stockMin ?? null, weightKg || null, lengthCm || null, widthCm || null, isFeatured ? 1 : 0, isMadeToOrder ? 1 : 0, cut, step, minLen, badge || null, brand || null, isActive ? 1 : 0, id];
 
     await connection.execute(
       `UPDATE products SET category_id = ?, supplier_id = ?, ${slugClause} price_chf = ?,
        compare_price_chf = ?, promo_starts_at = ?, promo_ends_at = ?,
-       tax_rate_id = ?, sku = ?, stock = ?, weight_kg = ?, length_cm = ?, width_cm = ?,
+       tax_rate_id = ?, sku = ?, stock = ?, stock_min = ?, weight_kg = ?, length_cm = ?, width_cm = ?,
        is_featured = ?, is_made_to_order = ?,
        sold_by_length = ?, length_step_cm = ?, length_min_cm = ?,
        badge = ?, brand = ?, is_active = ? WHERE id = ?`,
@@ -260,7 +260,7 @@ const findByIdAdmin = async (id, locale = 'fr') => {
   const [rows] = await pool.execute(
     `SELECT p.id, p.slug, p.price_chf, p.compare_price_chf,
             p.promo_starts_at, p.promo_ends_at, ${promoActiveSql('p')} AS is_promo_active,
-            p.sku, p.stock,
+            p.sku, p.stock, p.stock_min,
             p.weight_kg, p.length_cm, p.width_cm, p.is_featured, p.is_made_to_order, p.is_active, p.badge, p.brand, p.category_id, p.category_needs_review, p.supplier_id,
             -- Vente à la coupe (ADM-12) : sans ces colonnes, l'administration ne
             -- pouvait ni afficher ni régler le pas et le minimum de découpe
