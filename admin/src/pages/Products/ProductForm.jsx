@@ -641,8 +641,12 @@ export default function ProductForm() {
          page conservés). Après une création, on repart sur la liste vierge triée
          par date : le nouveau produit y est en tête, alors que les filtres
          précédents pourraient très bien l'exclure et donner l'impression que
-         l'enregistrement a échoué. */
-      setTimeout(() => (isEdit ? goBack() : navigate('/produits')), 500)
+         l'enregistrement a échoué.
+         `leave` et non `goBack` : ce rappel voit l'état du rendu d'avant
+         l'enregistrement (`saved` encore faux, formulaire modifié), et la garde
+         affichait « Vos modifications ne sont pas enregistrées » à chaque
+         enregistrement réussi. Tout est sauvegardé, il n'y a rien à protéger. */
+      setTimeout(() => (isEdit ? leave() : navigate('/produits')), 500)
     } catch (err) {
       /* Pas de réponse serveur — coupure réseau, timeout, backend injoignable */
       if (!err.response) {

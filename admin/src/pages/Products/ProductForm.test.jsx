@@ -659,3 +659,52 @@ describe('ProductForm — rayon et fournisseur affichés quand les listes arrive
     expect(supplier.options[supplier.selectedIndex].text).toBe('DMC sas')
   })
 })
+
+/* Non-régression 25.09 : après avoir modifié puis enregistré une fiche,
+   « Vos modifications ne sont pas enregistrées. Quitter cette page ? »
+   s'affichait à chaque fois — le retour différé à la liste voyait l'état
+   d'avant l'enregistrement. La garde doit rester active sans enregistrement. */
+describe('ProductForm — quitter la fiche', () => {
+  const PRODUCT = { id: 12, name: 'Kit fleurs', sku: 'SKU-012', price_chf: 30, stock: 5, category_id: 1, tax_rate_id: 1, images: [] }
+
+  function renderWithList() {
+    return render(
+      <MemoryRouter initialEntries={['/produits/12']}>
+        <Routes>
+          <Route path="/produits" element={<p>Liste des produits</p>} />
+          <Route path="/produits/:id" element={<ProductForm />} />
+        </Routes>
+      </MemoryRouter>
+    )
+  }
+
+  it('après un enregistrement réussi, retourne à la liste sans demander de confirmation', async () => {
+    const user = userEvent.setup()
+    getProductById.mockResolvedValue(PRODUCT)
+    updateProduct.mockResolvedValue({ id: 12 })
+
+    renderWithList()
+    const name = await screen.findByLabelText(/Nom du produit/)
+    await user.clear(name)
+    await user.type(name, 'Kit fleurs des champs')
+    await user.click(screen.getByRole('button', { name: /Enregistrer/i }))
+
+    expect(await screen.findByText('Liste des produits', {}, { timeout: 2000 })).toBeInTheDocument()
+    expect(screen.queryByText(/ne sont pas enregistrées/)).not.toBeInTheDocument()
+    expect(updateProduct.mock.calls.at(-1)[1].translations.fr.name).toBe('Kit fleurs des champs')
+  })
+
+  it('sans enregistrement, quitter une fiche modifiée demande toujours confirmation', async () => {
+    const user = userEvent.setup()
+    getProductById.mockResolvedValue(PRODUCT)
+
+    renderWithList()
+    const name = await screen.findByLabelText(/Nom du produit/)
+    await user.type(name, ' bis')
+    await user.click(screen.getByRole('button', { name: 'Annuler' }))
+
+    expect(await screen.findByText(/Vos modifications ne sont pas enregistrées/)).toBeInTheDocument()
+    expect(screen.queryByText('Liste des produits')).not.toBeInTheDocument()
+    expect(updateProduct).not.toHaveBeenCalled()
+  })
+})
