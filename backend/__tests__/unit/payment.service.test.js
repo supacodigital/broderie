@@ -753,17 +753,17 @@ describe('payment.service — confirmQrPaymentReturn()', () => {
 
   beforeEach(() => {
     paymentRepository.findByIntentId.mockResolvedValue({ id: 3, order_id: 1, provider: 'stripe_qr_email', method: 'twint', status: 'pending' });
-    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'pending_invoice', total: '32.50', payment_method: 'invoice_qr' }));
+    orderRepository.findById.mockResolvedValue(makeOrder({ status: 'pending_invoice', total: '32.50', payment_method: 'invoice_qr', invoice_number: '2026-09/05' }));
     orderRepository.markPaidFromWebhook.mockResolvedValue({ statusChanged: true });
     loyaltyService.processOrderEarning.mockResolvedValue();
     stripe.paymentIntents = { retrieve: jest.fn().mockResolvedValue(qrIntent()) };
   });
 
-  test('paiement abouti : commande validée sans attendre le webhook, seul le numéro renvoyé', async () => {
+  test('paiement abouti : commande validée sans attendre le webhook, seuls les numéros renvoyés', async () => {
     const result = await paymentService.confirmQrPaymentReturn('pi_qr', 'pi_qr_secret_abc');
 
     expect(orderRepository.markPaidFromWebhook).toHaveBeenCalledWith(1, 'pi_qr', 'twint');
-    expect(result).toEqual({ orderId: 1, paymentStatus: 'paid' });
+    expect(result).toEqual({ orderId: 1, invoiceNumber: '2026-09/05', paymentStatus: 'paid' });
   });
 
   test('secret erroné : 404, rien n\'est validé', async () => {
@@ -798,7 +798,7 @@ describe('payment.service — confirmQrPaymentReturn()', () => {
 
     const result = await paymentService.confirmQrPaymentReturn('pi_qr', 'pi_qr_secret_abc');
 
-    expect(result).toEqual({ orderId: 1, paymentStatus: expected });
+    expect(result).toEqual({ orderId: 1, invoiceNumber: '2026-09/05', paymentStatus: expected });
     expect(orderRepository.markPaidFromWebhook).not.toHaveBeenCalled();
     expect(orderRepository.markPaymentFailed).not.toHaveBeenCalled();
   });

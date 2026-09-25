@@ -8,6 +8,7 @@ const paymentService    = require('../../services/payment.service');
 const orderService      = require('../../services/order.service');
 const { generateInvoicePDF } = require('../../services/invoice.service');
 const shopSettingsService = require('../../services/shopSettings.service');
+const { orderFileSlug } = require('../../utils/orderNumber.utils');
 
 // Statuts valides — alignés avec l'ENUM du schema
 const VALID_STATUSES = ['pending', 'awaiting_payment', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
@@ -151,7 +152,7 @@ const downloadInvoice = async (req, res, next) => {
     const invoiceSettings = await shopSettingsService.getInvoiceSettings();
     const pdfBuffer = await generateInvoicePDF({ order, user, settings: invoiceSettings });
 
-    const filename = `facture-${String(order.id).padStart(6, '0')}.pdf`;
+    const filename = `facture-${orderFileSlug(order)}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(pdfBuffer);

@@ -6,6 +6,7 @@ import Pagination from '../../components/ui/Pagination/Pagination.jsx'
 import { roundCHF } from '../../utils/chf.js'
 import { formatDate } from '../../utils/date.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
+import { orderNumber } from '../../utils/orderNumber.js'
 import s from './Account.module.css'
 
 function StatusBadge({ status }) {
@@ -106,7 +107,7 @@ export default function OrdersPage() {
         <tbody>
           {orders.map(o => (
             <tr key={o.id} className={s.dataRow} onClick={() => navigate(`/commandes/${o.id}`)}>
-              <td className={s.dataRowStrong}>#{o.id}</td>
+              <td className={s.dataRowStrong}>{orderNumber(o)}</td>
               <td className={s.dataRowMuted}>{formatDate(o.created_at)}</td>
               <td className={s.dataRowMuted}>{o.items_count} article{o.items_count > 1 ? 's' : ''}</td>
               <td className={s.dataRowStrong}>CHF {roundCHF(o.total).toFixed(2)}</td>

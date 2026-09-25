@@ -157,7 +157,7 @@ export default function Invoices() {
             type="button"
             className={s.row}
             onClick={() => navigate(`/commandes/${inv.orderId}`)}
-            title={`Ouvrir la commande #${inv.orderId}`}
+            title={`Ouvrir la commande ${inv.invoiceNumber ?? `#${inv.orderId}`}`}
           >
             <span className={s.number}>{inv.invoiceNumber ?? `Commande #${inv.orderId}`}</span>
             <span className={s.customer}>

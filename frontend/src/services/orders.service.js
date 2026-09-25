@@ -31,7 +31,9 @@ export async function downloadInvoice(id) {
   const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
   const link = document.createElement('a')
   link.href = url
-  link.download = `facture-${String(id).padStart(6, '0')}.pdf`
+  // Nom choisi par le serveur (« facture-2026-09-22.pdf »), sinon repli
+  const fromServer = /filename="([^"]+)"/.exec(res.headers?.['content-disposition'] ?? '')?.[1]
+  link.download = fromServer ?? `facture-${String(id).padStart(6, '0')}.pdf`
   document.body.appendChild(link)
   link.click()
   link.remove()

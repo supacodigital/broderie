@@ -154,7 +154,10 @@ export default function Restock() {
                         <td>{i.name}</td>
                         <td className={`${s.num} ${s.strong}`}>{formatQuantity(asStockItem(i), i.orderedQty)}</td>
                         <td className={s.orders}>
-                          {i.orderIds.map(id => <Link key={id} to={`/commandes/${id}`}>#{id}</Link>)}
+                          {/* N° de commande = n° de facture */}
+                          {(i.orders ?? i.orderIds.map(id => ({ id, number: `#${id}` }))).map(o => (
+                            <Link key={o.id} to={`/commandes/${o.id}`}>{o.number}</Link>
+                          ))}
                         </td>
                       </tr>
                     ))}

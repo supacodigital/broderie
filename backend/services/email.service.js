@@ -3,6 +3,7 @@ const { roundCHF } = require('../utils/chf.utils');
 const { compareUnitPrice, salePercent } = require('../utils/sale.utils');
 const lengthUtils = require('../utils/length.utils');
 const env = require('../config/env');
+const { orderNumber, orderFileSlug } = require('../utils/orderNumber.utils');
 
 const FROM     = env.mailFrom    || '"Au Point-Compté" <contact@broderie.ch>';
 const BASE_URL = env.clientUrl   || 'https://broderie.ch';
@@ -281,6 +282,8 @@ async function sendWelcome({ user }) {
 async function sendOrderConfirmation({ user, order }) {
   const firstName = escapeHtml(user.first_name);
   const orderId   = parseInt(order.id, 10);
+  // N° de commande = n° de facture (« 2026-09/22 »)
+  const orderRef  = escapeHtml(orderNumber(order));
 
   const itemsHtml = (order.items ?? []).map((item) => orderItemRow(item, { showSale: true })).join('');
 
@@ -313,9 +316,9 @@ async function sendOrderConfirmation({ user, order }) {
   /* Click & Collect : ni expédition ni numéro de suivi — la cliente est
      prévenue par un e-mail dédié quand sa commande est prête. */
   const intro = isPickup
-    ? `Nous avons bien reçu votre commande <strong>#${orderId}</strong>.
+    ? `Nous avons bien reçu votre commande <strong>${orderRef}</strong>.
          Nous vous écrirons dès qu'elle sera prête à être retirée en boutique.`
-    : `Nous avons bien reçu votre commande <strong>#${orderId}</strong>.
+    : `Nous avons bien reçu votre commande <strong>${orderRef}</strong>.
          Vous serez notifié(e) dès l'expédition avec votre numéro de suivi Post CH.`;
 
   const totalLabel   = 'Total TTC';
@@ -363,7 +366,7 @@ async function sendOrderConfirmation({ user, order }) {
   await transporter.sendMail({
     from:    FROM,
     to:      user.email,
-    subject: `Confirmation de votre commande #${orderId} — Au Point-Compté`,
+    subject: `Confirmation de votre commande ${orderRef} — Au Point-Compté`,
     html:    layout(body),
   });
 }
@@ -376,6 +379,7 @@ async function sendAdminOrderNotification({ user, order }) {
   if (!env.mailContact) return;
 
   const orderId    = parseInt(order.id, 10);
+  const orderRef   = escapeHtml(orderNumber(order));
   const itemsHtml   = (order.items ?? []).map((item) => orderItemRow(item)).join('');
   const clientName  = `${escapeHtml(user.first_name)} ${escapeHtml(user.last_name)}`.trim() || user.email;
   const pickup      = await pickupDetailsFor(order);
@@ -398,7 +402,7 @@ async function sendAdminOrderNotification({ user, order }) {
 
   const body = `
     <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:24px;font-weight:600;color:#1E1020;">
-      Nouvelle commande #${orderId}
+      Nouvelle commande ${orderRef}
     </h1>
     <p style="margin:0 0 24px;font-size:14px;color:#374151;line-height:1.7;">
       Client : <strong>${clientName}</strong> (${escapeHtml(user.email)})<br>
@@ -430,7 +434,7 @@ async function sendAdminOrderNotification({ user, order }) {
   await transporter.sendMail({
     from:    FROM,
     to:      env.mailContact,
-    subject: `🛒 Nouvelle commande #${orderId} — CHF ${roundCHF(order.total).toFixed(2)}${order.wants_printed_invoice ? ' — facture papier' : ''}`,
+    subject: `🛒 Nouvelle commande ${orderRef} — CHF ${roundCHF(order.total).toFixed(2)}${order.wants_printed_invoice ? ' — facture papier' : ''}`,
     html:    layout(body),
   });
 }
@@ -440,13 +444,13 @@ async function sendAdminOrderNotification({ user, order }) {
 // ─────────────────────────────────────────────
 async function sendOrderShipped({ user, order, trackingNumber }) {
   const firstName       = escapeHtml(user.first_name);
-  const orderId         = parseInt(order.id, 10);
+  const orderRef        = escapeHtml(orderNumber(order));
   const safeTracking    = escapeHtml(trackingNumber);
   const trackUrl = `https://www.post.ch/fr/outils/suivi-de-colis?track=${encodeURIComponent(trackingNumber)}`;
 
   const title = `Votre colis est parti, ${firstName} !`;
 
-  const intro = `Votre commande <strong>#${orderId}</strong> a été expédiée aujourd'hui via La Poste Suisse.
+  const intro = `Votre commande <strong>${orderRef}</strong> a été expédiée aujourd'hui via La Poste Suisse.
          Votre numéro de suivi :`;
 
   const trackBtn = 'Suivre mon colis';
@@ -473,7 +477,7 @@ async function sendOrderShipped({ user, order, trackingNumber }) {
   await transporter.sendMail({
     from:    FROM,
     to:      user.email,
-    subject: `Votre commande #${orderId} est en route ! 📦`,
+    subject: `Votre commande ${orderRef} est en route ! 📦`,
     html:    layout(body),
   });
 }
@@ -557,6 +561,7 @@ async function sendBackOfficeInvitation({ user, resetToken }) {
 // ─────────────────────────────────────────────
 async function sendInvoice({ user, order, pdfBuffer, dueDate }) {
   const firstName = escapeHtml(user.first_name);
+  const orderRef  = escapeHtml(orderNumber(order));
   // Heure suisse, comme sur la facture PDF : le serveur tourne en UTC, et une
   // commande passée peu après minuit y portait une échéance différente
   const due = new Date(dueDate).toLocaleDateString('fr-CH', {
@@ -568,7 +573,7 @@ async function sendInvoice({ user, order, pdfBuffer, dueDate }) {
          </h1>
          <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
            Veuillez trouver en pièce jointe la facture QR de votre commande
-           <strong>#${order.id}</strong> d'un montant de
+           <strong>${orderRef}</strong> d'un montant de
            <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
          </p>
          <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
@@ -579,11 +584,11 @@ async function sendInvoice({ user, order, pdfBuffer, dueDate }) {
   await transporter.sendMail({
     from:    FROM,
     to:      user.email,
-    subject: `Votre facture QR — commande #${order.id} — Au Point-Compté`,
+    subject: `Votre facture QR — commande ${orderRef} — Au Point-Compté`,
     html:    layout(body),
     attachments: [
       {
-        filename:    `facture-${order.id}.pdf`,
+        filename:    `facture-${orderFileSlug(order)}.pdf`,
         content:     pdfBuffer,
         contentType: 'application/pdf',
       },
@@ -596,7 +601,8 @@ async function sendInvoice({ user, order, pdfBuffer, dueDate }) {
 // ─────────────────────────────────────────────
 async function sendPickupReady({ user, order }) {
   const firstName = escapeHtml(user.first_name);
-  const orderId   = parseInt(order.id, 10);
+  // N° de commande = n° de facture (« 2026-09/22 »)
+  const orderRef  = escapeHtml(orderNumber(order));
 
   /* Adresse et horaires du retrait — éditables depuis l'administration
      (Paramètres → Retrait), avec repli sur la configuration serveur tant
@@ -627,7 +633,7 @@ async function sendPickupReady({ user, order }) {
            Votre commande est prête, ${firstName} !
          </h1>
          <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
-           Bonne nouvelle : votre commande <strong>#${orderId}</strong> est prête à être retirée en boutique.
+           Bonne nouvelle : votre commande <strong>${orderRef}</strong> est prête à être retirée en boutique.
            Le règlement se fera directement sur place lors du retrait.
          </p>
          ${shopBlock('Adresse de retrait', 'Horaires d\'ouverture')}
@@ -638,7 +644,7 @@ async function sendPickupReady({ user, order }) {
   await transporter.sendMail({
     from:    FROM,
     to:      user.email,
-    subject: `Votre commande #${orderId} est prête — Au Point-Compté`,
+    subject: `Votre commande ${orderRef} est prête — Au Point-Compté`,
     html:    layout(body),
   });
 }
@@ -794,6 +800,7 @@ async function sendMfaRecoveryCodesRegenerated(user) {
 // ─────────────────────────────────────────────
 async function sendTwintQrEmail({ user, order, qrBuffer, payUrl, expiresAt }) {
   const firstName = escapeHtml(user.first_name);
+  const orderRef  = escapeHtml(orderNumber(order));
   // Heure suisse : le serveur tourne en UTC, l'échéance affichait 2 h de moins
   const expiresLabel = new Date(expiresAt).toLocaleString('fr-CH', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -805,7 +812,7 @@ async function sendTwintQrEmail({ user, order, qrBuffer, payUrl, expiresAt }) {
       Payez votre commande avec Twint, ${firstName}
     </h1>
     <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.7;">
-      Voici le QR code de paiement pour votre commande <strong>#${order.id}</strong>
+      Voici le QR code de paiement pour votre commande <strong>${orderRef}</strong>
       d'un montant de <strong>CHF ${roundCHF(order.total).toFixed(2)}</strong>.
     </p>
     <p style="margin:0;font-size:14px;color:#374151;line-height:1.7;">
@@ -832,7 +839,7 @@ async function sendTwintQrEmail({ user, order, qrBuffer, payUrl, expiresAt }) {
   await transporter.sendMail({
     from:    FROM,
     to:      user.email,
-    subject: `Payer par Twint — commande #${order.id} — Au Point-Compté`,
+    subject: `Payer par Twint — commande ${orderRef} — Au Point-Compté`,
     html:    layout(body),
     attachments: [
       {

@@ -12,7 +12,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto 92px;
+  grid-template-columns: 48px minmax(0, 1fr) auto 92px;
   align-items: center;
   gap: 12px;
   padding: 12px 18px;
@@ -23,11 +23,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
   background: var(--rose-pale);
   color: var(--rose-dark);
+}
+
+.thumbImg {
+  display: block;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--rose-pale);
+  /* Liseré par-dessus la photo (une ombre intérieure passerait dessous) */
+  outline: 1px solid var(--rose-border);
+  outline-offset: -1px;
 }
 
 .info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -117,13 +129,14 @@
 /* Natel : quantité et total sous le nom */
 @container (max-width: 560px) {
   .row {
-    grid-template-columns: 34px minmax(0, 1fr) auto;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
     grid-template-areas:
       "thumb info total"
       "thumb qty  qty";
     row-gap: 4px;
   }
-  .thumb     { grid-area: thumb; align-self: start; }
+  .thumb,
+  .thumbImg  { grid-area: thumb; align-self: start; }
   .info      { grid-area: info; }
   .lineTotal { grid-area: total; }
   .qty       { grid-area: qty; flex-direction: row; align-items: baseline; justify-content: flex-start; gap: 8px; }

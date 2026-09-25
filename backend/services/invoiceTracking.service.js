@@ -71,7 +71,7 @@ const buildInvoicesCsv = async ({ status }) => {
   const dueDays = await dueDaysSetting();
   const filter = normalizeStatus(status);
   const { rows } = await invoiceTrackingRepository.findInvoices({ status: filter, dueDays, page: 1, limit: EXPORT_LIMIT });
-  const headers = ['N° facture', 'Référence QR', 'Date de facture', 'Échéance', 'Cliente', 'E-mail', 'Montant CHF', 'Statut', 'Payée le', 'Jours de retard', 'Commande'];
+  const headers = ['N° facture', 'Référence QR', 'Date de facture', 'Échéance', 'Cliente', 'E-mail', 'Montant CHF', 'Statut', 'Payée le', 'Jours de retard'];
   const csvRows = rows.map((r) => toInvoice(r, dueDays)).map((i) => [
     i.invoiceNumber ?? '',
     i.qrReference ?? '',
@@ -83,7 +83,6 @@ const buildInvoicesCsv = async ({ status }) => {
     PAYMENT_LABELS[i.paymentStatus],
     formatDate(i.paidAt),
     i.daysOverdue || '',
-    `#${i.orderId}`,
   ]);
   return { filename: `factures-${filter}.csv`, csv: buildCsv(headers, csvRows) };
 };

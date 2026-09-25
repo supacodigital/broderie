@@ -96,11 +96,13 @@ describe('Checkout — retour de l\'app Twint (CLI-15)', () => {
   test('paiement accepté : confirmation affichée, aucun nouveau paiement demandé', async () => {
     resumeTwintStep()
     returnFromStripe('order=68&payment_intent=pi_1&payment_intent_client_secret=pi_1_secret&redirect_status=succeeded')
-    syncPaymentMock.mockResolvedValue({ orderStatus: 'paid', intentStatus: 'succeeded', paymentMethod: 'twint', total: '18.50' })
+    syncPaymentMock.mockResolvedValue({ orderStatus: 'paid', intentStatus: 'succeeded', paymentMethod: 'twint', total: '18.50', invoiceNumber: '2026-09/22' })
 
     renderCheckout()
 
     expect(await screen.findByText('checkout.confirmTitle')).toBeInTheDocument()
+    // N° de commande = n° de facture (demande de la boutique, 25.09)
+    expect(screen.getByRole('link', { name: '2026-09/22' })).toHaveAttribute('href', '/commandes/68')
     expect(syncPaymentMock).toHaveBeenCalledWith('68')
     expect(createTwintIntentMock).not.toHaveBeenCalled()
     expect(sessionStorage.getItem('checkout_order_id')).toBeNull()
@@ -142,6 +144,9 @@ describe('Checkout — retour de l\'app Twint (CLI-15)', () => {
 
     expect(await screen.findByText('checkout.confirmProcessing')).toBeInTheDocument()
     expect(createTwintIntentMock).not.toHaveBeenCalled()
+    // Pas encore de facture, donc pas de n° : jamais l'identifiant interne « #68 »
+    expect(screen.queryByText('checkout.confirmOrderRef', { exact: false })).not.toBeInTheDocument()
+    expect(screen.queryByText('#68')).not.toBeInTheDocument()
   })
 
   test('paiement refusé : message clair et nouvelle tentative possible', async () => {

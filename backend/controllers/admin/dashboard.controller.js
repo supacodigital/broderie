@@ -95,6 +95,7 @@ const getStats = async (req, res, next) => {
         low_stock:    lowStock,
         recent_orders: recentOrders.map(o => ({
           id:             o.id,
+          invoice_number: o.invoice_number ?? null,
           customer_name:  `${o.first_name ?? ''} ${o.last_name ?? ''}`.trim() || '—',
           customer_email: o.email ?? '',
           status:         o.status,

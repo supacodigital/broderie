@@ -187,3 +187,39 @@ describe('GET /admin/orders/:id/payment', () => {
     expect(forbidden.status).toBe(403);
   });
 });
+
+/* Photo des articles dans la commande admin (25.09) : la miniature de la photo
+   principale, sans dédoubler la ligne si le produit a plusieurs photos. */
+describe('GET /admin/orders/:id — photo des articles', () => {
+  let adminToken;
+  let orderId;
+  let productId;
+
+  beforeAll(async () => {
+    const client = await registerVerifiedUser('photo.jest');
+    adminToken = await createAdminToken();
+    const product = await pickProduct();
+    if (!product) return;
+    productId = product.id;
+    orderId = await placeOrder(client.token, product.id, 'invoice_qr');
+    await pool.execute(
+      `INSERT INTO product_images (product_id, url, url_thumbnail, is_primary, sort_order)
+       VALUES (?, '/uploads/test/secondaire-large.webp', '/uploads/test/secondaire-thumbnail.webp', 0, 0),
+              (?, '/uploads/test/principale-large.webp', '/uploads/test/principale-thumbnail.webp', 1, 5)`,
+      [productId, productId]
+    );
+  });
+
+  afterAll(async () => {
+    if (productId) await pool.execute(`DELETE FROM product_images WHERE url LIKE '/uploads/test/%'`);
+  });
+
+  test('miniature de la photo principale, une seule ligne par article', async () => {
+    if (!orderId) return;
+    const res = await request(app).get(`/api/v1/admin/orders/${orderId}`).set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.items).toHaveLength(1);
+    expect(res.body.data.items[0].image_url).toBe('/uploads/test/principale-thumbnail.webp');
+  });
+});

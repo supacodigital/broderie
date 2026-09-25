@@ -8,6 +8,7 @@ import { getOrderById, downloadInvoice } from '../../services/orders.service.js'
 import { roundCHF, salePercent } from '../../utils/chf.js'
 import { formatDate, formatDateTime } from '../../utils/date.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
+import { orderNumber } from '../../utils/orderNumber.js'
 import { lineQuantityLabel, lineUnitSuffix } from '../../utils/stock.js'
 import s from './OrderDetail.module.css'
 
@@ -237,7 +238,7 @@ export default function OrderDetail() {
             Mes commandes
           </Link>
           <ChevronRight size={13} className={s.breadSep} />
-          <span className={s.breadCurrent}>Commande #{id}</span>
+          <span className={s.breadCurrent}>Commande {order ? orderNumber(order) : ''}</span>
         </nav>
 
         {loading && <Skeleton />}
@@ -257,7 +258,7 @@ export default function OrderDetail() {
             {/* En-tête commande */}
             <div className={s.orderHead}>
               <div className={s.orderHeadLeft}>
-                <h1 className={s.orderRef}>Commande #{String(order.id).padStart(6, '0')}</h1>
+                <h1 className={s.orderRef}>Commande {orderNumber(order)}</h1>
                 <p className={s.orderDate}>Passée le {formatDate(order.created_at)}</p>
               </div>
               <StatusBadge status={order.status} />
@@ -426,7 +427,7 @@ export default function OrderDetail() {
                   <div className={s.infoList}>
                     <div className={s.infoItem}>
                       <span className={s.infoLabel}>Référence</span>
-                      <span className={s.infoValue}>#{String(order.id).padStart(6, '0')}</span>
+                      <span className={s.infoValue}>{orderNumber(order)}</span>
                     </div>
                     <div className={s.infoItem}>
                       <span className={s.infoLabel}>Date</span>

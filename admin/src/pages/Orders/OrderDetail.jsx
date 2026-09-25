@@ -20,6 +20,7 @@ import OrderCustomer from './OrderCustomer.jsx'
 import OrderShipping from './OrderShipping.jsx'
 import OrderHistory from './OrderHistory.jsx'
 import OrderStatusEditor, { STATUS_OPTIONS } from './OrderStatusEditor.jsx'
+import { orderNumber } from '../../utils/orderNumber.js'
 import s from './OrderDetail.module.css'
 
 /* Modes d'envoi (ADM-10) : étiquette PostPac Economy ou Priority, ou envoi déjà
@@ -146,7 +147,7 @@ export default function OrderDetail() {
     if (sideEffect) {
       const label = STATUS_OPTIONS.find(o => o.value === target)?.label ?? target
       setConfirm({
-        message: `Passer la commande #${order.id} en « ${label} » ? ${sideEffect}`,
+        message: `Passer la commande ${orderNumber(order)} en « ${label} » ? ${sideEffect}`,
         onConfirm: () => runStatusChange(target, note, successMessage),
       })
       return false
@@ -396,16 +397,11 @@ export default function OrderDetail() {
         </button>
         <div className={s.headMain}>
           <div className={s.titleRow}>
-            <h1 className={s.title}>Commande #{order.id}</h1>
+            <h1 className={s.title}>Commande {orderNumber(order)}</h1>
             <StatusBadge status={order.status} />
           </div>
           <p className={s.meta}>
             <span><CalendarDays size={13} aria-hidden="true" /> {formatDateTime(order.created_at)}</span>
-            {/* Le n° de facture est la référence que la cliente cite au
-                téléphone : il doit être lisible sans ouvrir le PDF. */}
-            {order.invoice_number && (
-              <span><FileText size={13} aria-hidden="true" /> Facture <strong>{order.invoice_number}</strong></span>
-            )}
             <span><User size={13} aria-hidden="true" /> {order.first_name} {order.last_name}</span>
           </p>
         </div>

@@ -278,6 +278,20 @@ describe('order.admin.controller — downloadInvoice()', () => {
     expect(res.send).toHaveBeenCalled();
   });
 
+  test('nomme le fichier d\'après le numéro de facture', async () => {
+    orderRepository.findById.mockResolvedValue({ ...fakeOrder, invoice_number: '2026-09/22' });
+    userRepository.findById.mockResolvedValue(fakeUser);
+    generateInvoicePDF.mockResolvedValue(Buffer.from('fake-pdf'));
+
+    const res = makeRes();
+    await controller.downloadInvoice({ params: { id: '42' } }, res, jest.fn());
+
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Content-Disposition',
+      expect.stringContaining('facture-2026-09-22.pdf')
+    );
+  });
+
   test('retourne 404 si commande introuvable', async () => {
     orderRepository.findById.mockResolvedValue(null);
 

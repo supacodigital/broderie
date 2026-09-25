@@ -306,15 +306,16 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
             partie du numéro : sans elle, le compteur repartant à 1 chaque janvier
             produirait deux factures « 000032 » à un an d'intervalle. Le repli ne
             sert qu'aux commandes antérieures à la numérotation. */
+         /* Le n° de facture est aussi le n° de commande (demande de la boutique,
+            25.09) : la ligne « Commande n° 102 » en affichait un second, différent. */
          .text(`N° ${order.invoice_number ?? invoiceFallbackNumber(order)}`, 350, 78,  { align: 'right', width: 195 })
-         .text(`Commande n° ${order.id}`,                           350, 92,  { align: 'right', width: 195 })
          // « Date de facture » et non « Date » : exigence comptable (ADM-15)
-         .text(`Date de facture : ${formatDate(order.created_at)}`, 350, 106, { align: 'right', width: 195 })
+         .text(`Date de facture : ${formatDate(order.created_at)}`, 350, 92, { align: 'right', width: 195 })
          // Numéro de client — traçabilité comptable (ADM-17)
-         .text(`N° client : ${formatCustomerNumber(order.user_id ?? user.id)}`, 350, 120, { align: 'right', width: 195 })
+         .text(`N° client : ${formatCustomerNumber(order.user_id ?? user.id)}`, 350, 106, { align: 'right', width: 195 })
          .text(
            paidAt ? `Payée le : ${formatDate(paidAt)}` : `Échéance : paiement sous ${dueDays} jours`,
-           350, 134, { align: 'right', width: 195 }
+           350, 120, { align: 'right', width: 195 }
          );
 
       doc.moveTo(PAGE_MARGIN, 152).lineTo(545, 152).strokeColor(border).lineWidth(1).stroke();

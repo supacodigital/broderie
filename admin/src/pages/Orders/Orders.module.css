@@ -577,11 +577,6 @@
 /* ── Cellules du tableau ── */
 .idCell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
-.invoiceNo {
-  font-size: 10px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
 
 .dateCell { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
 

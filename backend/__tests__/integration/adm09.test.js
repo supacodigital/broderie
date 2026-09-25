@@ -102,6 +102,9 @@ describe('Suivi des factures QR (ADM-09)', () => {
     const inv = await findIn('all');
     expect(res.text).toContain(inv.invoiceNumber);
     if (inv.qrReference) expect(res.text).toContain(inv.qrReference);
+    // Numéro de commande = numéro de facture : plus de colonne « Commande » (#id interne)
+    expect(res.text.split('\n')[0]).not.toMatch(/Commande/);
+    expect(res.text).not.toContain(`#${order.id}`);
   });
 
   test('la recherche retrouve une facture par son numéro', async () => {

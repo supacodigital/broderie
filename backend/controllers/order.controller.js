@@ -6,6 +6,7 @@ const invoiceService  = require('../services/invoice.service');
 const unpaidOrderService = require('../services/unpaidOrder.service');
 const { AppError }    = require('../middlewares/errorHandler');
 const { localeFromRequest } = require('../utils/locale.utils');
+const { orderFileSlug } = require('../utils/orderNumber.utils');
 
 // Cantons suisses officiels (2 lettres) — validation stricte de l'adresse
 const SWISS_CANTONS = ['AG','AI','AR','BE','BL','BS','FR','GE','GL','GR','JU','LU','NE','NW','OW','SG','SH','SO','SZ','TG','TI','UR','VD','VS','ZG','ZH'];
@@ -126,7 +127,7 @@ const downloadInvoice = async (req, res, next) => {
 
     const pdfBuffer = await invoiceService.getInvoicePdf({ order, user });
 
-    const filename = `facture-${String(order.id).padStart(6, '0')}.pdf`;
+    const filename = `facture-${orderFileSlug(order)}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(pdfBuffer);

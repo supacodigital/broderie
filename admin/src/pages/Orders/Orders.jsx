@@ -8,6 +8,7 @@ import SortIcon from '../../components/ui/SortIcon/SortIcon.jsx'
 import Pagination from '../../components/ui/Pagination/Pagination.jsx'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import SkeletonTable from '../../components/ui/SkeletonTable/SkeletonTable.jsx'
+import { orderNumber } from '../../utils/orderNumber.js'
 import s from './Orders.module.css'
 
 const DEFAULT_LIMIT = 20
@@ -435,13 +436,11 @@ export default function Orders() {
           orders.map(order => (
             <div key={order.id} className={s.tableRow} onClick={() => navigate(`/commandes/${order.id}`)}>
               <div className={s.idCell}>
-                <span className={s.orderId}>#{order.id}</span>
-                {/* Le n° de facture est la référence que le client cite au téléphone */}
-                {/* Une tentative n'a pas de facture ; les plus anciennes ont reçu un
-                    numéro avant le correctif CLI-07 — il n'est pas affiché. */}
-                {order.invoice_number && !attemptsView && (
-                  <span className={s.invoiceNo}>{order.invoice_number}</span>
-                )}
+                {/* N° de commande = n° de facture, la référence que la cliente cite
+                    au téléphone. Une tentative de paiement n'a pas de facture : elle
+                    garde son identifiant (les plus anciennes ont reçu un numéro avant
+                    le correctif CLI-07 — il n'est pas affiché). */}
+                <span className={s.orderId}>{attemptsView ? `#${order.id}` : orderNumber(order)}</span>
               </div>
               <div className={s.customerCell}>
                 <span className={s.customerName}>{order.first_name} {order.last_name}</span>

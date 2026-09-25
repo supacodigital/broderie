@@ -557,3 +557,17 @@ describe('invoice.service — mention CHF alignée dans les totaux', () => {
     expect(new Set(calls).size).toBe(1);
   });
 });
+
+/* Numéro de commande = numéro de facture (25.09) : l'en-tête n'imprime plus
+   l'id interne « Commande n° 1042 », qui faisait un second numéro. */
+describe('invoice.service — un seul numéro sur la facture', () => {
+  test('le numéro de facture figure, l\'id interne de la commande non', async () => {
+    const text = extractPdfText(await generateInvoicePDF({
+      order: makeOrder({ invoice_number: '2026-09/22', invoice_seq: 22, user_id: 161 }),
+      user: makeUser(),
+    }));
+    expect(text).toContain('2026-09/22');
+    expect(text).not.toContain('Commande n°');
+    expect(text).not.toContain('1042');
+  });
+});

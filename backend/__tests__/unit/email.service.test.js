@@ -95,6 +95,15 @@ describe('email.service — sendOrderConfirmation()', () => {
     expect(mail.html).toContain('42');
   });
 
+  test('numéro de commande = numéro de facture quand elle en a un', async () => {
+    await service.sendOrderConfirmation({ user: fakeUser, order: { ...fakeOrder, invoice_number: '2026-09/22' } });
+
+    const mail = transporter.sendMail.mock.calls[0][0];
+    expect(mail.subject).toBe('Confirmation de votre commande 2026-09/22 — Au Point-Compté');
+    expect(mail.html).toContain('<strong>2026-09/22</strong>');
+    expect(mail.html).not.toContain('#42');
+  });
+
   test('inclut les articles avec leur prix', async () => {
     await service.sendOrderConfirmation({ user: fakeUser, order: fakeOrder });
 
@@ -303,6 +312,18 @@ describe('email.service — sendOrderShipped()', () => {
     expect(mail.html).toContain('post.ch');
   });
 
+  test('annonce la commande sous son numéro de facture', async () => {
+    await service.sendOrderShipped({
+      user:           fakeUser,
+      order:          { id: 42, invoice_number: '2026-09/22' },
+      trackingNumber: '99.00.123456.12345678',
+    });
+
+    const mail = transporter.sendMail.mock.calls[0][0];
+    expect(mail.subject).toBe('Votre commande 2026-09/22 est en route ! 📦');
+    expect(mail.html).not.toContain('#42');
+  });
+
   test('échappe le numéro de suivi (protection XSS)', async () => {
     await service.sendOrderShipped({
       user:           fakeUser,
@@ -397,20 +418,23 @@ describe('email.service — sendBackOfficeInvitation()', () => {
 describe('email.service — sendInvoice()', () => {
   const dueDate = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
 
-  test('joint la facture PDF en pièce jointe', async () => {
+  test('joint la facture PDF en pièce jointe, nommée d\'après le numéro de facture', async () => {
     const pdfBuffer = Buffer.from('%PDF-fake');
 
     await service.sendInvoice({
       user:  fakeUser,
-      order: { id: 42, total: 65.90 },
+      order: { id: 42, invoice_number: '2026-09/07', total: 65.90 },
       pdfBuffer,
       dueDate,
     });
 
     const mail = transporter.sendMail.mock.calls[0][0];
-    expect(mail.subject).toContain('#42');
+    // Numéro de commande = numéro de facture : l'id interne n'apparaît plus
+    expect(mail.subject).toContain('commande 2026-09/07');
+    expect(mail.subject).not.toContain('#42');
+    expect(mail.html).toContain('<strong>2026-09/07</strong>');
     expect(mail.attachments).toHaveLength(1);
-    expect(mail.attachments[0].filename).toBe('facture-42.pdf');
+    expect(mail.attachments[0].filename).toBe('facture-2026-09-07.pdf');
     expect(mail.attachments[0].contentType).toBe('application/pdf');
     expect(mail.attachments[0].content).toBe(pdfBuffer);
   });

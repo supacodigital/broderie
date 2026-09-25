@@ -1,6 +1,7 @@
 const PDFDocument  = require('pdfkit');
 const path          = require('path');
 const { roundCHF }  = require('../utils/chf.utils');
+const { orderNumber } = require('../utils/orderNumber.utils');
 
 const LOGO_PATH   = path.join(__dirname, '../assets/logo.png');
 const PAGE_MARGIN = 50;
@@ -109,7 +110,7 @@ const generateDataExportPDF = ({ data }) => {
           if (y > 700) { doc.addPage(); y = PAGE_MARGIN; }
           doc.rect(PAGE_MARGIN, y - 2, CONTENT_W, 20).fillColor(rowAlt).fill();
           doc.fontSize(9).fillColor(dark).font('Helvetica-Bold')
-             .text(`Commande #${o.id} — ${formatDate(o.created_at)}`, PAGE_MARGIN + 6, y + 2, { width: 300 });
+             .text(`Commande ${orderNumber(o)} — ${formatDate(o.created_at)}`, PAGE_MARGIN + 6, y + 2, { width: 300 });
           doc.fontSize(9).fillColor(rose).font('Helvetica-Bold')
              .text(`CHF ${roundCHF(parseFloat(o.total)).toFixed(2)}`, PAGE_MARGIN + 350, y + 2, { width: 139, align: 'right' });
           y += 20;

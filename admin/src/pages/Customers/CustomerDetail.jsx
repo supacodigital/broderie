@@ -15,6 +15,7 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import CopyButton from '../../components/ui/CopyButton/CopyButton.jsx'
 import CustomerIdentityForm from './CustomerIdentityForm.jsx'
 import CustomerAddressForm from './CustomerAddressForm.jsx'
+import { orderNumber } from '../../utils/orderNumber.js'
 import s from './CustomerDetail.module.css'
 
 /* Commandes qui ne comptent ni dans le total ni dans le panier moyen */
@@ -475,8 +476,8 @@ export default function CustomerDetail() {
                       data-muted={NOT_COUNTED.includes(o.status)}
                     >
                       <span className={s.orderRef}>
-                        <span className={s.orderId}>#{o.id}</span>
-                        {o.invoice_number && <span className={s.invoiceNo}>Facture {o.invoice_number}</span>}
+                        {/* N° de commande = n° de facture */}
+                        <span className={s.orderId}>{orderNumber(o)}</span>
                       </span>
                       <span className={s.orderDate}>{formatDate(o.created_at)}</span>
                       <span className={s.orderStatus}><StatusBadge status={o.status} /></span>

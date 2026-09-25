@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Package, ShoppingBag } from 'lucide-react'
 import Card from '../../components/ui/Card/Card.jsx'
 import { formatCHF, formatCents } from '../../utils/chf.js'
@@ -7,6 +8,27 @@ import s from './OrderItems.module.css'
 const snapshotOf = (item) => (typeof item.product_snapshot_json === 'string'
   ? JSON.parse(item.product_snapshot_json)
   : (item.product_snapshot_json ?? {}))
+
+/* Photo principale de l'article ; l'icône reste si le produit n'en a pas ou
+   si l'image ne se charge pas (fichier supprimé depuis la commande). */
+function ItemThumb({ src, name }) {
+  const [failed, setFailed] = useState(false)
+  if (!src || failed) {
+    return <span className={s.thumb} aria-hidden="true"><Package size={16} /></span>
+  }
+  return (
+    <img
+      className={s.thumbImg}
+      src={src}
+      alt={name}
+      width={48}
+      height={48}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+    />
+  )
+}
 
 /* Articles commandés et totaux, lus comme une facture : les lignes, puis
    sous-total, remise, livraison, TVA incluse et total. */
@@ -30,7 +52,7 @@ export default function OrderItems({ order }) {
           const onSale = comparePrice != null && comparePrice > unitPrice
           return (
             <li key={item.id} className={s.row}>
-              <span className={s.thumb} aria-hidden="true"><Package size={15} /></span>
+              <ItemThumb src={item.image_url} name={p.name ?? `Produit #${item.product_id}`} />
               <div className={s.info}>
                 <span className={s.name}>{p.name ?? `Produit #${item.product_id}`}</span>
                 <span className={s.meta}>

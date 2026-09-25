@@ -66,9 +66,10 @@ function Chip({ tone, children }) {
   return <span className={s.chip} data-tone={tone}>{children}</span>
 }
 
-function Fact({ label, children, sub }) {
+// `wide` : toute la largeur de la carte (référence QR, trop longue pour une colonne)
+function Fact({ label, children, sub, wide = false }) {
   return (
-    <div className={s.fact}>
+    <div className={`${s.fact} ${wide ? s.factWide : ''}`}>
       <dt className={s.factLabel}>{label}</dt>
       <dd className={s.factValue}>
         {children}
@@ -216,7 +217,7 @@ export default function PaymentDetails({ orderId, reloadKey }) {
             {data.invoice?.number && <Fact label="N° de facture">{data.invoice.number}</Fact>}
 
             {data.invoice?.qr_reference && (
-              <Fact label="Référence QR">
+              <Fact label="Référence QR" wide>
                 <span className={s.mono}>{formatQrReference(data.invoice.qr_reference)}</span>
                 <CopyButton text={data.invoice.qr_reference} label="Copier la référence QR" />
               </Fact>

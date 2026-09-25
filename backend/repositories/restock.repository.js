@@ -69,6 +69,8 @@ const itemsForSupplier = async (supplierId) => {
   const [demand] = await pool.query(
     `SELECT oi.product_id, SUM(oi.quantity) AS ordered_qty,
             GROUP_CONCAT(DISTINCT o.id ORDER BY o.id SEPARATOR ',') AS order_ids,
+            -- « id|n° de facture » : le n° affiché est celui de la facture
+            GROUP_CONCAT(DISTINCT CONCAT(o.id, '|', COALESCE(o.invoice_number, '')) ORDER BY o.id SEPARATOR ',') AS order_refs,
             MIN(o.created_at) AS first_order_at
      FROM order_items oi
      JOIN orders o   ON o.id = oi.order_id

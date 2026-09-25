@@ -73,6 +73,7 @@ const getSupplierItems = async (rawSupplierId) => {
       madeToOrder: !!p.is_made_to_order,
       orderedQty: 0,
       orderIds: [],
+      orders: [],
       firstOrderAt: null,
       /* Règle du stock minimum (ADM-09) : mini 10, stock 5 → 5 à commander.
          Même unité que le stock (centimètres pour la coupe). */
@@ -86,6 +87,11 @@ const getSupplierItems = async (rawSupplierId) => {
     ...line(d.product_id),
     orderedQty: Number(d.ordered_qty),
     orderIds: String(d.order_ids ?? '').split(',').filter(Boolean).map(Number),
+    // N° de commande affiché = n° de facture
+    orders: String(d.order_refs ?? '').split(',').filter(Boolean).map((ref) => {
+      const [id, invoiceNumber] = ref.split('|');
+      return { id: Number(id), number: invoiceNumber || `#${id}` };
+    }),
     firstOrderAt: d.first_order_at,
   }));
   const inDemand = new Set(items.map((i) => i.productId));
@@ -105,7 +111,7 @@ const buildSupplierCsv = async (rawSupplierId) => {
       i.sku ?? '',
       i.name,
       i.orderedQty ? lengthUtils.formatQuantity(product, i.orderedQty) : '',
-      i.orderIds.map((id) => `#${id}`).join(' '),
+      i.orders.map((o) => o.number).join(' '),
       lengthUtils.formatStock(product, i.stock),
       i.stockMin === null ? '' : lengthUtils.formatStock(product, i.stockMin),
       i.toOrder ? lengthUtils.formatStock(product, i.toOrder) : '',

@@ -305,8 +305,11 @@ const confirmQrPaymentReturn = async (intentId, clientSecret) => {
 
   if (intent.status === 'succeeded') await applySucceededIntent(intent);
 
+  // N° de commande affiché à la cliente = n° de facture (attribué au paiement)
+  const order = await orderRepository.findById(payment.order_id);
   return {
     orderId:       payment.order_id,
+    invoiceNumber: order?.invoice_number ?? null,
     // paid | processing | failed (refusé, abandonné, ou QR remplacé par un plus récent)
     paymentStatus: QR_RETURN_STATUSES[intent.status] ?? 'failed',
   };
@@ -553,6 +556,8 @@ const syncOrderPayment = async (orderId, userId) => {
     intentStatus,
     paymentMethod: method,
     total:         order.total,
+    // N° de commande affiché à la cliente = n° de facture (attribué au paiement)
+    invoiceNumber: order.invoice_number ?? null,
   };
 };
 

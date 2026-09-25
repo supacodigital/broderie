@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import OrderDetail from './OrderDetail.jsx'
@@ -106,5 +106,26 @@ describe('OrderDetail — Traitement', () => {
   it('facture papier demandée : rappel tant que le colis n\'est pas parti', async () => {
     await renderOrder({ ...ORDER, wants_printed_invoice: 1 })
     expect(traitement().getByText('Facture imprimée demandée')).toBeInTheDocument()
+  })
+})
+
+describe('OrderDetail — Articles', () => {
+  const item = (over = {}) => ({
+    id: 1, product_id: 506, quantity: 1, unit_price: '24.00', tax_rate_snapshot: '8.10',
+    product_snapshot_json: { name: 'Aïda 14 écru', sku: 'AIDA14' }, ...over,
+  })
+  const articles = () => within(screen.getByRole('region', { name: 'Articles' }))
+
+  it('affiche la photo principale de l\'article', async () => {
+    await renderOrder({ ...ORDER, items: [item({ image_url: '/uploads/products/aida-thumbnail.webp' })] })
+    expect(articles().getByRole('img', { name: 'Aïda 14 écru' })).toHaveAttribute('src', '/uploads/products/aida-thumbnail.webp')
+  })
+
+  it('sans photo, ou si elle ne se charge pas, l\'icône reste', async () => {
+    await renderOrder({ ...ORDER, items: [item({ image_url: null }), item({ id: 2, image_url: '/uploads/perdue.webp', product_snapshot_json: { name: 'Fil perdu' } })] })
+    expect(articles().queryByRole('img', { name: 'Aïda 14 écru' })).not.toBeInTheDocument()
+
+    fireEvent.error(articles().getByRole('img', { name: 'Fil perdu' }))
+    expect(articles().queryByRole('img', { name: 'Fil perdu' })).not.toBeInTheDocument()
   })
 })

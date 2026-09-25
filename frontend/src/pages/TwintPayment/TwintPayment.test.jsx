@@ -41,11 +41,12 @@ describe('TwintPayment — retour d\'un QR Twint payé depuis l\'e-mail', () => 
   beforeEach(() => { calls = [] })
 
   test('paiement reçu : confirmation, plus rien à régler, sans connexion', async () => {
-    confirmImpl = async () => ({ orderId: 93, paymentStatus: 'paid' })
+    confirmImpl = async () => ({ orderId: 93, invoiceNumber: '2026-09/05', paymentStatus: 'paid' })
     renderAt(RETURN_URL)
 
     expect(await screen.findByText('Paiement reçu, merci !')).toBeInTheDocument()
-    expect(screen.getByText(/commande n° 93 a bien été reçu/)).toBeInTheDocument()
+    // N° de commande = n° de facture (demande de la boutique, 25.09)
+    expect(screen.getByText(/commande 2026-09\/05 a bien été reçu/)).toBeInTheDocument()
     expect(screen.getByText(/plus rien à régler/)).toBeInTheDocument()
     expect(calls).toEqual([['pi_3Abc', 'pi_3Abc_secret_Xyz']])
   })

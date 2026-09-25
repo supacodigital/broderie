@@ -11,6 +11,7 @@ import { fetchDashboardStats } from '../../services/dashboard.service.js'
 import { STATUS_CFG } from '../../utils/orderStatus.js'
 import FeaturedShowcase from '../../components/FeaturedShowcase/FeaturedShowcase.jsx'
 import NoResultSearches from '../../components/NoResultSearches/NoResultSearches.jsx'
+import { orderNumber } from '../../utils/orderNumber.js'
 import s from './Dashboard.module.css'
 import { formatStock, stockInSaleUnit } from '../../utils/stock.js'
 
@@ -246,7 +247,7 @@ export default function Dashboard() {
                   ? <p className={s.emptyMsg}>Aucune commande pour l'instant.</p>
                   : orders.map(o => (
                       <div key={o.id} className={s.ordersRow}>
-                        <span className={s.orderId}>#{o.id}</span>
+                        <span className={s.orderId}>{orderNumber(o)}</span>
                         <div className={s.orderCustomer}>
                           <span className={s.orderName}>{o.customer_name}</span>
                           <span className={s.orderEmail}>{o.customer_email}</span>

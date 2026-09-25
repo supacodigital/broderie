@@ -191,7 +191,7 @@ const findByUserId = async (userId, { page = 1, limit = 20 }) => {
   const total = countRows[0].total;
 
   const [rows] = await pool.query(
-    `SELECT o.id, o.status, o.subtotal, o.shipping_cost, o.tax_amount, o.total,
+    `SELECT o.id, o.invoice_number, o.status, o.subtotal, o.shipping_cost, o.tax_amount, o.total,
             o.created_at, o.updated_at,
             COUNT(oi.id) AS items_count
      FROM orders o
@@ -211,7 +211,7 @@ const findByUserId = async (userId, { page = 1, limit = 20 }) => {
 // sans pagination, pour l'export RGPD/LPD des données personnelles.
 const findAllByUserIdWithItems = async (userId) => {
   const [orders] = await pool.execute(
-    `SELECT o.id, o.status, o.subtotal, o.discount, o.coupon_code,
+    `SELECT o.id, o.invoice_number, o.status, o.subtotal, o.discount, o.coupon_code,
             o.shipping_cost, o.tax_amount, o.total, o.qr_reference,
             o.created_at, o.updated_at,
             o.shipping_first_name, o.shipping_last_name, o.shipping_street, o.shipping_street_number,
@@ -304,10 +304,17 @@ const findById = async (orderId, userId = null) => {
      au mètre, le prix unitaire au tronçon — la facture en a besoin pour les
      comparer (CLI-14). weight_kg : poids déclaré sur l'étiquette La Poste —
      absent, chaque article y comptait pour le poids par défaut de 0.2 kg. */
+  /* image_url : miniature de la photo principale, pour reconnaître l'article
+     d'un coup d'œil dans l'admin. Sous-requête (et non jointure) : un produit
+     avec deux photos marquées principales ne doit pas dédoubler la ligne. */
   const [items] = await pool.execute(
     `SELECT oi.id, oi.product_id, oi.variant_id, oi.quantity,
             oi.unit_price, oi.tax_rate_snapshot, oi.product_snapshot_json,
-            p.sold_by_length, p.length_step_cm, p.weight_kg
+            p.sold_by_length, p.length_step_cm, p.weight_kg,
+            (SELECT COALESCE(pi.url_thumbnail, pi.url) FROM product_images pi
+             WHERE pi.product_id = oi.product_id
+             ORDER BY pi.is_primary DESC, pi.sort_order ASC, pi.id ASC
+             LIMIT 1) AS image_url
      FROM order_items oi
      LEFT JOIN products p ON p.id = oi.product_id
      WHERE oi.order_id = ?`,

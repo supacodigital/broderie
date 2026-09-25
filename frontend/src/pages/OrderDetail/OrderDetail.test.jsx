@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import OrderDetail from './OrderDetail.jsx'
@@ -44,9 +44,11 @@ describe('OrderDetail — facture d\'une commande payée', () => {
     downloadInvoice.mockResolvedValue()
     renderPage()
 
-    expect(await screen.findByRole('heading', { name: 'Facture' })).toBeInTheDocument()
-    expect(screen.getByText('2026-09/03')).toBeInTheDocument()
-    expect(screen.getByText('Payée le')).toBeInTheDocument()
+    // N° de commande = n° de facture
+    expect(await screen.findByRole('heading', { name: 'Commande 2026-09/03' })).toBeInTheDocument()
+    const invoiceCard = within(screen.getByRole('heading', { name: 'Facture' }).closest('section'))
+    expect(invoiceCard.getByText('2026-09/03')).toBeInTheDocument()
+    expect(invoiceCard.getByText('Payée le')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Télécharger le PDF' }))
     expect(downloadInvoice).toHaveBeenCalledWith(94)

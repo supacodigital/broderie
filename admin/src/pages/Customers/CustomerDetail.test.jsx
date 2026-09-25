@@ -82,12 +82,12 @@ describe('CustomerDetail — fiche client', () => {
     expect(within(kpis('Dernière commande')).getByText('il y a 3 jours')).toBeInTheDocument()
   })
 
-  it('chaque commande ouvre sa fiche, avec son n° de facture', async () => {
+  it('chaque commande ouvre sa fiche, désignée par son n° de facture', async () => {
     renderPage()
 
-    const row = await screen.findByRole('link', { name: /#81/ })
+    // N° de commande = n° de facture
+    const row = await screen.findByRole('link', { name: /2026-09\/02/ })
     expect(row).toHaveAttribute('href', '/commandes/81')
-    expect(within(row).getByText('Facture 2026-09/02')).toBeInTheDocument()
     expect(within(row).getByText('Facture à payer')).toBeInTheDocument()
   })
 

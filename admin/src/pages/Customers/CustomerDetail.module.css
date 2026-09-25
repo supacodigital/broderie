@@ -533,11 +533,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.invoiceNo {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
 
 .orderDate {
   grid-area: date;

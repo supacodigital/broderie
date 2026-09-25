@@ -44,7 +44,7 @@ export default function TwintPayment() {
 
   // loading | paid | processing | failed | invalid | error
   const [state,   setState]   = useState(complete ? 'loading' : 'invalid')
-  const [orderId, setOrderId] = useState(null)
+  const [orderNumber, setOrderNumber] = useState(null)
   const [message, setMessage] = useState('')
   const [attempt, setAttempt] = useState(0)
   // Une seule requête par vérification — React exécute les effets deux fois en développement
@@ -60,7 +60,8 @@ export default function TwintPayment() {
 
     confirmTwintQrReturn(payment.intent, payment.secret)
       .then((result) => {
-        setOrderId(result.orderId)
+        // N° de commande = n° de facture ; l'identifiant interne en repli
+        setOrderNumber(result.invoiceNumber ?? `#${result.orderId}`)
         setState(result.paymentStatus)
       })
       .catch((err) => {
@@ -103,7 +104,7 @@ export default function TwintPayment() {
             </div>
             <h1 className={s.title}>Paiement reçu, merci&nbsp;!</h1>
             <p className={s.text} role="status">
-              Votre paiement Twint pour la commande n°&nbsp;{orderId} a bien été reçu.
+              Votre paiement Twint pour la commande {orderNumber} a bien été reçu.
               Vous n'avez plus rien à régler pour cette commande.
             </p>
             <Link to="/" className={s.btn}>Retour à la boutique</Link>

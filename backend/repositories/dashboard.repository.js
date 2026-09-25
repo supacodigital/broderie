@@ -129,7 +129,7 @@ const getLowStock = async () => {
 
 const getRecentOrders = async () => {
   const [rows] = await pool.execute(
-    `SELECT o.id, o.status, o.total, o.created_at,
+    `SELECT o.id, o.invoice_number, o.status, o.total, o.created_at,
             u.first_name, u.last_name, u.email
      FROM orders o
      LEFT JOIN users u ON u.id = o.user_id

@@ -1018,7 +1018,7 @@ function StepCard({ orderId, total, onPaid, t }) {
 }
 
 /* ── Étape 3 : Confirmation ── */
-function StepConfirm({ orderId, paymentMethod, paymentPending = false, paid = false, t }) {
+function StepConfirm({ orderId, orderNumber, paymentMethod, paymentPending = false, paid = false, t }) {
   /* Message de bas de page adapté à la méthode de paiement */
   const isInvoice = paymentMethod === 'invoice_qr'
   const isPickup  = paymentMethod === 'pickup'
@@ -1028,11 +1028,12 @@ function StepConfirm({ orderId, paymentMethod, paymentPending = false, paid = fa
       <div className={s.confirmIcon}><Check size={36} /></div>
       <h1 className={s.confirmTitle}>{t('checkout.confirmTitle')}</h1>
       <p className={s.confirmSubtitle}>{t('checkout.confirmSubtitle')}</p>
-      {orderId && (
+      {/* N° de commande = n° de facture ; un paiement encore en validation n'en a pas */}
+      {orderId && orderNumber && (
         <p className={s.confirmRef}>
           {t('checkout.confirmOrderRef')} :{' '}
           <Link to={`/commandes/${orderId}`} className={s.confirmOrderLink}>
-            #{orderId}
+            {orderNumber}
           </Link>
         </p>
       )}
@@ -1103,6 +1104,8 @@ export default function Checkout() {
   const [billingAddress, setBillingAddress] = useState(null)
   /* Le numéro de l'URL de retour sert de secours : l'app Twint peut rouvrir le
      site dans un nouvel onglet, où sessionStorage est vide. */
+  // N° de commande affiché (= n° de facture), connu à la création ou au paiement
+  const [orderNumber,    setOrderNumber]    = useState(null)
   const [orderId,        setOrderId]        = useState(() => {
     return sessionStorage.getItem('checkout_order_id') || stripeReturn?.orderId || null
   })
@@ -1238,6 +1241,7 @@ export default function Checkout() {
         if (settled) {
           clearCheckoutSession()
           setPaymentMethod(result.paymentMethod)
+          setOrderNumber(result.invoiceNumber ?? null)
           setPaymentPending(result.orderStatus !== 'paid')
           setOrderPaid(result.orderStatus === 'paid')
           setStep(3)
@@ -1306,7 +1310,11 @@ export default function Checkout() {
      webhook — s'il arrive ensuite, il ne refait rien. */
   const finishPayment = () => {
     // Puis rechargement du panier : les articles payés en sont retirés
-    if (orderId) syncPayment(orderId).then(() => reloadCart()).catch(() => {})
+    if (orderId) {
+      syncPayment(orderId)
+        .then(result => { setOrderNumber(result?.invoiceNumber ?? null); reloadCart() })
+        .catch(() => {})
+    }
     clearCheckoutSession()
     setStep(3)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1403,6 +1411,8 @@ export default function Checkout() {
       const newOrderId = res.data?.id ?? res.data?.order_id ?? null
       const newTotal   = res.data?.total ?? 0
       setOrderId(newOrderId)
+      // Facture / retrait : numérotés dès la création ; carte / Twint au paiement
+      setOrderNumber(res.data?.invoice_number ?? null)
       setPaymentMethod(payment_method)
       setOrderTotal(newTotal)
       setSubtotalSnapshot(subtotal)
@@ -1483,7 +1493,7 @@ export default function Checkout() {
       )}
 
       {step === 3 && (
-        <StepConfirm orderId={orderId} paymentMethod={paymentMethod} paymentPending={paymentPending} paid={orderPaid} t={t} />
+        <StepConfirm orderId={orderId} orderNumber={orderNumber} paymentMethod={paymentMethod} paymentPending={paymentPending} paid={orderPaid} t={t} />
       )}
 
       {paymentCheck === 'done' && (step === 'twint' || step === 'card') && (

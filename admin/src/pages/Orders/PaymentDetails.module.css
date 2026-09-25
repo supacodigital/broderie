@@ -64,6 +64,7 @@
 }
 
 .fact { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.factWide { grid-column: 1 / -1; }
 
 .factLabel {
   font-size: 11px;
