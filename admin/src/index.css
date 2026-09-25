@@ -5,16 +5,26 @@
   --rose-dark:   #be185d;
   --rose-darker: #9d174d;
   --rose-pale:   #fdf2f8;
-  --rose-border: #fbcfe8;
+  /* Structure neutre, rose réservé aux accents (audit couleurs du 25.09) :
+     l'ancienne bordure rose #fbcfe8 n'offrait que 1,38:1 sur blanc — champs
+     presque invisibles, cartes fondues dans le fond. */
+  --border:       #dfe3e8;   /* cartes, séparations, boutons secondaires */
+  --field-border: #8b93a0;   /* contour des champs : 3,1:1 sur blanc (WCAG 1.4.11) */
+  --page-bg:      #f1f3f6;   /* fond des pages, neutre (était lavande #f8f5fb) */
   --text-dark:   #1f2937;
-  --text-muted:  #6b7280;
+  /* 5,2:1 sur le fond de page (#6b7280 n'y faisait que 4,35:1) */
+  --text-muted:  #5f6673;
   /* Texte secondaire lisible sur fond teinté (AA sur --rose-pale) */
   --text-secondary: #4b5563;
   /* Avertissement (ambre) — texte AA sur fond clair */
   --warning-text: #92400e;
   --warning-bg:   #fffbeb;
+  --warning-border: #fde68a;
+  /* Information (bleu) — texte AA sur son fond (promotion programmée…) */
+  --info-text: #1d4ed8;
+  --info-bg:   #eff6ff;
   /* Erreur (rouge) — texte AA sur fond clair */
-  --danger-text:   #dc2626;
+  --danger-text:   #b91c1c;   /* 5,9:1 sur --danger-bg (l'ancien rouge #dc2626 : 4,4:1) */
   --danger-bg:     #fef2f2;
   --danger-border: #fecaca;
   /* Succès (vert) — texte AA sur fond clair */
@@ -36,7 +46,7 @@ body {
   font-family: 'Inter', system-ui, sans-serif;
   font-size: 14px;
   color: var(--text-dark);
-  background: #f8fafc;
+  background: var(--page-bg);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -48,4 +58,4 @@ input, select, textarea { font-family: inherit; }
 /* Scrollbar légère */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--rose-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }

@@ -15,7 +15,7 @@
 
 .input {
   padding: 9px 12px;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--field-border);
   border-radius: 8px;
   font-size: 13px;
   color: var(--text-dark);
@@ -24,7 +24,7 @@
   transition: border-color .15s ease;
 }
 
-.input:focus-visible { border-color: var(--rose); }
+.input:focus-visible { border-color: var(--rose-dark); }
 /* Un champ en erreur le reste, même sous le focus */
 .inputError,
 .inputError:focus-visible { border-color: var(--danger-text); }
@@ -63,7 +63,7 @@
 
 .btnCancel {
   background: none;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--border);
   color: var(--text-muted);
 }
 

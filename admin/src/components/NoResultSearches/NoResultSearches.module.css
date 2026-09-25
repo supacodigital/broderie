@@ -4,7 +4,7 @@
 
 .card {
   background: #fff;
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
@@ -15,7 +15,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 18px 20px 14px;
-  border-bottom: 1px solid var(--rose-border);
+  border-bottom: 1px solid var(--border);
   gap: 8px;
 }
 
@@ -35,7 +35,7 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;
   color: var(--text-muted);
@@ -133,7 +133,7 @@
 .retry {
   margin-top: 8px;
   padding: 6px 12px;
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--border);
   border-radius: 8px;
   background: #fff;
   font-size: 12px;

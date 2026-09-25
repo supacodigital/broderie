@@ -43,7 +43,7 @@
   align-items: center;
   gap: 5px;
   padding: 5px 10px;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--border);
   border-radius: 7px;
   background: #fff;
   color: var(--rose-dark);
@@ -159,7 +159,7 @@
   font-weight: 600;
   color: var(--rose-dark);
   text-decoration: underline;
-  text-decoration-color: var(--rose-border);
+  text-decoration-color: var(--border);
   text-underline-offset: 3px;
   transition: text-decoration-color .15s ease;
 }

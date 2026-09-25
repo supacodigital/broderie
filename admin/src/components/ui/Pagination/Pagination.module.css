@@ -39,7 +39,7 @@
   min-width: 32px;
   height: 32px;
   padding: 0 6px;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--border);
   border-radius: 8px;
   background: #fff;
   color: var(--text-dark);
@@ -65,8 +65,8 @@
 }
 
 .pageNumActive {
-  background: var(--rose);
-  border-color: var(--rose);
+  background: var(--rose-dark);
+  border-color: var(--rose-dark);
   color: #fff;
   font-weight: 600;
   cursor: default;
@@ -91,7 +91,7 @@
 .jumpInput {
   width: 62px;
   padding: 6px 8px;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--field-border);
   border-radius: 8px;
   background: #fff;
   font-size: 13px;
@@ -99,7 +99,7 @@
   text-align: center;
   transition: border-color 150ms ease-out;
 }
-.jumpInput:focus { outline: none; border-color: var(--rose); }
+.jumpInput:focus { outline: none; border-color: var(--rose-dark); }
 
 /* Masque les flèches natives du champ number, qui n'apportent rien ici */
 .jumpInput::-webkit-outer-spin-button,

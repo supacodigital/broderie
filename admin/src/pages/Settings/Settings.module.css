@@ -18,7 +18,7 @@
   flex-direction: column;
   gap: 4px;
   background: #fff;
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 8px;
   box-shadow: var(--shadow);
@@ -68,7 +68,8 @@
   font-weight: 400;
   line-height: 1.2;
 }
-.tabActive .tabDesc { color: var(--rose-dark); opacity: 0.75; }
+/* Pleine opacité : à 75 %, le sous-titre tombait à 3,8:1 */
+.tabActive .tabDesc { color: var(--rose-dark); }
 
 .tabContent { display: flex; flex-direction: column; gap: 20px; }
 
@@ -88,7 +89,7 @@
 /* ── Section ── */
 .section {
   background: #fff;
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
   box-shadow: var(--shadow);
@@ -96,7 +97,7 @@
 
 .sectionHead {
   padding: 20px 24px 16px;
-  border-bottom: 1px solid var(--rose-border);
+  border-bottom: 1px solid var(--border);
   background: #fafafa;
 }
 
@@ -142,7 +143,7 @@
 }
 
 /* Message d'erreur du serveur, à côté du bouton d'enregistrement */
-.errText { font-size: 12px; color: #dc2626; }
+.errText { font-size: 12px; color: #b91c1c; }
 
 /* Aperçu : montre le rendu réel sans avoir à ouvrir la boutique */
 .bannerPreview { margin-top: 16px; }
@@ -161,7 +162,7 @@
 .bannerPreviewBar {
   padding: 9px 16px;
   border-radius: 6px;
-  background: var(--rose);
+  background: var(--rose-dark);
   color: #fff;
   font-size: 13px;
   line-height: 1.4;
@@ -173,7 +174,7 @@
 /* ── Inputs ── */
 .input {
   padding: 9px 12px;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--field-border);
   border-radius: 8px;
   font-size: 13px;
   color: var(--text-dark);
@@ -182,7 +183,7 @@
   transition: border-color .2s;
   width: 100%;
 }
-.input:focus  { border-color: var(--rose); }
+.input:focus  { border-color: var(--rose-dark); }
 .inputError   { border-color: #ef4444; }
 
 .inputWrap { position: relative; display: flex; align-items: center; }
@@ -210,7 +211,7 @@
 
 .textarea {
   padding: 10px 12px;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--field-border);
   border-radius: 8px;
   font-size: 13px;
   color: var(--text-dark);
@@ -223,7 +224,7 @@
   line-height: 1.5;
   width: 100%;
 }
-.textarea:focus { border-color: var(--rose); }
+.textarea:focus { border-color: var(--rose-dark); }
 
 /* Texte actuellement envoyé, sous un champ de texte d'e-mail (CLI-11) */
 .currentText {
@@ -282,7 +283,7 @@
   align-items: center;
   gap: 6px;
   padding: 9px 18px;
-  background: var(--rose);
+  background: var(--rose-dark);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -290,7 +291,7 @@
   font-weight: 600;
   transition: background .15s;
 }
-.btnSave:hover:not(:disabled) { background: var(--rose-dark); }
+.btnSave:hover:not(:disabled) { background: var(--rose-darker); }
 .btnSave:disabled { opacity: .6; cursor: not-allowed; }
 
 /* Action secondaire (ajouter une tranche) — calée à gauche, avant l'enregistrement */
@@ -302,7 +303,7 @@
   padding: 8px 14px;
   background: none;
   color: var(--rose-dark);
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
@@ -319,16 +320,16 @@
   gap: 5px;
   font-size: 12px;
   font-weight: 600;
-  color: #059669;
+  color: #047857;
   animation: fadeIn .2s ease;
 }
 
-.saveFeedbackError { color: #dc2626; }
+.saveFeedbackError { color: #b91c1c; }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
 /* ── Error banner ── */
-.errorBanner { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #d97706; background: #fffbeb; border: 1px solid #fde68a; border-radius: 9px; padding: 10px 16px; margin-bottom: 16px; }
+.errorBanner { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 9px; padding: 10px 16px; margin-bottom: 16px; }
 .retryBtn { background: none; border: none; font-size: 13px; font-weight: 600; color: var(--rose-dark); text-decoration: underline; cursor: pointer; padding: 0; }
 
 /* ── Skeleton ── */
@@ -337,7 +338,7 @@
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 /* ── Tableau frais de port ── */
-.shippingTable { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--rose-border); border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
+.shippingTable { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
 
 .shippingHead {
   display: grid;
@@ -345,7 +346,7 @@
   gap: 12px;
   padding: 9px 14px;
   background: #fafafa;
-  border-bottom: 1px solid var(--rose-border);
+  border-bottom: 1px solid var(--border);
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
@@ -374,7 +375,7 @@
 .btnIconDanger {
   display: inline-flex; align-items: center; justify-content: center;
   width: 32px; height: 32px;
-  border: 1px solid var(--rose-border); border-radius: 8px;
+  border: 1px solid var(--border); border-radius: 8px;
   background: none; color: var(--text-muted); cursor: pointer;
   transition: color .15s, border-color .15s;
 }
@@ -430,13 +431,13 @@
   gap: 12px;
   padding: 14px;
   background: var(--rose-pale);
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--border);
   border-radius: 10px;
   margin-bottom: 16px;
 }
 .mfaStatusLabel { font-size: 14px; font-weight: 600; color: var(--text-dark); margin-bottom: 2px; }
-.mfaEnabledIcon  { color: #059669; flex-shrink: 0; margin-top: 1px; }
-.mfaDisabledIcon { color: #dc2626; flex-shrink: 0; margin-top: 1px; }
+.mfaEnabledIcon  { color: #047857; flex-shrink: 0; margin-top: 1px; }
+.mfaDisabledIcon { color: #b91c1c; flex-shrink: 0; margin-top: 1px; }
 
 /* Pastille « modifications non enregistrées » sur l'onglet concerné —
    reste visible après l'avoir quitté, pour ne pas oublier d'y revenir. */

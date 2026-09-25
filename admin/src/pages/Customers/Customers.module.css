@@ -26,18 +26,18 @@
 .searchInput {
   width: 100%;
   padding: 9px 14px 9px 34px;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--field-border);
   border-radius: 9px;
   font-size: 13px;
   outline: none;
   transition: border-color .2s;
 }
 
-.searchInput:focus { border-color: var(--rose); }
+.searchInput:focus { border-color: var(--rose-dark); }
 
 .card {
   background: #fff;
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
   box-shadow: var(--shadow);
@@ -58,7 +58,7 @@
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: .04em;
-  border-bottom: 1px solid var(--rose-border);
+  border-bottom: 1px solid var(--border);
   background: #fafafa;
 }
 
@@ -81,7 +81,7 @@
   width: 32px;
   height: 32px;
   background: var(--rose-pale);
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--border);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -149,7 +149,7 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #d97706;
+  color: #b45309;
   background: #fffbeb;
   border: 1px solid #fde68a;
   border-radius: 9px;

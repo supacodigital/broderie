@@ -33,7 +33,7 @@
 .textarea {
   width: 100%;
   padding: 8px 11px;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--field-border);
   border-radius: 8px;
   font-size: 13px;
   color: var(--text-dark);
@@ -45,7 +45,7 @@
 .textarea { resize: vertical; margin-bottom: 4px; }
 
 .select:focus-visible,
-.textarea:focus-visible { border-color: var(--rose); }
+.textarea:focus-visible { border-color: var(--rose-dark); }
 
 .btnSave {
   display: inline-flex;

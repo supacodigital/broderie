@@ -14,7 +14,7 @@
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--rose-pale);
-  box-shadow: inset 0 0 0 1.5px var(--rose-border);
+  box-shadow: inset 0 0 0 1.5px var(--border);
   color: var(--rose-dark);
   font-size: 14px;
   font-weight: 700;
@@ -31,7 +31,7 @@
 
 a.name {
   text-decoration: underline;
-  text-decoration-color: var(--rose-border);
+  text-decoration-color: var(--border);
   text-underline-offset: 3px;
   transition: color .15s ease, text-decoration-color .15s ease;
 }
@@ -65,7 +65,7 @@ a.name {
   color: var(--text-dark);
   overflow-wrap: anywhere;
   text-decoration: underline;
-  text-decoration-color: var(--rose-border);
+  text-decoration-color: var(--border);
   text-underline-offset: 3px;
   transition: text-decoration-color .15s ease;
 }

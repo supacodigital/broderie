@@ -25,7 +25,7 @@
   right: calc(-50% + 17px);
   height: 2px;
   border-radius: 2px;
-  background: var(--rose-border);
+  background: var(--border);
 }
 
 .step[data-state="done"]:not(:last-child)::after { background: var(--success-text); }
@@ -39,7 +39,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 2px solid var(--rose-border);
+  border: 2px solid var(--border);
   background: #fff;
   color: var(--text-muted);
   font-size: 12px;

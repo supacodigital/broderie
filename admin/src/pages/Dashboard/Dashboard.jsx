@@ -68,7 +68,7 @@ function KpiCard({ icon: Icon, label, value, trend, trendLabel, sub, subColor, l
       }
       <div className={s.kpiBottom}>
         {trend !== null && trend !== undefined && !loading && (
-          <span className={s.kpiTrend} style={{ color: up ? '#10b981' : '#ef4444' }}>
+          <span className={s.kpiTrend} style={{ color: up ? '#047857' : '#ef4444' }}>
             {up ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
             {up ? '+' : ''}{trend}% {trendLabel}
           </span>
@@ -177,7 +177,7 @@ export default function Dashboard() {
           trend={stats.orders_trend}
           trendLabel="vs semaine passée"
           sub={stats.orders_pending > 0 ? `${stats.orders_pending} en attente` : null}
-          subColor="#d97706"
+          subColor="#b45309"
           loading={loading}
         />
         {/* Encours : montant facturé non encaissé. Distinct du CA, qui ne compte que
@@ -193,7 +193,7 @@ export default function Dashboard() {
                 ? `${stats.invoices_unpaid} facture${stats.invoices_unpaid > 1 ? 's' : ''} en attente`
                 : 'Rien à encaisser'
           }
-          subColor={stats.invoices_overdue > 0 ? '#dc2626' : stats.invoices_unpaid > 0 ? '#d97706' : '#10b981'}
+          subColor={stats.invoices_overdue > 0 ? '#b91c1c' : stats.invoices_unpaid > 0 ? '#b45309' : '#047857'}
           loading={loading}
         />
         <KpiCard
@@ -209,7 +209,7 @@ export default function Dashboard() {
           label="Note moyenne"
           value={stats.rating_avg ? `${stats.rating_avg} / 5` : '—'}
           sub={stats.rating_pending > 0 ? `${stats.rating_pending} avis en attente` : 'Aucun avis en attente'}
-          subColor={stats.rating_pending > 0 ? '#d97706' : '#10b981'}
+          subColor={stats.rating_pending > 0 ? '#b45309' : '#047857'}
           loading={loading}
         />
       </div>
@@ -352,7 +352,7 @@ export default function Dashboard() {
                           </div>
                           <div className={s.stockInfo}>
                             <span className={s.stockName}>{item.name}</span>
-                            <span className={s.stockQtyLabel} style={{ color: item.urgent ? '#dc2626' : '#d97706' }}>
+                            <span className={s.stockQtyLabel} style={{ color: item.urgent ? '#b91c1c' : '#b45309' }}>
                               <AlertTriangle size={10} /> {item.sold_by_length
                                 ? `${formatStock(item)} restant${stockInSaleUnit(item) > 1 ? 's' : ''}`
                                 : `${item.stock} unité${item.stock > 1 ? 's' : ''} restante${item.stock > 1 ? 's' : ''}`}
@@ -378,7 +378,7 @@ export default function Dashboard() {
                 <p className={s.cardSub}>7 derniers mois</p>
               </div>
               {!loading && stats.revenue_trend !== null && stats.revenue_trend !== undefined && (
-                <span className={s.trendPill} style={{ color: stats.revenue_trend >= 0 ? '#10b981' : '#ef4444', background: stats.revenue_trend >= 0 ? '#ecfdf5' : '#fef2f2' }}>
+                <span className={s.trendPill} style={{ color: stats.revenue_trend >= 0 ? '#047857' : '#ef4444', background: stats.revenue_trend >= 0 ? '#ecfdf5' : '#fef2f2' }}>
                   {stats.revenue_trend >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
                   {stats.revenue_trend >= 0 ? '+' : ''}{stats.revenue_trend}%
                 </span>
@@ -443,7 +443,7 @@ export default function Dashboard() {
                 <AlertTriangle size={15} />
                 <span>Stock critique</span>
                 {lowStock.length > 0 && (
-                  <span className={s.quickBadge} style={{ background: '#fef2f2', color: '#dc2626' }}>
+                  <span className={s.quickBadge} style={{ background: '#fef2f2', color: '#b91c1c' }}>
                     {lowStock.length}
                   </span>
                 )}

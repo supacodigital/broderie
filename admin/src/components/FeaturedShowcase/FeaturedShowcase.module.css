@@ -7,7 +7,7 @@
    de ce qui le précède sans laisser de vide sous lui. */
 .featuredBar {
   background: #fff;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--border);
   border-radius: 12px;
   padding: 16px 20px;
   margin-top: 20px;
@@ -71,7 +71,7 @@
   gap: 4px;
   font-size: 11px;
   font-weight: 600;
-  color: #d97706;
+  color: #b45309;
 }
 
 .featuredBarHint {
@@ -88,7 +88,7 @@
   gap: 5px;
   margin-left: auto;
   padding: 5px 12px;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--border);
   border-radius: 6px;
   background: #fff;
   font-size: 12px;
@@ -120,7 +120,7 @@
 
 .featuredSlot {
   position: relative;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
   background: var(--rose-pale);
@@ -165,7 +165,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  background: var(--rose);
+  background: var(--rose-dark);
   color: #fff;
   padding: 2px 6px;
   border-radius: 3px;
@@ -224,7 +224,7 @@
   width: 22px;
   height: 22px;
   border-radius: 4px;
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--border);
   background: #fff;
   cursor: pointer;
   transition: background .15s, border-color .15s, color .15s;
@@ -312,7 +312,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 18px 20px 14px;
-  border-bottom: 1px solid var(--rose-border);
+  border-bottom: 1px solid var(--border);
 }
 
 .pickerTitle {
@@ -353,7 +353,7 @@
   display: flex;
   gap: 10px;
   padding: 14px 20px;
-  border-bottom: 1px solid var(--rose-border);
+  border-bottom: 1px solid var(--border);
 }
 
 .pickerSearchWrap { position: relative; flex: 1; }
@@ -369,14 +369,14 @@
 .pickerSearchField {
   width: 100%;
   padding: 9px 34px 9px 34px;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--field-border);
   border-radius: 9px;
   font-size: 13px;
   color: var(--text-dark);
   outline: none;
   transition: border-color 150ms ease-out;
 }
-.pickerSearchField:focus { border-color: var(--rose); }
+.pickerSearchField:focus { border-color: var(--rose-dark); }
 
 .pickerSearchClear {
   position: absolute;
@@ -393,7 +393,7 @@
 .pickerSelect {
   max-width: 220px;
   padding: 9px 10px;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--field-border);
   border-radius: 9px;
   background: #fff;
   font-size: 13px;
@@ -402,7 +402,7 @@
   outline: none;
   transition: border-color 150ms ease-out;
 }
-.pickerSelect:focus { border-color: var(--rose); }
+.pickerSelect:focus { border-color: var(--rose-dark); }
 
 .pickerBody {
   flex: 1;
@@ -424,7 +424,7 @@
   width: 100%;
   padding: 0 0 8px;
   background: #fff;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
   text-align: left;
@@ -486,7 +486,7 @@
   color: var(--text-muted);
 }
 
-.pickerOut { color: #dc2626; font-weight: 600; }
+.pickerOut { color: #b91c1c; font-weight: 600; }
 
 .pickerHint {
   padding: 48px 0;
@@ -497,7 +497,7 @@
 
 .pickerFoot {
   padding: 12px 20px;
-  border-top: 1px solid var(--rose-border);
+  border-top: 1px solid var(--border);
   background: #fafafa;
   font-size: 12px;
   color: var(--text-muted);

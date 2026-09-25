@@ -38,7 +38,7 @@
   width: 48px;
   height: 48px;
   background: var(--rose-pale);
-  border: 2px solid var(--rose-border);
+  border: 2px solid var(--border);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -66,7 +66,7 @@
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   background: var(--rose-pale);
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--border);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
@@ -94,7 +94,7 @@
   gap: 6px;
   padding: 9px;
   background: #fff;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--border);
   border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
@@ -126,7 +126,7 @@
 .continueBtn {
   width: 100%;
   padding: 13px;
-  background: var(--rose);
+  background: var(--rose-dark);
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -135,7 +135,7 @@
   transition: background 160ms ease-out, transform 160ms ease-out;
 }
 
-.continueBtn:hover:not(:disabled) { background: var(--rose-dark); }
+.continueBtn:hover:not(:disabled) { background: var(--rose-darker); }
 .continueBtn:active:not(:disabled) { transform: scale(0.98); }
 .continueBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 

@@ -2,7 +2,7 @@
 .form {
   padding: 16px 18px 18px;
   background: var(--rose-pale);
-  border-bottom: 1px solid var(--rose-border);
+  border-bottom: 1px solid var(--border);
 }
 
 .grid {
@@ -32,7 +32,7 @@
   width: 100%;
   min-width: 0;
   padding: 8px 11px;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--field-border);
   border-radius: 8px;
   font-size: 13px;
   color: var(--text-dark);
@@ -41,7 +41,7 @@
   transition: border-color .15s ease;
 }
 
-.input:focus-visible { border-color: var(--rose); }
+.input:focus-visible { border-color: var(--rose-dark); }
 /* Un champ en erreur le reste, même sous le focus */
 .inputError,
 .inputError:focus-visible { border-color: var(--danger-text); }
@@ -98,7 +98,7 @@
 
 .btnCancel {
   background: #fff;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--border);
   color: var(--text-muted);
 }
 

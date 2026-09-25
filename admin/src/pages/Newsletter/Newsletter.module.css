@@ -17,7 +17,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: var(--rose);
+  background: var(--rose-dark);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -27,7 +27,7 @@
   transition: background .15s;
   white-space: nowrap;
 }
-.exportBtn:hover { background: var(--rose-dark); }
+.exportBtn:hover { background: var(--rose-darker); }
 
 /* ── Toolbar ── */
 .toolbar {
@@ -42,7 +42,7 @@
 .tabs {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid var(--rose-border);
+  border-bottom: 1px solid var(--border);
 }
 
 .tab {
@@ -74,7 +74,7 @@
 }
 .searchInput {
   padding: 8px 12px 8px 32px;
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--field-border);
   border-radius: 8px;
   font-size: 13px;
   color: var(--text-dark);
@@ -83,7 +83,7 @@
   width: 240px;
   transition: border-color .15s;
 }
-.searchInput:focus { border-color: var(--rose); }
+.searchInput:focus { border-color: var(--rose-dark); }
 
 /* ── Tableau ── */
 .table { display: flex; flex-direction: column; gap: 4px; }
@@ -105,7 +105,7 @@
   align-items: center;
   padding: 12px 16px;
   background: #fff;
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--border);
   border-radius: 10px;
   font-size: 13px;
   color: var(--text-dark);
@@ -133,7 +133,7 @@
   font-size: 11px;
   font-weight: 600;
 }
-.badgeActive   { color: #059669; background: #ecfdf5; }
+.badgeActive   { color: #047857; background: #ecfdf5; }
 .badgeInactive { color: #6b7280; background: #f3f4f6; }
 
 .actions { display: flex; justify-content: flex-end; }
@@ -149,7 +149,7 @@
   cursor: pointer;
   transition: background .15s, color .15s;
 }
-.deleteBtn:hover { background: #fef2f2; color: #dc2626; }
+.deleteBtn:hover { background: #fef2f2; color: #b91c1c; }
 
 .empty {
   padding: 40px;

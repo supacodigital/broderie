@@ -9,7 +9,7 @@
 .shell {
   display: flex;
   min-height: 100vh;
-  background: #f8f5fb;
+  background: var(--page-bg);
 }
 
 /* ── Sidebar ── */
@@ -44,7 +44,7 @@
   font-weight: 700;
   letter-spacing: .18em;
   text-transform: uppercase;
-  color: rgba(255,255,255,.35);
+  color: rgba(255,255,255,0.55);
   margin-top: 6px;
 }
 
@@ -52,7 +52,7 @@
   display: none;
   background: none;
   border: none;
-  color: rgba(255,255,255,.5);
+  color: rgba(255,255,255,0.55);
   padding: 4px;
   cursor: pointer;
   position: absolute;
@@ -73,7 +73,7 @@
   font-weight: 700;
   letter-spacing: .14em;
   text-transform: uppercase;
-  color: rgba(255,255,255,.28);
+  color: rgba(255,255,255,0.55);
   padding: 4px 8px 8px;
 }
 
@@ -92,7 +92,7 @@
   gap: 10px;
   padding: 9px 10px;
   border-radius: 8px;
-  color: rgba(255,255,255,.55);
+  color: rgba(255,255,255,0.55);
   font-size: 13px;
   font-weight: 500;
   transition: background .15s, color .15s;
@@ -102,7 +102,7 @@
 
 .navLink:hover {
   background: var(--sidebar-hover);
-  color: rgba(255,255,255,.9);
+  color: rgba(255,255,255,0.9);
 }
 
 .navLink.active {
@@ -118,7 +118,7 @@
 
 /* Badge numérique sur les nav items */
 .navBadge {
-  background: var(--rose);
+  background: var(--rose-dark);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -168,14 +168,14 @@
 
 .userRole {
   font-size: 10px;
-  color: rgba(255,255,255,.4);
+  color: rgba(255,255,255,0.55);
   text-transform: capitalize;
 }
 
 .logoutBtn {
   background: none;
   border: none;
-  color: rgba(255,255,255,.35);
+  color: rgba(255,255,255,0.55);
   padding: 6px;
   border-radius: 6px;
   transition: color .15s, background .15s;
@@ -203,7 +203,7 @@
 .header {
   height: var(--header-h);
   background: #fff;
-  border-bottom: 1px solid var(--rose-border);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   padding: 0 24px;
@@ -242,7 +242,7 @@
   gap: 6px;
   padding: 8px 14px;
   background: #fff;
-  border: 1.5px solid var(--rose-border);
+  border: 1.5px solid var(--border);
   border-radius: 8px;
   color: var(--text-dark);
   font-size: 13px;
@@ -263,7 +263,7 @@
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: var(--rose);
+  background: var(--rose-dark);
   border: none;
   border-radius: 8px;
   color: #fff;
@@ -274,7 +274,7 @@
   white-space: nowrap;
 }
 
-.newProductBtn:hover { background: var(--rose-dark); }
+.newProductBtn:hover { background: var(--rose-darker); }
 
 /* Cloche notifications */
 .notifBtn {
@@ -354,7 +354,7 @@
   right: 0;
   width: 300px;
   background: #fff;
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 8px 32px rgba(0,0,0,.12);
   z-index: 300;
@@ -366,7 +366,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--rose-border);
+  border-bottom: 1px solid var(--border);
   font-size: 13px;
   font-weight: 600;
   color: var(--text-dark);
