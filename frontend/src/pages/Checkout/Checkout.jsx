@@ -1075,12 +1075,18 @@ export default function Checkout() {
   const { user, isAuthenticated }                    = useAuth()
 
   /* Retour d'une redirection Stripe (app Twint, 3-D Secure) : l'URL porte le
-     numéro de commande et l'issue annoncée. Lu une seule fois, au chargement. */
+     numéro de commande et l'issue annoncée. Lu une seule fois, au chargement.
+     Certains retours ne portent que `payment_intent`, sans `redirect_status`
+     (audit du 25.09 : 3-D Secure rouvert dans un nouvel onglet) — la page
+     reprenait alors la caisse à l'adresse pour une commande déjà payée. Le
+     serveur connaît l'issue : on la lui demande dans les deux cas. */
   const [stripeReturn] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     const order = params.get('order')
     const redirectStatus = params.get('redirect_status')
-    return order && redirectStatus ? { orderId: order, redirectStatus } : null
+    return order && (redirectStatus || params.get('payment_intent'))
+      ? { orderId: order, redirectStatus: redirectStatus ?? 'unknown' }
+      : null
   })
 
   /* Restauration depuis sessionStorage après refresh à l'étape paiement */
