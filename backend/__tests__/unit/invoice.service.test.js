@@ -275,9 +275,11 @@ describe('invoice.service — mentions légales de la facture', () => {
   });
 });
 
-/* ADM-13 — raison individuelle : la cliente veut son nom et son N° TVA sur la
-   facture, saisis dans Paramètres → Facturation. */
-describe('invoice.service — titulaire et N° TVA (ADM-13)', () => {
+/* Réglages saisis dans Paramètres → Facturation.
+   ADM-13 — raison individuelle : la cliente veut son nom et son N° TVA sur la
+   facture. Le délai de paiement doit aussi être celui de l'admin, comme dans
+   l'e-mail qui accompagne la facture. */
+describe('invoice.service — réglages de facturation de l\'admin', () => {
   const ORDER = {
     id: 32, user_id: 161, created_at: new Date('2026-09-14'),
     invoice_number: '2026-000032', invoice_seq: 32,
@@ -293,6 +295,13 @@ describe('invoice.service — titulaire et N° TVA (ADM-13)', () => {
   test('imprime le titulaire, l\'adresse et le N° TVA saisis', async () => {
     const text = extractPdfText(await generateInvoicePDF({ order: ORDER, user: makeUser(), settings: SETTINGS }));
     expect(text).toMatch(/Au Point-Compté\s+Julie Guerle\s+Chemin du Collège 6 · 1509 Vucherens\s+N° TVA : CHE-201\.783\.009 TVA/);
+  });
+
+  test('le délai de paiement saisi dans l\'admin figure sur la facture', async () => {
+    const text = extractPdfText(await generateInvoicePDF({ order: ORDER, user: makeUser(), settings: { ...SETTINGS, dueDays: 20 } }));
+    expect(text).toContain('Échéance : paiement sous 20 jours');
+    expect(text).toContain('avec votre application bancaire, sous 20 jours.');
+    expect(text).not.toContain('30 jours');
   });
 
   test('sans titulaire saisi, aucune ligne vide ni valeur inventée', async () => {

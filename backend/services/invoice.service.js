@@ -232,7 +232,9 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
       doc.on('error', reject);
 
       const { rose, roseLight, dark, muted, border, rowAlt } = COLORS;
-      const dueDays = env.invoiceDueDays || 30;
+      /* Délai saisi dans Paramètres → Facturation, comme l'échéance de l'e-mail :
+         lu dans la seule configuration serveur, il pouvait contredire l'e-mail. */
+      const dueDays = issuer.dueDays;
 
       // ── En-tête : logo + bloc FACTURE ──────────────────────────
       // Logo redimensionné à une hauteur fixe, ratio préservé (source 2720×1360)
