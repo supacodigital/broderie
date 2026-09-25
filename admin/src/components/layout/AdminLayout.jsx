@@ -36,14 +36,14 @@ import { getProducts } from "../../services/products.service.js";
 import s from "./AdminLayout.module.css";
 
 /* Construit les items nav avec badges dynamiques */
-function buildNavMain(pendingOrders, pendingReviews) {
+function buildNavMain(newOrders, pendingReviews) {
   return [
     { to: "/dashboard", icon: LayoutDashboard, label: "Tableau de bord" },
     {
       to: "/commandes",
       icon: ShoppingCart,
       label: "Commandes",
-      badge: pendingOrders || null,
+      badge: newOrders || null,
     },
     // Suivi des factures QR payées / à payer / en retard (ADM-09)
     { to: "/factures", icon: Receipt, label: "Factures" },
@@ -194,7 +194,7 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [pendingOrders, setPendingOrders] = useState(0);
+  const [newOrders, setNewOrders] = useState(0);
   const [pendingReviews, setPendingReviews] = useState(0);
   const [lowStock, setLowStock] = useState(0);
 
@@ -211,14 +211,15 @@ export default function AdminLayout() {
     async function fetchBadges() {
       try {
         const [ordersRes, reviewsRes, stockRes] = await Promise.all([
-          /* Les paiements carte / Twint en cours ou refusés n'y figurent pas :
-             ce ne sont pas des commandes à traiter (CLI-07). */
-          getOrders({ status: "pending,pending_invoice,pending_pickup", limit: 1 }),
+          /* Nouvelles commandes : jamais ouvertes par l'admin connectée. Une
+             commande en sort dès qu'elle ouvre sa page. Les paiements carte /
+             Twint non aboutis n'y figurent pas (CLI-07). */
+          getOrders({ unseen: 1, limit: 1 }),
           getReviews({ approved: false, limit: 1 }),
           getProducts({ low_stock: true, limit: 1 }),
         ]);
         if (cancelled) return;
-        setPendingOrders(ordersRes.pagination?.total ?? 0);
+        setNewOrders(ordersRes.pagination?.total ?? 0);
         setPendingReviews(reviewsRes.pagination?.total ?? 0);
         setLowStock(stockRes.pagination?.total ?? 0);
       } catch {
@@ -242,15 +243,13 @@ export default function AdminLayout() {
     };
   }, []);
 
-  const NAV_MAIN = buildNavMain(pendingOrders, pendingReviews);
+  const NAV_MAIN = buildNavMain(newOrders, pendingReviews);
 
   /* Construit les notifications dynamiques */
   const notifications = [
-    pendingOrders > 0 && {
+    newOrders > 0 && {
       icon: ShoppingCart,
-      title: `${pendingOrders} commande${
-        pendingOrders > 1 ? "s" : ""
-      } en attente`,
+      title: newOrders > 1 ? `${newOrders} nouvelles commandes` : "1 nouvelle commande",
       to: "/commandes",
     },
     pendingReviews > 0 && {

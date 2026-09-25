@@ -529,6 +529,18 @@ CREATE TABLE order_status_history (
   CONSTRAINT fk_order_history_user  FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Commandes déjà ouvertes par chaque compte admin : le badge « Commandes »
+-- de la barre latérale compte celles que l'admin connectée n'a jamais vues.
+CREATE TABLE admin_order_views (
+  user_id   INT UNSIGNED NOT NULL,
+  order_id  INT UNSIGNED NOT NULL,
+  viewed_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, order_id),
+  INDEX idx_admin_order_views_order (order_id),
+  CONSTRAINT fk_admin_order_views_user  FOREIGN KEY (user_id)  REFERENCES users (id)  ON DELETE CASCADE,
+  CONSTRAINT fk_admin_order_views_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================================
 -- PAIEMENTS
 -- ============================================================

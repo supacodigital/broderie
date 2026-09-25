@@ -440,7 +440,13 @@ export default function Orders() {
                     au téléphone. Une tentative de paiement n'a pas de facture : elle
                     garde son identifiant (les plus anciennes ont reçu un numéro avant
                     le correctif CLI-07 — il n'est pas affiché). */}
-                <span className={s.orderId}>{attemptsView ? `#${order.id}` : orderNumber(order)}</span>
+                {/* Nouvelle (jamais ouverte par l'admin connectée) : pastille devant
+                    le numéro, comme un message non lu — c'est ce que compte le badge du menu. */}
+                {order.is_new && <span className={s.newDot} title="Nouvelle commande" aria-hidden="true" />}
+                <span className={s.orderId}>
+                  {attemptsView ? `#${order.id}` : orderNumber(order)}
+                  {order.is_new && <span className={s.srOnly}> — nouvelle commande</span>}
+                </span>
               </div>
               <div className={s.customerCell}>
                 <span className={s.customerName}>{order.first_name} {order.last_name}</span>

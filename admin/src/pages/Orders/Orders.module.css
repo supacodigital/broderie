@@ -99,7 +99,8 @@
   display: grid;
   grid-template-columns: 110px 1fr 160px 100px 150px 40px;
   gap: 8px;
-  padding: 10px 16px;
+  /* 26 px à gauche : la place de la pastille « nouvelle commande » */
+  padding: 10px 16px 10px 26px;
   align-items: center;
   font-size: 13px;
 }
@@ -124,7 +125,29 @@
 .tableRow:hover { background: var(--rose-pale); }
 .tableRow:last-child { border-bottom: none; }
 
-.orderId { font-weight: 700; color: var(--rose); font-size: 13px; }
+.orderId { font-weight: 700; color: var(--rose); font-size: 13px; white-space: nowrap; }
+
+/* Pas encore ouverte par l'admin connectée : pastille dans la marge gauche de
+   la ligne (.idCell est positionnée), pour que les numéros restent alignés. */
+.newDot {
+  position: absolute;
+  left: -17px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background: var(--rose-dark);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 
 .customerCell {
   display: flex;
@@ -207,7 +230,7 @@
   display: grid;
   grid-template-columns: 110px 1fr 160px 100px 150px 40px;
   gap: 8px;
-  padding: 14px 16px;
+  padding: 14px 16px 14px 26px; /* aligné sur les lignes du tableau */
   border-bottom: 1px solid #f9fafb;
   align-items: center;
 }
@@ -283,14 +306,15 @@
 }
 
 @media (max-width: 768px) {
+  /* 84 px : un n° de facture « 2026-09/24 » tient sur une ligne */
   .tableHead, .tableRow {
-    grid-template-columns: 60px 1fr 90px 40px;
+    grid-template-columns: 84px 1fr 90px 40px;
   }
   .tableHead > *:nth-child(3),
   .tableRow  > *:nth-child(3),
   .tableHead > *:nth-child(4),
   .tableRow  > *:nth-child(4) { display: none; }
-  .skeletonRow { grid-template-columns: 60px 1fr 90px 40px; }
+  .skeletonRow { grid-template-columns: 84px 1fr 90px 40px; }
 }
 
 .sortHeader {
@@ -575,7 +599,7 @@
 }
 
 /* ── Cellules du tableau ── */
-.idCell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.idCell { position: relative; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
 
 .dateCell { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }

@@ -372,7 +372,14 @@ const findById = async (orderId, userId = null) => {
 const VALID_STATUSES = ['pending', 'awaiting_payment', 'payment_failed', 'pending_invoice', 'pending_pickup', 'ready_for_pickup', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
 const ALLOWED_SORT   = { created_at: 'o.created_at', total: 'o.total' };
 
-const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order = 'desc', status = null, q = null, dateFrom = null, dateTo = null, attempts = false } = {}) => {
+/* Commande jamais ouverte par l'admin (2 paramètres : son id, deux fois). Un
+   compte admin créé plus tard ne voit pas tout l'historique comme nouveau :
+   seules comptent les commandes arrivées depuis sa création. */
+const UNSEEN_BY_ADMIN_SQL = `(o.confirmed_at IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM admin_order_views v WHERE v.order_id = o.id AND v.user_id = ?)
+  AND o.confirmed_at >= (SELECT a.created_at FROM users a WHERE a.id = ?))`;
+
+const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order = 'desc', status = null, q = null, dateFrom = null, dateTo = null, attempts = false, unseenBy = null, viewerId = null } = {}) => {
   const offset    = (page - 1) * limit;
   const sortField = ALLOWED_SORT[sort] || 'o.created_at';
   const sortOrder = order === 'asc' ? 'ASC' : 'DESC';
@@ -424,6 +431,12 @@ const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order =
     params.push(`${dateTo} 23:59:59`);
   }
 
+  // Nouvelles commandes (badge de la barre latérale) : jamais ouvertes par cet admin
+  if (unseenBy) {
+    conditions.push(UNSEEN_BY_ADMIN_SQL);
+    params.push(unseenBy, unseenBy);
+  }
+
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const [countRows] = await pool.query(
@@ -432,20 +445,23 @@ const findAllAdmin = async ({ page = 1, limit = 20, sort = 'created_at', order =
   );
   const total = countRows[0].total;
 
+  /* is_new : pas encore ouverte par l'admin qui consulte la liste — son numéro
+     s'affiche en gras, comme un message non lu. */
   const [rows] = await pool.query(
     `SELECT o.id, o.status, o.subtotal, o.shipping_cost, o.tax_amount, o.total,
             o.created_at, o.updated_at, o.wants_printed_invoice,
             o.invoice_number, o.tracking_number,
-            u.email, u.first_name, u.last_name
+            u.email, u.first_name, u.last_name,
+            ${viewerId ? UNSEEN_BY_ADMIN_SQL : '0'} AS is_new
      FROM orders o
      INNER JOIN users u ON u.id = o.user_id
      ${where}
      ORDER BY ${sortField} ${sortOrder}
      LIMIT ? OFFSET ?`,
-    [...params, limit, offset]
+    [...(viewerId ? [viewerId, viewerId] : []), ...params, limit, offset]
   );
 
-  return { rows, total };
+  return { rows: rows.map((r) => ({ ...r, is_new: Boolean(Number(r.is_new)) })), total };
 };
 
 // Change le statut d'une commande + trace dans l'historique — transaction atomique.
@@ -536,6 +552,15 @@ const saveShippingLabel = async (orderId, { trackingNumber, labelUrl = null, lab
     [trackingNumber, labelUrl, labelId, labelPdf, orderId]
   );
   return result.affectedRows > 0;
+};
+
+/* Première ouverture de la commande par cet admin : elle sort de son badge
+   « nouvelles commandes ». Les ouvertures suivantes ne changent rien. */
+const markViewedByAdmin = async (orderId, userId) => {
+  await pool.execute(
+    `INSERT IGNORE INTO admin_order_views (user_id, order_id) VALUES (?, ?)`,
+    [userId, orderId]
+  );
 };
 
 /* PDF de l'étiquette La Poste — lu uniquement au téléchargement, jamais avec la
@@ -975,7 +1000,7 @@ const markPaymentFailed = async (orderId, note) => {
 
 module.exports = {
   createOrder, findByUserId, findAllByUserIdWithItems, findById, findAllAdmin,
-  updateStatusWithHistory, saveShippingLabel, findShippingLabelPdf, updateTrackingNumber, markPaidFromWebhook,
+  updateStatusWithHistory, saveShippingLabel, findShippingLabelPdf, markViewedByAdmin, updateTrackingNumber, markPaidFromWebhook,
   lockOrderForPaymentIntent, assignInvoiceNumber, saveQrReference,
   UNPAID_ONLINE_STATUSES, findExpiredUnpaidOnlineOrderIds, findUnpaidOnlineOrderIdsByUser,
   cancelUnpaidOnlineOrder, markPaymentFailed,

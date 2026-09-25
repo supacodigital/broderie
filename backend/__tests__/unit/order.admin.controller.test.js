@@ -3,6 +3,7 @@
 jest.mock('../../repositories/order.repository', () => ({
   findAllAdmin: jest.fn(),
   findById:     jest.fn(),
+  markViewedByAdmin: jest.fn().mockResolvedValue(),
   updateStatusWithHistory: jest.fn(),
 }));
 
@@ -77,6 +78,19 @@ describe('order.admin.controller — getAll()', () => {
     expect(res.json.mock.calls[0][0].pagination.total).toBe(1);
   });
 
+  test('unseen=1 : nouvelles commandes de l\'admin connectée uniquement', async () => {
+    orderRepository.findAllAdmin.mockResolvedValue({ rows: [], total: 0 });
+
+    await controller.getAll({ query: { unseen: '1' }, user: { id: 7 } }, makeRes(), jest.fn());
+    await controller.getAll({ query: {}, user: { id: 7 } }, makeRes(), jest.fn());
+
+    const [withFilter, without] = orderRepository.findAllAdmin.mock.calls.slice(-2).map((c) => c[0]);
+    expect(withFilter.unseenBy).toBe(7);
+    expect(without.unseenBy).toBeNull();
+    // chaque ligne dit si l'admin connectée l'a déjà ouverte (numéro en gras sinon)
+    expect(without.viewerId).toBe(7);
+  });
+
   test('applique le filtre status si fourni', async () => {
     orderRepository.findAllAdmin.mockResolvedValue({ rows: [], total: 0 });
 
@@ -123,6 +137,39 @@ describe('order.admin.controller — getById()', () => {
     await controller.getById(req, res, next);
 
     expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 404 }));
+  });
+
+  // Badge « Commandes » : une commande ouverte n'est plus nouvelle pour cette admin
+  test('commande ouverte : enregistrée comme vue par l\'admin connectée', async () => {
+    orderRepository.findById.mockResolvedValue({ ...fakeOrder, confirmed_at: new Date() });
+
+    const res = makeRes();
+    await controller.getById({ params: { id: '42' }, user: { id: 7 } }, res, jest.fn());
+
+    expect(orderRepository.markViewedByAdmin).toHaveBeenCalledWith(42, 7);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+  });
+
+  test('tentative de paiement non aboutie : pas enregistrée comme vue', async () => {
+    orderRepository.findById.mockResolvedValue({ ...fakeOrder, confirmed_at: null });
+
+    await controller.getById({ params: { id: '42' }, user: { id: 7 } }, makeRes(), jest.fn());
+
+    expect(orderRepository.markViewedByAdmin).not.toHaveBeenCalled();
+  });
+
+  test('échec de l\'enregistrement : la commande s\'affiche quand même', async () => {
+    orderRepository.findById.mockResolvedValue({ ...fakeOrder, confirmed_at: new Date() });
+    orderRepository.markViewedByAdmin.mockRejectedValueOnce(new Error('deadlock'));
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const res = makeRes();
+    const next = jest.fn();
+    await controller.getById({ params: { id: '42' }, user: { id: 7 } }, res, next);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    expect(next).not.toHaveBeenCalled();
+    console.error.mockRestore();
   });
 });
 

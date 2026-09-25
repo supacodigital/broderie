@@ -30,6 +30,10 @@ const getAll = async (req, res, next) => {
       // Période — format AAAA-MM-JJ, validé ici pour ne pas passer n'importe quoi au SQL
       dateFrom: /^\d{4}-\d{2}-\d{2}$/.test(req.query.date_from ?? '') ? req.query.date_from : null,
       dateTo:   /^\d{4}-\d{2}-\d{2}$/.test(req.query.date_to   ?? '') ? req.query.date_to   : null,
+      // Badge « Commandes » : nouvelles commandes jamais ouvertes par l'admin connectée
+      unseenBy: req.query.unseen === '1' ? req.user.id : null,
+      // Chaque ligne indique si l'admin connectée l'a déjà ouverte (is_new)
+      viewerId: req.user?.id ?? null,
     });
 
     res.json({
@@ -46,6 +50,13 @@ const getById = async (req, res, next) => {
   try {
     const order = await orderRepository.findById(parseInt(req.params.id));
     if (!order) return next(new AppError('Commande introuvable.', 404));
+    /* Ouverte par cette admin : ne compte plus parmi ses nouvelles commandes.
+       Une tentative de paiement non aboutie n'en est pas une, elle reste à part. */
+    if (order.confirmed_at) {
+      await orderRepository.markViewedByAdmin(order.id, req.user.id).catch((err) => {
+        console.error('[Commandes] Consultation non enregistrée — commande', order.id, ':', err.message);
+      });
+    }
     res.json({ success: true, data: order });
   } catch (error) {
     next(error);
