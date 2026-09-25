@@ -59,9 +59,8 @@ function StatusTimeline({ currentStatus }) {
   )
 }
 
-/* ── Bloc Facture QR (téléchargement du PDF) ── */
-function InvoiceBlock({ order }) {
-  const ref = order.qr_reference ?? String(order.id).padStart(6, '0')
+/* Téléchargement du PDF de la facture, avec son état et son erreur */
+function useInvoiceDownload(orderId) {
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -69,13 +68,21 @@ function InvoiceBlock({ order }) {
     setError(null)
     setDownloading(true)
     try {
-      await downloadInvoice(order.id)
+      await downloadInvoice(orderId)
     } catch {
       setError('Impossible de télécharger la facture. Veuillez réessayer.')
     } finally {
       setDownloading(false)
     }
   }
+
+  return { downloading, error, handleDownload }
+}
+
+/* ── Bloc Facture QR (téléchargement du PDF) ── */
+function InvoiceBlock({ order }) {
+  const ref = order.qr_reference ?? String(order.id).padStart(6, '0')
+  const { downloading, error, handleDownload } = useInvoiceDownload(order.id)
 
   return (
     <div className={s.invoiceBlock}>
@@ -112,6 +119,37 @@ function InvoiceBlock({ order }) {
         vérifiez vos courriers indésirables.
       </p>
     </div>
+  )
+}
+
+/* ── Facture d'une commande payée (Twint, carte, en boutique) ou déjà traitée ── */
+function InvoiceCard({ order }) {
+  const { downloading, error, handleDownload } = useInvoiceDownload(order.id)
+
+  return (
+    <section className={s.card}>
+      <h2 className={s.cardTitle}>
+        <FileText size={15} />
+        Facture
+      </h2>
+      <div className={s.infoList}>
+        <div className={s.infoItem}>
+          <span className={s.infoLabel}>N° de facture</span>
+          <span className={s.infoValue}>{order.invoice_number}</span>
+        </div>
+        {order.paid_at && (
+          <div className={s.infoItem}>
+            <span className={s.infoLabel}>Payée le</span>
+            <span className={s.infoValue}>{formatDate(order.paid_at)}</span>
+          </div>
+        )}
+      </div>
+      <button className={s.invoiceDownloadBtn} onClick={handleDownload} disabled={downloading}>
+        {downloading ? <Loader2 size={15} className={s.spin} /> : <Download size={15} />}
+        {downloading ? 'Préparation…' : 'Télécharger le PDF'}
+      </button>
+      {error && <p className={s.payError}>{error}</p>}
+    </section>
   )
 }
 
@@ -412,6 +450,9 @@ export default function OrderDetail() {
                     </div>
                   </div>
                 </section>
+
+                {/* Facture — la facture QR à régler a déjà son encart dans la colonne principale */}
+                {order.invoice_available && !showInvoice && <InvoiceCard order={order} />}
 
                 {/* Livraison */}
                 <section className={s.card}>

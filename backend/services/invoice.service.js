@@ -123,6 +123,18 @@ const resolveStructuredReference = (order) => {
 const formatDate = (date) => new Date(date)
   .toLocaleDateString('fr-CH', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Zurich' });
 
+/* Facture téléchargeable par la cliente : commande confirmée (numérotée), non
+   annulée, et soit réglée par facture QR, soit déjà payée (Twint, carte, en
+   boutique). Une commande « retrait, paiement en boutique » encore impayée n'a
+   pas de facture : son bulletin QR inviterait à payer une seconde fois. */
+const isInvoiceAvailableToCustomer = (order) => (
+  !!order?.invoice_number
+  && order.status !== 'cancelled'
+  && (order.payment_method === 'invoice_qr' || !!order.paid_at)
+);
+
+const PAID_METHOD_LABELS = { twint: 'Twint', card: 'carte bancaire' };
+
 // « 15 septembre 2026 » — date en toutes lettres du bulletin QR
 const formatLongDate = (date) => new Date(date)
   .toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Zurich' });
@@ -201,9 +213,16 @@ const CONTENT_W    = 495; // largeur utile (595 - 2×50)
 const TABLE_COLS   = { name: 55, nameW: 215, qty: 270, qtyW: 40, price: 310, priceW: 80, vat: 390, vatW: 50, total: 440, totalW: 105 };
 
 
-// Hauteur réservée en bas de la dernière page pour le bulletin QR suisse (bulletin
-// officiel ≈ 105mm ≈ 297pt) — le tableau ne doit jamais empiéter dessus.
-const QR_BILL_HEIGHT = 300;
+/* Le bulletin QR suisse occupe les 105 derniers mm de la page A4 (842 pt) :
+   swissqrbill le pose à 544 pt et ajoute une page si le contenu descend plus
+   bas. Articles, totaux et note de la dernière page doivent donc s'arrêter
+   au-dessus, avec une petite marge. */
+const QR_BILL_TOP = 841.89 - 297.64;
+
+/* Tableau des totaux : libellés alignés à gauche, montants alignés à droite
+   sur la colonne « TOTAL TTC » des articles — une seule ligne d'alignement
+   pour toute la facture. */
+const TOTALS = { left: 300, labelW: 140, rowH: 20, totalH: 26, amountW: 72 };
 const PAGE_BOTTOM    = 792 - PAGE_MARGIN; // A4 = 842pt de haut, marge basse identique à la marge haute
 
 // ─────────────────────────────────────────────────────────────
@@ -241,6 +260,14 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
       /* Délai saisi dans Paramètres → Facturation, comme l'échéance de l'e-mail :
          lu dans la seule configuration serveur, il pouvait contredire l'e-mail. */
       const dueDays = issuer.dueDays;
+
+      /* Commande déjà payée (Twint, carte, en boutique…) : la facture est
+         acquittée. Ni échéance ni bulletin QR — il invitait la cliente à payer
+         une seconde fois. */
+      const paidAt      = order.paid_at ? new Date(order.paid_at) : null;
+      const paidBy      = PAID_METHOD_LABELS[order.paid_method] ?? null;
+      // Bas utilisable de la dernière page : au-dessus du bulletin QR, s'il y en a un
+      const lastPageBottom = paidAt ? PAGE_BOTTOM : QR_BILL_TOP - 12;
 
       // ── En-tête : logo + bloc FACTURE ──────────────────────────
       // Logo redimensionné à une hauteur fixe, ratio préservé (source 2720×1360)
@@ -285,7 +312,10 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
          .text(`Date de facture : ${formatDate(order.created_at)}`, 350, 106, { align: 'right', width: 195 })
          // Numéro de client — traçabilité comptable (ADM-17)
          .text(`N° client : ${formatCustomerNumber(order.user_id ?? user.id)}`, 350, 120, { align: 'right', width: 195 })
-         .text(`Échéance : paiement sous ${dueDays} jours`,         350, 134, { align: 'right', width: 195 });
+         .text(
+           paidAt ? `Payée le : ${formatDate(paidAt)}` : `Échéance : paiement sous ${dueDays} jours`,
+           350, 134, { align: 'right', width: 195 }
+         );
 
       doc.moveTo(PAGE_MARGIN, 152).lineTo(545, 152).strokeColor(border).lineWidth(1).stroke();
 
@@ -332,11 +362,12 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
       let y = drawTableHeader(Math.max(244, addrY + 26));
       const items = order.items || [];
 
-      // Lignes de totaux au-delà du minimum (une ligne de TVA, pas de remise) —
-      // sert à réserver assez de place au-dessus du bulletin QR (une ligne = 18pt).
-      const vat         = computeTaxBreakdown(order);
-      const discount    = order.discount ? roundCHF(parseFloat(order.discount)) : 0;
-      const extraTotals = Math.max(1, vat.parts.length) - 1 + (discount > 0 ? 1 : 0);
+      const vat      = computeTaxBreakdown(order);
+      const discount = order.discount ? roundCHF(parseFloat(order.discount)) : 0;
+      /* Hauteur du bloc totaux + note de paiement, à réserver au-dessus du
+         bulletin QR : articles, remise éventuelle, port, sous-total HT, total. */
+      const totalsRowCount    = 3 + (discount > 0 ? 1 : 0);
+      const totalsBlockHeight = 16 + totalsRowCount * TOTALS.rowH + 8 + TOTALS.totalH + 40;
 
       items.forEach((item, idx) => {
         const snapshot = typeof item.product_snapshot_json === 'string'
@@ -356,9 +387,8 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
         // Saut de page si la ligne dépasserait la zone réservée au bulletin QR
         // (uniquement sur la dernière page — les pages intermédiaires vont jusqu'au bas)
         const isLastItem = idx === items.length - 1;
-        // +18pt par ligne de totaux au-delà du minimum (remise, taux supplémentaire)
-        const reserved = isLastItem ? QR_BILL_HEIGHT + 90 + extraTotals * 18 : 40;
-        if (y + rowHeight > PAGE_BOTTOM - reserved) {
+        const pageLimit = isLastItem ? lastPageBottom - totalsBlockHeight : PAGE_BOTTOM - 40;
+        if (y + rowHeight > pageLimit) {
           doc.addPage();
           y = drawTableHeader(PAGE_MARGIN);
         }
@@ -398,30 +428,40 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
 
       doc.moveTo(PAGE_MARGIN, y + 4).lineTo(545, y + 4).strokeColor(border).lineWidth(0.5).stroke();
 
-      // ── Totaux ────────────────────────────────────────────────
-      const totalsLeft  = 330;
-      const totalsWidth = 215;
+      // ── Totaux (tableau) ──────────────────────────────────────
+      const totalsRight = TABLE_COLS.total + TABLE_COLS.totalW; // bord droit des montants des articles
       let ty = y + 16;
 
       const subtotal = roundCHF(parseFloat(order.subtotal)); // articles, remise déduite
       const shipping = roundCHF(parseFloat(order.shipping_cost));
       const total    = roundCHF(parseFloat(order.total));
 
+      /* Montant du tableau : « CHF » calé sur une même verticale pour toutes les
+         lignes, le nombre aligné à droite (décimales sous décimales). */
+      const amountLeft = totalsRight - TOTALS.amountW;
+      const drawAmount = (value, textY) => {
+        doc.text('CHF', amountLeft, textY, { lineBreak: false });
+        doc.text(value, amountLeft, textY, { width: TOTALS.amountW, align: 'right', lineBreak: false });
+      };
+
+      // Une ligne du tableau : libellé à gauche, montant sous la colonne TOTAL TTC, filet dessous
       const rowTotals = (label, value) => {
         doc.fontSize(9).font('Helvetica').fillColor(muted)
-           .text(label, totalsLeft, ty, { width: 140 })
-           .text(value, totalsLeft + 140, ty, { width: 75, align: 'right' });
-        ty += 18;
+           .text(label, TOTALS.left, ty + 6, { width: TOTALS.labelW, lineBreak: false });
+        doc.fillColor(dark);
+        drawAmount(value, ty + 6);
+        ty += TOTALS.rowH;
+        doc.moveTo(TOTALS.left, ty).lineTo(totalsRight, ty).strokeColor(border).lineWidth(0.5).stroke();
       };
 
       /* Montant des articles AVANT remise : c'est la somme des lignes du tableau.
          La remise vient en ligne distincte — sans elle, le sous-total imprimé
          (déjà remisé) ne correspondait plus à l'addition des lignes. */
-      rowTotals('Articles TTC', `CHF ${roundCHF(subtotal + discount).toFixed(2)}`);
+      rowTotals('Articles TTC', roundCHF(subtotal + discount).toFixed(2));
       if (discount > 0) {
         rowTotals(
           order.coupon_code ? `Remise (${order.coupon_code})` : 'Remise',
-          `- CHF ${discount.toFixed(2)}`
+          `-${discount.toFixed(2)}`
         );
       }
 
@@ -430,34 +470,32 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
       const shippingLabel = shippingRates.length === 1
         ? `Frais de livraison (TVA ${formatRate(shippingRates[0].ratePercent)} %)`
         : 'Frais de livraison';
-      rowTotals(shippingLabel, `CHF ${shipping.toFixed(2)}`);
+      rowTotals(shippingLabel, shipping.toFixed(2));
 
-      /* Détail hors taxe / TVA / TTC (ADM-14).
-         Les prix affichés en boutique sont TTC — obligation suisse envers le
-         consommateur — donc la TVA y est déjà comprise et se retranche du total
-         pour obtenir le montant hors taxe (LTVA art. 26). Frais de port compris :
-         ils étaient auparavant laissés hors TVA. */
+      /* Montant hors taxe (ADM-14) : les prix de la boutique sont TTC, la TVA
+         se retranche du total (frais de port compris).
+         La ligne « TVA x % sur CHF … » a été retirée après la réunion avec
+         Christophe (25.09) : elle faisait doublon avec « Frais de livraison
+         (TVA x %) ». Le taux reste lisible sur chaque article et sur le port. */
       const totalHT = vat.parts.reduce((sum, p) => sum + p.baseHT, 0);
-      rowTotals('Sous-total HT', `CHF ${totalHT.toFixed(2)}`);
+      rowTotals('Sous-total HT', totalHT.toFixed(2));
 
-      // TVA détaillée par taux, au centime, avec sa base hors taxe (LTVA art. 26)
-      for (const part of vat.parts) {
-        rowTotals(
-          `TVA ${formatRate(part.ratePercent)} % sur CHF ${part.baseHT.toFixed(2)}`,
-          `CHF ${part.tvaAmount.toFixed(2)}`
-        );
-      }
-
-      doc.rect(totalsLeft, ty - 2, totalsWidth, 26).fillColor(roseLight).fill();
+      /* Total mis en valeur par un fond rose qui déborde légèrement du tableau :
+         le texte garde exactement l'alignement des autres lignes. */
+      ty += 8;
+      doc.roundedRect(TOTALS.left - 8, ty, totalsRight - TOTALS.left + 16, TOTALS.totalH, 4).fillColor(roseLight).fill();
       doc.fontSize(11).font('Helvetica-Bold').fillColor(rose)
-         .text('TOTAL TTC',               totalsLeft + 8,   ty + 5, { width: 120 })
-         .text(`CHF ${total.toFixed(2)}`, totalsLeft + 120, ty + 5, { width: 87, align: 'right' });
+         .text('TOTAL TTC', TOTALS.left, ty + 8, { width: TOTALS.labelW, lineBreak: false });
+      drawAmount(total.toFixed(2), ty + 8);
+      ty += TOTALS.totalH;
 
       // ── Note de paiement ──────────────────────────────────────
-      const noteY = ty + 46;
+      const noteY = ty + 20;
       doc.fontSize(9).fillColor(dark).font('Helvetica')
          .text(
-           `Réglez cette facture en scannant le QR code ci-dessous avec votre application bancaire, sous ${dueDays} jours.`,
+           paidAt
+             ? `Facture payée le ${formatDate(paidAt)}${paidBy ? ` par ${paidBy}` : ''}. Aucun montant à régler.`
+             : `Réglez cette facture en scannant le QR code ci-dessous avec votre application bancaire, sous ${dueDays} jours.`,
            PAGE_MARGIN, noteY, { width: CONTENT_W }
          );
 
@@ -465,8 +503,10 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
       // `language: 'FR'` est indispensable : la librairie rend le bulletin en
       // ALLEMAND par défaut (Zahlteil, Empfangsschein, Betrag…), alors que le
       // reste de la facture est en français.
-      const qrBill = new SwissQRBill(buildQrBillData(order, issuer), { language: 'FR' });
-      qrBill.attachTo(doc);
+      if (!paidAt) {
+        const qrBill = new SwissQRBill(buildQrBillData(order, issuer), { language: 'FR' });
+        qrBill.attachTo(doc);
+      }
 
       doc.end();
     } catch (err) {
@@ -514,6 +554,7 @@ const getInvoicePdf = async ({ order, user }) => {
 };
 
 module.exports = {
+  isInvoiceAvailableToCustomer,
   generateInvoicePDF,
   generateQrReference,
   computeDueDate,

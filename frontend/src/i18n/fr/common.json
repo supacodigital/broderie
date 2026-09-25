@@ -279,7 +279,7 @@
     "confirmInvoicePaid": "Votre paiement a bien été reçu : vous n'avez plus rien à régler pour cette commande.",
     "confirmPickup": "Votre commande sera préparée. Vous la réglerez directement en boutique au moment du retrait.",
     "confirmOrderRef": "Référence commande",
-    "confirmCta": "Retour à la boutique",
+    "confirmCta": "Voir ma commande",
     "deliveryInfo": "Livraison estimée : 3 à 5 jours ouvrables pour les articles en stock, via La Poste CH",
     "errors": {
       "firstNameRequired": "Le prénom est obligatoire",

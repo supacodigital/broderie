@@ -266,7 +266,8 @@ const getOrders = async (userId, query) => {
 const getOrderById = async (orderId, userId) => {
   const order = await orderRepository.findById(orderId, userId);
   if (!order) throw new AppError('Commande introuvable.', 404);
-  return order;
+  // Le bouton « Télécharger la facture » de l'espace client suit la même règle que la route
+  return { ...order, invoice_available: invoiceService.isInvoiceAvailableToCustomer(order) };
 };
 
 module.exports = { createOrder, getOrders, getOrderById, sendOrderEmails, resolveDiscountCode, numberInvoice };

@@ -1059,8 +1059,9 @@ function StepConfirm({ orderId, paymentMethod, paymentPending = false, paid = fa
         </div>
       )}
 
+      {/* La commande qui vient d'être payée : statut, articles et facture */}
       <Link
-        to="/catalogue"
+        to={orderId ? `/commandes/${orderId}` : '/mon-compte/commandes'}
         className={`${s.btnPrimary} ${s.confirmCtaLink}`}
       >
         {t('checkout.confirmCta')}

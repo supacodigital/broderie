@@ -322,15 +322,25 @@ const findById = async (orderId, userId = null) => {
     [orderId]
   );
 
-  // Méthode de paiement depuis la table payments
+  // Méthode choisie à la commande (première ligne) et paiement en ligne encaissé
   const [payments] = await pool.execute(
-    `SELECT method FROM payments WHERE order_id = ? ORDER BY created_at ASC LIMIT 1`,
+    `SELECT method, status FROM payments WHERE order_id = ? ORDER BY created_at ASC, id ASC LIMIT 20`,
     [orderId]
   );
+  const settledOnline = payments.find((p) => p.status === 'succeeded' && ['card', 'twint'].includes(p.method));
+
+  /* Commande payée = entrée « paid » dans l'historique, comme sur la page
+     Factures de l'admin. Repli : un paiement Stripe encaissé sur une commande
+     qui ne pouvait plus passer à « payée » (déjà annulée, par exemple). */
+  const paidEntry = history.find((h) => h.status === 'paid');
+  const paidAt    = paidEntry?.created_at ?? (settledOnline ? orders[0].confirmed_at : null);
 
   return {
     ...orders[0],
     payment_method: payments[0]?.method ?? null,
+    paid_at:        paidAt ?? null,
+    // Moyen de paiement en ligne effectivement encaissé (Twint, carte), sinon null
+    paid_method:    settledOnline?.method ?? null,
     items: items.map((i) => {
       const snapshot = typeof i.product_snapshot_json === 'string'
         ? JSON.parse(i.product_snapshot_json)

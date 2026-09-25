@@ -264,15 +264,15 @@ describe('invoice.service — mentions légales de la facture', () => {
     expect(text).toContain('N° 2026-000032');
   });
 
-  /* ADM-14 — « TVA incluse » ne permet pas de lire le montant hors taxe, que la
-     LTVA art. 26 impose de faire figurer. 15.50 TTC à 8.1 % → 14.34 HT + 1.16
-     (TVA au centime). */
-  test('détaille le montant hors taxe, la TVA et le total TTC', () => {
+  /* ADM-14 — « TVA incluse » ne permet pas de lire le montant hors taxe.
+     15.50 TTC à 8.1 % → 14.34 HT. La ligne « TVA 8.1 % sur CHF … » a été
+     retirée le 25.09 (réunion avec Christophe) : doublon avec le taux affiché
+     sur les frais de livraison et sur chaque article. */
+  test('détaille le montant hors taxe et le total TTC, sans ligne de TVA en doublon', () => {
     expect(text).toContain('Sous-total HT');
-    expect(text).toContain('CHF 14.34');
-    expect(text).toContain('TVA 8.1 % sur CHF 14.34');
-    expect(text).toContain('CHF 1.16');
+    expect(text).toMatch(/CHF\s+14\.34/);
     expect(text).toContain('TOTAL TTC');
+    expect(text).not.toMatch(/TVA [\d.]+ % sur CHF/);
     expect(text).not.toContain('TVA 8.10 % incluse');
   });
 
@@ -363,17 +363,19 @@ describe('invoice.service — frais de port et remise sur la facture (ADM-14)', 
   });
 
   test('la TVA porte aussi sur les frais de port', () => {
-    // 45.00 TTC à 8.1 % → 41.63 HT + 3.37
-    expect(text).toContain('TVA 8.1 % sur CHF 41.63');
-    expect(text).toContain('CHF 3.37');
+    // 45.00 TTC à 8.1 %, port compris → 41.63 HT
+    expect(text).toContain('Sous-total HT');
+    expect(text).toMatch(/CHF\s+41\.63/);
     expect(text).toContain('Frais de livraison (TVA 8.1 %)');
+    expect(text).not.toMatch(/TVA [\d.]+ % sur CHF/);
   });
 
   test('la remise figure en ligne distincte sous le montant des articles', () => {
     expect(text).toContain('Articles TTC');
     expect(text).toContain('CHF 37.50');
     expect(text).toContain('Remise (PE34-4215)');
-    expect(text).toContain('- CHF 3.75');
+    // « CHF » aligné en colonne, montant négatif à droite
+    expect(text).toMatch(/CHF\s+-3\.75/);
   });
 });
 
@@ -413,7 +415,7 @@ describe('invoice.service — articles en action sur la facture (CLI-14)', () =>
 
   test('un article hors action reste inchangé, les totaux aussi', () => {
     expect(text).toContain('CHF 10.00');
-    expect(text).toContain('CHF 21.50');
+    expect(text).toMatch(/CHF\s+21\.50/);
   });
 
   /* Article à la coupe : la longueur et le prix du tronçon facturé, jamais
@@ -453,5 +455,105 @@ describe('invoice.service — factures antérieures à la numérotation', () => 
     const buf = await generateInvoicePDF({ order, user: makeUser() });
     expect(Buffer.isBuffer(buf)).toBe(true);
     expect(buf.length).toBeGreaterThan(0);
+  });
+});
+
+/* Commande déjà payée (retour du test Twint du 25.09) : la facture est
+   acquittée — ni échéance ni bulletin QR, qui invitait à payer une seconde fois. */
+describe('invoice.service — facture d\'une commande déjà payée', () => {
+  const { isInvoiceAvailableToCustomer } = require('../../services/invoice.service');
+  const ORDER = makeOrder({ invoice_number: '2026-09/03', invoice_seq: 3, user_id: 161 });
+  // 25.09 à 00h30 en Suisse = 24.09 22h30 UTC : la date imprimée est celle de Vucherens
+  const PAID_AT = new Date('2026-09-24T22:30:00Z');
+
+  test('payée par carte : « Payée le » et le moyen de paiement, sans bulletin QR', async () => {
+    const text = extractPdfText(await generateInvoicePDF({
+      order: { ...ORDER, paid_at: PAID_AT, paid_method: 'card' }, user: makeUser(),
+    }));
+    expect(text).toContain('Payée le : 25.09.2026');
+    expect(text).toContain('Facture payée le 25.09.2026 par carte bancaire. Aucun montant à régler.');
+    expect(text).not.toContain('Récépissé');
+    expect(text).not.toContain('Réglez cette facture');
+  });
+
+  test('payée en boutique (aucun paiement en ligne) : sans moyen de paiement inventé', async () => {
+    const text = extractPdfText(await generateInvoicePDF({
+      order: { ...ORDER, paid_at: PAID_AT, paid_method: null }, user: makeUser(),
+    }));
+    expect(text).toContain('Facture payée le 25.09.2026. Aucun montant à régler.');
+    expect(text).not.toContain('Récépissé');
+  });
+
+  test('facture disponible pour la cliente : QR à régler ou commande payée, jamais annulée', () => {
+    const base = { invoice_number: '2026-09/03', status: 'paid', payment_method: 'twint', paid_at: PAID_AT };
+    expect(isInvoiceAvailableToCustomer(base)).toBe(true);
+    expect(isInvoiceAvailableToCustomer({ ...base, payment_method: 'invoice_qr', status: 'pending_invoice', paid_at: null })).toBe(true);
+    expect(isInvoiceAvailableToCustomer({ ...base, payment_method: 'pickup', status: 'pending_pickup', paid_at: null })).toBe(false);
+    expect(isInvoiceAvailableToCustomer({ ...base, status: 'cancelled' })).toBe(false);
+    expect(isInvoiceAvailableToCustomer({ ...base, invoice_number: null })).toBe(false);
+  });
+});
+
+/* Mise en page du 25.09 : les totaux forment un tableau aligné, et une facture
+   de quelques articles tient sur une page avec son bulletin QR (la réserve de
+   place était calculée sur une page Letter de 792 pt au lieu d'une A4). */
+describe('invoice.service — tableau des totaux et pagination', () => {
+  const countPages = (pdf) => (pdf.toString('latin1').match(/\/Type \/Page\b/g) || []).length;
+  const item = (i) => ({
+    product_id: i, quantity: 1, unit_price: '10.00', tax_rate_snapshot: '8.10',
+    product_snapshot_json: JSON.stringify({ name: `Article ${i}`, sku: `REF${i}` }),
+  });
+  const qrOrder = (count) => makeOrder({
+    invoice_number: '2026-09/05', invoice_seq: 5, user_id: 161,
+    subtotal: String(count * 10), shipping_cost: '8.50', total: String(count * 10 + 8.5),
+    items: Array.from({ length: count }, (_, i) => item(i + 1)),
+  });
+
+  test('3 articles, totaux et bulletin QR tiennent sur une seule page', async () => {
+    const pdf = await generateInvoicePDF({ order: qrOrder(3), user: makeUser() });
+    expect(countPages(pdf)).toBe(1);
+    expect(extractPdfText(pdf)).toContain('Récépissé');
+  });
+
+  test('une longue facture passe en page 2 avec son dernier article, jamais les totaux seuls', async () => {
+    const pdf = await generateInvoicePDF({ order: qrOrder(14), user: makeUser() });
+    expect(countPages(pdf)).toBe(2);
+    const text = extractPdfText(pdf);
+    // Le dernier article précède les totaux sur la même page
+    expect(text.indexOf('Article 14')).toBeLessThan(text.indexOf('Articles TTC'));
+    expect(text.indexOf('Articles TTC')).toBeLessThan(text.indexOf('Récépissé'));
+  });
+});
+
+/* « CHF » aligné sur une même verticale dans le tableau des totaux (25.09) :
+   la mention et le nombre sont imprimés séparément, le nombre aligné à droite. */
+describe('invoice.service — mention CHF alignée dans les totaux', () => {
+  test('« CHF » est imprimé à la même abscisse sur chaque ligne des totaux', async () => {
+    // Même registre de modules pour pdfkit et le service (un test plus haut fait resetModules)
+    let PDFDocument;
+    let generate;
+    jest.isolateModules(() => {
+      PDFDocument = require('pdfkit');
+      ({ generateInvoicePDF: generate } = require('../../services/invoice.service'));
+    });
+
+    const calls = [];
+    const original = PDFDocument.prototype.text;
+    PDFDocument.prototype.text = function (str, x, ...rest) {
+      if (str === 'CHF') calls.push(x);
+      return original.call(this, str, x, ...rest);
+    };
+    try {
+      await generate({
+        // Facture payée : pas de bulletin QR, dont les sections « Monnaie » impriment aussi « CHF »
+        order: makeOrder({ discount: '5.00', coupon_code: 'PROMO', invoice_number: '2026-09/05', invoice_seq: 5, paid_at: new Date('2026-09-25T08:00:00Z') }),
+        user: makeUser(),
+      });
+    } finally {
+      PDFDocument.prototype.text = original;
+    }
+    // Articles, remise, port, sous-total HT et TOTAL TTC
+    expect(calls).toHaveLength(5);
+    expect(new Set(calls).size).toBe(1);
   });
 });

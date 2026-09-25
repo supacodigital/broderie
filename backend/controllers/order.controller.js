@@ -116,8 +116,8 @@ const downloadInvoice = async (req, res, next) => {
     const order = await orderRepository.findById(orderId, userId);
     if (!order) return next(new AppError('Commande introuvable.', 404));
 
-    // Seules les commandes payées par facture QR disposent d'une facture téléchargeable
-    if (order.payment_method !== 'invoice_qr') {
+    // Facture QR à régler, ou commande déjà payée (Twint, carte, en boutique)
+    if (!invoiceService.isInvoiceAvailableToCustomer(order)) {
       return next(new AppError('Aucune facture disponible pour cette commande.', 404));
     }
 

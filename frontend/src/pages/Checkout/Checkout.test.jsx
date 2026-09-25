@@ -104,6 +104,8 @@ describe('Checkout — retour de l\'app Twint (CLI-15)', () => {
     expect(syncPaymentMock).toHaveBeenCalledWith('68')
     expect(createTwintIntentMock).not.toHaveBeenCalled()
     expect(sessionStorage.getItem('checkout_order_id')).toBeNull()
+    // Retour du test Twint du 25.09 : le bouton mène à la commande payée, plus au catalogue
+    expect(screen.getByRole('link', { name: 'checkout.confirmCta' })).toHaveAttribute('href', '/commandes/68')
   })
 
   /* L'app Twint peut rouvrir le site dans un nouvel onglet : sessionStorage y
