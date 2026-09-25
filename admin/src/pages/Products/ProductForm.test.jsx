@@ -8,6 +8,7 @@ vi.mock('../../services/products.service.js', () => ({
   getProductById:     vi.fn(),
   createProduct:      vi.fn(),
   updateProduct:      vi.fn(),
+  deleteProduct:      vi.fn(),
   uploadProductImage: vi.fn(),
   deleteProductImage: vi.fn(),
   setPrimaryImage:    vi.fn(),
@@ -21,7 +22,7 @@ vi.mock('../../contexts/ToastContext.jsx', () => ({
   useToast: () => ({ success: toastSuccess, error: vi.fn() }),
 }))
 
-import { getProductById, createProduct, updateProduct } from '../../services/products.service.js'
+import { getProductById, createProduct, updateProduct, deleteProduct } from '../../services/products.service.js'
 import { getCategories } from '../../services/categories.service.js'
 import { getSuppliers } from '../../services/suppliers.service.js'
 import { getTaxRates } from '../../services/settings.service.js'
@@ -828,5 +829,35 @@ describe('ProductForm — fiche neuve', () => {
     await user.click(screen.getByRole('button', { name: 'Annuler' }))
     expect(await screen.findByText('Liste des produits')).toBeInTheDocument()
     expect(screen.queryByText(/ne sont pas enregistrées/)).not.toBeInTheDocument()
+  })
+})
+
+// La suppression a quitté la liste (poubelle collée au crayon) pour la fiche
+describe('ProductForm — suppression depuis la fiche', () => {
+  it('supprime après confirmation, puis revient à la liste', async () => {
+    const user = userEvent.setup()
+    getProductById.mockResolvedValue({ id: 21, name: 'Kit à retirer', sku: 'SKU-021', price_chf: 30, stock: 5, category_id: 1, tax_rate_id: 1, images: [] })
+    deleteProduct.mockResolvedValue()
+    render(
+      <MemoryRouter initialEntries={['/produits/21']}>
+        <Routes>
+          <Route path="/produits" element={<p>Liste des produits</p>} />
+          <Route path="/produits/:id" element={<ProductForm />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await user.click(await screen.findByRole('button', { name: /Supprimer ce produit/ }))
+    expect(screen.getByText('Supprimer définitivement ce produit ?')).toBeInTheDocument()
+    expect(deleteProduct).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Confirmer' }))
+    await waitFor(() => expect(deleteProduct).toHaveBeenCalledWith(21))
+    expect(await screen.findByText('Liste des produits')).toBeInTheDocument()
+  })
+
+  it('pas de suppression sur une fiche neuve', async () => {
+    renderForm()
+    await screen.findByRole('option', { name: 'Kits' })
+    expect(screen.queryByRole('button', { name: /Supprimer ce produit/ })).not.toBeInTheDocument()
   })
 })

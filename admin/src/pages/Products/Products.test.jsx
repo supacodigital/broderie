@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import Products from './Products.jsx'
@@ -112,5 +112,63 @@ describe('Products — filtre catégorie sur 3 niveaux', () => {
     const chip = await screen.findByRole('button', { name: /Catégorie/ })
     expect(chip.textContent).toContain('Mouliné Spécial (Art. 117)')
     expect(chip.textContent).not.toContain('—')
+  })
+})
+
+/* Lignes de la liste (25.09) : un stock et un prix qui disent la vérité, un
+   statut qui signale l'exception, et plus de poubelle à côté du crayon. */
+describe('Products — lignes de la liste', () => {
+  const base = {
+    slug: 'p', sku: 'SKU', is_active: 1, is_made_to_order: 0, sold_by_length: 0, stock: 12,
+    price_chf: '20.00', compare_price_chf: null, is_promo_active: 0, promo_starts_at: null, promo_ends_at: null,
+    category_name: 'Kits', supplier_name: 'Fournisseur', brand: null,
+  }
+  const ROWS = [
+    { ...base, id: 1, name: 'Kit A', stock: 0, is_made_to_order: 1 },
+    { ...base, id: 2, name: 'Kit B', stock: 0 },
+    { ...base, id: 3, name: 'Kit C', price_chf: '15.00', compare_price_chf: '20.00', is_promo_active: 1 },
+    { ...base, id: 4, name: 'Kit D', price_chf: '15.00', compare_price_chf: '20.00', promo_starts_at: '2099-01-01T00:00:00.000Z' },
+    { ...base, id: 5, name: 'Kit E', is_active: 0, stock: 3 },
+  ]
+  const row = async (name) => (await screen.findByRole('link', { name })).closest('[class*="tableRow"]')
+
+  beforeEach(() => {
+    getProducts.mockResolvedValue({ data: ROWS, pagination: { page: 1, limit: 20, total: ROWS.length, totalPages: 1 } })
+  })
+
+  it('stock : « Sur commande » pour un article commandable à zéro, « Rupture » sinon', async () => {
+    renderPage()
+    expect(within(await row('Kit A')).getByText('Sur commande')).toBeInTheDocument()
+    expect(within(await row('Kit A')).queryByText('Rupture')).not.toBeInTheDocument()
+    expect(within(await row('Kit B')).getByText('Rupture')).toBeInTheDocument()
+  })
+
+  it('promotion en cours : prix normal barré, prix payé et remise', async () => {
+    renderPage()
+    const r = await row('Kit C')
+    expect(r.querySelector('del')).toHaveTextContent(/CHF 20[.,]00/)
+    expect(within(r).getByText(/CHF 15[.,]00/)).toBeInTheDocument()
+    expect(within(r).getByText('Promo −25 %')).toBeInTheDocument()
+  })
+
+  it('promotion programmée : le prix affiché est le prix normal, celui que paie la boutique', async () => {
+    renderPage()
+    const r = await row('Kit D')
+    expect(within(r).getByText(/CHF 20[.,]00/)).toBeInTheDocument()
+    expect(within(r).queryByText(/CHF 15[.,]00/)).not.toBeInTheDocument()
+    expect(r.querySelector('del')).toBeNull()
+    expect(within(r).getByText('Programmée')).toBeInTheDocument()
+  })
+
+  it('statut : « Masqué » pour un produit inactif, « En ligne » sinon', async () => {
+    renderPage()
+    expect(within(await row('Kit E')).getByText('Masqué')).toBeInTheDocument()
+    expect(within(await row('Kit B')).getByText('En ligne')).toBeInTheDocument()
+  })
+
+  it('plus de bouton de suppression dans la liste', async () => {
+    renderPage()
+    await row('Kit A')
+    expect(screen.queryByRole('button', { name: 'Supprimer' })).not.toBeInTheDocument()
   })
 })

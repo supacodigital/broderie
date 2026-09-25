@@ -8,7 +8,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
-  getProductById, createProduct, updateProduct,
+  getProductById, createProduct, updateProduct, deleteProduct,
   uploadProductImage, deleteProductImage, setPrimaryImage,
 } from '../../services/products.service.js'
 import { getCategories } from '../../services/categories.service.js'
@@ -279,6 +279,7 @@ export default function ProductForm() {
   const [saved,      setSaved]      = useState(false)
   const [apiError,   setApiError]   = useState('')
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   /* En-tête complet sorti de l'écran → version compacte collée en haut */
   const headRef = useRef(null)
@@ -632,6 +633,18 @@ export default function ProductForm() {
     return () => observer.disconnect()
   }, [loading])
 
+  /* Suppression — depuis la fiche et non plus depuis la liste, où la poubelle
+     collée au crayon de chaque ligne se touchait par erreur. */
+  const handleDelete = async () => {
+    try {
+      await deleteProduct(Number(id))
+      toast.success('Produit supprimé.')
+      leave()
+    } catch (err) {
+      toast.error(err.response?.data?.message ?? 'Erreur lors de la suppression.')
+    }
+  }
+
   /* Enregistrement refusé par la validation du formulaire (ADM-04). Le curseur
      part sur le premier champ en erreur, mais rien n'expliquait le refus : en
      cochant des rayons en bas de fiche, on voyait la page sauter sans savoir
@@ -829,6 +842,13 @@ export default function ProductForm() {
           message="Vos modifications ne sont pas enregistrées. Quitter cette page ?"
           onConfirm={leave}
           onClose={() => setConfirmLeave(false)}
+        />
+      )}
+      {confirmDelete && (
+        <ConfirmDialog
+          message="Supprimer définitivement ce produit ?"
+          onConfirm={handleDelete}
+          onClose={() => setConfirmDelete(false)}
         />
       )}
 
@@ -1276,6 +1296,12 @@ export default function ProductForm() {
               {errors.brand && <span className={s.err}>{errors.brand.message}</span>}
             </div>
           </Card>
+
+          {isEdit && (
+            <button type="button" className={s.deleteBtn} onClick={() => setConfirmDelete(true)}>
+              <Trash2 size={14} aria-hidden="true" /> Supprimer ce produit
+            </button>
+          )}
         </div>
       </form>
     </div>

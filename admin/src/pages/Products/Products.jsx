@@ -1,11 +1,11 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import {
-  Plus, Search, Edit2, Trash2, ImageOff, AlertTriangle,
+  Plus, Search, Edit2, ImageOff, AlertTriangle,
   SlidersHorizontal, RotateCcw, EyeOff, X, Rows2, Rows3, Star, ChevronDown,
 } from 'lucide-react'
 import {
-  getProducts, deleteProduct, getBrands,
+  getProducts, getBrands,
 } from '../../services/products.service.js'
 import { getCategories } from '../../services/categories.service.js'
 import { getSuppliers } from '../../services/suppliers.service.js'
@@ -14,7 +14,6 @@ import SortIcon from '../../components/ui/SortIcon/SortIcon.jsx'
 import Pagination from '../../components/ui/Pagination/Pagination.jsx'
 import ErrorBanner from '../../components/ui/ErrorBanner/ErrorBanner.jsx'
 import SkeletonTable from '../../components/ui/SkeletonTable/SkeletonTable.jsx'
-import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
 import { useToast } from '../../contexts/ToastContext.jsx'
 import { useSavedViews } from '../../hooks/useSavedViews.js'
 import s from './Products.module.css'
@@ -28,6 +27,58 @@ const PER_PAGE_OPTIONS = [20, 50, 100]
 
 
 // ── Page principale ────────────────────────────────────────────────────────
+/* Prix affiché = prix réellement payé en boutique à cet instant, selon la même
+   règle que le serveur (backend/utils/promo.utils.js) : price_chf pendant la
+   promotion, le prix normal (compare_price_chf) avant ou après. La liste
+   affichait toujours price_chf : une promotion programmée ou terminée y
+   montrait le prix promo, que la boutique ne facture pas. */
+const priceInfo = (product) => {
+  const promo  = Number(product.price_chf)
+  const normal = product.compare_price_chf != null ? Number(product.compare_price_chf) : null
+  const active = !!Number(product.is_promo_active) && normal > promo
+  return {
+    paid:    active ? promo : (normal ?? promo),
+    barred:  active ? normal : null,
+    percent: active ? Math.round((1 - promo / normal) * 100) : null,
+  }
+}
+
+/* Statut utile : tout le catalogue est actif, « Actif » sur chaque ligne ne
+   disait rien. On signale ce qui sort de l'ordinaire. */
+const listStatus = (product) => {
+  if (!product.is_active) return { tone: 'muted', label: 'Masqué' }
+  const { percent } = priceInfo(product)
+  if (percent) return { tone: 'promo', label: `Promo −${percent} %` }
+  const programmed = Number(product.compare_price_chf) > Number(product.price_chf)
+    && product.promo_starts_at && new Date(product.promo_starts_at) > new Date()
+  if (programmed) return { tone: 'info', label: 'Programmée' }
+  return { tone: 'online', label: 'En ligne' }
+}
+
+function PriceCell({ product }) {
+  const { paid, barred } = priceInfo(product)
+  return (
+    <span className={s.priceCell}>
+      {barred != null && <del className={s.priceBarred}>{formatCHF(barred)}</del>}
+      <span className={barred != null ? s.pricePromo : s.bold}>{formatCHF(paid)}</span>
+    </span>
+  )
+}
+
+/* Stock qui dit la vérité : un article vendu sur commande reste commandable à
+   zéro — son « 0 » rouge faisait passer 12 000 produits pour des ruptures, et
+   le rouge n'alertait plus sur rien. Il est réservé aux vraies ruptures. */
+function StockCell({ product }) {
+  const qty = stockInSaleUnit(product)
+  if (qty <= 0) {
+    return product.is_made_to_order
+      ? <span className={s.stockOrder}>Sur commande</span>
+      : <span className={s.stockOut}>Rupture</span>
+  }
+  // 5 pièces, ou 5 m pour un article à la coupe (ADM-12)
+  return <span className={qty <= 5 ? s.stockLow : s.stockOk}>{formatStock(product)}</span>
+}
+
 export default function Products() {
   const toast = useToast()
   const navigate = useNavigate()
@@ -66,7 +117,6 @@ export default function Products() {
   const [total,       setTotal]       = useState(0)
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState(false)
-  const [confirm,     setConfirm]     = useState(null)
   const [categories,  setCategories]  = useState([])
   const [suppliers,   setSuppliers]   = useState([])
   const [brands,      setBrands]      = useState([])
@@ -369,26 +419,10 @@ export default function Products() {
     navigate(`/produits/${editId}`)
   }, []) // une seule fois au montage
 
-  const handleDelete = (id) => {
-    setConfirm({
-      message: 'Supprimer définitivement ce produit ?',
-      onConfirm: async () => {
-        try {
-          await deleteProduct(id)
-          load()
-          toast.success('Produit supprimé.')
-        } catch (err) {
-          toast.error(err.response?.data?.message ?? 'Erreur lors de la suppression.')
-        }
-      },
-    })
-  }
-
   const totalPages = Math.ceil(total / perPage)
 
   return (
     <div className={s.page}>
-      {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
 
       <div className={s.pageHead}>
         <div>
@@ -818,22 +852,17 @@ export default function Products() {
                 <span className={s.brandEmpty}>—</span>
               )}
               <span className={s.sku}>{product.sku ?? '—'}</span>
-              <span className={s.bold}>{formatCHF(product.price_chf)}</span>
-              {/* Stock bas signalé par la seule couleur : l'icône d'alerte répétée
-                  sur chaque ligne saturait la colonne sans rien ajouter. */}
-              {/* 5 pièces, ou 5 m pour un article à la coupe (ADM-12) */}
-              <span className={stockInSaleUnit(product) <= 5 ? s.stockLow : s.stockOk}>
-                {formatStock(product)}
-              </span>
-              <span className={s.activeBadge} data-active={String(!!product.is_active)}>
-                {product.is_active ? 'Actif' : 'Inactif'}
-              </span>
+              <PriceCell product={product} />
+              <StockCell product={product} />
+              {(() => {
+                const st = listStatus(product)
+                return <span className={s.statusChip} data-tone={st.tone}>{st.label}</span>
+              })()}
+              {/* La suppression se fait depuis la fiche : collée au crayon sur chaque
+                  ligne, la poubelle se touchait par erreur. */}
               <div className={s.actions}>
                 <button className={s.iconBtn} onClick={() => navigate(`/produits/${product.id}`)} aria-label="Modifier">
                   <Edit2 size={14} />
-                </button>
-                <button className={s.iconBtnDanger} onClick={() => handleDelete(product.id)} aria-label="Supprimer">
-                  <Trash2 size={14} />
                 </button>
               </div>
             </div>
