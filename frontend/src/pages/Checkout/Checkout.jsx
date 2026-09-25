@@ -696,6 +696,11 @@ function TwintForm({ orderId, onPaid, t }) {
   const elements = useElements()
   const [error,      setError]      = useState('')
   const [processing, setProcessing] = useState(false)
+  /* Formulaire Stripe prêt / en échec de chargement (réseau, bloqueur de
+     publicités, panne Stripe) : sans ce suivi, la cliente voyait un bouton
+     « Payer » sans aucun champ ni explication. */
+  const [ready,      setReady]      = useState(false)
+  const [loadError,  setLoadError]  = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -730,7 +735,16 @@ function TwintForm({ orderId, onPaid, t }) {
           le déduit de l'adresse réseau et affichait « France » à des clientes
           suisses. La liste reste ouverte — la boutique livre en Suisse mais une
           carte peut être émise ailleurs. */}
-      <PaymentElement options={{ defaultValues: { billingDetails: { address: { country: 'CH' } } } }} />
+      <PaymentElement
+        options={{ defaultValues: { billingDetails: { address: { country: 'CH' } } } }}
+        onReady={() => setReady(true)}
+        onLoadError={() => setLoadError(true)}
+      />
+      {loadError && (
+        <div className={s.twintError} role="alert">
+          <AlertCircle size={16} />{t('checkout.errors.paymentFormLoad')}
+        </div>
+      )}
       {error && (
         <div className={s.twintError} role="alert">
           <AlertCircle size={16} />{error}
@@ -739,7 +753,7 @@ function TwintForm({ orderId, onPaid, t }) {
       <button
         type="submit"
         className={`${s.btnPrimary} ${s.btnFullWidth}`}
-        disabled={!stripe || processing}
+        disabled={!stripe || processing || !ready || loadError}
       >
         {processing
           ? t('checkout.processing')
@@ -848,6 +862,9 @@ function CardForm({ orderId, total, onPaid, t }) {
   const elements = useElements()
   const [error,       setError]       = useState('')
   const [processing,  setProcessing]  = useState(false)
+  // Même suivi du chargement que pour Twint (voir TwintForm)
+  const [ready,       setReady]       = useState(false)
+  const [loadError,   setLoadError]   = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -884,7 +901,16 @@ function CardForm({ orderId, total, onPaid, t }) {
           le déduit de l'adresse réseau et affichait « France » à des clientes
           suisses. La liste reste ouverte — la boutique livre en Suisse mais une
           carte peut être émise ailleurs. */}
-      <PaymentElement options={{ defaultValues: { billingDetails: { address: { country: 'CH' } } } }} />
+      <PaymentElement
+        options={{ defaultValues: { billingDetails: { address: { country: 'CH' } } } }}
+        onReady={() => setReady(true)}
+        onLoadError={() => setLoadError(true)}
+      />
+      {loadError && (
+        <div className={s.cardError} role="alert">
+          <AlertCircle size={14} />{t('checkout.errors.paymentFormLoad')}
+        </div>
+      )}
       {error && (
         <div className={s.cardError} role="alert">
           <AlertCircle size={14} />{error}
@@ -893,7 +919,7 @@ function CardForm({ orderId, total, onPaid, t }) {
       <button
         type="submit"
         className={`${s.btnPrimary} ${s.btnFullWidth}`}
-        disabled={!stripe || processing}
+        disabled={!stripe || processing || !ready || loadError}
       >
         {processing
           ? t('checkout.processing')

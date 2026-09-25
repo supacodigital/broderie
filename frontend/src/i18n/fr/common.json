@@ -295,7 +295,8 @@
       "twintRefused": "Paiement Twint refusé.",
       "twintConfirm": "Erreur lors de la confirmation Twint.",
       "twintInit": "Impossible de générer le paiement Twint. Veuillez réessayer.",
-      "cardRefused": "Paiement refusé."
+      "cardRefused": "Paiement refusé.",
+      "paymentFormLoad": "Le formulaire de paiement n'a pas pu se charger. Vérifiez votre connexion ou un éventuel bloqueur de publicités, puis rechargez la page — ou choisissez un autre moyen de paiement."
     },
     "couponPlaceholder": "Ex : BIENVENUE10",
     "couponApply": "Appliquer",
