@@ -26,9 +26,8 @@
     <!-- Hreflang + canonical : gérés dynamiquement par page via le composant <Seo> (react-helmet-async).
          Les balises statiques ont été retirées pour éviter les doublons avec les balises par page. -->
 
-    <!-- Performance -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Performance — police du texte préchargée (servie par le site, voir src/fonts.css) -->
+    <link rel="preload" href="/src/assets/fonts/montserrat-normal-latin.woff2" as="font" type="font/woff2" crossorigin />
   </head>
   <body>
     <div id="root"></div>

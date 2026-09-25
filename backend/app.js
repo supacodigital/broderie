@@ -60,8 +60,10 @@ if (process.env.NODE_ENV === 'production') {
 // - scriptSrc : Vite en build ne produit AUCUN script inline → pas de 'unsafe-inline'
 //   ni 'unsafe-eval'.
 // - styleSrc : garde 'unsafe-inline' pour les attributs style={{}} de React ;
-//   fonts.googleapis.com pour la feuille de styles Google Fonts (@import dans index.css).
+//   fonts.googleapis.com pour la feuille de styles Google Fonts.
 // - fontSrc : fonts.gstatic.com pour les fichiers de police servis par Google Fonts.
+//   Depuis le 25.09, la boutique sert ses polices elle-même (frontend/src/fonts.css) ;
+//   Google Fonts ne reste utilisé que par l'aperçu de la vitrine dans l'admin.
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
