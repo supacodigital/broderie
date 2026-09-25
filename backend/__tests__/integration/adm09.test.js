@@ -71,7 +71,7 @@ describe('Suivi des factures QR (ADM-09)', () => {
     const inv = await findIn('unpaid');
     expect(inv).toBeDefined();
     expect(inv.paymentStatus).toBe('unpaid');
-    expect(inv.invoiceNumber).toMatch(/^\d{4}-\d{6}$/);
+    expect(inv.invoiceNumber).toMatch(/^\d{4}-\d{2}\/\d{2,}$/);
     expect(new Date(inv.dueDate).getTime()).toBeGreaterThan(new Date(inv.createdAt).getTime());
     expect(await findIn('paid')).toBeUndefined();
   });

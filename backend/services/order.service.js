@@ -60,8 +60,8 @@ const resolveDiscountCode = async ({ code, userId, subtotal }) => {
   };
 };
 
-/* Numérotation de la facture : « 2026-000001 », compteur remis à 1 chaque
-   1er janvier, et référence de paiement dérivée de ce numéro. Idempotent : une
+/* Numérotation de la facture : « 2026-09/01 », compteur remis à 01 chaque
+   mois (ADM-18), et référence de paiement dérivée de ce numéro. Idempotent : une
    commande déjà numérotée garde son numéro. Échec non bloquant — la commande
    existe et reste payable ; c'est la facture qui serait à régénérer. */
 const numberInvoice = async (orderId) => {
@@ -69,7 +69,8 @@ const numberInvoice = async (orderId) => {
     const assigned = await orderRepository.assignInvoiceNumber(orderId);
     const reference = invoiceService.generateQrReference(
       assigned?.invoiceSeq ?? null,
-      assigned?.year ?? new Date().getFullYear()
+      assigned?.year ?? new Date().getFullYear(),
+      assigned?.month ?? null
     );
     await orderRepository.saveQrReference(orderId, reference);
   } catch (err) {

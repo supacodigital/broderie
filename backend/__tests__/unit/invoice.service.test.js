@@ -86,6 +86,19 @@ describe('invoice.service — référence structurée avec QR-IBAN', () => {
     expect(generateWithQrIban(1, 2026)).not.toBe(generateWithQrIban(1, 2027));
   });
 
+  /* ADM-18 — numéro « 2026-09/01 », compteur remis à 01 chaque mois : le mois
+     entre dans la référence, sinon deux mois partageraient la même. */
+  test('facture mensuelle : encode année, mois et compteur', () => {
+    const ref = generateWithQrIban(1, 2026, 9);
+    expect(ref.slice(0, 26)).toMatch(/0{14}202609000001$/);
+    expect(isQRReference(ref)).toBe(true);
+  });
+
+  test('deux mois, ou un mois et l\'ancien format annuel, ne partagent jamais une référence', () => {
+    const refs = [generateWithQrIban(1, 2026, 9), generateWithQrIban(1, 2026, 10), generateWithQrIban(1, 2026), generateWithQrIban(1, 2027, 9)];
+    expect(new Set(refs).size).toBe(4);
+  });
+
   test('sans numéro de séquence, retombe sur la référence interne', () => {
     expect(generateWithQrIban(null)).toMatch(/^APC/);
   });

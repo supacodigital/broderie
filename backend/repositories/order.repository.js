@@ -3,6 +3,7 @@ const { AppError } = require('../middlewares/errorHandler');
 const { displayComparePriceSql } = require('../utils/promo.utils');
 const { compareUnitPrice } = require('../utils/sale.utils');
 const lengthUtils = require('../utils/length.utils');
+const invoiceNumbering = require('../utils/invoiceNumber.utils');
 
 // Création d'une commande — transaction atomique (stock + commande + items + coupon + paiement)
 const createOrder = async ({ userId, items, subtotal, shippingCost, taxAmount, total, status = 'pending', address = null, billingAddress = null, couponCode = null, discount = 0, couponId = null, paymentMethod = 'twint', qrReference = null, locale = 'fr', wantsPrintedInvoice = false, confirmed = true }) => {
@@ -660,9 +661,10 @@ const lockOrderForPaymentIntent = async (orderId, userId, method) => {
 };
 
 /* Attribue son numéro de facture à une commande, à la première émission.
-   Le compteur est annuel (« 2026-000001 ») et repart à 1 le 1er janvier :
-   la période est l'année civile, donc 2027 recommence à « 2027-000001 »
-   sans aucune intervention.
+   Format de la cliente (ADM-18) : « 2026-09/01 », compteur MENSUEL — la
+   période est le mois civil suisse, donc octobre recommence à « 2026-10/01 »
+   sans aucune intervention. Les factures antérieures gardent leur numéro
+   annuel (« 2026-000013 »).
 
    Atomicité : INSERT ... ON DUPLICATE KEY UPDATE incrémente la ligne de l'année
    sous verrou de la transaction, donc deux commandes simultanées ne peuvent pas
@@ -687,18 +689,20 @@ const assignInvoiceNumber = async (orderId) => {
     }
     if (existing.invoice_number) {
       await connection.commit();
-      // L'année provient du numéro déjà figé (« 2026-000001 »), pas de l'horloge :
-      // régénérer en 2027 une facture de 2026 doit redonner la même référence QR.
-      const existingYear = parseInt(String(existing.invoice_number).slice(0, 4), 10);
+      // Année et mois proviennent du numéro déjà figé, pas de l'horloge :
+      // régénérer plus tard une facture doit redonner la même référence QR.
+      const parsed = invoiceNumbering.parseInvoiceNumber(existing.invoice_number);
       return {
         invoiceNumber: existing.invoice_number,
         invoiceSeq:    existing.invoice_seq,
-        year:          Number.isInteger(existingYear) ? existingYear : new Date().getFullYear(),
+        year:          parsed?.year ?? new Date().getFullYear(),
+        month:         parsed?.month ?? null,
       };
     }
 
-    // Période = année civile courante (« 2026 »), d'où la remise à zéro au 1er janvier
-    const period = String(new Date().getFullYear());
+    // Période = mois civil suisse (« 2026-09 »), d'où la remise à 01 chaque mois
+    const yearMonth = invoiceNumbering.zurichYearMonth();
+    const period = invoiceNumbering.invoicePeriod(yearMonth);
 
     await connection.execute(
       `INSERT INTO invoice_counters (period, last_seq) VALUES (?, 1)
@@ -710,9 +714,9 @@ const assignInvoiceNumber = async (orderId) => {
       [period]
     );
 
-    // Format demandé par la cliente : année + 6 chiffres, ex. « 2026-000001 »
+    // Format demandé par la cliente : « 2026-09/01 »
     const seq           = counter.last_seq;
-    const invoiceNumber = `${period}-${String(seq).padStart(6, '0')}`;
+    const invoiceNumber = invoiceNumbering.formatInvoiceNumber(yearMonth, seq);
 
     await connection.execute(
       `UPDATE orders SET invoice_number = ?, invoice_seq = ? WHERE id = ?`,
@@ -720,7 +724,7 @@ const assignInvoiceNumber = async (orderId) => {
     );
 
     await connection.commit();
-    return { invoiceNumber, invoiceSeq: seq, year: Number(period) };
+    return { invoiceNumber, invoiceSeq: seq, year: yearMonth.year, month: yearMonth.month };
   } catch (err) {
     try { await connection.rollback(); } catch { /* connexion déjà rendue */ }
     throw err;

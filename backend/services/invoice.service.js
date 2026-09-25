@@ -6,6 +6,7 @@ const { isQRIBAN, calculateQRReferenceChecksum } = require('swissqrbill/utils');
 const { roundCHF }    = require('../utils/chf.utils');
 const { compareUnitPrice, salePercent } = require('../utils/sale.utils');
 const lengthUtils     = require('../utils/length.utils');
+const invoiceNumbering = require('../utils/invoiceNumber.utils');
 const { computeOrderVat } = require('../utils/tva.utils');
 const env             = require('../config/env');
 const emailService    = require('./email.service');
@@ -49,13 +50,17 @@ const formatRate = (ratePercent) => String(Number(Number(ratePercent).toFixed(2)
 // ─────────────────────────────────────────────────────────────
 
 /* Référence QR structurée : 26 chiffres + 1 de contrôle.
-   On encode ANNÉE (4) + compteur (6), complété par des zéros à gauche, soit le
-   numéro de facture « 2026-000001 » sans son tiret → …0000 2026 000001 + clé.
-   L'année est indispensable : le compteur repart à 1 chaque 1er janvier, donc
-   le seul numéro de séquence donnerait la même référence en 2026 et en 2027 —
-   la banque rapprocherait le paiement sur la mauvaise facture. */
-const buildStructuredReference = (invoiceSeq, year = new Date().getFullYear()) => {
-  const numeric = `${String(year)}${String(invoiceSeq).replace(/\D/g, '').padStart(6, '0')}`;
+   On encode ANNÉE (4) + MOIS (2) + compteur (6), complété par des zéros à
+   gauche : la facture « 2026-09/01 » donne …0000 2026 09 000001 + clé (ADM-18).
+   L'année et le mois sont indispensables : le compteur repart à 1 chaque mois,
+   le seul numéro de séquence donnerait la même référence d'un mois à l'autre —
+   la banque rapprocherait le paiement sur la mauvaise facture.
+   Les factures annuelles d'avant ADM-18 (« 2026-000013 », `month` null) gardent
+   leur référence ANNÉE (4) + compteur (6) : elles ne peuvent pas entrer en
+   collision, leurs chiffres significatifs sont moins nombreux. */
+const buildStructuredReference = (invoiceSeq, year = new Date().getFullYear(), month = null) => {
+  const period  = month ? `${String(year)}${String(month).padStart(2, '0')}` : String(year);
+  const numeric = `${period}${String(invoiceSeq).replace(/\D/g, '').padStart(6, '0')}`;
   const base    = numeric.padStart(26, '0').slice(-26);
   return base + calculateQRReferenceChecksum(base);
 };
@@ -74,9 +79,9 @@ const usesStructuredReference = () => isQRIBAN(String(env.qrInvoiceIban || '').r
 
 /* Conservé pour les commandes créées avant la numérotation des factures :
    la référence est alors générée sans connaître le numéro de facture. */
-const generateQrReference = (invoiceSeq = null, year = new Date().getFullYear()) => (
+const generateQrReference = (invoiceSeq = null, year = new Date().getFullYear(), month = null) => (
   usesStructuredReference() && invoiceSeq
-    ? buildStructuredReference(invoiceSeq, year)
+    ? buildStructuredReference(invoiceSeq, year, month)
     : buildInternalReference()
 );
 
@@ -106,11 +111,11 @@ const invoiceFallbackNumber = (order) => {
 const resolveStructuredReference = (order) => {
   const stored = String(order.qr_reference ?? '');
   if (/^\d{27}$/.test(stored)) return stored;
-  const year = new Date(order.created_at ?? Date.now()).getFullYear();
-  const seq  = order.invoice_seq
-    ?? String(order.invoice_number ?? '').split('-').pop()
-    ?? order.id;
-  return buildStructuredReference(seq || order.id, year);
+  // Année et mois du numéro émis (mensuel ou annuel), sinon de la commande
+  const parsed = invoiceNumbering.parseInvoiceNumber(order.invoice_number);
+  const year = parsed?.year ?? new Date(order.created_at ?? Date.now()).getFullYear();
+  const seq  = order.invoice_seq ?? parsed?.seq ?? order.id;
+  return buildStructuredReference(seq || order.id, year, parsed?.month ?? null);
 };
 
 /* Dates à l'heure suisse : le serveur tourne en UTC, et une commande passée à

@@ -117,7 +117,7 @@ describe('CLI-07 — une tentative de paiement carte / Twint n\'est pas une comm
     const row = await readOrder(orderId);
     expect(row.status).toBe('paid');
     expect(row.confirmed_at).not.toBeNull();
-    expect(row.invoice_number).toMatch(/^\d{4}-\d{6}$/);
+    expect(row.invoice_number).toMatch(/^\d{4}-\d{2}\/\d{2,}$/);
     expect(await adminListIds(adminToken)).toContain(orderId);
     expect(await clientListIds(token)).toContain(orderId);
     expect(await adminListIds(adminToken, { attempts: '1' })).not.toContain(orderId);
@@ -129,7 +129,7 @@ describe('CLI-07 — une tentative de paiement carte / Twint n\'est pas une comm
 
     const row = await readOrder(orderId);
     expect(row.confirmed_at).not.toBeNull();
-    expect(row.invoice_number).toMatch(/^\d{4}-\d{6}$/);
+    expect(row.invoice_number).toMatch(/^\d{4}-\d{2}\/\d{2,}$/);
     expect(await adminListIds(adminToken)).toContain(orderId);
   });
 
@@ -157,7 +157,7 @@ describe('CLI-07 — une tentative de paiement carte / Twint n\'est pas une comm
 
     const row = await readOrder(orderId);
     expect(row.confirmed_at).not.toBeNull();
-    expect(row.invoice_number).toMatch(/^\d{4}-\d{6}$/);
+    expect(row.invoice_number).toMatch(/^\d{4}-\d{2}\/\d{2,}$/);
     expect(await adminListIds(adminToken)).toContain(orderId);
   });
 });
