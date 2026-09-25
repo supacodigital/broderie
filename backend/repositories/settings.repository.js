@@ -102,8 +102,9 @@ const EMAIL_KEYS = ['email_welcome_text', 'email_verify_text'];
 
 /* Coordonnées imprimées sur la facture QR et délai de paiement.
    Le QR-IBAN reste volontairement dans le .env : c'est une donnée bancaire, et
-   une erreur de saisie enverrait de vrais paiements sur le mauvais compte. */
-const INVOICE_KEYS = ['invoice_name', 'invoice_address', 'invoice_zip', 'invoice_city', 'invoice_vat_number', 'invoice_due_days'];
+   une erreur de saisie enverrait de vrais paiements sur le mauvais compte.
+   `invoice_owner` : nom de l'exploitante d'une raison individuelle (ADM-13). */
+const INVOICE_KEYS = ['invoice_name', 'invoice_owner', 'invoice_address', 'invoice_zip', 'invoice_city', 'invoice_vat_number', 'invoice_due_days'];
 
 const findSettings = async (keys) => {
   const placeholders = keys.map(() => '?').join(', ');

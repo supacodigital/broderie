@@ -1,50 +1,8 @@
 // Tests unitaires invoice.service — génération PDF facture
 
-const zlib = require('zlib');
 const { generateInvoicePDF, computeTaxBreakdown, generateQrReference } = require('../../services/invoice.service');
 const { roundCHF } = require('../../utils/chf.utils');
-
-/* Lit le texte réellement imprimé dans un PDF produit par PDFKit.
-   Les tests existants ne vérifiaient que la signature et la taille du fichier :
-   une facture peut être un PDF parfaitement valide et afficher les mauvais
-   libellés. Les tickets ADM-13 à ADM-19 portent précisément sur ce qui est
-   écrit, d'où cette lecture du contenu.
-   PDFKit encode le texte en hexadécimal dans les opérateurs de flux. */
-function extractPdfText(buffer) {
-  const raw = buffer.toString('latin1');
-  const out = [];
-  const streamRe = /stream\r?\n/g;
-  let match;
-  while ((match = streamRe.exec(raw)) !== null) {
-    const start = match.index + match[0].length;
-    const end = raw.indexOf('endstream', start);
-    if (end < 0) continue;
-    let content;
-    try {
-      content = zlib.inflateSync(buffer.subarray(start, end)).toString('latin1');
-    } catch {
-      continue; // flux binaire (image du QR code)
-    }
-    if (!/T[jJ]/.test(content)) continue;
-    /* Un bloc BT..ET = une ligne imprimée. PDFKit y découpe le texte en
-       plusieurs fragments hexadécimaux pour appliquer le crénage : il faut donc
-       les recoller sans séparateur, sinon « Date de facture » ressort en
-       morceaux et aucune recherche de libellé ne fonctionne. */
-    for (const block of content.split('BT').slice(1)) {
-      const body = block.split('ET')[0];
-      let line = '';
-      const hexRe = /<([0-9a-fA-F]+)>/g;
-      let hex;
-      while ((hex = hexRe.exec(body)) !== null) {
-        line += Buffer.from(hex[1], 'hex').toString('latin1');
-      }
-      if (line.trim()) out.push(line);
-    }
-  }
-  /* Les caractères accentués sortent en Latin-1 ; « · » sert de séparateur
-     d'adresse. On garde le texte brut, ligne à ligne. */
-  return out.join('\n');
-}
+const { extractPdfText } = require('../helpers/pdf.helper');
 
 function makeOrder(overrides = {}) {
   return {
@@ -314,6 +272,33 @@ describe('invoice.service — mentions légales de la facture', () => {
   // ADM-13 — le logo est une image, il ne vaut pas mention de l'émetteur
   test('porte la raison sociale en toutes lettres', () => {
     expect(text).toContain('Au Point-Compté');
+  });
+});
+
+/* ADM-13 — raison individuelle : la cliente veut son nom et son N° TVA sur la
+   facture, saisis dans Paramètres → Facturation. */
+describe('invoice.service — titulaire et N° TVA (ADM-13)', () => {
+  const ORDER = {
+    id: 32, user_id: 161, created_at: new Date('2026-09-14'),
+    invoice_number: '2026-000032', invoice_seq: 32,
+    subtotal: '15.50', shipping_cost: '0.00', tax_amount: '1.15', total: '15.50',
+    items: [],
+  };
+  const SETTINGS = {
+    name: 'Au Point-Compté', owner: 'Julie Guerle',
+    address: 'Chemin du Collège 6', zip: '1509', city: 'Vucherens',
+    vatNumber: 'CHE-201.783.009 TVA', dueDays: 30,
+  };
+
+  test('imprime le titulaire, l\'adresse et le N° TVA saisis', async () => {
+    const text = extractPdfText(await generateInvoicePDF({ order: ORDER, user: makeUser(), settings: SETTINGS }));
+    expect(text).toMatch(/Au Point-Compté\s+Julie Guerle\s+Chemin du Collège 6 · 1509 Vucherens\s+N° TVA : CHE-201\.783\.009 TVA/);
+  });
+
+  test('sans titulaire saisi, aucune ligne vide ni valeur inventée', async () => {
+    const text = extractPdfText(await generateInvoicePDF({ order: ORDER, user: makeUser(), settings: { ...SETTINGS, owner: null } }));
+    expect(text).not.toContain('Julie Guerle');
+    expect(text).toMatch(/Au Point-Compté\s+Chemin du Collège 6 · 1509 Vucherens\s+N° TVA : CHE-201\.783\.009 TVA/);
   });
 });
 

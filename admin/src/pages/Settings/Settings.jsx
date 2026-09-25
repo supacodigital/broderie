@@ -1117,7 +1117,7 @@ function PickupTab({ onDirtyChange }) {
    reste volontairement hors interface : une erreur de saisie enverrait de
    vrais paiements clients sur le mauvais compte. */
 function InvoiceTab({ onDirtyChange }) {
-  const [values,  setValues]  = useState({ invoice_name: '', invoice_address: '', invoice_zip: '', invoice_city: '', invoice_vat_number: '', invoice_due_days: '' })
+  const [values,  setValues]  = useState({ invoice_name: '', invoice_owner: '', invoice_address: '', invoice_zip: '', invoice_city: '', invoice_vat_number: '', invoice_due_days: '' })
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(false)
   const [status,  setStatus]  = useState(null)
@@ -1168,6 +1168,12 @@ function InvoiceTab({ onDirtyChange }) {
               <input id="invoice_name" className={s.input} value={values.invoice_name ?? ''}
                 placeholder="Au Point-Compté" onChange={e => handleChange('invoice_name', e.target.value)} disabled={loading} />
               <p className={s.hint}>Doit correspondre au titulaire du compte bancaire.</p>
+            </div>
+            <div className={s.field}>
+              <label className={s.label} htmlFor="invoice_owner">Titulaire</label>
+              <input id="invoice_owner" className={s.input} value={values.invoice_owner ?? ''}
+                placeholder="Julie Guerle" onChange={e => handleChange('invoice_owner', e.target.value)} disabled={loading} />
+              <p className={s.hint}>Prénom et nom de l'exploitante (raison individuelle), imprimés sous le nom de la boutique.</p>
             </div>
             <div className={s.field}>
               <label className={s.label} htmlFor="invoice_address">Adresse</label>

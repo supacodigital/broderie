@@ -210,6 +210,7 @@ const PAGE_BOTTOM    = 792 - PAGE_MARGIN; // A4 = 842pt de haut, marge basse ide
 const generateInvoicePDF = ({ order, user, settings = null }) => {
   const issuer = {
     name:      settings?.name      ?? env.qrInvoiceName,
+    owner:     settings?.owner     ?? null,
     address:   settings?.address   ?? env.qrInvoiceAddress,
     zip:       settings?.zip       ?? env.qrInvoiceZip,
     city:      settings?.city      ?? env.qrInvoiceCity,
@@ -242,12 +243,21 @@ const generateInvoicePDF = ({ order, user, settings = null }) => {
       doc.fontSize(10).fillColor(dark).font('Helvetica-Bold')
          .text(issuer.name, PAGE_MARGIN, 96);
 
-      doc.fontSize(9).fillColor(muted).font('Helvetica')
-         .text(`${issuer.address} · ${issuer.zip} ${issuer.city}`, PAGE_MARGIN, 110);
+      /* Titulaire de la raison individuelle (ADM-13) : nom de l'exploitante sous
+         celui de la boutique, comme sur les factures de son ERP. Le bulletin QR
+         garde le seul nom de la boutique, titulaire du compte bancaire. */
+      let issuerY = 110;
+      doc.fontSize(9).fillColor(muted).font('Helvetica');
+      if (issuer.owner) {
+        doc.text(issuer.owner, PAGE_MARGIN, issuerY);
+        issuerY += 12;
+      }
+      doc.text(`${issuer.address} · ${issuer.zip} ${issuer.city}`, PAGE_MARGIN, issuerY);
+      issuerY += 12;
 
       // N° TVA du vendeur — imprimé seulement si la boutique est assujettie (LTVA art. 26)
       if (issuer.vatNumber) {
-        doc.text(`N° TVA : ${issuer.vatNumber}`, PAGE_MARGIN, 122);
+        doc.text(`N° TVA : ${issuer.vatNumber}`, PAGE_MARGIN, issuerY);
       }
 
       doc.fontSize(24).fillColor(dark).font('Helvetica-Bold')

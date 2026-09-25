@@ -53,6 +53,8 @@ const getInvoiceSettings = async () => {
   const days = parseInt(pick(v, 'invoice_due_days', env.invoiceDueDays), 10);
   return {
     name:      pick(v, 'invoice_name',       env.qrInvoiceName),
+    // Titulaire (ADM-13) — sans repli serveur : ligne absente tant que non saisie
+    owner:     pick(v, 'invoice_owner',      null),
     address:   pick(v, 'invoice_address',    env.qrInvoiceAddress),
     zip:       pick(v, 'invoice_zip',        env.qrInvoiceZip),
     city:      pick(v, 'invoice_city',       env.qrInvoiceCity),
