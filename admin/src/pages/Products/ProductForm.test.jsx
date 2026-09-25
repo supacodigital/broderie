@@ -40,6 +40,13 @@ function renderForm({ id } = {}) {
   )
 }
 
+// Seule modification d'une fiche : son stock (les prix ne doivent pas bouger)
+async function changeStockOnly(user) {
+  const stock = screen.getByLabelText(/^Stock \*/)
+  await user.clear(stock)
+  await user.type(stock, '7')
+}
+
 async function fillRequiredFields(user) {
   await screen.findByRole('option', { name: 'Kits' })
   await user.selectOptions(screen.getByLabelText(/Catégorie/), '1')
@@ -206,10 +213,11 @@ describe('ProductForm — édition d\'un produit avec réduction existante', () 
     expect((await screen.findAllByText('CHF 80.00')).length).toBeGreaterThan(0)
   })
 
-  /* Non-régression : rouvrir une fiche en promotion puis l'enregistrer sans rien
-     changer doit renvoyer EXACTEMENT les mêmes prix. C'est le scénario qui érodait
-     le prix à chaque passage. */
-  it('réenregistre les mêmes prix quand la fiche est ouverte puis soumise sans modification', async () => {
+  /* Non-régression : rouvrir une fiche en promotion et l'enregistrer sans toucher
+     aux prix doit renvoyer EXACTEMENT les mêmes prix. C'est le scénario qui érodait
+     le prix à chaque passage. Depuis le 25.09, « Enregistrer » est grisé tant que
+     rien ne change : le scénario réel est donc « modifier le stock, rien d'autre ». */
+  it('réenregistre les mêmes prix quand seul le stock est modifié', async () => {
     const user = userEvent.setup()
     getProductById.mockResolvedValue({
       id: 9,
@@ -226,6 +234,7 @@ describe('ProductForm — édition d\'un produit avec réduction existante', () 
 
     renderForm({ id: 9 })
     await screen.findByLabelText(/Prix de vente/)
+    await changeStockOnly(user)
     await user.click(screen.getByRole('button', { name: /Enregistrer/i }))
 
     const payload = updateProduct.mock.calls.at(-1)[1]
@@ -255,6 +264,7 @@ describe('ProductForm — édition d\'un produit avec réduction existante', () 
     renderForm({ id: 10 })
     await screen.findByLabelText(/Prix de vente/)
     expect(screen.getByLabelText(/Appliquer une remise/)).toHaveValue('fixed')
+    await changeStockOnly(user)
     await user.click(screen.getByRole('button', { name: /Enregistrer/i }))
 
     const payload = updateProduct.mock.calls.at(-1)[1]
@@ -280,6 +290,7 @@ describe('ProductForm — édition d\'un produit avec réduction existante', () 
     renderForm({ id: 11 })
     await screen.findByLabelText(/Prix de vente/)
     expect(screen.getByLabelText(/Appliquer une remise/)).toHaveValue('percent')
+    await changeStockOnly(user)
     await user.click(screen.getByRole('button', { name: /Enregistrer/i }))
 
     const payload = updateProduct.mock.calls.at(-1)[1]
@@ -706,5 +717,116 @@ describe('ProductForm — quitter la fiche', () => {
     expect(await screen.findByText(/Vos modifications ne sont pas enregistrées/)).toBeInTheDocument()
     expect(screen.queryByText('Liste des produits')).not.toBeInTheDocument()
     expect(updateProduct).not.toHaveBeenCalled()
+  })
+})
+
+/* Refonte de la fiche (25.09) : le nom du produit en grand en haut de page,
+   et l'état enregistré (en ligne, stock, promotion) lisible d'un coup d'œil. */
+describe('ProductForm — en-tête de la fiche', () => {
+  it('affiche le nom du produit comme titre de la page', async () => {
+    getProductById.mockResolvedValue({ id: 12, name: 'Kit fleurs des champs', sku: 'SKU-012', price_chf: 30, stock: 5, category_id: 1, tax_rate_id: 1, is_active: 1, images: [] })
+    renderForm({ id: 12 })
+    expect(await screen.findByRole('heading', { level: 1, name: 'Kit fleurs des champs' })).toBeInTheDocument()
+  })
+
+  it('résume l\'état enregistré : en ligne, stock, promotion en cours', async () => {
+    getProductById.mockResolvedValue({
+      id: 13, name: 'Toile promo', sku: 'SKU-013', price_chf: 75, compare_price_chf: 100,
+      stock: 3, stock_min: 5, category_id: 1, tax_rate_id: 1, is_active: 1, images: [],
+    })
+    renderForm({ id: 13 })
+    expect(await screen.findByText('En ligne')).toBeInTheDocument()
+    expect(screen.getByText('Stock bas · 3')).toBeInTheDocument()
+    expect(screen.getByText('En promotion · −25 %')).toBeInTheDocument()
+  })
+
+  it('signale un produit masqué et en rupture', async () => {
+    getProductById.mockResolvedValue({ id: 14, name: 'Kit épuisé', sku: 'SKU-014', price_chf: 30, stock: 0, category_id: 1, tax_rate_id: 1, is_active: 0, images: [] })
+    renderForm({ id: 14 })
+    expect(await screen.findByText('Masqué en boutique')).toBeInTheDocument()
+    expect(screen.getByText('Rupture de stock')).toBeInTheDocument()
+    // Pas de lien vers une fiche boutique qui n'est pas en ligne
+    expect(screen.queryByRole('link', { name: /Voir en boutique/ })).not.toBeInTheDocument()
+  })
+})
+
+/* Rayons et remise vivent hors du formulaire : les changer seulement ne
+   déclenchait ni l'état « non enregistré » ni la confirmation en partant. */
+describe('ProductForm — modifications hors formulaire', () => {
+  const PRODUCT = { id: 15, name: 'Kit promo', sku: 'SKU-015', price_chf: 80, compare_price_chf: 100, stock: 5, category_id: 1, tax_rate_id: 1, images: [] }
+
+  it('une remise modifiée seule est signalée et demande confirmation en partant', async () => {
+    const user = userEvent.setup()
+    getProductById.mockResolvedValue(PRODUCT)
+    renderForm({ id: 15 })
+
+    const value = await screen.findByLabelText(/Valeur de la réduction/)
+    const save = screen.getByRole('button', { name: /Enregistrer/i })
+    expect(save).toBeDisabled()
+    await user.clear(value)
+    await user.type(value, '30')
+    expect(screen.getByText('Modifications non enregistrées')).toBeInTheDocument()
+    expect(save).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: 'Annuler' }))
+    expect(await screen.findByText(/Vos modifications ne sont pas enregistrées/)).toBeInTheDocument()
+  })
+
+  // Non-régression : le stock chargé en nombre (5) ne valait jamais le texte retapé (« 5 »)
+  it('une valeur retapée à l\'identique n\'est plus comptée comme une modification', async () => {
+    const user = userEvent.setup()
+    getProductById.mockResolvedValue({ ...PRODUCT, compare_price_chf: null })
+    renderForm({ id: 15 })
+
+    const stock = await screen.findByLabelText(/^Stock \*/)
+    await user.clear(stock)
+    await user.type(stock, '9')
+    expect(screen.getByText('Modifications non enregistrées')).toBeInTheDocument()
+    await user.clear(stock)
+    await user.type(stock, '5')
+    expect(screen.queryByText('Modifications non enregistrées')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Enregistrer/i })).toBeDisabled()
+  })
+
+  it('un rayon coché seul est signalé', async () => {
+    const user = userEvent.setup()
+    getCategories.mockResolvedValue([
+      { id: 1, parent_id: null, slug: 'kits', translations: { fr: { name: 'Kits' } } },
+      { id: 2, parent_id: null, slug: 'diamant', translations: { fr: { name: 'Diamant' } } },
+    ])
+    getProductById.mockResolvedValue({ ...PRODUCT, compare_price_chf: null })
+    renderForm({ id: 15 })
+
+    await user.click(await screen.findByRole('checkbox', { name: 'Diamant' }))
+    expect(screen.getByText('Modifications non enregistrées')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Enregistrer/i })).toBeEnabled()
+    // Le rayon retenu apparaît en pastille, retirable — retour à l'état d'origine
+    await user.click(screen.getByRole('button', { name: 'Retirer le rayon Diamant' }))
+    expect(screen.queryByText('Modifications non enregistrées')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Enregistrer/i })).toBeDisabled()
+  })
+})
+
+describe('ProductForm — fiche neuve', () => {
+  // Non-régression : la fiche vierge se disait « modifiée » dès l'ouverture
+  it('vierge : rien à enregistrer, Annuler quitte sans confirmation', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={['/produits/nouveau']}>
+        <Routes>
+          <Route path="/produits" element={<p>Liste des produits</p>} />
+          <Route path="/produits/nouveau" element={<ProductForm />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    await screen.findByRole('option', { name: 'Kits' })
+    expect(screen.getByRole('heading', { level: 1, name: 'Nouveau produit' })).toBeInTheDocument()
+    expect(screen.queryByText('Modifications non enregistrées')).not.toBeInTheDocument()
+    // Une fiche neuve reste enregistrable : un clic affiche ce qui manque
+    expect(screen.getByRole('button', { name: 'Créer le produit' })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: 'Annuler' }))
+    expect(await screen.findByText('Liste des produits')).toBeInTheDocument()
+    expect(screen.queryByText(/ne sont pas enregistrées/)).not.toBeInTheDocument()
   })
 })

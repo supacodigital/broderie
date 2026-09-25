@@ -1,12 +1,24 @@
+/* ── Fiche produit ──
+   En haut : de quel produit il s'agit (nom en grand, photo, état en boutique).
+   Colonne principale : ce qu'on modifie le plus souvent (texte, prix, stock).
+   Colonne latérale : le produit tel qu'il apparaît (photos en tête, à côté de
+   la description, puis visibilité et rayons).
+   Même langage que la page commande : cartes à en-tête teinté. */
 .page {
-  padding-bottom: 84px;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1240px;
+  margin: 0 auto;
 }
 
-.loadingText {
-  padding: 60px 0;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 13px;
+/* ── En-tête ── */
+.head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .backBtn {
@@ -15,167 +27,169 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 9px;
-  border: 1.5px solid var(--rose-border);
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
   background: #fff;
   color: var(--text-dark);
-  flex-shrink: 0;
-  transition: border-color .15s, color .15s, background .15s;
+  transition: border-color .15s ease, color .15s ease, background-color .15s ease, transform .12s var(--ease-out);
 }
 
-.backBtn:hover { border-color: var(--rose); color: var(--rose-dark); background: var(--rose-pale); }
-
-.headerTitle {
-  font-size: 19px;
-  font-weight: 700;
-  color: var(--text-dark);
-  white-space: nowrap;
+.headThumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 12px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  /* Contour dessiné par-dessus la photo : une photo sur fond blanc garde un bord */
+  outline: 1px solid var(--border);
+  outline-offset: -1px;
 }
 
-/* ── Contenu ── */
-.body {
-  max-width: 1240px;
-  margin: 0 auto;
-  /* Compense la barre d'action fixe (70 px) : sans ce dégagement, elle
-     recouvrait en permanence le bas du formulaire — le dernier champ était
-     inaccessible. */
-  padding-bottom: 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
+.headThumb img { width: 100%; height: 100%; object-fit: cover; }
 
-/* Deux colonnes : fiche descriptive à gauche, mise en vente à droite. */
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 20px;
-  align-items: start;
-}
+/* 200 px minimum : sur Natel, c'est le bouton « Voir en boutique » qui passe à
+   la ligne, pas le nom qui s'écrase lettre par lettre */
+.headMain { flex: 1 1 200px; min-width: 0; }
 
-.mainCol { min-width: 0; }
-
-.sideCol {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  /* Reste visible pendant qu'on édite la colonne principale : on veut voir la
-     photo et l'état de publication en modifiant le prix ou la description.
-     84 px = hauteur de la barre d'action + marge. */
-  position: sticky;
-  top: 20px;
-}
-
-@media (max-width: 1100px) {
-  .layout { grid-template-columns: 1fr; }
-  .sideCol { position: static; }
-}
-
-.checkGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.formSections {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* ── Barre titre + actions, fixe en bas ── */
-.actionBar {
-  position: fixed;
-  left: var(--sidebar-w);
-  right: 0;
-  bottom: 0;
-  z-index: 20;
-  background: #fff;
-  border-top: 1px solid var(--rose-border);
-  box-shadow: 0 -4px 16px rgba(0,0,0,.06);
-}
-
-/* Toujours sur une seule ligne, et alignée sur la largeur du contenu (1240 px) :
-   elle restait à 860 px depuis la mise en deux colonnes, donc décalée par
-   rapport au formulaire, et `flex-wrap` la laissait passer sur deux lignes. */
-.actionBarInner {
-  /* 1240 = largeur du contenu, + 2×28 px pour compenser le padding latéral du
-     layout : les bords de la barre tombent ainsi exactement sur ceux des
-     sections du formulaire. */
-  max-width: calc(1240px + 56px);
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 32px;
-  padding: 16px 28px;
-  flex-wrap: nowrap;
-}
-
-.actionBarLeft {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  /* Se rétracte en premier quand la place manque, pour que les boutons d'action
-     restent entiers : le titre peut s'abréger, pas « Enregistrer ». */
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.actionBarRight {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  /* Ne se comprime jamais : les libellés des boutons doivent rester lisibles */
-  flex-shrink: 0;
-}
-
-.btnSaveLarge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 28px;
-  background: var(--rose);
-  color: #fff;
-  border: none;
-  border-radius: 9px;
-  font-size: 14px;
+/* Le nom, en grand : c'est la première chose qu'on cherche sur la fiche */
+.title {
+  font-size: 24px;
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(244, 114, 182, .35);
-  transition: background .15s, transform .1s;
+  line-height: 1.25;
+  color: var(--text-dark);
+  /* Coupe un mot seulement s'il est plus long que la ligne (référence collée) */
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 7px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.metaItem svg { color: var(--rose-dark); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
-.btnSaveLarge:hover:not(:disabled) { background: var(--rose-dark); transform: translateY(-1px); }
-.btnSaveLarge:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+.chip[data-tone="success"] { background: var(--success-bg); color: var(--success-text); }
+.chip[data-tone="muted"]   { background: var(--surface-muted); color: var(--text-secondary); }
+.chip[data-tone="warning"] { background: var(--warning-bg); color: var(--warning-text); }
+.chip[data-tone="danger"]  { background: var(--danger-bg); color: var(--danger-text); }
+.chip[data-tone="neutral"] { background: #fff; color: var(--text-secondary); box-shadow: inset 0 0 0 1px var(--border); }
+.chip[data-tone="promo"]   { background: var(--rose-pale); color: var(--rose-dark); }
+.chip[data-tone="info"]    { background: var(--info-bg); color: var(--info-text); }
+
+.chipDot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+.metaLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--rose-dark);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+  transition: text-decoration-color .15s ease;
+}
+
+.metaLink:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; border-radius: 2px; }
+
+/* Actions à droite du nom — l'ancienne barre du bas est remplacée par elles */
+.headActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
 
 .apiError {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: #dc2626;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
   padding: 10px 14px;
+  border: 1px solid var(--danger-border);
+  border-radius: 10px;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  font-size: 13px;
 }
 
-.section {
-  background: #fff;
-  border: 1px solid var(--rose-border);
-  border-radius: 14px;
-  padding: 26px 28px;
-  box-shadow: var(--shadow);
+.apiError svg { flex-shrink: 0; }
+
+/* ── Grille ── */
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.sectionTitle {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-dark);
-  margin-bottom: 22px;
+/* Une colonne : les cartes se réordonnent, l'essentiel d'abord */
+.main,
+.side { display: contents; }
+
+.orderDescription  { order: 1; }
+.orderPhotos       { order: 2; }
+.orderPrice        { order: 3; }
+.orderStock        { order: 4; }
+.orderVisibility   { order: 5; }
+.orderOrganisation { order: 6; }
+.orderShipping     { order: 7; }
+
+@container (min-width: 900px) {
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    align-items: start;
+  }
+
+  .main,
+  .side {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+  }
+}
+
+/* ── Contenu des cartes ── */
+.cardBody {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px;
 }
 
 .formGrid {
@@ -183,380 +197,190 @@
   grid-template-columns: 1fr 1fr;
   /* Rangées plus espacées que les colonnes : deux champs côte à côte se lisent
      comme une paire, deux rangées comme des sujets distincts. */
-  gap: 22px 20px;
-  margin-bottom: 4px;
+  gap: 18px 16px;
 }
 
-.field { display: flex; flex-direction: column; gap: 7px; }
-.fieldFull { display: flex; flex-direction: column; gap: 7px; grid-column: 1 / -1; }
+.formGrid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@container (max-width: 480px) {
+  .formGrid,
+  .formGrid3 { grid-template-columns: 1fr; }
+}
+
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 
 .label { font-size: 12px; font-weight: 600; color: var(--text-dark); }
+.labelCount { color: var(--rose-dark); }
 
-.hint { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+.hint { font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
+.err  { font-size: 11.5px; color: var(--danger-text); }
 
 .input {
-  padding: 9px 12px;
-  border: 1.5px solid var(--rose-border);
-  border-radius: 8px;
-  font-size: 13px;
-  outline: none;
-  transition: border-color .2s;
   width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--field-border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: var(--text-dark);
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
 
-.input:focus { border-color: var(--rose); }
-.inputError  { border-color: #ef4444; }
+.input:focus-visible {
+  border-color: var(--rose-dark);
+  box-shadow: 0 0 0 3px var(--rose-pale);
+}
 
-.err { font-size: 11px; color: #ef4444; }
+/* Le nom du produit : champ principal de la fiche, plus grand que les autres */
+.inputLarge { padding: 11px 14px; font-size: 16px; font-weight: 600; }
+
+.inputError { border-color: var(--danger-text); }
 
 .textarea {
+  min-height: 140px;
+  line-height: 1.55;
   resize: vertical;
-  min-height: 90px;
   font-family: inherit;
 }
 
-.discountBox {
-  border-top: 1px solid var(--rose-border);
-  padding-top: 14px;
-  margin-bottom: 14px;
+.mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: .02em; }
+
+.muted { font-size: 12.5px; color: var(--text-muted); }
+
+.note {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.countChip {
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ── Cases à cocher : un titre, puis ce que ça change ── */
+.checkRow {
+  display: flex;
+  /* La case s'aligne sur la première ligne du libellé */
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.checkRow input {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  flex-shrink: 0;
+  accent-color: var(--rose-dark);
+  cursor: pointer;
+}
+
+.checkRow input:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+.checkTitle { display: block; font-size: 13px; font-weight: 600; color: var(--text-dark); }
+.checkHint  { display: block; margin-top: 1px; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
+
+/* Option qui change le comportement du produit (sur commande, à la coupe) :
+   encadrée, et teintée quand elle est active pour qu'on la repère en passant */
+.option {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+
+.option:has(> .checkRow input:checked) {
+  background: var(--rose-pale);
+  border-color: var(--rose);
+}
+
+.optionBody {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
 }
 
-.discountRow {
+.warning {
   display: flex;
-  gap: 10px;
-}
-
-.discountModeSelect {
-  padding: 9px 12px;
-  border: 1.5px solid var(--rose-border);
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--warning-border);
   border-radius: 8px;
-  font-size: 13px;
-  outline: none;
-  transition: border-color .2s;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
-.discountModeSelect:focus { border-color: var(--rose); }
+.warning svg { flex-shrink: 0; margin-top: 1px; }
 
-.discountValueInput {
-  padding: 9px 12px;
-  border: 1.5px solid var(--rose-border);
-  border-radius: 8px;
-  font-size: 13px;
-  outline: none;
-  width: 140px;
-  transition: border-color .2s;
-}
-
-.discountValueInput:focus { border-color: var(--rose); }
+/* ── Prix ── */
+.discountRow { display: flex; gap: 8px; }
+.discountRow .input:first-child { flex: 1; min-width: 0; }
+.discountValue { width: 104px; flex-shrink: 0; }
 
 .pricePreview {
-  border-top: 1px solid var(--rose-border);
-  margin-top: 14px;
-  margin-bottom: 14px;
-  padding-top: 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--rose-pale);
 }
 
 .pricePreviewLabel {
   font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: .03em;
-}
-
-/* Rappel en toutes lettres de qui paie quoi — lève la confusion entre le prix
-   encaissé et l'ancien prix barré, calculé à partir de lui. */
-.pricePreviewNote {
-  margin: 6px 0 0;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--text-muted);
-}
-
-.pricePreviewRow {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.priceOld {
-  font-size: 13px;
-  color: var(--text-muted);
-  text-decoration: line-through;
-}
-
-.priceNew {
-  font-size: 18px;
   font-weight: 700;
-  color: var(--rose-dark, var(--rose));
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: .05em;
 }
+
+.pricePreviewRow { display: flex; align-items: baseline; gap: 10px; }
+
+.priceOld { font-size: 13px; color: var(--text-muted); text-decoration: line-through; }
+.priceNew { font-size: 20px; font-weight: 700; color: var(--rose-dark); font-variant-numeric: tabular-nums; }
 
 .priceWarning {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #92400e;
+  color: var(--warning-text);
 }
 
-.checkGroupInline {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  justify-content: center;
-}
+/* Rappel en toutes lettres de qui paie quoi — lève la confusion entre le prix
+   encaissé et l'ancien prix barré, calculé à partir de lui. */
+.pricePreviewNote { font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
 
-.supplierDelayWarning {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 12px;
-  color: #92400e;
-  background: #fef3c7;
-  border: 1px solid #fde68a;
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin-top: -2px;
-}
-
-.supplierDelayWarning svg { flex-shrink: 0; margin-top: 1px; }
-
-.checkRow {
-  display: flex;
-  /* La case s'aligne sur la PREMIÈRE ligne du libellé : en colonne étroite,
-     « Sur commande — commandable sans stock » passe sur deux lignes et un
-     centrage vertical décalait la case vers le bas. */
-  align-items: flex-start;
-  gap: 10px;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--text-dark);
-  cursor: pointer;
-}
-
-/* Recale la case sur la hauteur de la première ligne de texte */
-.checkRow input { margin-top: 2px; flex-shrink: 0; }
-
-/* ── Actions header ── */
-.btnCancel {
-  /* Même hauteur que le bouton principal : 9 px contre 12 px les désalignait */
-  padding: 12px 22px;
-  background: none;
-  border: 1.5px solid var(--rose-border);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-  transition: border-color .15s;
-}
-
-.btnCancel:hover { border-color: var(--rose); color: var(--rose-dark); }
-
-.btnSave {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 20px;
-  background: var(--rose);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  transition: background .15s;
-  white-space: nowrap;
-}
-
-.btnSave:hover:not(:disabled) { background: var(--rose-dark); }
-.btnSave:disabled { opacity: .6; cursor: not-allowed; }
-
-/* ── Images ── */
-.imgLoadingText, .imgNote {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.imgNote {
-  background: #fafafa;
-  border: 1px solid var(--rose-border);
-  border-radius: 8px;
-  padding: 10px 14px;
-}
-
-.imageSection { display: flex; flex-direction: column; gap: 14px; }
-
-.dropZone {
-  border: 2px dashed var(--rose-border);
-  border-radius: 10px;
-  padding: 28px 16px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color .2s, background .2s;
-  background: #fafafa;
-  position: relative;
-}
-
-.dropZone:hover,
-.dropZoneActive {
-  border-color: var(--rose);
-  background: var(--rose-pale);
-}
-
-.dropZoneUploading {
-  pointer-events: none;
-  opacity: .7;
-}
-
-.dropZoneContent {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.dropZoneIcon { color: var(--rose-dark); }
-
-.dropZoneText {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-dark);
-}
-
-.dropZoneHint {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.fileInput {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.spinner {
-  width: 22px;
-  height: 22px;
-  border: 3px solid var(--rose-border);
-  border-top-color: var(--rose);
-  border-radius: 50%;
-  animation: spin .7s linear infinite;
-  margin: 0 auto;
-}
-
-.spinnerSm {
-  display: inline-block;
-  width: 11px;
-  height: 11px;
-  border: 2px solid rgba(0,0,0,.2);
-  border-top-color: var(--rose);
-  border-radius: 50%;
-  animation: spin .7s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.imageError {
-  font-size: 12px;
-  color: #dc2626;
-  padding: 6px 10px;
-  background: #fef2f2;
-  border-radius: 6px;
-}
-
-.imageGrid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.imageThumb {
-  position: relative;
-  width: 90px;
-  height: 90px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 2px solid var(--rose-border);
-  flex-shrink: 0;
-}
-
-.imagePrimary { border-color: var(--rose); }
-
-.primaryBadge {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  background: var(--rose);
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  padding: 2px 5px;
-  border-radius: 4px;
-  line-height: 1.2;
-}
-
-.imageThumbImg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.imageThumbActions {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity .15s;
-}
-
-.imageThumb:hover .imageThumbActions { opacity: 1; }
-
-.imageActionBtn,
-.imageActionDanger {
-  background: rgba(255,255,255,.9);
-  border: none;
-  border-radius: 5px;
-  padding: 5px;
-  display: flex;
-  align-items: center;
-  color: var(--text-dark);
-  transition: background .15s;
-}
-
-.imageActionBtn:hover   { background: #fff; color: var(--rose-dark); }
-.imageActionDanger:hover { background: #fff; color: #dc2626; }
-
-/* ── Responsive ── */
-@media (max-width: 768px) {
-  .formGrid { grid-template-columns: 1fr; }
-  .headerTitle { font-size: 16px; }
-  .section { padding: 18px; }
-  .actionBar { left: 0; }
-  .actionBarInner { padding: 12px 16px; }
-  .actionBarRight { gap: 8px; }
-  .btnSaveLarge { padding: 10px 16px; font-size: 13px; }
-}
-
-/* ── Période de la promotion ──
-   Encadré distinct du reste du formulaire : ces dates pilotent le prix réellement
-   facturé, pas seulement l'affichage. */
+/* Période de la promotion : ces dates pilotent le prix réellement facturé */
 .promoDates {
-  margin: 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 14px 16px;
-  background: var(--rose-pale);
-  border: 1px solid var(--rose-border);
+  border: 1px solid var(--border);
   border-radius: 10px;
 }
 
@@ -569,16 +393,12 @@
   color: var(--text-dark);
 }
 
-.promoDatesHint {
-  margin: 4px 0 12px;
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--text-muted);
-}
+.promoDatesHead svg { color: var(--rose-dark); }
+
+.promoDatesHint { margin-top: -6px; font-size: 12px; line-height: 1.55; color: var(--text-muted); }
 
 /* Statut calculé en direct — évite de croire qu'une promo programmée est inactive */
 .promoStatus {
-  margin: 10px 0 0;
   padding: 7px 11px;
   border-radius: 7px;
   font-size: 12px;
@@ -586,98 +406,17 @@
   line-height: 1.5;
 }
 
-.promoStatusOn {
-  background: #d1fae5;
-  color: #047857;
-}
+.promoStatusOn   { background: var(--success-bg); color: var(--success-text); }
+.promoStatusSoon { background: var(--info-bg);    color: var(--info-text); }
+.promoStatusOff  { background: var(--warning-bg); color: var(--warning-text); }
 
-.promoStatusSoon {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.promoStatusOff {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-/* ── Rayons supplémentaires (ADM-04) ────────────────────────────────────────
-   54 catégories : la liste est dense et défilante plutôt qu'un <select multiple>,
-   qui oblige à garder Ctrl enfoncé et fait perdre toute la sélection sur un clic
-   malheureux. */
-.categoryPicker {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 2px;
-  max-height: 220px;
-  overflow-y: auto;
-  padding: 8px;
-  border: 1.5px solid var(--rose-border);
-  border-radius: 8px;
-}
-
-.categoryOption {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  font-size: 12.5px;
-  color: var(--text-dark);
-  cursor: pointer;
-  /* Propriétés listées explicitement — jamais `all` */
-  transition: background-color .15s ease, color .15s ease;
-  /* Les libellés indentés (« — Sous-catégorie ») ne doivent pas se replier */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Le survol ne s'applique pas au tactile, où il se déclenche au tap */
-@media (hover: hover) and (pointer: fine) {
-  .categoryOption:hover { background: var(--rose-pale); }
-}
-
-.categoryOptionOn {
-  background: var(--rose-pale);
-  color: var(--rose-dark);
-  font-weight: 600;
-}
-
-.categoryCheckbox {
-  width: 15px;
-  height: 15px;
-  accent-color: var(--rose);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.categoryCheckbox:focus-visible {
-  outline: 2px solid var(--rose);
-  outline-offset: 2px;
-}
-
-/* ── Vente à la coupe — trames et bandes à broder (ADM-12) ──
-   Bloc détaché du reste de la section : cocher cette case change le sens du
-   prix saisi (au mètre, plus à l'unité), ce qui mérite d'être visuellement
-   séparé des champs ordinaires. */
-.cutSection {
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid var(--rose-border);
-}
-
-.cutSection .formGrid {
-  margin-top: 12px;
-}
-
-/* Aperçu du prix réellement payé — c'est lui qui permet de vérifier qu'un prix
-   au mètre n'a pas été saisi comme un prix à l'unité. */
+/* ── Vente à la coupe ──
+   L'aperçu du prix réellement payé permet de vérifier qu'un prix au mètre n'a
+   pas été saisi comme un prix à l'unité. */
 .cutPreview {
-  margin: 12px 0 0;
   padding: 10px 12px;
-  border-radius: var(--radius);
-  background: var(--rose-pale);
+  border-radius: 8px;
+  background: #fff;
   color: var(--text-dark);
   font-size: 12.5px;
   line-height: 1.5;
@@ -687,7 +426,332 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 12px 0 0;
   font-size: 12px;
-  color: #92400e;
+  color: var(--warning-text);
+}
+
+/* ── Photos ──
+   Vignettes de 88 px, la case d'ajout à la suite : une rangée suffit pour la
+   plupart des produits (une à trois photos). */
+.imageSection { display: flex; flex-direction: column; gap: 10px; }
+
+.imageGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 88px);
+  gap: 10px;
+}
+
+.imageThumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-muted);
+  outline: 1.5px solid var(--border);
+  outline-offset: -1.5px;
+}
+
+.imagePrimary { outline: 2px solid var(--rose-dark); outline-offset: -2px; }
+
+.imageThumbImg { width: 100%; height: 100%; object-fit: cover; }
+
+.primaryBadge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--rose-dark);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* Actions sur une photo : au survol, mais aussi au clavier (focus) — et
+   toujours visibles sur tablette et Natel, où le survol n'existe pas. */
+.imageThumbActions {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+
+.imageThumb:hover .imageThumbActions,
+.imageThumb:focus-within .imageThumbActions { opacity: 1; }
+
+@media (hover: none) {
+  .imageThumbActions { opacity: 1; }
+}
+
+.imageActionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .95);
+  color: var(--text-dark);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
+  transition: color .15s ease, transform .12s var(--ease-out);
+}
+
+.imageActionBtn:active:not(:disabled) { transform: scale(.94); }
+.imageActionBtn:focus-visible { outline: 2px solid var(--rose-dark); outline-offset: 1px; }
+.imageActionBtn:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Supprimer : même bouton, rouge au survol pour le distinguer de « principale » */
+.imageActionDanger { color: var(--text-secondary); }
+
+/* Zone d'ajout */
+.dropZone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+
+/* Case de la grille, à la taille d'une vignette */
+.dropZoneTile {
+  aspect-ratio: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+}
+
+/* Bandeau d'une ligne quand le produit n'a encore aucune photo */
+.dropZoneStrip {
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 12px 14px;
+}
+
+.dropZoneActive { border-color: var(--rose-dark); background: var(--rose-pale); }
+.dropZoneUploading { pointer-events: none; opacity: .7; }
+.dropZone:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+.dropZoneIcon { color: var(--rose-dark); flex-shrink: 0; }
+.dropZoneText { font-size: 12.5px; font-weight: 600; color: var(--text-dark); }
+.dropZoneText span { font-weight: 400; color: var(--text-muted); }
+.dropZoneHint { margin-left: auto; font-size: 11.5px; color: var(--text-muted); }
+
+/* Colonne étroite (photos à droite) : le bandeau s'empile et se centre au lieu
+   de se casser sur trois lignes déséquilibrées */
+@container (max-width: 420px) {
+  .dropZoneStrip { flex-direction: column; justify-content: center; text-align: center; }
+  .dropZoneHint { margin-left: 0; }
+}
+
+.fileInput { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.imageError {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  font-size: 12px;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--border);
+  border-top-color: var(--rose-dark);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+.spinnerSm {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(0, 0, 0, .2);
+  border-top-color: var(--rose-dark);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── État d'enregistrement ── */
+.saveState {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.saveState:empty { display: none; }
+.saveState[data-state="dirty"] { color: var(--warning-text); font-weight: 600; }
+.saveState[data-state="saved"] { color: var(--success-text); font-weight: 600; }
+
+.saveDot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+/* ── En-tête compact, collé en haut de l'écran ──
+   Apparaît quand l'en-tête complet sort de l'écran. Fixe et posé par-dessus :
+   il ne prend aucune place dans la page, donc rien ne saute à son apparition. */
+.stickyBar {
+  position: fixed;
+  top: 0;
+  left: var(--sidebar-w);
+  right: 0;
+  z-index: 50;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .06);
+  animation: stickyIn .16s var(--ease-out);
+}
+
+@keyframes stickyIn {
+  from { opacity: 0; transform: translateY(-6px); }
+}
+
+/* Aligné sur la largeur du contenu (1240 px + le padding latéral de la page) */
+.stickyInner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(1240px + 56px);
+  margin: 0 auto;
+  padding: 8px 28px;
+}
+
+.stickyInner .backBtn { width: 32px; height: 32px; border-radius: 9px; }
+
+.stickyTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stickyDirty {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warning-text);
+  white-space: nowrap;
+}
+
+.btnCancel,
+.btnSave {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .12s var(--ease-out);
+}
+
+.btnCancel {
+  border: 1.5px solid var(--border);
+  background: #fff;
+  color: var(--text-secondary);
+}
+
+/* Rose foncé : texte blanc lisible (6:1), le rose clair ne l'était pas */
+.btnSave {
+  padding: 9px 20px;
+  border: 1.5px solid var(--rose-dark);
+  background: var(--rose-dark);
+  color: #fff;
+}
+
+/* Rien à enregistrer : bouton gris franc — un rose délavé se lisait comme
+   un bouton actif mal affiché */
+.btnSave:disabled {
+  background: var(--surface-muted-strong);
+  border-color: var(--surface-muted-strong);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+.btnCancel:active,
+.btnSave:active:not(:disabled),
+.backBtn:active { transform: scale(.97); }
+
+.btnCancel:focus-visible,
+.btnSave:focus-visible,
+.backBtn:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .backBtn:hover      { border-color: var(--rose); color: var(--rose-dark); background: var(--rose-pale); }
+  .metaLink:hover     { text-decoration-color: var(--rose-dark); }
+  .btnCancel:hover    { border-color: var(--rose); color: var(--rose-dark); }
+  .btnSave:hover:not(:disabled) { background: var(--rose-darker); border-color: var(--rose-darker); }
+  .dropZone:hover     { border-color: var(--rose); background: var(--rose-pale); }
+  .imageActionBtn:hover { color: var(--rose-dark); }
+  .imageActionDanger:hover { color: var(--danger-text); }
+}
+
+/* Le menu latéral disparaît sous 900 px : l'en-tête compact prend toute la largeur */
+@media (max-width: 900px) {
+  .stickyBar { left: 0; }
+  .stickyInner { padding: 8px 16px; }
+}
+
+/* Étroit : les boutons passent sous le nom, « Enregistrer » prend la place */
+@container (max-width: 640px) {
+  .headActions { width: 100%; flex-wrap: wrap; }
+  .headActions .saveState { flex-basis: 100%; }
+  .headActions .btnSave { flex: 1; }
+}
+
+@media (max-width: 520px) {
+  .title { font-size: 20px; }
+  .headThumb { width: 48px; height: 48px; }
+  .stickyDirty { display: none; }
+  .stickyInner .btnCancel { display: none; }
+}
+
+/* ── Chargement ── */
+.skeleton {
+  display: block;
+  border-radius: 14px;
+  background: linear-gradient(90deg, var(--surface-muted) 25%, var(--surface-muted-strong) 50%, var(--surface-muted) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.skeletonHead     { height: 60px; max-width: 520px; }
+.skeletonCard     { height: 200px; }
+.skeletonCardTall { height: 320px; }
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  .stickyBar { animation: none; }
+  .spinner, .spinnerSm { animation-duration: 2s; }
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, Upload, X, Star, AlertTriangle, Check, Trash2, CalendarClock,
+  ArrowLeft, Upload, Star, AlertTriangle, Check, Trash2, CalendarClock,
+  FileText, Image as ImageIcon, Tag, Package, Truck, Eye, FolderTree, ExternalLink, Hash,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -15,8 +16,10 @@ import { getSuppliers } from '../../services/suppliers.service.js'
 import { getTaxRates } from '../../services/settings.service.js'
 import { useToast } from '../../contexts/ToastContext.jsx'
 import ConfirmDialog from '../../components/ui/ConfirmDialog/ConfirmDialog.jsx'
+import Card from '../../components/ui/Card/Card.jsx'
+import CategoryPicker from './CategoryPicker.jsx'
 import { roundCHF } from '../../utils/chf.js'
-import { CM_PER_METER, MAX_STOCK_METERS, stockToInput, stockFromInput } from '../../utils/stock.js'
+import { CM_PER_METER, MAX_STOCK_METERS, stockToInput, stockFromInput, formatStock } from '../../utils/stock.js'
 import PriceHistory from '../../components/PriceHistory/PriceHistory.jsx'
 import s from './ProductForm.module.css'
 
@@ -160,9 +163,53 @@ function ImageDropZone({ productId, images, onImagesChange }) {
     }
   }
 
+  /* Zone d'ajout — compacte (retour du 25.09 : « la carte photos est trop
+     grosse ») : une case de la taille d'une vignette à la suite des photos, ou
+     un bandeau d'une ligne tant que le produit n'en a aucune. */
+  const dropZone = (
+    <div
+      className={`${s.dropZone} ${images.length ? s.dropZoneTile : s.dropZoneStrip} ${dragging ? s.dropZoneActive : ''} ${uploading ? s.dropZoneUploading : ''}`}
+      onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={handleDrop}
+      onClick={(e) => { if (e.target === inputRef.current) return; if (!uploading) inputRef.current?.click() }}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
+      aria-label="Ajouter des photos — JPG, PNG ou WebP, 5 Mo maximum"
+      title="JPG, PNG ou WebP · 5 Mo max. par photo"
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        multiple
+        className={s.fileInput}
+        onChange={(e) => { upload(e.target.files); e.target.value = '' }}
+      />
+      {uploading ? (
+        <>
+          <span className={s.spinner} aria-hidden="true" />
+          <span className={s.dropZoneText}>Envoi…</span>
+        </>
+      ) : images.length ? (
+        <>
+          <Upload size={18} className={s.dropZoneIcon} aria-hidden="true" />
+          <span className={s.dropZoneText}>Ajouter</span>
+        </>
+      ) : (
+        <>
+          <Upload size={18} className={s.dropZoneIcon} aria-hidden="true" />
+          <span className={s.dropZoneText}>Glissez vos photos ici <span>ou cliquez pour parcourir</span></span>
+          <span className={s.dropZoneHint}>JPG, PNG ou WebP · 5 Mo max.</span>
+        </>
+      )}
+    </div>
+  )
+
   return (
     <div className={s.imageSection}>
-      {images.length > 0 && (
+      {images.length > 0 ? (
         <div className={s.imageGrid}>
           {images.map((img) => (
             <div key={img.id} className={`${s.imageThumb} ${img.isPrimary ? s.imagePrimary : ''}`}>
@@ -172,7 +219,7 @@ function ImageDropZone({ productId, images, onImagesChange }) {
                 className={s.imageThumbImg}
               />
               {img.isPrimary && (
-                <span className={s.primaryBadge}><Star size={9} fill="currentColor" /> Principale</span>
+                <span className={s.primaryBadge}><Star size={8} fill="currentColor" aria-hidden="true" /> Principale</span>
               )}
               <div className={s.imageThumbActions}>
                 {!img.isPrimary && (
@@ -181,11 +228,12 @@ function ImageDropZone({ productId, images, onImagesChange }) {
                     className={s.imageActionBtn}
                     onClick={() => handleSetPrimary(img.id)}
                     disabled={!!settingId}
-                    title="Définir comme principale"
+                    title="Définir comme photo principale"
+                    aria-label="Définir comme photo principale"
                   >
                     {settingId === img.id
                       ? <span className={s.spinnerSm} />
-                      : <Star size={11} />
+                      : <Star size={11} aria-hidden="true" />
                     }
                   </button>
                 )}
@@ -194,56 +242,25 @@ function ImageDropZone({ productId, images, onImagesChange }) {
                   className={`${s.imageActionBtn} ${s.imageActionDanger}`}
                   onClick={() => handleDelete(img.id)}
                   disabled={!!settingId}
-                  title="Supprimer"
+                  title="Supprimer la photo"
+                  aria-label="Supprimer la photo"
                 >
-                  <Trash2 size={11} />
+                  <Trash2 size={11} aria-hidden="true" />
                 </button>
               </div>
             </div>
           ))}
+          {dropZone}
         </div>
-      )}
+      ) : dropZone}
 
-      <div
-        className={`${s.dropZone} ${dragging ? s.dropZoneActive : ''} ${uploading ? s.dropZoneUploading : ''}`}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={handleDrop}
-        onClick={(e) => { if (e.target === inputRef.current) return; if (!uploading) inputRef.current?.click() }}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
-        aria-label="Zone de dépôt d'images"
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          multiple
-          className={s.fileInput}
-          onChange={(e) => { upload(e.target.files); e.target.value = '' }}
-        />
-        {uploading ? (
-          <div className={s.dropZoneContent}>
-            <div className={s.spinner} />
-            <p className={s.dropZoneText}>Conversion WebP en cours…</p>
-          </div>
-        ) : (
-          <div className={s.dropZoneContent}>
-            <Upload size={22} className={s.dropZoneIcon} />
-            <p className={s.dropZoneText}>
-              Glissez-déposez ici<br />
-              <span>ou cliquez pour parcourir</span>
-            </p>
-            <p className={s.dropZoneHint}>JPG, PNG, WebP · Max 5 MB · Converti en WebP</p>
-          </div>
-        )}
-      </div>
-
-      {error && <p className={s.imageError}><AlertTriangle size={12} /> {error}</p>}
+      {error && <p className={s.imageError}><AlertTriangle size={12} aria-hidden="true" /> {error}</p>}
     </div>
   )
 }
+
+// Liste d'identifiants comparable d'un rendu à l'autre, quel que soit l'ordre de coche
+const idsKey = (ids) => JSON.stringify([...ids].sort((a, b) => a - b))
 
 // ── Page création/édition produit ──────────────────────────────────────────
 export default function ProductForm() {
@@ -263,10 +280,19 @@ export default function ProductForm() {
   const [apiError,   setApiError]   = useState('')
   const [confirmLeave, setConfirmLeave] = useState(false)
 
+  /* En-tête complet sorti de l'écran → version compacte collée en haut */
+  const headRef = useRef(null)
+  const [stuck, setStuck] = useState(false)
+
   /* Rayons secondaires (ADM-04) — hors React Hook Form : ce sont des cases à
      cocher multiples, pas un champ de saisie, et la liste est envoyée telle
      quelle au serveur. */
   const [secondaryCategoryIds, setSecondaryCategoryIds] = useState([])
+
+  /* Valeurs d'origine de ce qui vit hors du formulaire (rayons, remise) : React
+     Hook Form ne les voit pas. Sans elles, changer seulement une remise ou un
+     rayon puis quitter la fiche ne demandait aucune confirmation. */
+  const [initialExtras, setInitialExtras] = useState({ secondary: '[]', discountMode: 'none', discountValue: '' })
 
   const toggleSecondaryCategory = (categoryId) => {
     setSecondaryCategoryIds(current =>
@@ -290,9 +316,17 @@ export default function ProductForm() {
   const [discountMode,  setDiscountMode]  = useState('none') // 'none' | 'percent' | 'fixed'
   const [discountValue, setDiscountValue] = useState('')
 
-  const { register, handleSubmit, reset, watch, setValue, getValues, setError, formState: { errors, isSubmitting, isDirty } } = useForm({
+  const { register, handleSubmit, reset, watch, setValue, getValues, setError, formState: { errors, isSubmitting, dirtyFields } } = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { isActive: true, isFeatured: false, isMadeToOrder: false, soldByLength: false, lengthStepCm: 10, lengthMinCm: 50, badge: '', stock: 0, stockMin: '' },
+    /* Tous les champs ont une valeur initiale : sans elle, un champ vidé après
+       saisie restait compté comme modifié ('' ≠ undefined). */
+    defaultValues: {
+      name: '', sku: '', description: '', brand: '', priceChf: '',
+      categoryId: '', supplierId: '', taxRateId: '',
+      weightKg: '', lengthCm: '', widthCm: '', promoStartsAt: '', promoEndsAt: '',
+      isActive: true, isFeatured: false, isMadeToOrder: false, soldByLength: false,
+      lengthStepCm: '10', lengthMinCm: '50', badge: '', stock: '0', stockMin: '',
+    },
   })
 
   const categoryId = watch('categoryId')
@@ -406,10 +440,12 @@ export default function ProductForm() {
         if (!byParent.has(key)) byParent.set(key, [])
         byParent.get(key).push(c)
       }
+      /* `name` indenté par des tirets pour les <option> du rayon principal ;
+         `label` et `depth` pour la liste des rayons supplémentaires, indentée en CSS. */
       const sorted = []
       const visit = (parentId, depth) => {
         for (const c of byParent.get(parentId) ?? []) {
-          sorted.push({ ...c, name: depth > 0 ? `${'— '.repeat(depth)}${c.name}` : c.name })
+          sorted.push({ ...c, label: c.name, depth, name: depth > 0 ? `${'— '.repeat(depth)}${c.name}` : c.name })
           visit(c.id, depth + 1)
         }
       }
@@ -477,6 +513,8 @@ export default function ProductForm() {
         const oldPrice = Number(res.compare_price_chf)
         const paidPrice = Number(res.price_chf)
         const hasDiscount = oldPrice > 0 && paidPrice > 0 && oldPrice > paidPrice
+        let loadedMode = 'none'
+        let loadedValue = ''
         if (hasDiscount) {
           /* La remise n'est reprise en pourcentage que si ce pourcentage entier
              redonne EXACTEMENT le prix payé. Sinon elle est reprise en CHF, au
@@ -487,38 +525,42 @@ export default function ProductForm() {
           const percent = Math.round((1 - paidPrice / oldPrice) * 100)
           const percentIsExact = Math.abs(roundCHF(oldPrice * (1 - percent / 100)) - paidPrice) < 0.001
           if (percentIsExact) {
-            setDiscountMode('percent')
-            setDiscountValue(String(percent))
+            loadedMode = 'percent'
+            loadedValue = String(percent)
           } else {
-            setDiscountMode('fixed')
-            setDiscountValue((oldPrice - paidPrice).toFixed(2))
+            loadedMode = 'fixed'
+            loadedValue = (oldPrice - paidPrice).toFixed(2)
           }
-        } else {
-          setDiscountMode('none')
-          setDiscountValue('')
         }
+        setDiscountMode(loadedMode)
+        setDiscountValue(loadedValue)
         // Prix catalogue à afficher dans le champ, selon qu'une promo est active ou non
         const catalogPriceToShow = hasDiscount ? res.compare_price_chf : res.price_chf
 
+        /* Valeurs des champs en TEXTE, comme les renvoie un <input> ou un
+           <select> : rangé en nombre (22), un stock retapé à l'identique
+           (« 22 ») restait compté comme modifié, et la fiche demandait
+           confirmation alors que rien n'avait changé. */
+        const asText = (value) => (value == null ? '' : String(value))
         reset({
           name:            res.name ?? '',
           sku:             res.sku ?? '',
-          priceChf:        catalogPriceToShow ?? '',
+          priceChf:        asText(catalogPriceToShow),
           // Article à la coupe : stock en centimètres en base, saisi en mètres (ADM-12)
-          stock:           stockToInput(res.stock, !!res.sold_by_length),
-          stockMin:        res.stock_min == null ? '' : stockToInput(res.stock_min, !!res.sold_by_length),
-          weightKg:        res.weight_kg ?? '',
-          lengthCm:        res.length_cm ?? '',
-          widthCm:         res.width_cm ?? '',
-          categoryId:      res.category_id ?? '',
+          stock:           asText(stockToInput(res.stock, !!res.sold_by_length)),
+          stockMin:        res.stock_min == null ? '' : asText(stockToInput(res.stock_min, !!res.sold_by_length)),
+          weightKg:        asText(res.weight_kg),
+          lengthCm:        asText(res.length_cm),
+          widthCm:         asText(res.width_cm),
+          categoryId:      asText(res.category_id),
           // secondary_category_ids est hors formulaire — repris juste après via setSecondaryCategoryIds
-          supplierId:      res.supplier_id ?? '',
+          supplierId:      asText(res.supplier_id),
           taxRateId:       res.tax_rate_id ?? '',
           isFeatured:      !!res.is_featured,
           isMadeToOrder:   !!res.is_made_to_order,
           soldByLength:    !!res.sold_by_length,
-          lengthStepCm:    res.length_step_cm ?? 10,
-          lengthMinCm:     res.length_min_cm  ?? 50,
+          lengthStepCm:    asText(res.length_step_cm ?? 10),
+          lengthMinCm:     asText(res.length_min_cm  ?? 50),
           isActive:        !!res.is_active,
           badge:           res.badge ?? '',
           brand:           res.brand ?? '',
@@ -527,6 +569,11 @@ export default function ProductForm() {
           promoEndsAt:     toDateTimeLocal(res.promo_ends_at),
         })
         setSecondaryCategoryIds(res.secondary_category_ids ?? [])
+        setInitialExtras({
+          secondary:     idsKey(res.secondary_category_ids ?? []),
+          discountMode:  loadedMode,
+          discountValue: loadedValue,
+        })
         const imgs = (res?.images ?? []).map(img => ({ ...img, isPrimary: !!img.is_primary }))
         setImages(imgs)
       })
@@ -550,8 +597,17 @@ export default function ProductForm() {
      tout ressaisi n'était rattrapable d'aucune façon. `saved` neutralise la garde
      après un enregistrement réussi, sinon la redirection qui suit déclencherait
      l'alerte alors que tout est sauvegardé. */
+  const extrasDirty = idsKey(secondaryCategoryIds) !== initialExtras.secondary
+    || discountMode !== initialExtras.discountMode
+    || (discountMode !== 'none' && discountValue !== initialExtras.discountValue)
+  /* Champs réellement modifiés, et non `isDirty` : celui-ci comparait tout le
+     formulaire aux valeurs initiales et passait à vrai dès l'ouverture d'une
+     fiche neuve (taux de TVA posé automatiquement) — la page annonçait des
+     modifications et demandait confirmation sans que rien n'ait été saisi. */
+  const hasChanges = Object.keys(dirtyFields).length > 0 || extrasDirty
+
   const goBack = () => {
-    if (isDirty && !saved) {
+    if (hasChanges && !saved) {
       setConfirmLeave(true)
       return
     }
@@ -562,11 +618,19 @@ export default function ProductForm() {
      n'a pas la main. Le navigateur impose son propre message, on ne peut que
      déclencher l'invite. */
   useEffect(() => {
-    if (!isDirty || saved) return
+    if (!hasChanges || saved) return
     const onBeforeUnload = (e) => { e.preventDefault(); e.returnValue = '' }
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
-  }, [isDirty, saved])
+  }, [hasChanges, saved])
+
+  useEffect(() => {
+    const el = headRef.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(([entry]) => setStuck(!entry.isIntersecting))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [loading])
 
   /* Enregistrement refusé par la validation du formulaire (ADM-04). Le curseur
      part sur le premier champ en erreur, mais rien n'expliquait le refus : en
@@ -681,10 +745,79 @@ export default function ProductForm() {
     }
   }
 
+  /* ── En-tête : l'état ENREGISTRÉ du produit ──
+     Le nom en grand d'abord, comme « Commande 2026-09/22 » sur la page commande,
+     puis ce qu'on vérifie d'un coup d'œil avant de modifier : en ligne ou non,
+     le stock, la référence. Les pastilles décrivent le produit tel qu'il est en
+     boutique, pas la saisie en cours. */
+  const primaryImage = images.find(i => i.isPrimary) ?? images[0] ?? null
+  const shopUrl = product?.slug && product?.is_active
+    ? `${(import.meta.env.VITE_SHOP_URL ?? '').replace(/\/$/, '')}/produit/${product.slug}`
+    : null
+  const stockState = (() => {
+    if (!product) return null
+    const qty = Number(product.stock) || 0
+    if (qty <= 0) {
+      return product.is_made_to_order
+        ? { tone: 'warning', label: 'Rupture — vendu sur commande' }
+        : { tone: 'danger', label: 'Rupture de stock' }
+    }
+    if (product.stock_min != null && qty <= Number(product.stock_min)) {
+      return { tone: 'warning', label: `Stock bas · ${formatStock(product)}` }
+    }
+    return { tone: 'neutral', label: `${formatStock(product)} en stock` }
+  })()
+
+  // Promotion enregistrée : prix barré réel, et dans sa période (ou programmée)
+  const promoState = (() => {
+    const paid = Number(product?.price_chf)
+    const normal = Number(product?.compare_price_chf)
+    if (!(normal > paid && paid > 0)) return null
+    const now = new Date()
+    const start = product.promo_starts_at ? new Date(product.promo_starts_at) : null
+    const end   = product.promo_ends_at   ? new Date(product.promo_ends_at)   : null
+    if (end && end <= now) return null
+    const percent = Math.round((1 - paid / normal) * 100)
+    if (start && start > now) return { tone: 'info', label: `Promotion programmée · −${percent} %` }
+    return { tone: 'promo', label: `En promotion · −${percent} %` }
+  })()
+
+  const headTitle = isEdit ? (product?.name || 'Produit sans nom') : 'Nouveau produit'
+
+  /* « Enregistrer » grisé tant qu'une fiche existante n'a pas changé : l'état
+     se lit sur le bouton lui-même. Une fiche neuve reste enregistrable, pour
+     afficher ce qui manque. */
+  const nothingToSave = isEdit && !hasChanges
+  const actionButtons = (
+    <>
+      <button type="button" className={s.btnCancel} onClick={goBack}>Annuler</button>
+      <button
+        type="submit"
+        form="product-form"
+        className={s.btnSave}
+        disabled={isSubmitting || saved || nothingToSave}
+        title={nothingToSave ? 'Aucune modification à enregistrer' : undefined}
+      >
+        {saved
+          ? <><Check size={15} aria-hidden="true" /> Enregistré</>
+          : isSubmitting ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer le produit'}
+      </button>
+    </>
+  )
+
   if (loading) {
     return (
-      <div className={s.page}>
-        <p className={s.loadingText}>Chargement du produit…</p>
+      <div className={s.page} aria-busy="true" aria-label="Chargement du produit">
+        <span className={`${s.skeleton} ${s.skeletonHead}`} />
+        <div className={s.layout}>
+          <div className={s.main}>
+            <span className={`${s.skeleton} ${s.skeletonCardTall}`} />
+            <span className={`${s.skeleton} ${s.skeletonCard}`} />
+          </div>
+          <div className={s.side}>
+            <span className={`${s.skeleton} ${s.skeletonCard}`} />
+          </div>
+        </div>
       </div>
     )
   }
@@ -698,144 +831,106 @@ export default function ProductForm() {
           onClose={() => setConfirmLeave(false)}
         />
       )}
-      <div className={s.body}>
-        {apiError && (
-          <div className={s.apiError} role="alert"><AlertTriangle size={13} /> {apiError}</div>
+
+      <header className={s.head} ref={headRef}>
+        <button type="button" className={s.backBtn} onClick={goBack} aria-label="Retour à la liste des produits">
+          <ArrowLeft size={18} aria-hidden="true" />
+        </button>
+        {isEdit && (
+          <div className={s.headThumb} aria-hidden="true">
+            {primaryImage
+              ? <img src={primaryImage.url_thumbnail ?? primaryImage.urls?.thumbnail ?? primaryImage.url} alt="" />
+              : <Package size={22} />}
+          </div>
         )}
+        <div className={s.headMain}>
+          <h1 className={s.title}>{headTitle}</h1>
+          {isEdit && product ? (
+            <p className={s.meta}>
+              <span className={s.chip} data-tone={product.is_active ? 'success' : 'muted'}>
+                <span className={s.chipDot} aria-hidden="true" />
+                {product.is_active ? 'En ligne' : 'Masqué en boutique'}
+              </span>
+              {stockState && <span className={s.chip} data-tone={stockState.tone}>{stockState.label}</span>}
+              {promoState && <span className={s.chip} data-tone={promoState.tone}>{promoState.label}</span>}
+              {product.sku && (
+                <span className={s.metaItem}><Hash size={13} aria-hidden="true" /> {product.sku}</span>
+              )}
+              {shopUrl && (
+                <a className={s.metaLink} href={shopUrl} target="_blank" rel="noopener noreferrer">
+                  Voir en boutique <ExternalLink size={12} aria-hidden="true" />
+                </a>
+              )}
+            </p>
+          ) : !isEdit && (
+            <p className={s.meta}>Renseignez au moins le nom, la référence, le rayon principal, le prix et le stock.</p>
+          )}
+        </div>
+        <div className={s.headActions}>
+          {/* Annoncé aux lecteurs d'écran à chaque changement d'état */}
+          <p className={s.saveState} data-state={saved ? 'saved' : hasChanges ? 'dirty' : 'clean'} aria-live="polite">
+            {saved
+              ? <><Check size={14} aria-hidden="true" /> Enregistré</>
+              : hasChanges && <><span className={s.saveDot} aria-hidden="true" /> Modifications non enregistrées</>}
+          </p>
+          {actionButtons}
+        </div>
+      </header>
 
-        {/* Deux colonnes : la fiche descriptive à gauche, ce qui relève de la mise
-            en vente à droite (visibilité, photos). En colonne unique, la page
-            faisait 1 900 px de haut alors que la moitié de l'écran restait vide,
-            et les images — qu'on veut voir en modifiant le reste — se trouvaient
-            tout en bas. */}
-        <div className={s.layout}>
-        <div className={s.mainCol}>
-        <form onSubmit={handleSubmit(onSubmit, onInvalid)} id="product-form" className={s.formSections}>
-          {/* Informations générales */}
-          <section className={s.section}>
-            <h2 className={s.sectionTitle}>Informations générales</h2>
-            <div className={s.formGrid}>
-              <div className={s.field}>
-                <label className={s.label} htmlFor="supplierId">Fournisseur</label>
-                <select id="supplierId" className={s.input} {...register('supplierId')}>
-                  <option value="">— Aucun —</option>
-                  {suppliers.map(sup => (
-                    <option key={sup.id} value={sup.id}>{sup.name}</option>
-                  ))}
-                </select>
-              </div>
+      {/* Version compacte de l'en-tête, collée en haut de l'écran dès que
+          l'en-tête complet en sort : le nom et « Enregistrer » restent à portée
+          sans barre permanente en bas de page. Posée par-dessus le contenu :
+          elle ne décale rien en apparaissant. */}
+      {stuck && (
+        <div className={s.stickyBar}>
+          <div className={s.stickyInner}>
+            <button type="button" className={s.backBtn} onClick={goBack} aria-label="Retour à la liste des produits">
+              <ArrowLeft size={16} aria-hidden="true" />
+            </button>
+            <p className={s.stickyTitle}>{headTitle}</p>
+            {hasChanges && !saved && (
+              <span className={s.stickyDirty}><span className={s.saveDot} aria-hidden="true" /> Non enregistré</span>
+            )}
+            {actionButtons}
+          </div>
+        </div>
+      )}
 
-              <div className={s.field}>
-                <label className={s.label} htmlFor="categoryId">Catégorie principale *</label>
-                <select id="categoryId" className={`${s.input} ${errors.categoryId ? s.inputError : ''}`} {...register('categoryId')}>
-                  <option value="">— Choisir —</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-                {errors.categoryId && <span className={s.err}>{errors.categoryId.message}</span>}
-                <span className={s.hint}>Rayon principal du produit — celui affiché sur sa fiche.</span>
-              </div>
+      {apiError && (
+        <div className={s.apiError} role="alert"><AlertTriangle size={14} aria-hidden="true" /> {apiError}</div>
+      )}
 
-              {/* Rayons supplémentaires (ADM-04) — un même article peut être rangé
-                  dans plusieurs rayons de la boutique. */}
-              <div className={s.fieldFull}>
-                <span className={s.label}>Autres rayons</span>
-                <span className={s.hint}>
-                  Le produit apparaîtra aussi dans ces rayons. Laissez vide s’il n’appartient qu’à sa catégorie principale.
-                </span>
-                <div className={s.categoryPicker}>
-                  {categories
-                    .filter(c => c.id !== Number(categoryId))
-                    .map(c => {
-                      const checked = secondaryCategoryIds.includes(c.id)
-                      return (
-                        <label key={c.id} className={`${s.categoryOption} ${checked ? s.categoryOptionOn : ''}`}>
-                          <input
-                            type="checkbox"
-                            className={s.categoryCheckbox}
-                            checked={checked}
-                            onChange={() => toggleSecondaryCategory(c.id)}
-                          />
-                          <span>{c.name}</span>
-                        </label>
-                      )
-                    })}
-                </div>
-              </div>
-
-              <div className={s.field}>
-                <label className={s.label} htmlFor="name">Nom du produit *</label>
-                <input id="name" className={`${s.input} ${errors.name ? s.inputError : ''}`} {...register('name')} />
-                {errors.name && <span className={s.err}>{errors.name.message}</span>}
-              </div>
-
-              <div className={s.field}>
-                <label className={s.label} htmlFor="sku">SKU *</label>
-                <input id="sku" className={`${s.input} ${errors.sku ? s.inputError : ''}`} {...register('sku')} />
-                {errors.sku && <span className={s.err}>{errors.sku.message}</span>}
-              </div>
-
-              <div className={s.field}>
-                <label className={s.label} htmlFor="brand">Gamme</label>
-                <input
-                  id="brand"
-                  className={`${s.input} ${errors.brand ? s.inputError : ''}`}
-                  placeholder="Ex. Permin of Copenhagen"
-                  {...register('brand')}
-                />
-                {errors.brand && <span className={s.err}>{errors.brand.message}</span>}
-              </div>
-
-              <div className={`${s.field} ${s.fieldFull}`}>
-                <label className={s.label} htmlFor="description">Description (FR)</label>
-                <textarea
-                  id="description"
-                  className={`${s.input} ${s.textarea}`}
-                  rows={4}
-                  placeholder="Description du produit en français…"
-                  {...register('description')}
-                />
-              </div>
-
-              <div className={s.field}>
-                <label className={s.label} htmlFor="badge">Badge</label>
-                <select id="badge" className={s.input} {...register('badge')}>
-                  <option value="">— Aucun badge —</option>
-                  <option value="nouveaute">Nouveauté</option>
-                  <option value="promo">Promo</option>
-                  <option value="coup_de_coeur">Coup de cœur</option>
-                  <option value="exclusif">Exclusif</option>
-                </select>
-              </div>
-
-              <div className={s.field}>
-                <label className={s.label} htmlFor="weightKg">Poids (kg)</label>
-                <input id="weightKg" type="number" step="0.001" min="0" className={s.input} placeholder="ex: 0.150" {...register('weightKg')} />
-              </div>
-
-              <div className={s.field}>
-                <label className={s.label} htmlFor="lengthCm">Longueur (cm)</label>
-                <input id="lengthCm" type="number" step="0.1" min="0" className={s.input} placeholder="ex: 30" {...register('lengthCm')} />
-              </div>
-
-              <div className={s.field}>
-                <label className={s.label} htmlFor="widthCm">Largeur (cm)</label>
-                <input id="widthCm" type="number" step="0.1" min="0" className={s.input} placeholder="ex: 20" {...register('widthCm')} />
-              </div>
-
+      {/* Tout le formulaire, colonne latérale comprise : un seul <form>, plus de
+          champs rattachés à distance par l'attribut form=. */}
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} id="product-form" className={s.layout}>
+        {/* ── Colonne principale : ce qu'on modifie le plus souvent ── */}
+        <div className={s.main}>
+          <Card title="Description" icon={FileText} className={s.orderDescription} bodyClassName={s.cardBody}>
+            <div className={s.field}>
+              <label className={s.label} htmlFor="name">Nom du produit *</label>
+              <input id="name" className={`${s.input} ${s.inputLarge} ${errors.name ? s.inputError : ''}`} {...register('name')} />
+              {errors.name && <span className={s.err}>{errors.name.message}</span>}
             </div>
-          </section>
+            <div className={s.field}>
+              <label className={s.label} htmlFor="description">Description</label>
+              <textarea
+                id="description"
+                className={`${s.input} ${s.textarea}`}
+                rows={6}
+                placeholder="Ce que la cliente voit sous le nom du produit : contenu du kit, dimensions, conseils…"
+                {...register('description')}
+              />
+            </div>
+          </Card>
 
-          {/* Prix & stock */}
-          <section className={s.section}>
-            <h2 className={s.sectionTitle}>Prix & stock</h2>
+          <Card title="Prix" icon={Tag} className={s.orderPrice} bodyClassName={s.cardBody}>
             <div className={s.formGrid}>
               <div className={s.field}>
                 <label className={s.label} htmlFor="priceChf">Prix de vente (CHF) *</label>
-                <input id="priceChf" type="number" step="0.05" min="0" className={`${s.input} ${errors.priceChf ? s.inputError : ''}`} {...register('priceChf')} />
-                <span className={s.hint}>Le prix normal de l'article, hors promotion. Sans remise, c'est ce que paie le client.</span>
-                {errors.priceChf && <span className={s.err}>{errors.priceChf.message}</span>}
+                <input id="priceChf" type="number" step="0.05" min="0" inputMode="decimal" className={`${s.input} ${errors.priceChf ? s.inputError : ''}`} {...register('priceChf')} />
+                {errors.priceChf
+                  ? <span className={s.err}>{errors.priceChf.message}</span>
+                  : <span className={s.hint}>Le prix normal, hors promotion. Sans remise, c’est ce que paie la cliente.</span>}
               </div>
 
               <div className={s.field}>
@@ -843,7 +938,7 @@ export default function ProductForm() {
                 <div className={s.discountRow}>
                   <select
                     id="discountMode"
-                    className={s.discountModeSelect}
+                    className={s.input}
                     value={discountMode}
                     onChange={(e) => { setDiscountMode(e.target.value); if (e.target.value === 'none') setDiscountValue('') }}
                   >
@@ -858,14 +953,15 @@ export default function ProductForm() {
                       step={discountMode === 'percent' ? '1' : '0.05'}
                       min="0"
                       max={discountMode === 'percent' ? '99' : undefined}
-                      className={s.discountValueInput}
-                      placeholder={discountMode === 'percent' ? 'ex: 20' : 'ex: 15'}
+                      inputMode="decimal"
+                      className={`${s.input} ${s.discountValue}`}
+                      placeholder={discountMode === 'percent' ? 'ex. 20' : 'ex. 15'}
                       value={discountValue}
                       onChange={(e) => setDiscountValue(e.target.value)}
                     />
                   )}
                 </div>
-                <span className={s.hint}>Optionnel. La remise est déduite du prix de vente : le client paie moins, et le prix normal s'affiche barré à côté.</span>
+                <span className={s.hint}>Déduite du prix de vente : la cliente paie moins, le prix normal s’affiche barré.</span>
               </div>
             </div>
 
@@ -880,7 +976,7 @@ export default function ProductForm() {
                     </>
                   ) : (
                     <span className={s.priceWarning}>
-                      <AlertTriangle size={12} />
+                      <AlertTriangle size={12} aria-hidden="true" />
                       Remise invalide — elle doit rester inférieure au prix de vente.
                     </span>
                   )}
@@ -915,12 +1011,7 @@ export default function ProductForm() {
                 <div className={s.formGrid}>
                   <div className={s.field}>
                     <label className={s.label} htmlFor="promoStartsAt">Début</label>
-                    <input
-                      id="promoStartsAt"
-                      type="datetime-local"
-                      className={s.input}
-                      {...register('promoStartsAt')}
-                    />
+                    <input id="promoStartsAt" type="datetime-local" className={s.input} {...register('promoStartsAt')} />
                     <span className={s.hint}>Vide = démarre immédiatement.</span>
                   </div>
                   <div className={s.field}>
@@ -942,7 +1033,28 @@ export default function ProductForm() {
               </div>
             )}
 
+            {/* Historique des prix (ADM-21) — visible sur une fiche existante
+                uniquement : un produit en cours de création n'a pas de passé. */}
+            <PriceHistory productId={isEdit ? Number(id) : null} />
+          </Card>
+
+          <Card title="Stock et approvisionnement" icon={Package} className={s.orderStock} bodyClassName={s.cardBody}>
             <div className={s.formGrid}>
+              <div className={s.field}>
+                <label className={s.label} htmlFor="sku">Référence (SKU) *</label>
+                <input id="sku" className={`${s.input} ${s.mono} ${errors.sku ? s.inputError : ''}`} {...register('sku')} />
+                {errors.sku && <span className={s.err}>{errors.sku.message}</span>}
+              </div>
+              <div className={s.field}>
+                <label className={s.label} htmlFor="supplierId">Fournisseur</label>
+                <select id="supplierId" className={s.input} {...register('supplierId')}>
+                  <option value="">— Aucun —</option>
+                  {suppliers.map(sup => (
+                    <option key={sup.id} value={sup.id}>{sup.name}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className={s.field}>
                 <label className={s.label} htmlFor="stock">{soldByLengthChecked ? 'Stock (mètres) *' : 'Stock *'}</label>
                 <input
@@ -979,139 +1091,193 @@ export default function ProductForm() {
                 />
                 {errors.stockMin
                   ? <span className={s.err}>{errors.stockMin.message}</span>
-                  : <span className={s.hint}>Sous ce seuil, le Réassort propose de commander la différence. Vide = article non suivi.</span>}
+                  : <span className={s.hint}>Sous ce seuil, le Réassort propose de commander la différence. Vide = non suivi.</span>}
               </div>
             </div>
 
-          {/* ── Vente à la coupe (ADM-12) ──
-              Trames et bandes à broder : le prix saisi est alors un prix AU
-              MÈTRE, et la cliente commande la longueur dont elle a besoin. */}
-          <div className={s.cutSection}>
-            <label className={s.checkRow}>
-              <input type="checkbox" form="product-form" {...register('soldByLength')} />
-              <span>Vendu à la coupe (au mètre)</span>
-            </label>
-
-            {soldByLengthChecked && (
-              <>
-                <p className={s.fieldHint}>
-                  Le prix ci-dessus devient un <strong>prix au mètre</strong>, et le stock se
-                  compte en <strong>mètres</strong>.
-                </p>
-
-                <div className={s.formGrid}>
-                  <div className={s.field}>
-                    <label className={s.label} htmlFor="lengthStepCm">Vendu par tranches de (cm)</label>
-                    <input
-                      id="lengthStepCm"
-                      type="number"
-                      min="1"
-                      max="100"
-                      className={`${s.input} ${errors.lengthStepCm ? s.inputError : ''}`}
-                      {...register('lengthStepCm')}
-                    />
-                    {errors.lengthStepCm && <span className={s.err}>{errors.lengthStepCm.message}</span>}
-                  </div>
-
-                  <div className={s.field}>
-                    <label className={s.label} htmlFor="lengthMinCm">Longueur minimale (cm)</label>
-                    <input
-                      id="lengthMinCm"
-                      type="number"
-                      min="1"
-                      max="1000"
-                      className={`${s.input} ${errors.lengthMinCm ? s.inputError : ''}`}
-                      {...register('lengthMinCm')}
-                    />
-                    {errors.lengthMinCm && <span className={s.err}>{errors.lengthMinCm.message}</span>}
-                  </div>
-                </div>
-
-                {cutPreview}
-              </>
-            )}
-          </div>
-
-          {/* Historique des prix (ADM-21) — visible sur une fiche existante
-              uniquement : un produit en cours de création n'a pas de passé. */}
-          <PriceHistory productId={isEdit ? Number(id) : null} />
-        </section>
-
-        </form>
-        </div>
-
-        <aside className={s.sideCol}>
-          {/* Visibilité — regroupée à part : ce sont les réglages qui décident si
-              et où le produit apparaît, pas des attributs descriptifs. Ils étaient
-              noyés au milieu des dimensions et du poids. */}
-          <section className={s.section}>
-            <h2 className={s.sectionTitle}>Visibilité</h2>
-            <div className={s.checkGroup}>
+            {/* Sur commande : un comportement de stock (commandable à zéro), avec
+                le délai du fournisseur choisi juste au-dessus. */}
+            <div className={s.option}>
               <label className={s.checkRow}>
-                <input type="checkbox" form="product-form" {...register('isActive')} />
-                <span>Produit actif (visible en boutique)</span>
-              </label>
-              <label className={s.checkRow}>
-                <input type="checkbox" form="product-form" {...register('isFeatured')} />
-                <span>Mis en avant (page d'accueil)</span>
-              </label>
-              <label className={s.checkRow}>
-                <input type="checkbox" form="product-form" {...register('isMadeToOrder')} />
+                <input type="checkbox" {...register('isMadeToOrder')} />
                 <span>
-                  Sur commande — commandable sans stock
-                  {supplierDelay && ` (délai ${supplierDelay})`}
+                  <span className={s.checkTitle}>Vendu sur commande</span>
+                  <span className={s.checkHint}>
+                    Commandable même sans stock{supplierDelay ? ` — délai affiché : ${supplierDelay}` : ''}.
+                  </span>
                 </span>
               </label>
+              {isMadeToOrderChecked && !supplierDelay && (
+                <p className={s.warning}>
+                  <AlertTriangle size={13} aria-hidden="true" />
+                  {selectedSupplier
+                    ? `Le fournisseur « ${selectedSupplier.name} » n'a pas de délai configuré — le texte générique « 3 à 4 semaines » sera affiché en boutique. Configurez son délai dans l'onglet Fournisseurs.`
+                    : "Aucun fournisseur sélectionné — le texte générique « 3 à 4 semaines » sera affiché en boutique. Choisissez un fournisseur avec un délai configuré."}
+                </p>
+              )}
             </div>
 
-            {isMadeToOrderChecked && !supplierDelay && (
-              <p className={s.supplierDelayWarning}>
-                <AlertTriangle size={12} />
-                {selectedSupplier
-                  ? `Le fournisseur « ${selectedSupplier.name} » n'a pas de délai configuré — le texte générique « 3 à 4 semaines » sera affiché en boutique. Configurez son délai dans l'onglet Fournisseurs.`
-                  : "Aucun fournisseur sélectionné — le texte générique « 3 à 4 semaines » sera affiché en boutique. Choisissez un fournisseur avec un délai configuré."}
-              </p>
-            )}
-          </section>
+            {/* ── Vente à la coupe (ADM-12) ──
+                Trames et bandes à broder : le prix saisi est alors un prix AU
+                MÈTRE, et la cliente commande la longueur dont elle a besoin. */}
+            <div className={s.option}>
+              <label className={s.checkRow}>
+                <input type="checkbox" {...register('soldByLength')} />
+                <span>
+                  <span className={s.checkTitle}>Vendu à la coupe (au mètre)</span>
+                  <span className={s.checkHint}>Trames et bandes : le prix devient un prix au mètre, le stock se compte en mètres.</span>
+                </span>
+              </label>
 
-          {/* Images */}
-          <section className={s.section}>
-            <h2 className={s.sectionTitle}>Images du produit</h2>
+              {soldByLengthChecked && (
+                <div className={s.optionBody}>
+                  <div className={s.formGrid}>
+                    <div className={s.field}>
+                      <label className={s.label} htmlFor="lengthStepCm">Vendu par tranches de (cm)</label>
+                      <input
+                        id="lengthStepCm"
+                        type="number"
+                        min="1"
+                        max="100"
+                        className={`${s.input} ${errors.lengthStepCm ? s.inputError : ''}`}
+                        {...register('lengthStepCm')}
+                      />
+                      {errors.lengthStepCm && <span className={s.err}>{errors.lengthStepCm.message}</span>}
+                    </div>
+                    <div className={s.field}>
+                      <label className={s.label} htmlFor="lengthMinCm">Longueur minimale (cm)</label>
+                      <input
+                        id="lengthMinCm"
+                        type="number"
+                        min="1"
+                        max="1000"
+                        className={`${s.input} ${errors.lengthMinCm ? s.inputError : ''}`}
+                        {...register('lengthMinCm')}
+                      />
+                      {errors.lengthMinCm && <span className={s.err}>{errors.lengthMinCm.message}</span>}
+                    </div>
+                  </div>
+                  {cutPreview}
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card
+            title="Expédition"
+            subtitle="Poids et format du colis, repris sur l’étiquette La Poste"
+            icon={Truck}
+            className={s.orderShipping}
+            bodyClassName={s.cardBody}
+          >
+            <div className={s.formGrid3}>
+              <div className={s.field}>
+                <label className={s.label} htmlFor="weightKg">Poids (kg)</label>
+                <input id="weightKg" type="number" step="0.001" min="0" inputMode="decimal" className={s.input} placeholder="ex. 0.150" {...register('weightKg')} />
+              </div>
+              <div className={s.field}>
+                <label className={s.label} htmlFor="lengthCm">Longueur (cm)</label>
+                <input id="lengthCm" type="number" step="0.1" min="0" inputMode="decimal" className={s.input} placeholder="ex. 30" {...register('lengthCm')} />
+              </div>
+              <div className={s.field}>
+                <label className={s.label} htmlFor="widthCm">Largeur (cm)</label>
+                <input id="widthCm" type="number" step="0.1" min="0" inputMode="decimal" className={s.input} placeholder="ex. 20" {...register('widthCm')} />
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* ── Colonne latérale : le produit tel qu'il apparaît (photos, visibilité, rayons) ──
+            Photos en tête, à côté de la description (demande du 25.09). */}
+        <div className={s.side}>
+          <Card
+            title="Photos"
+            icon={ImageIcon}
+            className={s.orderPhotos}
+            bodyClassName={s.cardBody}
+            aside={isEdit && images.length > 0 && <span className={s.countChip}>{images.length}</span>}
+          >
             {isEdit ? (
               imgLoading
-                ? <p className={s.imgLoadingText}>Chargement des images…</p>
+                ? <p className={s.muted}>Chargement des photos…</p>
                 : <ImageDropZone productId={Number(id)} images={images} onImagesChange={setImages} />
             ) : (
-              <p className={s.imgNote}>
-                Créez d'abord le produit, puis ajoutez les images depuis le bouton Modifier.
+              <p className={s.note}>
+                Les photos s’ajoutent une fois le produit créé : enregistrez-le, puis rouvrez sa fiche.
               </p>
             )}
-          </section>
-        </aside>
-        </div>
-      </div>
+          </Card>
 
-      <div className={s.actionBar}>
-        <div className={s.actionBarInner}>
-          <div className={s.actionBarLeft}>
-            <button className={s.backBtn} onClick={goBack} aria-label="Retour à la liste">
-              <ArrowLeft size={18} />
-            </button>
-            <h1 className={s.headerTitle}>
-              {isEdit ? `Modifier — ${product?.name ?? ''}` : 'Nouveau produit'}
-            </h1>
-          </div>
-          <div className={s.actionBarRight}>
-            <button type="button" className={s.btnCancel} onClick={goBack}>Annuler</button>
-            <button type="submit" form="product-form" className={s.btnSaveLarge} disabled={isSubmitting || saved}>
-              {saved
-                ? <><Check size={16} /> Enregistré</>
-                : isSubmitting ? 'Enregistrement…' : isEdit ? 'Enregistrer les modifications' : 'Créer le produit'
-              }
-            </button>
-          </div>
+          <Card title="Visibilité" icon={Eye} className={s.orderVisibility} bodyClassName={s.cardBody}>
+            <label className={s.checkRow}>
+              <input type="checkbox" {...register('isActive')} />
+              <span>
+                <span className={s.checkTitle}>Produit actif</span>
+                <span className={s.checkHint}>Visible et commandable en boutique.</span>
+              </span>
+            </label>
+            <label className={s.checkRow}>
+              <input type="checkbox" {...register('isFeatured')} />
+              <span>
+                <span className={s.checkTitle}>Mis en avant</span>
+                <span className={s.checkHint}>Proposé sur la page d’accueil.</span>
+              </span>
+            </label>
+            <div className={s.field}>
+              <label className={s.label} htmlFor="badge">Badge</label>
+              <select id="badge" className={s.input} {...register('badge')}>
+                <option value="">— Aucun badge —</option>
+                <option value="nouveaute">Nouveauté</option>
+                <option value="promo">Promo</option>
+                <option value="coup_de_coeur">Coup de cœur</option>
+                <option value="exclusif">Exclusif</option>
+              </select>
+              <span className={s.hint}>Étiquette affichée sur la photo en boutique.</span>
+            </div>
+          </Card>
+
+          <Card title="Organisation" icon={FolderTree} className={s.orderOrganisation} bodyClassName={s.cardBody}>
+            <div className={s.field}>
+              <label className={s.label} htmlFor="categoryId">Catégorie principale *</label>
+              <select id="categoryId" className={`${s.input} ${errors.categoryId ? s.inputError : ''}`} {...register('categoryId')}>
+                <option value="">— Choisir —</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              {errors.categoryId
+                ? <span className={s.err}>{errors.categoryId.message}</span>
+                : <span className={s.hint}>Le rayon affiché sur la fiche du produit.</span>}
+            </div>
+
+            {/* Rayons supplémentaires (ADM-04) — un même article peut être rangé
+                dans plusieurs rayons de la boutique. */}
+            <div className={s.field}>
+              <span className={s.label}>
+                Autres rayons
+                {secondaryCategoryIds.length > 0 && <span className={s.labelCount}> · {secondaryCategoryIds.length}</span>}
+              </span>
+              <span className={s.hint}>Le produit apparaît aussi dans ces rayons.</span>
+              <CategoryPicker
+                categories={categories.filter(c => c.id !== Number(categoryId))}
+                selectedIds={secondaryCategoryIds}
+                onToggle={toggleSecondaryCategory}
+              />
+            </div>
+
+            <div className={s.field}>
+              <label className={s.label} htmlFor="brand">Gamme</label>
+              <input
+                id="brand"
+                className={`${s.input} ${errors.brand ? s.inputError : ''}`}
+                placeholder="ex. Permin of Copenhagen"
+                {...register('brand')}
+              />
+              {errors.brand && <span className={s.err}>{errors.brand.message}</span>}
+            </div>
+          </Card>
         </div>
-      </div>
+      </form>
     </div>
   )
 }
