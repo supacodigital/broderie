@@ -142,6 +142,11 @@ describe('Stock au centimètre des articles vendus au mètre (ADM-12)', () => {
       const client = await request(app).get(`/api/v1/orders/${order.body.data.id}`).set(bearer(token));
       const line = client.body.data.items.find((i) => i.product_id === productId);
       expect(line).toMatchObject({ quantity: 6, sold_by_length: 1, length_step_cm: 10 });
+      // Poids au mètre transmis : l'étiquette La Poste le rapporte aux 60 cm vendus
+      const [[stored]] = await pool.query('SELECT weight_kg FROM products WHERE id = ?', [productId]);
+      const repoLine = (await require('../../repositories/order.repository').findById(order.body.data.id))
+        .items.find((i) => i.product_id === productId);
+      expect(repoLine.weight_kg).toBe(stored.weight_kg);
       expect(line.product_snapshot_json).toMatchObject({ sold_by_length: true, length_step_cm: 10 });
 
       const admin = await request(app).get(`/api/v1/admin/orders/${order.body.data.id}`).set(adminAuth());

@@ -99,6 +99,29 @@ describe('shipping.service — createLabel()', () => {
     expect(result.weightKg).toBeCloseTo(0.4); // 2 × 0.2
   });
 
+  /* Article à la coupe : poids AU MÈTRE, quantité en tronçons de 10 cm.
+     60 cm d'une bande à 50 g/m pèsent 30 g — pas 6 articles. */
+  test('article à la coupe : poids rapporté à la longueur vendue', async () => {
+    const orderCut = {
+      ...fakeOrder,
+      items: [
+        { product_id: 1, quantity: 2, weight_kg: '0.300' },
+        { product_id: 2, quantity: 6, weight_kg: '0.050', sold_by_length: 1, length_step_cm: 10 },
+      ],
+    };
+    const result = await service.createLabel({ order: orderCut, address: { street: 'Rue 1', city: 'Lausanne', zip: '1000' } });
+    expect(result.weightKg).toBeCloseTo(0.63); // 2 × 0.3 + 0.6 m × 0.05
+  });
+
+  test('article à la coupe sans poids : 0.2 kg par mètre, pas par tronçon', async () => {
+    const orderCut = {
+      ...fakeOrder,
+      items: [{ product_id: 2, quantity: 6, sold_by_length: 1, length_step_cm: 10 }],
+    };
+    const result = await service.createLabel({ order: orderCut, address: { street: 'Rue 1', city: 'Lausanne', zip: '1000' } });
+    expect(result.weightKg).toBeCloseTo(0.12); // 0.6 m × 0.2 — et non 6 × 0.2 = 1.2
+  });
+
   test('lève AppError 422 si adresse incomplète (zip manquant)', async () => {
     await expect(
       service.createLabel({

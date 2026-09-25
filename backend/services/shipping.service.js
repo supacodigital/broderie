@@ -3,6 +3,7 @@ const orderRepository  = require('../repositories/order.repository');
 const swissPost        = require('../config/swissPost');
 const swissPostClient  = require('../config/swissPostClient');
 const env              = require('../config/env');
+const lengthUtils      = require('../utils/length.utils');
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Swiss Post — La Poste CH (Digital Commerce API, Barcode v1).
@@ -32,9 +33,17 @@ const mockLabelId = () => {
 
 /* ── Helpers communs ───────────────────────────────────────────────────────── */
 
-/* Poids total de la commande en kg (fallback 0.2 kg/article, 0.5 kg minimum) */
+/* Poids total de la commande en kg (fallback 0.2 kg/article, 0.5 kg minimum).
+   Article à la coupe : `weight_kg` est le poids AU MÈTRE et `quantity` un
+   nombre de tronçons — 60 cm pèsent 0.6 m, pas 6 articles (même règle que les
+   frais de port de la commande, order.service). */
 const totalWeightKg = (order) =>
-  order.items?.reduce((s, i) => s + (parseFloat(i.weight_kg ?? 0.2) * i.quantity), 0) || 0.5
+  order.items?.reduce((s, i) => {
+    const unitWeight = parseFloat(i.weight_kg ?? 0.2);
+    return s + (lengthUtils.isSoldByLength(i)
+      ? unitWeight * lengthUtils.lengthFromQuantity(i, i.quantity) / 100
+      : unitWeight * i.quantity);
+  }, 0) || 0.5
 
 /* Nom complet du destinataire à partir de l'adresse ou de la commande */
 const recipientName = (order, address) =>

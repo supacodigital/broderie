@@ -301,11 +301,12 @@ const findById = async (orderId, userId = null) => {
 
   /* sold_by_length / length_step_cm : le prix barré figé dans le snapshot est
      au mètre, le prix unitaire au tronçon — la facture en a besoin pour les
-     comparer (CLI-14). */
+     comparer (CLI-14). weight_kg : poids déclaré sur l'étiquette La Poste —
+     absent, chaque article y comptait pour le poids par défaut de 0.2 kg. */
   const [items] = await pool.execute(
     `SELECT oi.id, oi.product_id, oi.variant_id, oi.quantity,
             oi.unit_price, oi.tax_rate_snapshot, oi.product_snapshot_json,
-            p.sold_by_length, p.length_step_cm
+            p.sold_by_length, p.length_step_cm, p.weight_kg
      FROM order_items oi
      LEFT JOIN products p ON p.id = oi.product_id
      WHERE oi.order_id = ?`,
