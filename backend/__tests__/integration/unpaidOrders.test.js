@@ -32,6 +32,11 @@ const pickProduct = async () => {
   return res.body.data?.[0] ?? null;
 };
 
+// Purge des commandes impayées laissées par les exécutions précédentes (50 par passage)
+const purgeExpiredUnpaidOrders = async () => {
+  while (await unpaidOrderService.cancelExpiredUnpaidOrders() > 0) { /* passage suivant */ }
+};
+
 const readStock = async (productId) => {
   const [[row]] = await pool.execute('SELECT stock FROM products WHERE id = ?', [productId]);
   return row.stock;
@@ -168,8 +173,9 @@ describe('CLI-07 — commandes carte / Twint impayées', () => {
     /* La tâche annule TOUTES les commandes impayées de plus de 2 h, y compris
        celles laissées dans la base de test par des exécutions précédentes, et
        leur rend leur stock : un premier passage les purge avant de mesurer,
-       sinon le stock mesuré dépend de l'heure des tests précédents. */
-    await unpaidOrderService.cancelExpiredUnpaidOrders();
+       sinon le stock mesuré dépend de l'heure des tests précédents.
+       La tâche en traite 50 par passage : on répète jusqu'à épuisement. */
+    await purgeExpiredUnpaidOrders();
     const stockBefore = await readStock(product.id);
     const card    = await placeOrder(token, product.id, 'card');
     const invoice = await placeOrder(token, product.id, 'invoice_qr');
@@ -226,6 +232,7 @@ describe('CLI-07 — commandes carte / Twint impayées', () => {
   test('une commande « Paiement refusé » est aussi annulée au bout de 2 h', async () => {
     if (!product) return;
     const { token: failToken } = await registerVerifiedUser('unpaid.failed');
+    await purgeExpiredUnpaidOrders();
     const stockBefore = await readStock(product.id);
     const order = await placeOrder(failToken, product.id, 'card');
     await orderRepository.markPaymentFailed(order.id, 'Paiement par carte refusé');
