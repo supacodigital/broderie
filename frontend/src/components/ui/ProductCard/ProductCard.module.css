@@ -66,20 +66,6 @@
 /* Exclusif — noir */
 .badge_exclusif { background: #1a1a2e; }
 
-.stockWarning {
-  position: absolute;
-  bottom: 44px;
-  left: 10px;
-  background: rgba(161, 98, 7, 0.9);
-  color: white;
-  font-family: 'Montserrat', sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 2px;
-  z-index: 1;
-}
-
 /* Badge « sur commande » flottant (mode grille) — violet, distinct du stock faible */
 .madeToOrderTag {
   position: absolute;
@@ -239,7 +225,6 @@
   .brand { font-size: 9px; }
   .imageWrap { margin-bottom: 10px; }
 
-  .stockWarning { bottom: 38px; font-size: 9px; }
   .madeToOrderTag { bottom: 38px; font-size: 9px; }
 }
 
@@ -348,15 +333,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.listStock {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 10px;
-  color: #d97706;
-  font-weight: 600;
-  margin-top: 4px;
-  text-align: right;
 }
 
 .listStockOut {
