@@ -1,0 +1,7 @@
+/* Aperçu en direct : texte en cours d'édition dans l'administration.
+   Contour et non fond : la couleur du texte reste celle qu'on est en train de régler. */
+:global([data-apercu-actif]) {
+  outline: 2px dashed var(--rose);
+  outline-offset: 4px;
+  border-radius: 2px;
+}

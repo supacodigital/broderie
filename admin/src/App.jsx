@@ -1,7 +1,8 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useParams } from 'react-router-dom'
 import ScrollToTop from './components/layout/ScrollToTop.jsx'
 import { useAuth } from './contexts/AuthContext.jsx'
+import { UnsavedChangesProvider } from './contexts/UnsavedChangesContext.jsx'
 import AdminLayout from './components/layout/AdminLayout.jsx'
 
 /* Chargement différé de chaque page */
@@ -25,6 +26,9 @@ const Categories = lazy(() => import('./pages/Categories/Categories.jsx'))
 const Coupons    = lazy(() => import('./pages/Coupons/Coupons.jsx'))
 const Settings    = lazy(() => import('./pages/Settings/Settings.jsx'))
 const Newsletter  = lazy(() => import('./pages/Newsletter/Newsletter.jsx'))
+// Espace du super-administrateur : contenu du site et son compte
+const Content     = lazy(() => import('./pages/Content/Content.jsx'))
+const Account     = lazy(() => import('./pages/Account/Account.jsx'))
 
 function PageLoader() {
   return (
@@ -40,6 +44,26 @@ function PrivateRoute({ children }) {
   if (loading) return <PageLoader />
   if (!user || !isAdmin) return <Navigate to="/connexion" replace />
   return children
+}
+
+/* Page d'accueil de chaque rôle : l'administrateur gère la boutique, le
+   super-administrateur le contenu du site — et rien d'autre (26.09). */
+function homePathFor(user) {
+  return user?.role === 'super_admin' ? '/contenu' : '/dashboard'
+}
+
+function HomeRedirect() {
+  const { user } = useAuth()
+  return <Navigate to={homePathFor(user)} replace />
+}
+
+/* Réserve un groupe de routes à un rôle ; l'autre rôle est renvoyé vers son
+   propre espace (un lien partagé ou un ancien favori ne mène pas à une page
+   vide en 403). Le serveur refuse de toute façon. */
+function RoleRoute({ role }) {
+  const { user } = useAuth()
+  if (user?.role !== role) return <Navigate to={homePathFor(user)} replace />
+  return <Outlet />
 }
 
 /* Routes MFA (setup/verification) — accessibles uniquement en sortie directe du login,
@@ -79,11 +103,23 @@ export default function App() {
             path="/"
             element={
               <PrivateRoute>
-                <AdminLayout />
+                <UnsavedChangesProvider>
+                  <AdminLayout />
+                </UnsavedChangesProvider>
               </PrivateRoute>
             }
           >
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<HomeRedirect />} />
+
+            {/* ── Contenu du site — super-administrateur ── */}
+            <Route element={<RoleRoute role="super_admin" />}>
+              <Route path="contenu"          element={<Content />} />
+              <Route path="contenu/:section" element={<Content />} />
+              <Route path="compte"           element={<Account />} />
+            </Route>
+
+            {/* ── Gestion de la boutique — administrateur ── */}
+            <Route element={<RoleRoute role="admin" />}>
             <Route path="dashboard"  element={<Dashboard />} />
             <Route path="produits"   element={<Products />} />
             <Route path="produits/nouveau" element={<KeyedByRouteId><ProductForm /></KeyedByRouteId>} />
@@ -103,8 +139,9 @@ export default function App() {
             <Route path="coupons"    element={<Coupons />} />
             <Route path="parametres"  element={<Settings />} />
             <Route path="newsletter"  element={<Newsletter />} />
+            </Route>
           </Route>
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<HomeRedirect />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

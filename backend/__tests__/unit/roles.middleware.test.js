@@ -54,13 +54,27 @@ describe('middleware — requireRole()', () => {
   });
 });
 
-/* ADM-08 — le super-administrateur a tout ce qu'a un administrateur, plus les
-   contenus ; l'inverse n'est pas vrai. */
+/* ADM-08, revu le 26.09 — le super-administrateur ne gère que le contenu du
+   site : il n'hérite plus des droits d'un administrateur, et l'inverse non plus. */
 describe('middleware — rôle super_admin', () => {
-  test('passe partout où un administrateur passe', () => {
+  test('est refusé sur une route réservée aux administrateurs', () => {
     const next = makeNext();
     requireRole('admin')({ user: { id: 1, role: 'super_admin' } }, {}, next);
+    expect(next).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 403 }));
+  });
+
+  test('passe sur une route super-administrateur', () => {
+    const next = makeNext();
+    requireRole('super_admin')({ user: { id: 1, role: 'super_admin' } }, {}, next);
     expect(next).toHaveBeenCalledWith();
+  });
+
+  test('une route ouverte aux deux rôles laisse passer les deux', () => {
+    for (const role of ['admin', 'super_admin']) {
+      const next = makeNext();
+      requireRole('admin', 'super_admin')({ user: { id: 1, role } }, {}, next);
+      expect(next).toHaveBeenCalledWith();
+    }
   });
 
   test('un administrateur simple est refusé sur une route super-administrateur', () => {

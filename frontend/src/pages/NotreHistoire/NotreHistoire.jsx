@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Seo from '../../components/seo/Seo.jsx'
 import { getAboutContent } from '../../services/legal.service.js'
+import { textStyle } from '../../utils/textStyle.js'
+import { previewTarget } from '../../utils/livePreview.js'
+import { usePreviewDraft } from '../../hooks/usePreviewDraft.js'
 import s from './NotreHistoire.module.css'
 
 export default function NotreHistoire() {
@@ -10,10 +13,15 @@ export default function NotreHistoire() {
   /* Contenu éditable depuis l'administration (ADM-08). Tant qu'un champ n'a pas
      été rempli, la page garde son texte d'origine : la boutique reste complète
      même sans aucune saisie, et une page blanche est impossible. */
-  const [custom, setCustom] = useState({})
+  const [saved, setSaved] = useState({})
   useEffect(() => {
-    getAboutContent().then(setCustom).catch(() => {})
+    getAboutContent().then(setSaved).catch(() => {})
   }, [])
+  // Aperçu en direct : le brouillon de l'administration remplace le contenu enregistré
+  const custom = usePreviewDraft('about') ?? saved
+
+  // Mise en forme réglée dans l'administration pour ce texte, sinon celle du site
+  const style = (cle) => textStyle(custom.styles?.[cle])
 
   const texte = (cle, defaut) => {
     const valeur = custom[cle]
@@ -42,23 +50,23 @@ export default function NotreHistoire() {
       {/* En-tête */}
       <div className={s.hero}>
         <p className={s.eyebrow}>{t('about.eyebrow')}</p>
-        <h1 className={s.title}>{texte('about_title', t('about.title'))}</h1>
-        <p className={s.subtitle}>{texte('about_subtitle', t('about.subtitle'))}</p>
+        <h1 className={s.title} style={style('about_title')} {...previewTarget('about_title')}>{texte('about_title', t('about.title'))}</h1>
+        <p className={s.subtitle} style={style('about_subtitle')} {...previewTarget('about_subtitle')}>{texte('about_subtitle', t('about.subtitle'))}</p>
       </div>
 
       <div className={s.content}>
 
         {/* Citation d'intro */}
-        <blockquote className={s.pullQuote}>
+        <blockquote className={s.pullQuote} style={style('about_quote')} {...previewTarget('about_quote')}>
           {texte('about_quote', t('about.pullQuote'))}
         </blockquote>
 
         {/* Bloc principal */}
         <article className={s.article}>
           <section className={s.section}>
-            <h2 className={s.sectionTitle}>{texte('about_who_title', t('about.whoTitle'))}</h2>
+            <h2 className={s.sectionTitle} style={style('about_who_title')} {...previewTarget('about_who_title')}>{texte('about_who_title', t('about.whoTitle'))}</h2>
             {qui.map((paragraphe, i) => (
-              <p key={i} className={s.paragraph}>{paragraphe}</p>
+              <p key={i} className={s.paragraph} style={style('about_who')} {...previewTarget('about_who')}>{paragraphe}</p>
             ))}
           </section>
 
@@ -67,26 +75,26 @@ export default function NotreHistoire() {
           </div>
 
           <section className={s.section}>
-            <h2 className={s.sectionTitle}>{texte('about_mission_title', t('about.missionTitle'))}</h2>
+            <h2 className={s.sectionTitle} style={style('about_mission_title')} {...previewTarget('about_mission_title')}>{texte('about_mission_title', t('about.missionTitle'))}</h2>
             {mission.map((paragraphe, i) => (
-              <p key={i} className={s.paragraph}>{paragraphe}</p>
+              <p key={i} className={s.paragraph} style={style('about_mission')} {...previewTarget('about_mission')}>{paragraphe}</p>
             ))}
           </section>
 
           {/* Signature */}
-          <p className={s.signature}>{texte('about_signature', t('about.signature'))}</p>
+          <p className={s.signature} style={style('about_signature')} {...previewTarget('about_signature')}>{texte('about_signature', t('about.signature'))}</p>
         </article>
 
         {/* Ligne chronologique */}
         <div className={s.timeline}>
           <div className={s.timelineItem}>
-            <span className={s.timelineYear}>{texte('about_year_1', '1995')}</span>
-            <p className={s.timelineText}>{texte('about_year_1_text', t('about.timeline1995'))}</p>
+            <span className={s.timelineYear} style={style('about_year_1')} {...previewTarget('about_year_1')}>{texte('about_year_1', '1995')}</span>
+            <p className={s.timelineText} style={style('about_year_1_text')} {...previewTarget('about_year_1_text')}>{texte('about_year_1_text', t('about.timeline1995'))}</p>
           </div>
           <div className={s.timelineConnector} aria-hidden="true" />
           <div className={s.timelineItem}>
-            <span className={s.timelineYear}>{texte('about_year_2', '2026')}</span>
-            <p className={s.timelineText}>{texte('about_year_2_text', t('about.timeline2026'))}</p>
+            <span className={s.timelineYear} style={style('about_year_2')} {...previewTarget('about_year_2')}>{texte('about_year_2', '2026')}</span>
+            <p className={s.timelineText} style={style('about_year_2_text')} {...previewTarget('about_year_2_text')}>{texte('about_year_2_text', t('about.timeline2026'))}</p>
           </div>
         </div>
 

@@ -1,0 +1,149 @@
+/* ── Aperçu en direct : panneau collé à droite de l'éditeur ── */
+.panel {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 32px);
+  min-height: 420px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.heading { display: flex; flex-direction: column; min-width: 0; }
+.title    { font-size: 13px; font-weight: 700; color: var(--text-dark); }
+.subtitle { font-size: 11px; color: var(--text-muted); }
+
+.actions { display: flex; align-items: center; gap: 6px; }
+
+/* Choix Ordinateur / Natel */
+.devices {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.device {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: background-color 150ms ease, color 150ms ease, transform 160ms var(--ease-out);
+}
+.device[aria-pressed='true'] {
+  background: #fff;
+  color: var(--rose-dark);
+  box-shadow: var(--shadow);
+}
+.device:active { transform: scale(0.97); }
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: background-color 150ms ease, color 150ms ease, transform 160ms var(--ease-out);
+}
+.iconBtn:active { transform: scale(0.97); }
+
+@media (hover: hover) and (pointer: fine) {
+  .device:not([aria-pressed='true']):hover { color: var(--text-dark); }
+  .iconBtn:hover { background: var(--rose-pale); color: var(--rose-dark); }
+}
+
+/* ── Écran : la boutique à sa vraie largeur, réduite pour tenir ── */
+.viewport {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background: var(--page-bg);
+}
+
+.frame {
+  position: absolute;
+  top: 0;
+  border: 0;
+  background: #fff;
+  transform-origin: top left;
+}
+
+/* Natel : un écran étroit posé au milieu du panneau */
+.viewport[data-device='mobile'] .frame {
+  box-shadow: 0 0 0 1px var(--border), var(--shadow-md);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  background: #fff;
+  text-align: center;
+}
+
+.overlayText { max-width: 36ch; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+
+.retryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rose-dark);
+  transition: background-color 150ms ease, transform 160ms var(--ease-out);
+}
+.retryBtn:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) {
+  .retryBtn:hover { background: var(--rose-pale); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .device, .iconBtn, .retryBtn { transition: none; }
+}
+
+/* Écran trop étroit pour deux colonnes : l'aperçu passe en plein écran,
+   au-dessus du menu et de l'éditeur, et se referme pour reprendre la saisie. */
+@media (max-width: 1099px) {
+  .panel {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    height: auto;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+  }
+}

@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight, FileText } from 'lucide-react'
 import { getLegalContent } from '../../services/legal.service.js'
+import { textStyle } from '../../utils/textStyle.js'
+import { previewTarget } from '../../utils/livePreview.js'
+import { usePreviewDraft } from '../../hooks/usePreviewDraft.js'
 import s from './CGV.module.css'
 
 const STATIC_SECTIONS = [
@@ -92,20 +95,26 @@ Pour toute réclamation : contact@broderie.ch — nous nous engageons à répond
 ]
 
 export default function CGV() {
-  const [customText, setCustomText] = useState('')
-  /* Politique de retour saisie dans l'admin (Paramètres → Textes légaux) :
-     affichée à la suite des CGV. Elle n'était visible nulle part (ADM-08). */
-  const [returnPolicy, setReturnPolicy] = useState('')
+  const [saved, setSaved] = useState({})
 
   useEffect(() => {
     getLegalContent()
-      .then(data => {
-        setCustomText(data?.data?.cgv ?? '')
-        setReturnPolicy(data?.data?.politique_retour ?? '')
-      })
+      .then(data => setSaved(data?.data ?? {}))
       .catch(() => {})
   }, [])
+
+  // Aperçu en direct : le brouillon de l'administration remplace le contenu enregistré
+  const legal = usePreviewDraft('legal') ?? saved
+  const customText = legal.cgv ?? ''
+  /* Politique de retour saisie dans l'admin (Paramètres → Textes légaux) :
+     affichée à la suite des CGV. Elle n'était visible nulle part (ADM-08). */
+  const returnPolicy = legal.politique_retour ?? ''
+  /* Mise en forme du corps du texte, réglée dans l'administration — appliquée
+     aux paragraphes, que les CGV soient saisies ou celles d'origine. */
+  const styles = legal.styles ?? {}
   const hasReturnPolicy = returnPolicy.trim().length > 0
+  const cgvStyle = textStyle(styles.cgv)
+  const returnStyle = textStyle(styles.politique_retour)
 
   /* Si l'admin a saisi un texte personnalisé, on l'affiche seul */
   const hasCustom = customText.trim().length > 0
@@ -153,7 +162,7 @@ export default function CGV() {
             /* Texte saisi dans l'admin — affiché en bloc */
             <div className={s.customText}>
               {customText.split('\n\n').map((para, i) => (
-                <p key={i}>{para}</p>
+                <p key={i} style={cgvStyle} {...previewTarget('cgv')}>{para}</p>
               ))}
             </div>
           ) : (
@@ -163,7 +172,7 @@ export default function CGV() {
                 <h2 className={s.sectionTitle}>{sec.title}</h2>
                 <div className={s.sectionBody}>
                   {sec.content.split('\n\n').map((para, i) => (
-                    <p key={i}>{para}</p>
+                    <p key={i} style={cgvStyle} {...previewTarget('cgv')}>{para}</p>
                   ))}
                 </div>
               </section>
@@ -175,7 +184,7 @@ export default function CGV() {
               <h2 className={s.sectionTitle}>Politique de retour</h2>
               <div className={s.sectionBody}>
                 {returnPolicy.split(/\n\s*\n/).map((para, i) => (
-                  <p key={i}>{para}</p>
+                  <p key={i} style={returnStyle} {...previewTarget('politique_retour')}>{para}</p>
                 ))}
               </div>
             </section>

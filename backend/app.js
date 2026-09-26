@@ -79,7 +79,10 @@ app.use(helmet({
       // Stripe rend ses champs de carte dans des iframes servies par js.stripe.com
       frameSrc:       ["'self'", "https://js.stripe.com", "https://hooks.stripe.com"],
       objectSrc:      ["'none'"],
-      frameAncestors: ["'none'"],
+      // 'self' : l'aperçu en direct de l'administration (Contenu du site)
+      // affiche la boutique dans un cadre — même domaine uniquement, jamais un
+      // autre site (protection contre le détournement de clic conservée).
+      frameAncestors: ["'self'"],
     },
   },
 }));

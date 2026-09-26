@@ -2,6 +2,9 @@ import { Fragment, useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { ChevronRight, Scale } from 'lucide-react'
 import { getLegalContent } from '../../services/legal.service.js'
+import { textStyle } from '../../utils/textStyle.js'
+import { previewTarget } from '../../utils/livePreview.js'
+import { usePreviewDraft } from '../../hooks/usePreviewDraft.js'
 import s from '../CGV/CGV.module.css'
 
 const STATIC_SECTIONS = [
@@ -85,10 +88,10 @@ Les informations présentes sur le site sont fournies à titre indicatif. Au Poi
 
 /* Un paragraphe peut contenir des retours à la ligne simples (coordonnées,
    listes) : ils s'affichaient bout à bout, sur une seule ligne continue. */
-function Paragraph({ text }) {
+function Paragraph({ text, style }) {
   const lines = text.split('\n')
   return (
-    <p>
+    <p style={style} {...previewTarget('mentions_legales')}>
       {lines.map((line, i) => (
         <Fragment key={i}>{i > 0 && <br />}{line}</Fragment>
       ))}
@@ -97,14 +100,20 @@ function Paragraph({ text }) {
 }
 
 export default function MentionsLegales() {
-  const [customText, setCustomText] = useState('')
+  const [saved, setSaved] = useState({})
   const { hash } = useLocation()
 
   useEffect(() => {
     getLegalContent()
-      .then(res => setCustomText(res.data?.mentions_legales ?? ''))
+      .then(res => setSaved(res.data ?? {}))
       .catch(() => {})
   }, [])
+
+  // Aperçu en direct : le brouillon de l'administration remplace le contenu enregistré
+  const legal = usePreviewDraft('legal') ?? saved
+  const customText = legal.mentions_legales ?? ''
+  // Mise en forme du corps du texte, réglée dans l'administration
+  const bodyStyle = textStyle(legal.styles?.mentions_legales)
 
   const hasCustom = customText.trim().length > 0
 
@@ -152,7 +161,7 @@ export default function MentionsLegales() {
           {hasCustom ? (
             <div className={s.customText}>
               {customText.split('\n\n').map((para, i) => (
-                <Paragraph key={i} text={para} />
+                <Paragraph key={i} text={para} style={bodyStyle} />
               ))}
             </div>
           ) : (
@@ -161,7 +170,7 @@ export default function MentionsLegales() {
                 <h2 className={s.sectionTitle}>{sec.title}</h2>
                 <div className={s.sectionBody}>
                   {sec.content.split('\n\n').map((para, i) => (
-                    <Paragraph key={i} text={para} />
+                    <Paragraph key={i} text={para} style={bodyStyle} />
                   ))}
                 </div>
               </section>

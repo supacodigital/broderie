@@ -23,8 +23,26 @@ const { validate } = require('../middlewares/validate');
 const { createCouponSchema, updateCouponSchema } = require('../validators/coupon.validator');
 const { adminUpdateCustomerSchema, adminAddressSchema } = require('../validators/customer.validator');
 
-// Toutes les routes admin nécessitent auth + rôle admin
 router.use(requireAuth);
+
+/* ── Contenu du site — super-administrateur uniquement (ADM-08) ──
+   Pages de contenu, blocs de la page d'accueil, bandeau, textes des e-mails et
+   leur mise en forme. Déclarées AVANT la garde « admin » ci-dessous : le
+   super-administrateur n'a accès qu'à elles, et un administrateur y est refusé. */
+const superAdminOnly = requireRole('super_admin');
+router.get('/settings/legal',      superAdminOnly, settingsController.getLegalSettings);
+router.put('/settings/legal',      superAdminOnly, settingsController.updateLegalSettings);
+router.get('/settings/about',      superAdminOnly, settingsController.getAboutSettings);
+router.put('/settings/about',      superAdminOnly, settingsController.updateAboutSettings);
+router.get('/settings/home',       superAdminOnly, settingsController.getHomeSettings);
+router.put('/settings/home',       superAdminOnly, settingsController.updateHomeSettings);
+router.get('/settings/banner',     superAdminOnly, settingsController.getBannerSettings);
+router.put('/settings/banner',     superAdminOnly, settingsController.updateBannerSettings);
+router.get('/settings/emails',     superAdminOnly, settingsController.getEmailSettings);
+router.put('/settings/emails',     superAdminOnly, settingsController.updateEmailSettings);
+router.get('/settings/fonts',      superAdminOnly, settingsController.getFontCatalog);
+
+// ── Tout le reste du back-office — rôle admin uniquement ──
 router.use(requireRole('admin'));
 
 // Dashboard
@@ -109,18 +127,6 @@ router.get('/settings/shipping',   settingsController.getShippingRates);
 router.put('/settings/shipping',   settingsController.updateShippingRates);
 router.get('/settings/store',      settingsController.getStoreSettings);
 router.put('/settings/store',      settingsController.updateStoreSettings);
-// Pages de contenu et blocs promotionnels — réservés au super-administrateur (ADM-08)
-const superAdminOnly = requireRole('super_admin');
-router.get('/settings/legal',      superAdminOnly, settingsController.getLegalSettings);
-router.put('/settings/legal',      superAdminOnly, settingsController.updateLegalSettings);
-router.get('/settings/about',      superAdminOnly, settingsController.getAboutSettings);
-router.put('/settings/about',      superAdminOnly, settingsController.updateAboutSettings);
-router.get('/settings/home',       superAdminOnly, settingsController.getHomeSettings);
-router.put('/settings/home',       superAdminOnly, settingsController.updateHomeSettings);
-router.get('/settings/banner',     superAdminOnly, settingsController.getBannerSettings);
-router.put('/settings/banner',     superAdminOnly, settingsController.updateBannerSettings);
-router.get('/settings/emails',     superAdminOnly, settingsController.getEmailSettings);
-router.put('/settings/emails',     superAdminOnly, settingsController.updateEmailSettings);
 router.get('/settings/pickup',     settingsController.getPickupSettings);
 router.put('/settings/pickup',     settingsController.updatePickupSettings);
 router.get('/settings/invoice',    settingsController.getInvoiceSettings);

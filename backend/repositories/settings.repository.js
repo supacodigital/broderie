@@ -79,6 +79,19 @@ const HOME_KEYS = [
    `banner_enabled` vaut '1' ou '0' — la table settings ne stocke que du texte. */
 const BANNER_KEYS = ['banner_enabled', 'banner_text', 'banner_link'];
 
+/* Mise en forme des textes (police, taille, couleur… — voir
+   utils/contentStyle.utils.js) : un JSON par page, rangé sous sa propre clé et
+   indexé par le texte concerné. Seuls les textes affichés tels quels se
+   mettent en forme — ni l'interrupteur des chiffres clés, ni le lien du
+   bandeau, ni son interrupteur. */
+const STYLE_KEYS = { home: 'home_styles', about: 'about_styles', banner: 'banner_styles', legal: 'legal_styles' };
+const STYLABLE_KEYS = {
+  home:   HOME_KEYS.filter((key) => key !== 'hero_stats_enabled'),
+  about:  ABOUT_KEYS,
+  banner: ['banner_text'],
+  legal:  LEGAL_KEYS,
+};
+
 /* Retrait en boutique — ces valeurs partent dans l'email « votre commande est
    prête ». Elles vivaient dans le .env : les corriger imposait un accès SSH au
    serveur pour un simple changement d'horaires. */
@@ -167,5 +180,5 @@ module.exports = {
   findAllTaxRates, updateTaxRate, findAllShippingRates,
   updateTaxRatesBulk, replaceShippingRates,
   findSettings, upsertSettings, STORE_KEYS, LEGAL_KEYS, ABOUT_KEYS, HOME_KEYS, BANNER_KEYS, PICKUP_KEYS, INVOICE_KEYS,
-  EMAIL_KEYS,
+  EMAIL_KEYS, STYLE_KEYS, STYLABLE_KEYS,
 };

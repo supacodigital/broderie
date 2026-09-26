@@ -1,10 +1,4 @@
-:root {
-  --sidebar-bg:    #1a0a1e;
-  --sidebar-hover: rgba(255,255,255,.07);
-  --sidebar-active:#2d1436;
-  --sidebar-w:     220px;
-  --header-h:      64px;
-}
+/* Couleurs et largeurs du menu : tokens --sidebar-* dans index.css */
 
 .shell {
   display: flex;
@@ -26,33 +20,25 @@
   transition: transform .25s ease;
 }
 
-/* Marque */
+/* Marque — logo réduit de 165 à 120 px et mention « Administration »
+   retirée (26.09) : de la place en plus pour la navigation */
 .brand {
-  padding: 24px 18px 20px;
-  border-bottom: 1px solid rgba(255,255,255,.08);
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--sidebar-border);
 }
 
 .brandLogo {
   display: block;
   width: 100%;
-  max-width: 165px;
+  max-width: 120px;
   height: auto;
-}
-
-.brandSub {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: .18em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.55);
-  margin-top: 6px;
 }
 
 .closeBtn {
   display: none;
   background: none;
   border: none;
-  color: rgba(255,255,255,0.55);
+  color: var(--sidebar-text-muted);
   padding: 4px;
   cursor: pointer;
   position: absolute;
@@ -60,7 +46,52 @@
   right: 16px;
 }
 
-/* ── Groupe navigation ── */
+/* Bouton « Réduire / Agrandir le menu » (ordinateur uniquement) */
+.collapseBtn {
+  display: flex;
+  background: none;
+  border: none;
+  color: var(--sidebar-text-muted);
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  position: absolute;
+  top: 18px;
+  right: 10px;
+  transition: background .15s, color .15s;
+}
+
+.collapseBtn:hover {
+  background: var(--sidebar-hover);
+  color: var(--sidebar-text-strong);
+}
+
+/* ── Navigation : groupes qui défilent (Paramètres en dernier) + pied fixe (Mon compte, super-administrateur) ── */
+.nav {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.navScroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 10px;
+}
+
+.navScroll::-webkit-scrollbar { width: 3px; }
+.navScroll::-webkit-scrollbar-thumb { background: var(--sidebar-scrollbar); border-radius: 2px; }
+
+.navFooter {
+  padding: 8px 10px;
+  border-top: 1px solid var(--sidebar-border);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
 .navSection {
   padding: 14px 10px 4px;
   display: flex;
@@ -68,23 +99,25 @@
   gap: 1px;
 }
 
+/* Paramètres, dernier du menu : un trait le sépare de Marketing, dont il
+   ne fait pas partie (menu replié compris) */
+.navSectionSettings::before {
+  content: "";
+  height: 1px;
+  margin: 0 0 10px;
+  background: var(--sidebar-border);
+}
+
+/* 9 px auparavant : trop petit pour être lu confortablement. En rose, les
+   titres se distinguent des liens au premier coup d'œil. */
 .navSectionLabel {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: .14em;
+  letter-spacing: .08em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.55);
-  padding: 4px 8px 8px;
+  color: var(--sidebar-heading);
+  padding: 4px 10px 8px;
 }
-
-.nav {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.nav::-webkit-scrollbar { width: 3px; }
-.nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 2px; }
 
 .navLink {
   display: flex;
@@ -92,7 +125,7 @@
   gap: 10px;
   padding: 9px 10px;
   border-radius: 8px;
-  color: rgba(255,255,255,0.55);
+  color: var(--sidebar-text);
   font-size: 13px;
   font-weight: 500;
   transition: background .15s, color .15s;
@@ -102,13 +135,26 @@
 
 .navLink:hover {
   background: var(--sidebar-hover);
-  color: rgba(255,255,255,0.9);
+  color: var(--sidebar-text-strong);
 }
 
 .navLink.active {
   background: var(--sidebar-active);
   color: #fff;
   font-weight: 600;
+}
+
+/* Repère de la page ouverte : trait rose collé au bord du menu (le groupe a
+   10 px de marge intérieure), visible aussi menu replié */
+.navLink.active::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--rose);
 }
 
 /* Fond sombre du menu : le rose clair y est lisible, le rose foncé ne le serait pas */
@@ -132,10 +178,153 @@
   flex-shrink: 0;
 }
 
+/* ── Paramètres : liste des onglets sous le bouton ── */
+.settingsTrigger {
+  width: 100%;
+  background: none;
+  border: none;
+  font-family: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Page Paramètres ouverte, onglet visible dans la liste : le bouton s'éclaire
+   sans prendre le repère, qui revient à l'onglet */
+.settingsTriggerCurrent { color: var(--sidebar-text-strong); }
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--sidebar-text-muted);
+  transition: transform .2s var(--ease-out);
+}
+
+.chevronOpen { transform: rotate(180deg); }
+
+/* Hauteur animée par la grille (0fr → 1fr) : la liste se déroule sans
+   hauteur fixe codée en dur */
+.subList {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows .2s var(--ease-out);
+}
+
+.subListOpen { grid-template-rows: 1fr; }
+
+.subListInner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Trait vertical sous l'engrenage, onglets alignés sur le libellé */
+.subItems {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 0 4px 18px;
+  border-left: 1px solid var(--sidebar-border);
+}
+
+.subLink {
+  position: relative;
+  display: block;
+  padding: 7px 10px 7px 17px;
+  border-radius: 0 8px 8px 0;
+  color: var(--sidebar-text);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+
+.subLink:hover {
+  background: var(--sidebar-hover);
+  color: var(--sidebar-text-strong);
+}
+
+.subLink.active {
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Repère de l'onglet ouvert, posé sur le trait vertical */
+.subLink.active::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--rose);
+}
+
+/* ── Paramètres, menu replié : menu flottant à droite de l'engrenage ── */
+.flyout {
+  position: fixed;
+  z-index: 400;
+  min-width: 190px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  /* Il grandit depuis l'engrenage, en bas à gauche */
+  transform-origin: bottom left;
+  transition: opacity .15s var(--ease-out), transform .15s var(--ease-out);
+}
+
+@starting-style {
+  .flyout {
+    opacity: 0;
+    transform: scale(.97);
+  }
+}
+
+.flyoutTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--sidebar-heading);
+  padding: 6px 10px 6px;
+}
+
+.flyoutLink {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--sidebar-text);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+
+.flyoutLink:hover {
+  background: var(--sidebar-hover);
+  color: var(--sidebar-text-strong);
+}
+
+.flyoutLink.active {
+  background: var(--sidebar-active);
+  color: #fff;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron,
+  .subList,
+  .flyout { transition: none; }
+}
+
 /* ── Profil utilisateur en bas ── */
 .userSection {
   padding: 12px;
-  border-top: 1px solid rgba(255,255,255,.08);
+  border-top: 1px solid var(--sidebar-border);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -145,7 +334,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--rose) 0%, #be185d 100%);
+  background: linear-gradient(135deg, var(--rose) 0%, var(--rose-dark) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -168,14 +357,14 @@
 
 .userRole {
   font-size: 10px;
-  color: rgba(255,255,255,0.55);
+  color: var(--sidebar-text-muted);
   text-transform: capitalize;
 }
 
 .logoutBtn {
   background: none;
   border: none;
-  color: rgba(255,255,255,0.55);
+  color: var(--sidebar-text-muted);
   padding: 6px;
   border-radius: 6px;
   transition: color .15s, background .15s;
@@ -183,8 +372,98 @@
 }
 
 .logoutBtn:hover {
-  background: rgba(220,38,38,.2);
-  color: #fca5a5;
+  background: var(--sidebar-danger-bg);
+  color: var(--sidebar-danger-text);
+}
+
+/* Libellé des icônes quand il n'est pas affiché (menu replié, déconnexion).
+   Fixe, hors du menu : la zone qui défile l'aurait coupée. Pas d'animation,
+   on survole ces icônes des dizaines de fois par jour. */
+.hint {
+  position: fixed;
+  z-index: 400;
+  transform: translateY(-50%);
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: var(--text-dark);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Menu replié en icônes (ordinateur uniquement) ──
+   --sidebar-w est redéfinie pour toute la page : la zone principale et les
+   barres fixes des formulaires (produit, fournisseur) suivent d'elles-mêmes.
+   Pas d'animation de largeur : elle recalculerait la mise en page des
+   tableaux à chaque image. */
+@media (min-width: 901px) {
+  .collapsed { --sidebar-w: var(--sidebar-w-collapsed); }
+
+  /* Même hauteur que l'en-tête : les deux traits sont alignés */
+  .collapsed .brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--header-h);
+    padding: 0;
+  }
+
+  .collapsed .brandLogo { display: none; }
+
+  .collapsed .collapseBtn { position: static; }
+
+  .collapsed .navSection { padding: 10px 10px 2px; }
+
+  /* Le titre du groupe devient un simple trait, toujours lu à l'oral */
+  .collapsed .navSectionLabel {
+    height: 1px;
+    padding: 0;
+    margin: 2px 8px 8px;
+    overflow: hidden;
+    font-size: 0;
+    background: var(--sidebar-border);
+  }
+
+  .collapsed .navLink {
+    justify-content: center;
+    padding: 10px 0;
+  }
+
+  .collapsed .navLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  /* Le compteur se pose sur le coin de l'icône */
+  .collapsed .navBadge {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 9px;
+    box-shadow: 0 0 0 2px var(--sidebar-bg);
+  }
+
+  .collapsed .userSection {
+    flex-direction: column;
+    padding: 12px 0;
+  }
+
+  .collapsed .userMeta {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
 }
 
 /* ── Zone principale ── */
@@ -471,6 +750,11 @@
 }
 
 /* ── Responsive ── */
+/* Écran tactile : un appui simule un survol et l'info-bulle resterait affichée */
+@media (hover: none) {
+  .hint { display: none; }
+}
+
 @media (max-width: 1024px) {
   .newProductBtn span { display: none; }
   .boutiquBtn span    { display: none; }
@@ -484,6 +768,8 @@
 
   .sidebarOpen { transform: translateX(0); }
   .closeBtn    { display: flex; }
+  .collapseBtn { display: none; }
+  .hint        { display: none; }
   .overlay     { display: block; }
   .main        { margin-left: 0; }
   .menuBtn     { display: flex; }

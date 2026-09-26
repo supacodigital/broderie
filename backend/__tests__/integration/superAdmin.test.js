@@ -1,8 +1,10 @@
-/* Rôle super-administrateur — ticket ADM-08.
+/* Rôle super-administrateur — ticket ADM-08, revu le 26.09.
    « Créer un profil super-administrateur avec accès complet aux pages de
-   contenu et blocs promotionnels. » Le super-administrateur a tout ce qu'a un
-   administrateur (protections comprises), plus les contenus ; un administrateur
-   simple n'y a plus accès. Testé de bout en bout, jetons réels. */
+   contenu et blocs promotionnels. » Depuis le 26.09, ce compte ne gère QUE le
+   contenu du site (textes et mise en forme) : plus d'accès aux commandes ni aux
+   clientes. Il garde les protections d'un compte du back-office (double
+   authentification) ; un administrateur simple n'a pas accès au contenu.
+   Testé de bout en bout, jetons réels. */
 require('dotenv').config();
 const request = require('supertest');
 const app = require('../../app');
@@ -42,8 +44,9 @@ beforeAll(async () => {
 }, 30000);
 
 afterAll(async () => {
-  // Les textes d'essai ne doivent pas rester dans la base de test
+  // Les textes et mises en forme d'essai ne doivent pas rester dans la base de test
   await pool.execute("UPDATE settings SET value = '' WHERE `key` IN ('hero_title', 'hero_stats_enabled')");
+  await pool.execute("DELETE FROM settings WHERE `key` IN ('home_styles', 'about_styles', 'banner_styles', 'legal_styles')");
 });
 
 describe('Super-administrateur — protections du back-office (ADM-08)', () => {
@@ -53,11 +56,23 @@ describe('Super-administrateur — protections du back-office (ADM-08)', () => {
     expect(superAdmin.token).toBeTruthy();
   });
 
-  test('a accès à tout le back-office d\'un administrateur', async () => {
-    for (const url of ['/api/v1/admin/orders', '/api/v1/admin/products', '/api/v1/admin/customers', '/api/v1/admin/settings/store']) {
+  test('n\'a plus accès au reste du back-office : commandes, clientes, catalogue, paramètres (403)', async () => {
+    for (const url of [
+      '/api/v1/admin/orders', '/api/v1/admin/customers', '/api/v1/admin/products',
+      '/api/v1/admin/invoices', '/api/v1/admin/dashboard/stats', '/api/v1/admin/settings/store',
+    ]) {
       const res = await request(app).get(url).set('Authorization', `Bearer ${superAdmin.token}`);
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(403);
     }
+    const put = await request(app).put('/api/v1/admin/settings/store')
+      .set('Authorization', `Bearer ${superAdmin.token}`).send({ store_name: 'x' });
+    expect(put.status).toBe(403);
+  });
+
+  test('gère sa propre double authentification (statut, codes de secours)', async () => {
+    const res = await request(app).get('/api/v1/mfa/status').set('Authorization', `Bearer ${superAdmin.token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.enabled).toBe(true);
   });
 });
 
@@ -102,11 +117,103 @@ describe('Pages de contenu et blocs promotionnels — réservés au super-admini
     expect(pub.body.data.hero_stats_enabled).toBe('0');
   });
 
+  test('un administrateur simple ne lit pas le catalogue de polices (403)', async () => {
+    const res = await request(app).get('/api/v1/admin/settings/fonts').set('Authorization', `Bearer ${admin.token}`);
+    expect(res.status).toBe(403);
+  });
+
   test('l\'interrupteur des chiffres clés n\'accepte que 0 ou 1', async () => {
     const res = await request(app).put('/api/v1/admin/settings/home')
       .set('Authorization', `Bearer ${superAdmin.token}`)
       .send({ hero_stats_enabled: 'oui' });
     expect(res.status).toBe(400);
+  });
+});
+
+/* Mise en forme des textes (26.09) — « le simple fait d'écrire du texte ne
+   suffit pas » : police, graisse, taille, couleur, alignement, italique /
+   majuscules / souligné, interligne et espacement, texte par texte. */
+describe('Mise en forme des textes — réservée au super-administrateur', () => {
+  const put = (url, body, token = superAdmin.token) =>
+    request(app).put(url).set('Authorization', `Bearer ${token}`).send(body);
+
+  test('catalogue de polices : uniquement des polices servies par le site, avec leurs graisses', async () => {
+    const res = await request(app).get('/api/v1/admin/settings/fonts').set('Authorization', `Bearer ${superAdmin.token}`);
+    expect(res.status).toBe(200);
+    const lora = res.body.data.find((f) => f.key === 'lora');
+    expect(lora).toMatchObject({ label: 'Lora', family: 'Lora', category: 'serif', weights: [400, 500, 600, 700], italic: true });
+    expect(res.body.data.map((f) => f.key)).toEqual(expect.arrayContaining(['montserrat', 'cormorant-infant', 'great-vibes']));
+  });
+
+  test('enregistrée avec les textes, relue par l\'administration, publiée sur la boutique', async () => {
+    const style = {
+      font: 'lora', weight: 700, size: 64, color: '#AA3366', align: 'center',
+      italic: true, uppercase: false, underline: false, lineHeight: 1.2, letterSpacing: 0.05,
+    };
+    const saved = await put('/api/v1/admin/settings/home', { hero_title: 'Titre mis en forme', styles: { hero_title: style } });
+    expect(saved.status).toBe(200);
+    expect(saved.body.data.hero_title).toBe('Titre mis en forme');
+    // Couleur normalisée en minuscules
+    expect(saved.body.data.styles.hero_title).toEqual({ ...style, color: '#aa3366' });
+
+    const read = await request(app).get('/api/v1/admin/settings/home').set('Authorization', `Bearer ${superAdmin.token}`);
+    expect(read.body.data.styles.hero_title.font).toBe('lora');
+
+    // La boutique reçoit la pile CSS de la police, pas la clé du catalogue
+    const pub = await request(app).get('/api/v1/legal/home');
+    expect(pub.body.data.styles.hero_title).toEqual({
+      fontFamily: "'Lora', serif", weight: 700, size: 64, color: '#aa3366', align: 'center',
+      italic: true, uppercase: false, underline: false, lineHeight: 1.2, letterSpacing: 0.05,
+    });
+  });
+
+  test('enregistrer les textes sans « styles » garde la mise en forme existante', async () => {
+    await put('/api/v1/admin/settings/about', { styles: { about_quote: { size: 40 } } });
+    const res = await put('/api/v1/admin/settings/about', { about_quote: 'Une citation' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.styles).toEqual({ about_quote: { size: 40 } });
+  });
+
+  test('une mise en forme vide est retirée (retour à l\'apparence du site)', async () => {
+    const res = await put('/api/v1/admin/settings/about', { styles: { about_quote: {} } });
+    expect(res.status).toBe(200);
+    expect(res.body.data.styles).toEqual({});
+  });
+
+  test('bandeau et textes légaux : publiés avec leur mise en forme', async () => {
+    await put('/api/v1/admin/settings/banner', {
+      banner_enabled: '1', banner_text: 'Fermé du 24 au 31 décembre', styles: { banner_text: { font: 'raleway', weight: 600 } },
+    });
+    const banner = await request(app).get('/api/v1/legal/banner');
+    expect(banner.body.data).toMatchObject({ text: 'Fermé du 24 au 31 décembre', style: { fontFamily: "'Raleway', sans-serif", weight: 600 } });
+
+    await put('/api/v1/admin/settings/legal', { styles: { cgv: { size: 16, lineHeight: 2 } } });
+    const legal = await request(app).get('/api/v1/legal');
+    expect(legal.body.data.styles.cgv).toEqual({ size: 16, lineHeight: 2 });
+
+    await put('/api/v1/admin/settings/banner', { banner_enabled: '0', banner_text: '', styles: {} });
+  });
+
+  test.each([
+    ['police inconnue',                     { hero_title: { font: 'comic-sans' } },            'styles.hero_title.font'],
+    ['graisse absente de la police',        { hero_title: { font: 'great-vibes', weight: 700 } }, 'styles.hero_title.weight'],
+    ['taille démesurée',                    { hero_title: { size: 400 } },                     'styles.hero_title.size'],
+    ['couleur hors format',                 { hero_title: { color: 'red; background: url(x)' } }, 'styles.hero_title.color'],
+    ['propriété CSS arbitraire',            { hero_title: { position: 'fixed' } },             'styles.hero_title'],
+    ['texte qui ne se met pas en forme',    { hero_stats_enabled: { size: 20 } },              'styles.hero_stats_enabled'],
+    ['texte inconnu',                       { evil: { size: 20 } },                            'styles.evil'],
+  ])('refusée (400) : %s', async (_label, styles, field) => {
+    const res = await put('/api/v1/admin/settings/home', { hero_title: 'Ne doit pas être enregistré', styles });
+    expect(res.status).toBe(400);
+    expect(res.body.errors[0].field).toBe(field);
+    // Rien n'est enregistré, ni le texte ni la mise en forme
+    const read = await request(app).get('/api/v1/admin/settings/home').set('Authorization', `Bearer ${superAdmin.token}`);
+    expect(read.body.data.hero_title).not.toBe('Ne doit pas être enregistré');
+  });
+
+  test('un administrateur simple ne peut pas mettre en forme (403)', async () => {
+    const res = await put('/api/v1/admin/settings/home', { styles: { hero_title: { size: 20 } } }, admin.token);
+    expect(res.status).toBe(403);
   });
 });
 

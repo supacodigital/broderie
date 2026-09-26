@@ -31,62 +31,6 @@ export async function updateShippingRates(rates) {
   return res.data.data ?? null
 }
 
-export async function getLegalSettings() {
-  const res = await api.get('/admin/settings/legal')
-  return res.data.data ?? {}
-}
-
-export async function updateLegalSettings(data) {
-  const res = await api.put('/admin/settings/legal', data)
-  return res.data.data ?? null
-}
-
-/* Bandeau d'annonce affiché en haut de la boutique */
-/* Page « Notre Histoire » — contenu éditorial modifiable par la cliente (ADM-08) */
-export async function getAboutSettings() {
-  const res = await api.get('/admin/settings/about')
-  return res.data?.data ?? {}
-}
-
-export async function updateAboutSettings(data) {
-  const res = await api.put('/admin/settings/about', data)
-  return res.data?.data ?? {}
-}
-
-/* Textes des e-mails envoyés à l'inscription — super-administrateur (CLI-11).
-   Renvoie { values, defaults } : les textes saisis, et le texte actuellement
-   envoyé quand un champ est vide. */
-export async function getEmailSettings() {
-  const res = await api.get('/admin/settings/emails')
-  return res.data?.data ?? { values: {}, defaults: {} }
-}
-
-export async function updateEmailSettings(data) {
-  const res = await api.put('/admin/settings/emails', data)
-  return res.data?.data ?? { values: {}, defaults: {} }
-}
-
-/* Blocs de la page d'accueil — réservés au super-administrateur (ADM-08) */
-export async function getHomeSettings() {
-  const res = await api.get('/admin/settings/home')
-  return res.data?.data ?? {}
-}
-
-export async function updateHomeSettings(data) {
-  const res = await api.put('/admin/settings/home', data)
-  return res.data?.data ?? {}
-}
-
-export async function getBannerSettings() {
-  const res = await api.get('/admin/settings/banner')
-  return res.data.data ?? {}
-}
-
-export async function updateBannerSettings(data) {
-  const res = await api.put('/admin/settings/banner', data)
-  return res.data.data ?? null
-}
-
 /* Retrait en boutique — adresse et horaires envoyés dans l'email « commande prête » */
 export async function getPickupSettings() {
   const res = await api.get('/admin/settings/pickup')

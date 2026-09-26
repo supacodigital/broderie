@@ -3,7 +3,7 @@ const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const mfaController = require('../controllers/mfa.controller');
 const { requireAuth } = require('../middlewares/auth');
-const { requireRole } = require('../middlewares/roles');
+const { requireRole, ADMIN_ROLES } = require('../middlewares/roles');
 const { requireMfaPending } = require('../middlewares/mfaPending');
 
 // Rate limiting renforcé sur la vérification de code — cible directe du brute-force
@@ -36,8 +36,9 @@ router.post('/setup/confirm', mfaVerifyLimiter, requireMfaPending, mfaController
 router.post('/verify',               mfaVerifyLimiter, requireMfaPending, mfaController.verify);
 router.post('/verify-recovery-code', mfaVerifyLimiter, requireMfaPending, mfaController.verifyRecoveryCode);
 
-// Régénération et statut — session pleinement authentifiée, réservé admin
-router.post('/recovery-codes/regenerate', requireAuth, requireRole('admin'), mfaController.regenerateRecoveryCodes);
-router.get('/status',                     requireAuth, requireRole('admin'), mfaController.getStatus);
+// Régénération et statut — session pleinement authentifiée, comptes du back-office
+// (le super-administrateur gère aussi sa propre double authentification)
+router.post('/recovery-codes/regenerate', requireAuth, requireRole(...ADMIN_ROLES), mfaController.regenerateRecoveryCodes);
+router.get('/status',                     requireAuth, requireRole(...ADMIN_ROLES), mfaController.getStatus);
 
 module.exports = router;

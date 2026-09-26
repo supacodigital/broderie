@@ -1,29 +1,31 @@
 const { AppError } = require('./errorHandler');
 
-/* Rôles du back-office (ADM-08).
-   `super_admin` a TOUT ce qu'a `admin`, plus les pages de contenu (CGV, mentions,
-   Notre Histoire), le bandeau d'annonce et les blocs de la page d'accueil.
-   Une route ouverte à `admin` l'est donc aussi à `super_admin` — y compris les
-   protections attachées au rôle (double authentification obligatoire, mot de
-   passe renforcé) : un rôle plus large ne doit jamais être moins protégé. */
+/* Rôles du back-office.
+   - `admin` : gestion de la boutique — commandes, clients, catalogue, paramètres.
+   - `super_admin` : contenu du site UNIQUEMENT — pages, blocs de la page
+     d'accueil, bandeau, textes légaux, e-mails et leur mise en forme (ADM-08).
+   Le super-administrateur n'hérite plus des droits `admin` (décision du 26.09) :
+   un compte dédié au contenu n'a pas à voir les commandes ni les données des
+   clientes (moindre privilège, LPD). Une route se déclare donc pour le ou les
+   rôles qu'elle sert, sans promotion implicite.
+   Les deux rôles gardent les mêmes protections de connexion — double
+   authentification obligatoire, mot de passe renforcé — via `isAdminRole` :
+   un compte du back-office ne doit jamais être moins protégé qu'un autre. */
 const ADMIN_ROLES = ['admin', 'super_admin'];
 const isAdminRole = (role) => ADMIN_ROLES.includes(role);
 
 // Vérifie que l'utilisateur authentifié possède l'un des rôles autorisés
 // Le rôle est toujours lu depuis req.user (extrait du JWT) — jamais depuis le body
-const requireRole = (...allowedRoles) => {
-  const allowed = allowedRoles.includes('admin') ? [...allowedRoles, 'super_admin'] : allowedRoles;
-  return (req, res, next) => {
-    if (!req.user) {
-      return next(new AppError('Authentification requise.', 401));
-    }
+const requireRole = (...allowedRoles) => (req, res, next) => {
+  if (!req.user) {
+    return next(new AppError('Authentification requise.', 401));
+  }
 
-    if (!allowed.includes(req.user.role)) {
-      return next(new AppError('Accès non autorisé.', 403));
-    }
+  if (!allowedRoles.includes(req.user.role)) {
+    return next(new AppError('Accès non autorisé.', 403));
+  }
 
-    next();
-  };
+  next();
 };
 
 module.exports = { requireRole, isAdminRole, ADMIN_ROLES };

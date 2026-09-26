@@ -5,6 +5,7 @@
   --rose-dark:   #be185d;
   --rose-darker: #9d174d;
   --rose-pale:   #fdf2f8;
+  --rose-border: #f9a8d4;   /* contour rose au survol des cartes (décoratif : le contour neutre reste au repos) */
   /* Structure neutre, rose réservé aux accents (audit couleurs du 25.09) :
      l'ancienne bordure rose #fbcfe8 n'offrait que 1,38:1 sur blanc — champs
      presque invisibles, cartes fondues dans le fond. */
@@ -23,6 +24,10 @@
   /* Information (bleu) — texte AA sur son fond (promotion programmée…) */
   --info-text: #1d4ed8;
   --info-bg:   #eff6ff;
+  --info-border: #bfdbfe;
+  /* Rose de la BOUTIQUE (frontend --rose) — aperçus du contenu du site : le
+     rose de l'administration (--rose) est plus clair et fausserait l'aperçu */
+  --shop-rose: #db2777;
   /* Erreur (rouge) — texte AA sur fond clair */
   --danger-text:   #b91c1c;   /* 5,9:1 sur --danger-bg (l'ancien rouge #dc2626 : 4,4:1) */
   --danger-bg:     #fef2f2;
@@ -35,7 +40,21 @@
   --surface-muted-strong: #e5e7eb;
   /* Courbe des retours d'interaction (pression, survol) */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --sidebar-w:   240px;
+  /* Menu latéral (fond prune) — seule définition : le module du layout en
+     avait une seconde (220 px) que celle-ci écrasait sans qu'on le voie */
+  --sidebar-bg:          #1a0a1e;
+  --sidebar-hover:       rgba(255,255,255,.07);
+  --sidebar-active:      #2d1436;
+  --sidebar-border:      rgba(255,255,255,.08);
+  --sidebar-scrollbar:   rgba(255,255,255,.12);
+  --sidebar-text:        rgba(255,255,255,.72);   /* liens : ≈ 9:1, ne paraissent plus éteints */
+  --sidebar-text-muted:  rgba(255,255,255,.55);   /* textes secondaires : ≈ 6:1 */
+  --sidebar-text-strong: rgba(255,255,255,.9);
+  --sidebar-heading:     #f9a8d4;                 /* titres de groupe, rose adouci : ≈ 10:1 */
+  --sidebar-danger-bg:   rgba(220,38,38,.2);
+  --sidebar-danger-text: #fca5a5;
+  --sidebar-w:           240px;
+  --sidebar-w-collapsed: 64px;   /* menu replié en icônes */
   --header-h:    60px;
   --radius:      10px;
   --shadow:      0 1px 4px rgba(0,0,0,.08);

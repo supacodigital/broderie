@@ -1,0 +1,213 @@
+/* ── Tableau de bord du super-administrateur : une carte par contenu ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.card {
+  position: relative;
+  display: grid;
+  grid-template-areas: 'head' 'text' 'status' 'cta';
+  grid-template-rows: auto auto 1fr auto;
+  gap: 14px;
+  padding: 20px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 160ms var(--ease-out);
+}
+
+/* Bandeau d'annonce : toute la largeur, état à droite (ce qui est en ligne en ce moment) */
+.cardWide {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  grid-template-areas: 'head status' 'text status' 'cta cta';
+  grid-template-rows: auto 1fr auto;
+  column-gap: 32px;
+}
+
+.head   { grid-area: head; }
+.text   { grid-area: text; }
+.status { grid-area: status; }
+.cta    { grid-area: cta; }
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--rose-pale);
+  color: var(--rose-dark);
+}
+
+/* Coin supérieur droit de la carte, au-dessus du lien étiré : reste cliquable pour lui-même */
+.shopLink {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  transition: background-color 150ms ease, color 150ms ease, transform 160ms var(--ease-out);
+}
+.shopLink:active { transform: scale(0.97); }
+
+.title { font-size: 16px; font-weight: 700; color: var(--text-dark); }
+.desc  { margin-top: 3px; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+
+/* Lien étiré : son ::after couvre toute la carte */
+.cardLink { color: inherit; text-decoration: none; outline: none; }
+.cardLink::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+}
+
+/* ── État ── */
+.status {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 64px;
+}
+
+.metric { display: flex; align-items: baseline; gap: 5px; }
+.metricValue {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-dark);
+  font-variant-numeric: tabular-nums;
+}
+.metricTotal { font-size: 14px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.metricLabel { margin-left: 4px; font-size: 12px; color: var(--text-secondary); }
+
+.bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+.barFill {
+  display: block;
+  height: 100%;
+  background: var(--shop-rose);
+  transform-origin: left;
+}
+
+.metaRow { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.meta svg { flex-shrink: 0; color: var(--text-muted); }
+
+/* Bandeau : en ligne / masqué */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.pillDot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pillOn  { background: var(--success-bg); color: var(--success-text); }
+.pillOff { background: var(--surface-muted); color: var(--text-secondary); }
+
+/* Le bandeau de la boutique en miniature (AnnouncementBanner) */
+.miniBanner {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding: 9px 14px;
+  border-radius: 8px;
+  background: var(--shop-rose);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #fff;
+  text-align: center;
+}
+.miniBannerOff { opacity: 0.45; }
+
+/* ── Action ── */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rose-dark);
+}
+.ctaArrow { transition: transform 160ms var(--ease-out); }
+
+.error { font-size: 12px; color: var(--danger-text); }
+.retry {
+  position: relative;
+  z-index: 1;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--rose-dark);
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.skeleton {
+  display: block;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--surface-muted) 25%, var(--surface-muted-strong) 50%, var(--surface-muted) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* ── Interactions ── */
+.card:has(.cardLink:active) { transform: scale(0.99); }
+.card:has(.cardLink:focus-visible) {
+  outline: 2px solid var(--rose-dark);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover { border-color: var(--rose-border); box-shadow: var(--shadow-md); }
+  .card:hover .ctaArrow { transform: translateX(3px); }
+  .shopLink:hover { background: var(--rose-pale); color: var(--rose-dark); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .shopLink, .ctaArrow { transition: none; }
+  .card:has(.cardLink:active) { transform: none; }
+  .skeleton { animation: none; }
+}
+
+@media (max-width: 720px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .cardWide {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'head' 'text' 'status' 'cta';
+    grid-template-rows: auto auto 1fr auto;
+  }
+}

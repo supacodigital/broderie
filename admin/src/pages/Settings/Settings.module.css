@@ -4,117 +4,10 @@
 .pageTitle { font-size: 22px; font-weight: 700; color: var(--text-dark); }
 .pageDesc  { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
 
-/* ── Layout principal ── */
-.settingsLayout {
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 24px;
-  align-items: start;
-}
-
-/* ── Navigation verticale ── */
-.tabs {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 8px;
-  box-shadow: var(--shadow);
-  position: sticky;
-  top: 24px;
-}
-
-.tab {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 10px 12px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: none;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background .15s, color .15s;
-  text-align: left;
-  width: 100%;
-}
-.tab:hover {
-  background: var(--rose-pale);
-  color: var(--text-dark);
-}
-.tabActive {
-  background: var(--rose-pale);
-  color: var(--rose-dark);
-  font-weight: 600;
-}
-
-.tabIcon { opacity: 0.7; margin-bottom: 2px; }
-.tabActive .tabIcon { opacity: 1; }
-
-.tabLabel {
-  font-size: 13px;
-  font-weight: inherit;
-  line-height: 1;
-}
-
-.tabDesc {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 400;
-  line-height: 1.2;
-}
-/* Pleine opacité : à 75 %, le sous-titre tombait à 3,8:1 */
-.tabActive .tabDesc { color: var(--rose-dark); }
+/* Titre « Paramètres · TVA » : l'onglet se choisit dans le menu latéral */
+.pageTitleSep { color: var(--text-muted); font-weight: 400; margin: 0 2px; }
 
 .tabContent { display: flex; flex-direction: column; gap: 20px; }
-
-@media (max-width: 768px) {
-  .settingsLayout { grid-template-columns: 1fr; }
-  .tabs {
-    flex-direction: row;
-    flex-wrap: wrap;
-    position: static;
-  }
-  .tab { flex-direction: row; align-items: center; gap: 8px; width: auto; }
-  .tabDesc { display: none; }
-}
-
-.sections { display: flex; flex-direction: column; gap: 20px; }
-
-/* ── Section ── */
-.section {
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: var(--shadow);
-}
-
-.sectionHead {
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid var(--border);
-  background: #fafafa;
-}
-
-.sectionTitle {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-dark);
-}
-
-.sectionDesc {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 4px;
-  line-height: 1.5;
-}
-
-.sectionBody { padding: 20px 24px 24px; }
 
 /* ── Formulaire ── */
 .form { display: flex; flex-direction: column; gap: 16px; }
@@ -127,49 +20,11 @@
 
 .field { display: flex; flex-direction: column; gap: 5px; }
 
-/* Champs d'un bloc de la page d'accueil, empilés (ADM-08) */
-.contentFields { display: flex; flex-direction: column; gap: 14px; }
-
 .label { font-size: 12px; font-weight: 600; color: var(--text-dark); }
 .hint  { font-size: 11px; color: var(--text-muted); }
 
-/* ── Bandeau d'annonce ── */
-.checkRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
 /* Message d'erreur du serveur, à côté du bouton d'enregistrement */
 .errText { font-size: 12px; color: #b91c1c; }
-
-/* Aperçu : montre le rendu réel sans avoir à ouvrir la boutique */
-.bannerPreview { margin-top: 16px; }
-
-.bannerPreviewLabel {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-/* Reprend les couleurs du bandeau réel (frontend AnnouncementBanner) */
-.bannerPreviewBar {
-  padding: 9px 16px;
-  border-radius: 6px;
-  background: var(--rose-dark);
-  color: #fff;
-  font-size: 13px;
-  line-height: 1.4;
-  text-align: center;
-  /* Une annonce longue passe à la ligne, comme sur la boutique */
-  overflow-wrap: anywhere;
-}
 
 /* ── Inputs ── */
 .input {
@@ -225,25 +80,6 @@
   width: 100%;
 }
 .textarea:focus { border-color: var(--rose-dark); }
-
-/* Texte actuellement envoyé, sous un champ de texte d'e-mail (CLI-11) */
-.currentText {
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--rose-pale);
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-muted);
-  white-space: pre-line;
-}
-.currentTextLabel {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-dark);
-}
 
 .err { font-size: 11px; color: #ef4444; }
 
@@ -313,21 +149,6 @@
 .btnSecondary:hover:not(:disabled) { background: var(--rose-pale); }
 .btnSecondary:disabled { opacity: .5; cursor: not-allowed; }
 
-/* ── Feedback ── */
-.saveFeedback {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #047857;
-  animation: fadeIn .2s ease;
-}
-
-.saveFeedbackError { color: #b91c1c; }
-
-@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-
 /* ── Error banner ── */
 .errorBanner { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 9px; padding: 10px 16px; margin-bottom: 16px; }
 .retryBtn { background: none; border: none; font-size: 13px; font-weight: 600; color: var(--rose-dark); text-decoration: underline; cursor: pointer; padding: 0; }
@@ -390,22 +211,6 @@
 .guide a { color: var(--rose-dark); }
 .inputSm { max-width: 140px; }
 
-/* ── Note textes légaux ── */
-.legalNote {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 14px;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  border-radius: 8px;
-  font-size: 12px;
-  color: #0369a1;
-  line-height: 1.5;
-  margin-bottom: 4px;
-}
-.legalNote svg { flex-shrink: 0; margin-top: 1px; }
-
 /* ── Note info boutique ── */
 .infoNote {
   display: flex;
@@ -438,31 +243,6 @@
 .mfaStatusLabel { font-size: 14px; font-weight: 600; color: var(--text-dark); margin-bottom: 2px; }
 .mfaEnabledIcon  { color: #047857; flex-shrink: 0; margin-top: 1px; }
 .mfaDisabledIcon { color: #b91c1c; flex-shrink: 0; margin-top: 1px; }
-
-/* Pastille « modifications non enregistrées » sur l'onglet concerné —
-   reste visible après l'avoir quitté, pour ne pas oublier d'y revenir. */
-.tabLabel { display: inline-flex; align-items: center; gap: 7px; }
-
-.tabDirty {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--rose);
-  flex-shrink: 0;
-}
-
-/* ── Navigation groupée ── */
-.tabGroup { display: contents; }
-
-.tabGroupLabel {
-  padding: 14px 10px 6px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.tabGroup:first-child .tabGroupLabel { padding-top: 4px; }
 
 /* Encart d'information dans un onglet — remplace le texte technique qui
    exposait un nom de colonne SQL. */

@@ -1,0 +1,197 @@
+/* ── Contenu du site (super-administrateur) ── */
+.page { max-width: 920px; }
+
+.pageHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.pageTitle { font-size: 22px; font-weight: 700; color: var(--text-dark); }
+.pageDesc  { font-size: 13px; color: var(--text-muted); margin-top: 4px; max-width: 60ch; line-height: 1.5; }
+
+.headActions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Éditeur seul, ou éditeur + aperçu en direct côte à côte (toute la largeur) */
+.page.withPreview { max-width: none; }
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.withPreview .workspace { grid-template-columns: minmax(400px, 1fr) minmax(0, 1.15fr); }
+
+.editor { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.sections { display: flex; flex-direction: column; gap: 20px; }
+
+/* ── Boutons ── */
+.btnPrimary,
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color 150ms ease, transform 160ms var(--ease-out);
+}
+.btnPrimary { background: var(--rose-dark); color: #fff; }
+.btnGhost   { background: #fff; color: var(--rose-dark); border: 1px solid var(--border); }
+.btnPrimary:active,
+.btnGhost:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) {
+  .btnPrimary:hover { background: var(--rose-darker); }
+  .btnGhost:hover   { background: var(--rose-pale); }
+}
+
+/* ── Formulaires ── */
+.fields { display: flex; flex-direction: column; gap: 22px; }
+.field  { display: flex; flex-direction: column; gap: 5px; }
+
+.label { font-size: 12px; font-weight: 600; color: var(--text-dark); }
+.hint  { font-size: 11px; color: var(--text-muted); }
+.fieldError { font-size: 12px; font-weight: 600; color: var(--danger-text); }
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--field-border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  color: var(--text-dark);
+  outline: none;
+  transition: border-color 150ms ease;
+}
+.textarea { resize: vertical; line-height: 1.5; }
+.input:focus,
+.textarea:focus { border-color: var(--rose-dark); }
+.textarea[aria-invalid='true'] { border-color: var(--danger-text); }
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--info-text);
+  line-height: 1.5;
+}
+.note svg { flex-shrink: 0; margin-top: 2px; }
+
+/* ── Enregistrement : barre collée en bas, visible sur les longues pages ── */
+.saveBar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 -4px;
+  padding: 12px 4px;
+  background: linear-gradient(to bottom, transparent, var(--page-bg) 30%);
+}
+
+.btnSave {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  background: var(--rose-dark);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+  transition: background-color 150ms ease, transform 160ms var(--ease-out);
+}
+.btnSave:active:not(:disabled) { transform: scale(0.97); }
+.btnSave:disabled { opacity: .6; cursor: not-allowed; }
+@media (hover: hover) and (pointer: fine) {
+  .btnSave:hover:not(:disabled) { background: var(--rose-darker); }
+}
+
+.errText { font-size: 12px; font-weight: 600; color: var(--danger-text); }
+
+/* ── Bandeau d'annonce : aperçu ── */
+.bannerPreview { display: flex; flex-direction: column; gap: 6px; }
+
+.previewLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Reprend le bandeau réel (frontend AnnouncementBanner) ; le texte suit la mise en forme */
+.bannerPreviewBar {
+  padding: 9px 16px;
+  border-radius: 6px;
+  background: var(--shop-rose);
+  overflow-wrap: anywhere;
+}
+.bannerPreviewBar p { margin: 0 auto; max-width: 900px; }
+
+/* ── E-mails : texte actuellement envoyé ── */
+.currentText {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--rose-pale);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+.currentTextLabel {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+/* ── Chargement ── */
+.skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface-muted) 25%, var(--surface-muted-strong) 50%, var(--surface-muted) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  .btnPrimary, .btnGhost, .btnSave { transition: none; }
+}
+
+/* Trop étroit pour deux colonnes : l'aperçu passe en plein écran (LivePreview) */
+@media (max-width: 1099px) {
+  .withPreview .workspace { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .pageHead { margin-bottom: 16px; }
+  .saveBar { justify-content: stretch; }
+  .btnSave { flex: 1; justify-content: center; }
+}

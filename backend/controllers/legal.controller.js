@@ -1,9 +1,14 @@
-const settingsRepository = require('../repositories/settings.repository');
+const siteContentService = require('../services/siteContent.service');
+
+/* Chaque réponse porte, en plus des textes, leur mise en forme (`styles`) :
+   un objet par texte mis en forme dans l'administration, où la police est déjà
+   la pile CSS à appliquer. Un texte absent de `styles` garde l'apparence
+   prévue par la boutique. */
 
 // GET /api/v1/legal — textes légaux publics (CGV, mentions légales), sans auth
 const getLegalTexts = async (req, res, next) => {
   try {
-    const data = await settingsRepository.findSettings(settingsRepository.LEGAL_KEYS);
+    const data = await siteContentService.getContent('legal', { forShop: true });
     res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -15,12 +20,12 @@ const getLegalTexts = async (req, res, next) => {
    n'a pas à décider de l'afficher, elle affiche ce qu'elle reçoit. */
 const getBanner = async (req, res, next) => {
   try {
-    const data = await settingsRepository.findSettings(settingsRepository.BANNER_KEYS);
+    const data = await siteContentService.getContent('banner', { forShop: true });
     const enabled = data.banner_enabled === '1' && Boolean((data.banner_text ?? '').trim());
     res.json({
       success: true,
       data: enabled
-        ? { text: data.banner_text, link: data.banner_link || null }
+        ? { text: data.banner_text, link: data.banner_link || null, style: data.styles.banner_text ?? null }
         : null,
     });
   } catch (error) {
@@ -33,7 +38,7 @@ const getBanner = async (req, res, next) => {
    sur son texte d'origine, elle seule connaît ses valeurs par défaut. */
 const getAboutContent = async (req, res, next) => {
   try {
-    const data = await settingsRepository.findSettings(settingsRepository.ABOUT_KEYS);
+    const data = await siteContentService.getContent('about', { forShop: true });
     res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -45,7 +50,7 @@ const getAboutContent = async (req, res, next) => {
    son texte d'origine. */
 const getHomeContent = async (req, res, next) => {
   try {
-    const data = await settingsRepository.findSettings(settingsRepository.HOME_KEYS);
+    const data = await siteContentService.getContent('home', { forShop: true });
     res.json({ success: true, data });
   } catch (error) {
     next(error);

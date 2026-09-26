@@ -1,0 +1,7 @@
+.page { max-width: 760px; }
+
+.pageHead { margin-bottom: 24px; }
+.pageTitle { font-size: 22px; font-weight: 700; color: var(--text-dark); }
+.pageDesc  { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+.content { display: flex; flex-direction: column; gap: 20px; }

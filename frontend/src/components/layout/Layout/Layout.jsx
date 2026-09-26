@@ -7,6 +7,8 @@ import CookieBanner from '../../ui/CookieBanner/CookieBanner.jsx'
 import EmailVerificationBanner from '../../ui/EmailVerificationBanner/EmailVerificationBanner.jsx'
 import Toaster from '../../ui/Toaster/Toaster.jsx'
 import ValidateCartButton from '../../ui/ValidateCartButton/ValidateCartButton.jsx'
+import LivePreviewBridge from '../../ui/LivePreviewBridge/LivePreviewBridge.jsx'
+import { isPreviewMode } from '../../../utils/livePreview.js'
 import s from './Layout.module.css'
 
 export default function Layout() {
@@ -40,7 +42,9 @@ export default function Layout() {
           pas avec le contenu et reste donc visible sur toutes les pages tant que
           l'adresse n'est pas confirmée. */}
       <EmailVerificationBanner />
-      <CookieBanner />
+      {/* Aperçu en direct de l'administration : le bandeau cookies cacherait
+          le bas de la page, et ce n'est pas une visite à consigner. */}
+      {isPreviewMode ? <LivePreviewBridge /> : <CookieBanner />}
       <ValidateCartButton />
       <Toaster />
     </div>

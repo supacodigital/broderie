@@ -1,0 +1,53 @@
+/* ── Carte de formulaire ── */
+.section {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.sectionHead {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+  background: #fafafa;
+}
+
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.sectionDesc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.sectionBody { padding: 20px 24px 24px; }
+
+@media (max-width: 640px) {
+  .sectionHead { padding: 16px 16px 12px; }
+  .sectionBody { padding: 16px; }
+}
+
+/* ── Retour d'enregistrement ── */
+.saveFeedback {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--success-text);
+  animation: fadeIn .2s var(--ease-out);
+}
+
+.saveFeedbackError { color: var(--danger-text); }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .saveFeedback { animation: none; }
+}

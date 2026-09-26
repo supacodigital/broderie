@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { getAnnouncementBanner } from '../../../services/legal.service.js'
+import { textStyle } from '../../../utils/textStyle.js'
+import { previewTarget } from '../../../utils/livePreview.js'
+import { usePreviewDraft } from '../../../hooks/usePreviewDraft.js'
 import s from './AnnouncementBanner.module.css'
 
 /* Clé de fermeture — le texte sert d'identifiant : un nouveau message réapparaît
@@ -12,6 +15,10 @@ const DISMISS_KEY = 'announcement_dismissed'
 export default function AnnouncementBanner() {
   const [banner,    setBanner]    = useState(null)
   const [dismissed, setDismissed] = useState(false)
+  /* Aperçu en direct : le bandeau tel que réglé dans l'administration, même
+     s'il avait été fermé sur ce navigateur (null = bandeau masqué). */
+  const draft = usePreviewDraft('banner')
+  const inPreview = draft !== undefined
 
   useEffect(() => {
     let cancelled = false
@@ -31,20 +38,27 @@ export default function AnnouncementBanner() {
     return () => { cancelled = true }
   }, [])
 
-  if (!banner || dismissed) return null
+  const current = inPreview ? draft : banner
+  if (!current || (dismissed && !inPreview)) return null
 
   const close = () => {
     setDismissed(true)
-    try { localStorage.setItem(DISMISS_KEY, banner.text) } catch { /* sans effet */ }
+    if (inPreview) return
+    try { localStorage.setItem(DISMISS_KEY, current.text) } catch { /* sans effet */ }
   }
 
-  const content = banner.link
-    ? <Link to={banner.link} className={s.link}>{banner.text}</Link>
-    : <span>{banner.text}</span>
+  /* Mise en forme réglée dans l'administration. Le lien porte son propre
+     soulignement : « souligné » s'y applique aussi, pour pouvoir l'enlever. */
+  const style = textStyle(current.style)
+  const linkStyle = style?.textDecoration ? { textDecoration: style.textDecoration } : undefined
+
+  const content = current.link
+    ? <Link to={current.link} className={s.link} style={linkStyle}>{current.text}</Link>
+    : <span>{current.text}</span>
 
   return (
     <div className={s.banner} role="status">
-      <p className={s.text}>{content}</p>
+      <p className={s.text} style={style} {...previewTarget('banner_text')}>{content}</p>
       <button type="button" className={s.close} onClick={close} aria-label="Fermer l'annonce">
         <X size={15} aria-hidden="true" />
       </button>

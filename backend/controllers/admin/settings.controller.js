@@ -2,6 +2,9 @@ const settingsRepository = require('../../repositories/settings.repository');
 const { AppError } = require('../../middlewares/errorHandler');
 const shopSettingsService = require('../../services/shopSettings.service');
 const emailService = require('../../services/email.service');
+const siteContentService = require('../../services/siteContent.service');
+const { parseContentStyles } = require('../../validators/contentStyle.validator');
+const { FONT_CATALOG } = require('../../utils/contentStyle.utils');
 const { cache } = require('../../config/cache');
 
 /* Invalide le cache TVA et frais de port */
@@ -131,7 +134,7 @@ const updateStoreSettings = async (req, res, next) => {
 /* ── GET /admin/settings/legal ── */
 const getLegalSettings = async (req, res, next) => {
   try {
-    const data = await settingsRepository.findSettings(settingsRepository.LEGAL_KEYS);
+    const data = await siteContentService.getContent('legal');
     res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -162,14 +165,26 @@ const collectTextSettings = (body, allowedKeys) => {
   return { values };
 };
 
+/* Mise en forme envoyée avec les textes (`styles`), validée pour les textes
+   de la page. Renvoie la mise en forme, ou envoie la réponse 400 et renvoie null. */
+const collectStyles = (req, res, page) => {
+  const { styles, error } = parseContentStyles(req.body.styles, settingsRepository.STYLABLE_KEYS[page]);
+  if (error) {
+    res.status(400).json({ success: false, message: 'Données invalides.', errors: [error] });
+    return null;
+  }
+  return { styles };
+};
+
 const updateLegalSettings = async (req, res, next) => {
   try {
     const { values, error } = collectTextSettings(req.body, settingsRepository.LEGAL_KEYS);
     if (error) {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors: [error] });
     }
-    await settingsRepository.upsertSettings(values);
-    const data = await settingsRepository.findSettings(settingsRepository.LEGAL_KEYS);
+    const collected = collectStyles(req, res, 'legal');
+    if (!collected) return;
+    const data = await siteContentService.saveContent('legal', values, collected.styles);
     res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -179,7 +194,7 @@ const updateLegalSettings = async (req, res, next) => {
 /* ── GET /admin/settings/about ── page « Notre Histoire » (ADM-08) ── */
 const getAboutSettings = async (req, res, next) => {
   try {
-    const data = await settingsRepository.findSettings(settingsRepository.ABOUT_KEYS);
+    const data = await siteContentService.getContent('about');
     res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -193,8 +208,9 @@ const updateAboutSettings = async (req, res, next) => {
     if (error) {
       return res.status(400).json({ success: false, message: 'Données invalides.', errors: [error] });
     }
-    await settingsRepository.upsertSettings(values);
-    const data = await settingsRepository.findSettings(settingsRepository.ABOUT_KEYS);
+    const collected = collectStyles(req, res, 'about');
+    if (!collected) return;
+    const data = await siteContentService.saveContent('about', values, collected.styles);
     res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -204,7 +220,7 @@ const updateAboutSettings = async (req, res, next) => {
 /* ── GET /admin/settings/home ── blocs de la page d'accueil (ADM-08) ── */
 const getHomeSettings = async (req, res, next) => {
   try {
-    const data = await settingsRepository.findSettings(settingsRepository.HOME_KEYS);
+    const data = await siteContentService.getContent('home');
     res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -225,8 +241,9 @@ const updateHomeSettings = async (req, res, next) => {
         errors: [{ field: 'hero_stats_enabled', message: 'Valeur attendue : 0 ou 1.' }],
       });
     }
-    await settingsRepository.upsertSettings(values);
-    const data = await settingsRepository.findSettings(settingsRepository.HOME_KEYS);
+    const collected = collectStyles(req, res, 'home');
+    if (!collected) return;
+    const data = await siteContentService.saveContent('home', values, collected.styles);
     res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -264,7 +281,7 @@ const updateEmailSettings = async (req, res, next) => {
 /* ── GET /admin/settings/banner ── */
 const getBannerSettings = async (req, res, next) => {
   try {
-    const data = await settingsRepository.findSettings(settingsRepository.BANNER_KEYS);
+    const data = await siteContentService.getContent('banner');
     res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -338,12 +355,20 @@ const updateBannerSettings = async (req, res, next) => {
       }
       allowed[key] = raw.trim();
     }
-    await settingsRepository.upsertSettings(allowed);
-    const data = await settingsRepository.findSettings(settingsRepository.BANNER_KEYS);
+    const collected = collectStyles(req, res, 'banner');
+    if (!collected) return;
+    const data = await siteContentService.saveContent('banner', allowed, collected.styles);
     res.json({ success: true, data });
   } catch (error) {
     next(error);
   }
+};
+
+/* ── GET /admin/settings/fonts ── polices proposées pour la mise en forme ──
+   Le catalogue vit côté serveur (il valide aussi les enregistrements) :
+   l'administration le lit ici plutôt que d'en tenir une copie. */
+const getFontCatalog = (req, res) => {
+  res.json({ success: true, data: FONT_CATALOG });
 };
 
 /* ── Retrait en boutique ── */
@@ -418,6 +443,7 @@ module.exports = {
   getHomeSettings, updateHomeSettings,
   getBannerSettings, updateBannerSettings,
   getEmailSettings, updateEmailSettings,
+  getFontCatalog,
   getPickupSettings, updatePickupSettings,
   getInvoiceSettings, updateInvoiceSettings,
 };

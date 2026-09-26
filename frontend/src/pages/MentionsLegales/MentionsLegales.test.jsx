@@ -77,7 +77,8 @@ describe('Polices servies par le site', () => {
   test('chaque police déclarée existe dans le projet', () => {
     const css = read('src/fonts.css')
     const files = [...css.matchAll(/url\('\.\/(assets\/fonts\/[^']+)'\)/g)].map((m) => m[1])
-    expect(files.length).toBe(22)
+    // 22 pour les polices du site + 26 pour celles proposées à la mise en forme (26.09)
+    expect(files.length).toBe(48)
     for (const file of new Set(files)) {
       expect(fs.existsSync(path.resolve(here, '../..', file))).toBe(true)
     }

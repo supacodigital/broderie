@@ -11,7 +11,14 @@ jest.mock('../../repositories/settings.repository', () => ({
   STORE_KEYS: ['store_name', 'store_email'],
   LEGAL_KEYS: ['cgv', 'privacy'],
   ABOUT_KEYS: ['about_title', 'about_who', 'about_signature'],
+  HOME_KEYS: ['hero_title', 'hero_stats_enabled'],
   BANNER_KEYS: ['banner_enabled', 'banner_text', 'banner_link'],
+  // Mise en forme des textes : un JSON par page
+  STYLE_KEYS: { home: 'home_styles', about: 'about_styles', banner: 'banner_styles', legal: 'legal_styles' },
+  STYLABLE_KEYS: {
+    home: ['hero_title'], about: ['about_title', 'about_who', 'about_signature'],
+    banner: ['banner_text'], legal: ['cgv', 'privacy'],
+  },
 }));
 
 jest.mock('../../config/cache', () => ({
@@ -161,12 +168,16 @@ describe('admin/settings.controller — updateStoreSettings()', () => {
 
 describe('admin/settings.controller — getLegalSettings()', () => {
   test('retourne les paramètres légaux', async () => {
-    const data = { cgv: 'Texte CGV', privacy: 'Politique' };
-    settingsRepository.findSettings.mockResolvedValue(data);
+    settingsRepository.findSettings.mockResolvedValue({
+      cgv: 'Texte CGV', privacy: 'Politique', legal_styles: '{"cgv":{"size":16}}',
+    });
     const res = makeRes();
     await getLegalSettings({}, res, jest.fn());
-    expect(settingsRepository.findSettings).toHaveBeenCalledWith(['cgv', 'privacy']);
-    expect(res.json).toHaveBeenCalledWith({ success: true, data });
+    // Textes et mise en forme lus d'une seule requête
+    expect(settingsRepository.findSettings).toHaveBeenCalledWith(['cgv', 'privacy', 'legal_styles']);
+    expect(res.json).toHaveBeenCalledWith({
+      success: true, data: { cgv: 'Texte CGV', privacy: 'Politique', styles: { cgv: { size: 16 } } },
+    });
   });
 });
 
@@ -254,9 +265,9 @@ describe('admin/settings.controller — getAboutSettings()', () => {
     const res = makeRes();
     await getAboutSettings({}, res, jest.fn());
 
-    expect(settingsRepository.findSettings).toHaveBeenCalledWith(settingsRepository.ABOUT_KEYS);
+    expect(settingsRepository.findSettings).toHaveBeenCalledWith([...settingsRepository.ABOUT_KEYS, 'about_styles']);
     expect(res.json).toHaveBeenCalledWith({
-      success: true, data: { about_title: 'Qui sommes-nous ?' },
+      success: true, data: { about_title: 'Qui sommes-nous ?', styles: {} },
     });
   });
 });
@@ -300,6 +311,36 @@ describe('admin/settings.controller — updateAboutSettings()', () => {
     await updateAboutSettings({ body: { about_who: 'a'.repeat(50001) } }, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(400);
+    expect(settingsRepository.upsertSettings).not.toHaveBeenCalled();
+  });
+
+  /* Mise en forme (26.09) : enregistrée dans la même requête que les textes,
+     sous la clé de la page, en JSON. */
+  test('enregistre la mise en forme avec les textes, en une seule écriture', async () => {
+    settingsRepository.upsertSettings.mockResolvedValue();
+    settingsRepository.findSettings.mockResolvedValue({});
+
+    await updateAboutSettings({
+      body: { about_title: 'Notre maison', styles: { about_title: { font: 'lora', size: 48 } } },
+    }, makeRes(), jest.fn());
+
+    expect(settingsRepository.upsertSettings).toHaveBeenCalledTimes(1);
+    expect(settingsRepository.upsertSettings).toHaveBeenCalledWith({
+      about_title: 'Notre maison',
+      about_styles: JSON.stringify({ about_title: { font: 'lora', size: 48 } }),
+    });
+  });
+
+  test('mise en forme invalide : 400, ni texte ni mise en forme enregistrés', async () => {
+    const res = makeRes();
+    await updateAboutSettings({
+      body: { about_title: 'Notre maison', styles: { about_title: { font: 'comic-sans' } } },
+    }, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      errors: [{ field: 'styles.about_title.font', message: 'Police inconnue.' }],
+    }));
     expect(settingsRepository.upsertSettings).not.toHaveBeenCalled();
   });
 });
